@@ -20,6 +20,7 @@ class HiveWidgetbook extends StatelessWidget {
     );
     return Widgetbook(
       directories: directories,
+      appBuilder: hiveAppBuilder,
       addons: <WidgetbookAddon>[
         ViewportAddon(const <ViewportData>[
           Viewports.none,
@@ -42,4 +43,18 @@ class HiveWidgetbook extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Hosts every use case in a `material_ui` [MaterialApp].
+///
+/// Widgetbook's default `widgetsAppBuilder` passes `home` to a `WidgetsApp`
+/// without a `pageRouteBuilder`, which fails an assertion on Flutter 3.50.
+/// The addons (theme, viewport, text scale) are applied inside [child], so
+/// the app's own default theme never reaches a use case.
+Widget hiveAppBuilder(BuildContext context, Widget child) {
+  return MaterialApp(
+    debugShowCheckedModeBanner: false,
+    theme: HiveTheme.dark(),
+    home: child,
+  );
 }
