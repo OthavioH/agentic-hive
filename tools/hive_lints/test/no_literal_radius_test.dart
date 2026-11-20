@@ -22,12 +22,14 @@ import 'package:flutter/painting.dart';
 final a = BorderRadius.circular(8);
 const b = Radius.circular(12.0);
 const c = Radius.elliptical(4, 6);
+const d = BorderRadius.all(Radius.circular(12));
 ''',
         [
           helper.lint(73, 1),
           helper.lint(103, 4),
           helper.lint(138, 1),
           helper.lint(141, 1),
+          helper.lint(188, 2),
         ],
       );
     });

@@ -66,10 +66,15 @@ class SliverGap {
   const SliverGap(double mainAxisExtent);
 }
 
+class MaxGap {
+  const MaxGap(double mainAxisExtent);
+}
+
 const a = Gap(16);
 const b = SliverGap(8);
+const c = MaxGap(12);
 ''',
-        [helper.lint(128, 2), helper.lint(153, 1)],
+        [helper.lint(185, 2), helper.lint(210, 1), helper.lint(231, 2)],
       );
     });
 
@@ -79,6 +84,7 @@ import 'package:flutter/widgets.dart';
 
 class HiveSpacing {
   static const double md = 16;
+  static const double space2 = 8;
 }
 
 const a = EdgeInsets.zero;
@@ -86,7 +92,8 @@ const b = EdgeInsets.all(HiveSpacing.md);
 const c = SizedBox.shrink();
 const d = SizedBox.expand();
 const e = SizedBox(width: HiveSpacing.md);
-const f = SizedBox(width: double.infinity);
+const f = SizedBox(height: HiveSpacing.space2);
+const g = SizedBox(width: double.infinity);
 ''');
     });
   });

@@ -50,19 +50,34 @@ const k = TextFormField();
       },
     );
 
-    test('does not flag Hive* catalog widgets', () async {
-      await helper.assertNoDiagnostics('''
+    test(
+      'does not flag Hive* catalog widgets or non-Flutter widgets',
+      () async {
+        await helper.assertNoDiagnostics('''
 class HiveButton {
   const HiveButton();
+}
+class HiveIconButton {
+  const HiveIconButton();
 }
 class HiveCard {
   const HiveCard();
 }
+class HiveBadge {
+  const HiveBadge();
+}
+class Card {
+  const Card();
+}
 
 const a = HiveButton();
-const b = HiveCard();
+const b = HiveIconButton();
+const c = HiveCard();
+const d = HiveBadge();
+const e = Card();
 ''');
-    });
+      },
+    );
   });
 }
 

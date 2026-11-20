@@ -21,8 +21,9 @@ import 'package:flutter/painting.dart';
 
 const s = TextStyle(fontSize: 14);
 const s2 = TextStyle(fontSize: 16.5);
+final s3 = TextStyle(fontSize: 12);
 ''',
-        [helper.lint(61, 12), helper.lint(97, 14)],
+        [helper.lint(61, 12), helper.lint(97, 14), helper.lint(135, 12)],
       );
     });
 

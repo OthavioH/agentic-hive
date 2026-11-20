@@ -19,8 +19,9 @@ void main() {
         '''
 const d1 = Duration(milliseconds: 200);
 const d2 = Duration(seconds: 1);
+final d3 = Duration(minutes: 1, seconds: 30);
 ''',
-        [helper.lint(11, 27), helper.lint(51, 20)],
+        [helper.lint(11, 27), helper.lint(51, 20), helper.lint(84, 33)],
       );
     });
 

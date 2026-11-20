@@ -37,22 +37,31 @@ const b = Color.fromRGBO(10, 20, 30, 1.0);
       );
     });
 
-    test('flags Colors.* from Flutter material', () async {
+    test('flags Colors.* and CupertinoColors.* from Flutter', () async {
       await helper.assertDiagnostics(
         '''
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 const c = Colors.red;
+const d = CupertinoColors.white;
 ''',
-        [helper.lint(51, 10)],
+        [helper.lint(92, 10), helper.lint(114, 21)],
       );
     });
 
     test('does not flag HiveColors or context.hiveColors accessors', () async {
       await helper.assertNoDiagnostics('''
+class _Palette {
+  const _Palette();
+  int get background => 1;
+}
+
 class HiveColors {
   static const int surface = 1;
+  static const _Palette dark = _Palette();
   int get primary => 2;
+  int get accent => 3;
 }
 
 class BuildContext {
@@ -61,9 +70,12 @@ class BuildContext {
 
 void f(BuildContext context) {
   final a = HiveColors.surface;
-  final b = context.hiveColors.primary;
-  final c = [a, b];
-  c.length;
+  final b = HiveColors.dark.background;
+  final c = context.hiveColors.accent;
+  final hiveColors = context.hiveColors;
+  final d = hiveColors.primary;
+  final list = [a, b, c, d];
+  list.length;
 }
 ''');
     });
