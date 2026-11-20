@@ -33,6 +33,20 @@ Options: `--config <file>`, `--data-dir <folder>`, `--help`. The running backend
 | `tool/ws_probe.dart` | Development WebSocket client over the socket |
 | `test/unit/`, `test/shelf/`, `test/integration/<area>/` | Tests, owned by the matching agents in `.agents/agents/` |
 
+## Architecture
+
+New backend features follow the layer-first, feature-second layout (ADR 0017):
+
+- `lib/src/domain/<feature>/`: entities, repository interfaces, domain services, the graph engine, and nodes. No use case layer — domain services play that role.
+- `lib/src/data/<feature>/`: drift repository implementations, process runner, git, and file system adapters.
+- `lib/src/api/<feature>/`: HTTP handlers and WebSocket message handling.
+
+Existing infrastructure folders (`server/`, `config/`, `logging/`, `db/`, `http/`, `ws/`, `di/`) stay where they are and are **not** moved.
+
+**Error handling:** A sealed `Result<T>` (`Success` / `Failure`) and the base `Failure` hierarchy live in `lib/src/core/`. Domain services return `Result`; `api/` maps `Failure` to the shared `ApiError` with codes from `ApiErrorCode`. Exceptions are reserved for bugs.
+
+**Nodes and harnesses (ADR 0006):** Every node extends `Node`. Agent nodes extend the abstract `HarnessNode` template method, with one subclass per harness (`ClaudeCodeNode`, `CodexNode`, `GeminiCliNode`, `AntigravityNode`, `TerminalHarnessNode`) implementing only invocation building and output interpretation; validators extend `ValidatorNode`. Node types live in a registry, and the engine never switches on node type.
+
 ## Dependency injection
 
 - Register every dependency in `registerDependencies` (`lib/src/di/dependencies.dart`), always under its interface type.
