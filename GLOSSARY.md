@@ -49,3 +49,15 @@ _Avoid_: return value, exit status
 **Pause**:
 The state of a run waiting for a human answer, through an approval node or `ask_human`.
 _Avoid_: block, wait
+
+**Active run**:
+A run that has started and has not finished, failed or been cancelled. A paused run is still active.
+_Avoid_: live run, open run
+
+**Active node**:
+A node of an active run that is executing or paused right now.
+_Avoid_: current step, live node
+
+**Active agent**:
+An agent that an active node is executing right now. An agent is never active on its own: it is only active through a node of a run.
+_Avoid_: online agent, running agent (an agent is a file, not a service)
