@@ -1,6 +1,7 @@
 name: hive_widgetbook
 description: Agentic Hive design system catalog (Widgetbook) for owner review.
 publish_to: none
+resolution: workspace
 version: 0.1.0
 
 environment:
