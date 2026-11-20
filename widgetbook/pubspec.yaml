@@ -1,0 +1,22 @@
+name: hive_widgetbook
+description: Agentic Hive design system catalog (Widgetbook) for owner review.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.14.0
+  flutter: ">=3.50.1"
+
+dependencies:
+  design_system:
+    path: ../design_system
+  flutter:
+    sdk: flutter
+  material_ui: ^1.11.1
+  widgetbook: ^3.25.0
+
+dev_dependencies:
+  very_good_analysis: ^11.0.0
+
+flutter:
+  uses-material-design: true

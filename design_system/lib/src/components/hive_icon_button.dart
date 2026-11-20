@@ -1,0 +1,99 @@
+import 'package:design_system/src/components/hive_button.dart';
+import 'package:design_system/src/foundation/hive_interaction.dart';
+import 'package:design_system/src/icons/hive_icons.dart';
+import 'package:design_system/src/tokens/hive_tokens_context.dart';
+import 'package:material_ui/material_ui.dart';
+
+/// A circular icon-only button. It shares variants and sizes with
+/// [HiveButton]; its diameter is the button height.
+class HiveIconButton extends StatelessWidget {
+  /// Creates an icon button. A null [onPressed] disables it.
+  const new({
+    required this.icon,
+    required this.semanticLabel,
+    required this.onPressed,
+    this.variant = HiveButtonVariant.ghost,
+    this.size = HiveButtonSize.medium,
+    this.statesController,
+    this.focusNode,
+    this.autofocus = false,
+    super.key,
+  });
+
+  /// The icon.
+  final HiveIconData icon;
+
+  /// Required: icon-only controls have no visible text.
+  final String semanticLabel;
+
+  /// Called when activated; null disables the button.
+  final VoidCallback? onPressed;
+
+  /// Visual weight.
+  final HiveButtonVariant variant;
+
+  /// Size; the diameter equals [HiveButtonSize.height].
+  final HiveButtonSize size;
+
+  /// Optional external states controller (hover, focus, pressed).
+  final WidgetStatesController? statesController;
+
+  /// Optional focus node.
+  final FocusNode? focusNode;
+
+  /// Whether to request focus when first built.
+  final bool autofocus;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.hiveColors;
+    final spacing = context.hiveSpacing;
+    final motion = context.hiveMotion;
+    final foreground = variant.foreground(colors);
+    final borderRole = variant.border;
+    final diameter = size.height(spacing);
+
+    return HiveInteraction(
+      semanticLabel: semanticLabel,
+      onPressed: onPressed,
+      statesController: statesController,
+      focusNode: focusNode,
+      autofocus: autofocus,
+      builder: (context, states) {
+        return Opacity(
+          opacity: states.contains(WidgetState.disabled)
+              ? colors.disabledOpacity
+              : 1,
+          child: HiveFocusRing(
+            focused: states.contains(WidgetState.focused),
+            shape: const CircleBorder(),
+            child: AnimatedContainer(
+              duration: motion.resolve(context, motion.short),
+              curve: motion.standardCurve,
+              width: diameter,
+              height: diameter,
+              alignment: Alignment.center,
+              decoration: ShapeDecoration(
+                color: hiveStateLayer(
+                  base: variant.background(colors),
+                  foreground: foreground,
+                  states: states,
+                  colors: colors,
+                ),
+                shape: CircleBorder(
+                  side: borderRole == null
+                      ? BorderSide.none
+                      : BorderSide(
+                          color: borderRole(colors),
+                          width: context.hiveElevation.hairline,
+                        ),
+                ),
+              ),
+              child: HiveIcon(icon, size: diameter / 2, color: foreground),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
