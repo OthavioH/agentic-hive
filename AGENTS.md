@@ -1,43 +1,59 @@
 # AGENTS.md
 
-Regras do produto inteiro. `frontend/`, `backend/` e `shared/` terão cada um o seu próprio `AGENTS.md`. Quando uma regra de lá conflitar com esta, a da pasta vale para aquela pasta.
+Rules for the whole product. `frontend/`, `backend/` and `shared/` each have their own `AGENTS.md`. When a rule there conflicts with this one, the folder's rule wins inside that folder.
 
-Antes de mudar arquitetura, leia as decisões em `docs/adrs/`. Para mudar uma decisão, escreva um ADR novo que substitua o antigo; não edite o antigo para dizer outra coisa. Use os termos de `GLOSSARY.md` no código, na UI e nos documentos.
+Before changing architecture, read the decisions in `docs/adrs/`. To change a decision, write a new ADR that supersedes the old one; do not edit the old one to say something else. Use the terms from `GLOSSARY.md` in code, UI and documents.
 
-## Mapa
+## Map
 
-| Pasta | O que é | Pode depender de |
+| Folder | What it is | May depend on |
 |---|---|---|
-| `frontend/` | App Flutter desktop: editor de grafos, monitor de execuções, aprovações | `shared/` |
-| `backend/` | Servidor local Dart (shelf): motor de grafo, nós, harnesses, SQLite, servidor MCP | `shared/` |
-| `shared/` | Pacote Dart puro: schema de workflow, tipos de nó, eventos, DTOs | nada do projeto |
-| `docs/adrs/` | Decisões de arquitetura numeradas (`0001-slug.md`) | — |
+| `frontend/` | Flutter desktop app: graph editor, run monitor, approvals | `shared/` |
+| `backend/` | Local Dart server (shelf): graph engine, nodes, harnesses, SQLite, MCP server | `shared/` |
+| `shared/` | Pure Dart package: workflow schema, node types, events, DTOs | nothing in the project |
+| `docs/adrs/` | Numbered architecture decisions (`0001-slug.md`) | — |
+| `.agents/agents/` | Specialist agents for this project (one atomic role per file) | — |
 
-`frontend/` e `backend/` nunca importam um ao outro. Tudo que os dois precisam concordar (formato do workflow, eventos do WebSocket, tipos de nó) mora em `shared/`.
+`frontend/` and `backend/` never import each other. Everything both sides must agree on (workflow format, WebSocket events, node types) lives in `shared/`.
 
-## Divisão de responsabilidades
+## Responsibilities
 
-- O **backend** é a fonte da verdade. Só ele executa processos, mexe em workspaces e grava estado.
-- O **frontend** só desenha, edita e envia comandos. Ele nunca roda harnesses nem lê o SQLite diretamente. Uma execução precisa continuar funcionando com o app fechado.
+- The **backend** is the source of truth. Only it runs processes, touches workspaces and writes state.
+- The **frontend** only draws, edits and sends commands. It never runs harnesses or reads SQLite directly. A run must keep working with the app closed.
 
-## Abstrações
+## Abstractions
 
-Cada família de comportamento tem uma abstração base, e cada variação é uma implementação dela. Não espalhe `switch` por tipo pelo código.
+Each family of behavior has an abstract base, and each variation is an implementation of it. Do not scatter `switch` statements over types.
 
-- Nós: `Node` → `HarnessNode` (abstrato) → `ClaudeCodeNode`, `CodexNode`, `GeminiCliNode`, `AntigravityNode`, `TerminalHarnessNode`. O mesmo vale para `ValidatorNode`.
-- `HarnessNode` define o fluxo comum (preparar workspace, montar prompt, rodar, coletar o resultado pelo contrato). As subclasses implementam só o que muda: montar a invocação e interpretar a saída da CLI.
-- Adicionar um harness novo significa criar uma subclasse e registrá-la. Isso não deve exigir mudanças no motor.
+- Nodes: `Node` → `HarnessNode` (abstract) → `ClaudeCodeNode`, `CodexNode`, `GeminiCliNode`, `AntigravityNode`, `TerminalHarnessNode`. The same applies to `ValidatorNode`.
+- `HarnessNode` defines the common flow (prepare the workspace, build the prompt, run, collect the result through the contract). Subclasses implement only what varies: building the invocation and interpreting the CLI output.
+- Adding a new harness means creating a subclass and registering it. It must not require changes to the engine.
 
-## Invariantes
+## Invariants
 
-- **Sucesso vem do contrato de resultado** (`report_result` via MCP ou `result.json`). Exit code diferente de zero só indica falha de infraestrutura; exit code zero sem relatório é falha. Ver `docs/adrs/0003-contrato-de-resultado.md`.
-- **O produto é genérico.** Nada no motor pode supor que o workspace é código, que existe um repositório git do usuário ou que há testes. Validações específicas de domínio são nós, nunca regras do motor.
-- **Prompts vão pelo stdin ou por arquivo**, nunca como argumento de linha de comando (limite de tamanho no Windows).
-- **Cancelamento só é reportado como concluído depois de confirmado** que a árvore de processos saiu.
-- **O servidor escuta só em `127.0.0.1`**, exige token e confere o header `Origin`.
-- **Login dos harnesses é do usuário.** Detecte erro de autenticação e mostre uma mensagem clara; nunca armazene credenciais de harness.
+- **Success comes from the result contract** (`report_result` through MCP or `result.json`). A non-zero exit code only signals an infrastructure failure; exit code zero without a report is a failure. See `docs/adrs/0003-result-contract.md`.
+- **The product is generic.** Nothing in the engine may assume the workspace is code, that a user git repository exists, or that there are tests. Domain-specific validations are nodes, never engine rules.
+- **Prompts go through stdin or a file**, never as a command-line argument (size limit on Windows).
+- **Cancellation is only reported as done after confirming** that the process tree has exited.
+- **The server listens only on `127.0.0.1`**, requires a token and checks the `Origin` header.
+- **Harness sign-in belongs to the user.** Detect authentication errors and show a clear message; never store harness credentials.
 
-## Convenções
+## Conventions
 
-- Windows é a plataforma alvo. Trate caminhos com `package:path` e teste comportamento de processo no Windows.
-- Código, identificadores e mensagens de commit em inglês. Documentação e textos da UI em português.
+- **Always the latest stable version.** Before adding or updating a dependency (Dart, Flutter, packages), check the current version on pub.dev and the current documentation (Context7). Never write a version or an API from memory.
+- Windows is the target platform. Handle paths with `package:path` and test process behavior on Windows.
+- Code, identifiers, commit messages and all documentation (README, `AGENTS.md`, ADRs, glossary, agent definitions) are written in English.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in the GitHub Issues of `OthavioH/agentic-hive`, through `gh`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single context: `GLOSSARY.md` at the root and ADRs in `docs/adrs/`. See `docs/agents/domain.md`.

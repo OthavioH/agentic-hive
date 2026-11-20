@@ -1,51 +1,51 @@
 # Agentic Hive
 
-Orquestrador visual que encadeia agentes de IA de terminal (harnesses) num grafo e roda o resultado localmente.
+A visual orchestrator that chains terminal AI agents (harnesses) into a graph and runs the result locally.
 
-## Definições
+## Definitions
 
-**Agente**:
-Um arquivo `.md` com frontmatter e prompt que descreve um papel (por exemplo, "revisor"). Não sabe em qual harness vai rodar.
-_Evite_: bot, persona, assistente
+**Agent**:
+A `.md` file with frontmatter and a prompt that describes a role (for example, "reviewer"). It does not know which harness it will run on.
+_Avoid_: bot, persona, assistant
 
 **Harness**:
-Uma CLI de agente instalada pelo usuário que executa o trabalho de um agente, como Claude Code ou Antigravity CLI.
-_Evite_: provider, modelo, engine
+An agent CLI installed by the user that does an agent's work, such as Claude Code or Antigravity CLI.
+_Avoid_: provider, model, engine
 
 **Workflow**:
-Um grafo de nós e arestas salvo pelo usuário. É a receita, não a execução.
-_Evite_: pipeline, flow, grafo (quando se refere ao artefato salvo)
+A graph of nodes and edges saved by the user. It is the recipe, not the execution.
+_Avoid_: pipeline, flow, graph (when referring to the saved artifact)
 
-**Nó**:
-Um passo de um workflow. Tem um tipo (harness, comando, validador, aprovação humana) e uma ou mais saídas.
-_Evite_: step, etapa, task
+**Node**:
+One step of a workflow. It has a type (harness, command, validator, human approval) and one or more outputs.
+_Avoid_: step, stage, task
 
-**Aresta**:
-Uma ligação entre nós, rotulada pela saída que a ativa (`onSuccess`, `onFailure` ou um rótulo do validador).
-_Evite_: link, transição
+**Edge**:
+A link between nodes, labeled by the output that activates it (`onSuccess`, `onFailure` or a validator label).
+_Avoid_: link, transition
 
-## Execução
+## Execution
 
-**Execução**:
-Uma rodada de um workflow, com estado, histórico e workspace próprios.
-_Evite_: run (na UI), job, instância
+**Run**:
+One execution of a workflow, with its own state, history and workspace.
+_Avoid_: job, instance, execution
 
 **Workspace**:
-A pasta onde os nós de uma execução trabalham. Pode ser qualquer pasta, não necessariamente um repositório.
-_Evite_: projeto, repo, sandbox
+The folder where the nodes of a run work. It can be any folder, not necessarily a repository.
+_Avoid_: project, repo, sandbox
 
 **Snapshot**:
-O estado salvo dos arquivos do workspace antes de um nó, usado para voltar atrás.
-_Evite_: backup, commit
+The saved state of the workspace files before a node, used to roll back.
+_Avoid_: backup, commit
 
 **Checkpoint**:
-O estado salvo do grafo (posição, tentativas, saídas dos nós) ao fim de cada nó.
-_Evite_: save, snapshot (que é dos arquivos)
+The saved state of the graph (position, attempts, node outputs) at the end of each node.
+_Avoid_: save, snapshot (which is about files)
 
-**Contrato de resultado**:
-A forma como um agente informa ao backend que terminou e com qual status: a ferramenta MCP `report_result` ou o arquivo `result.json`.
-_Evite_: retorno, exit status
+**Result contract**:
+How an agent tells the backend it has finished and with which status: the `report_result` MCP tool or the `result.json` file.
+_Avoid_: return value, exit status
 
-**Pausa**:
-O estado de uma execução que espera uma resposta humana, por um nó de aprovação ou por `ask_human`.
-_Evite_: bloqueio, espera
+**Pause**:
+The state of a run waiting for a human answer, through an approval node or `ask_human`.
+_Avoid_: block, wait
