@@ -85,7 +85,10 @@ class $AppMetadataTable extends AppMetadata
 
 class AppMetadataEntry extends DataClass
     implements Insertable<AppMetadataEntry> {
+  /// The fact's name, such as `installed_at`.
   final String key;
+
+  /// The fact's value, as text.
   final String value;
   const AppMetadataEntry({required this.key, required this.value});
   @override

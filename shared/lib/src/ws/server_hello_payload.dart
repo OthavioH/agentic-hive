@@ -1,25 +1,17 @@
 import 'package:agentic_hive_shared/src/json_fields.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'server_hello_payload.freezed.dart';
+part 'server_hello_payload.g.dart';
 
 /// Payload of a `server.hello` message.
-final class ServerHelloPayload {
+@freezed
+sealed class ServerHelloPayload with _$ServerHelloPayload {
   /// Creates a hello payload.
-  const new({required this.serverVersion, required this.protocolVersion});
+  const factory({required String serverVersion, required int protocolVersion}) =
+      _ServerHelloPayload;
 
   /// Decodes a hello payload; throws a [FormatException] on a bad shape.
-  factory fromJson(JsonMap json) => ServerHelloPayload(
-    serverVersion: readField<String>(json, 'serverVersion'),
-    protocolVersion: readField<int>(json, 'protocolVersion'),
-  );
-
-  /// Backend version, such as `0.1.0`.
-  final String serverVersion;
-
-  /// The WebSocket protocol version the server speaks.
-  final int protocolVersion;
-
-  /// Encodes this payload as JSON.
-  JsonMap toJson() => {
-    'serverVersion': serverVersion,
-    'protocolVersion': protocolVersion,
-  };
+  factory fromJson(JsonMap json) =>
+      parseJson(json, _$ServerHelloPayloadFromJson);
 }
