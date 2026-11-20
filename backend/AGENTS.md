@@ -12,6 +12,8 @@ dart run bin/server.dart         # from backend/; uses config/dev.yaml → backe
 curl --unix-socket .dev-data/backend.sock http://localhost/health
 ```
 
+How to run, build and stop the backend (development and production) is in `README.md`. Production builds use `dart build cli`, never `dart compile exe` (the `sqlite3` build hook needs it).
+
 Options: `--config <file>`, `--data-dir <folder>`, `--help`. The running backend writes `<data dir>/server.json` with its PID, version and socket path. Ctrl+C (and SIGTERM on Linux/macOS) shuts down cleanly.
 
 ## Layout
@@ -28,6 +30,7 @@ Options: `--config <file>`, `--data-dir <folder>`, `--help`. The running backend
 | `lib/src/ws/` | `WsGateway` (upgrade and message handling) and `ConnectionRegistry` |
 | `lib/src/server/` | `BackendServer`, `LocalSocket`, `ServerInfoFile` |
 | `config/dev.yaml` | Development configuration (versioned; no secrets) |
+| `tool/ws_probe.dart` | Development WebSocket client over the socket |
 | `test/unit/`, `test/shelf/`, `test/integration/<area>/` | Tests, owned by the matching agents in `.agents/agents/` |
 
 ## Dependency injection
