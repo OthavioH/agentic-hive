@@ -6,6 +6,10 @@ import 'package:path/path.dart' as p;
 ///
 /// Everything that differs between Windows, Linux and macOS lives behind this
 /// interface; the rest of the frontend never branches on the platform inline.
+///
+/// Follows ADR 0012 and must stay in sync with
+/// `backend/lib/src/config/platform_paths.dart`, since `frontend/` and
+/// `backend/` never import each other.
 abstract interface class PlatformPaths {
   /// Path rules of this platform.
   p.Context get context;
