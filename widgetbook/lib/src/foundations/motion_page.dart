@@ -33,6 +33,7 @@ class _MotionPageState extends State<MotionPage> {
         width: spacing.space8 * 4,
         child: HiveCard(
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               const HiveAgentAvatar(
                 visual: NodeVisual(
@@ -46,6 +47,7 @@ class _MotionPageState extends State<MotionPage> {
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
                     Text(title, style: context.hiveTypography.labelLarge),
                     Text(
