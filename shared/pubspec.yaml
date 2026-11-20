@@ -1,0 +1,12 @@
+name: agentic_hive_shared
+description: Contracts shared by the Agentic Hive backend and frontend.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.14.0
+
+dev_dependencies:
+  test: ^1.33.0
+  very_good_analysis: ^11.0.0

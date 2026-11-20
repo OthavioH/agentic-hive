@@ -1,0 +1,10 @@
+# Development configuration, used by `dart run` (never by the compiled
+# executable). Relative paths are resolved against this file's folder.
+paths:
+  data_dir: ../.dev-data
+
+websocket:
+  ping_interval_seconds: 20
+
+logs:
+  retention_days: 14

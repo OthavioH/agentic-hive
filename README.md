@@ -2,7 +2,7 @@
 
 A visual orchestrator for AI agents on the desktop. You build a workflow as a graph, and each node runs on the agent harnesses you already have installed and signed in: Claude Code, Codex, Gemini CLI, Antigravity CLI. A workflow can keep running on its own in the background.
 
-> **Status:** planning. There is no code yet. Architecture decisions live in [`docs/adrs/`](docs/adrs/).
+> **Status:** early development. The backend foundation (server, WebSocket, SQLite, logging, configuration) exists; the graph engine and the app do not yet. Architecture decisions live in [`docs/adrs/`](docs/adrs/).
 
 ## Why it exists
 
@@ -15,7 +15,7 @@ The product is not limited to software development. A workflow can research, wri
 ```
 ┌──────────────────────┐   HTTP + WebSocket    ┌──────────────────────────────┐
 │  Frontend (Flutter)  │ ◄──────────────────►  │  Backend (Dart + shelf)      │
-│  graph editor,       │      local only       │  graph engine, checkpoints   │
+│  graph editor,       │   Unix domain socket  │  graph engine, checkpoints   │
 │  monitor, approvals  │                       │  (SQLite), MCP server        │
 └──────────────────────┘                       └──────────────┬───────────────┘
                                                               │ Process / PTY
@@ -63,15 +63,26 @@ The exact flags of each CLI must be confirmed when each adapter is implemented. 
 | `shared/` | Dart package with the workflow schema, events and models used by both sides |
 | `docs/adrs/` | Architecture decision records |
 
-## Requirements (planned)
+## Requirements
 
-- Windows 10/11
+- Windows 10/11 or Linux (macOS is planned)
 - At least one harness installed and signed in by the user (Agentic Hive does not manage sign-in)
 - Git, used internally for workspace snapshots
+- For development: the latest stable Flutter/Dart SDK (Dart ^3.14)
+
+## Development
+
+```
+dart pub get                          # from the repository root (pub workspace)
+cd backend && dart run bin/server.dart
+curl --unix-socket .dev-data/backend.sock http://localhost/health
+```
+
+Quality gates (all must be clean): `dart analyze --fatal-infos`, `dart format --output=none --set-exit-if-changed .`, `dart fix --dry-run`, and `dart test` in each package. See [`backend/AGENTS.md`](backend/AGENTS.md).
 
 ## First milestone
 
-A backend-only spike, without UI, that proves the highest-risk points on Windows:
+A backend-only spike, without UI, that proves the highest-risk points on Windows and Linux:
 
 - [ ] Read a workflow from JSON and run coder → validator → reviewer, looping back to the coder on rejection
 - [ ] Headless `ClaudeCodeNode`, with the prompt sent through stdin
