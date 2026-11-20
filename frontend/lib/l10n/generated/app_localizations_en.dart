@@ -103,4 +103,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get connectingRetryAction => 'Retry connection';
+
+  @override
+  String get routeErrorTitle => 'Page not found';
+
+  @override
+  String get routeErrorDescription =>
+      'The requested page does not exist or could not be opened.';
+
+  @override
+  String get routeErrorAction => 'Back to Overview';
 }

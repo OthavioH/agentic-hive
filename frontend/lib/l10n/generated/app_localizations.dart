@@ -267,6 +267,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Retry connection'**
   String get connectingRetryAction;
+
+  /// Title shown on the router error page when a route cannot be resolved.
+  ///
+  /// In en, this message translates to:
+  /// **'Page not found'**
+  String get routeErrorTitle;
+
+  /// Description shown on the router error page.
+  ///
+  /// In en, this message translates to:
+  /// **'The requested page does not exist or could not be opened.'**
+  String get routeErrorDescription;
+
+  /// Button label on the router error page to return to Overview.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to Overview'**
+  String get routeErrorAction;
 }
 
 class _AppLocalizationsDelegate
