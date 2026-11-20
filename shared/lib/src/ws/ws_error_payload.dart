@@ -1,28 +1,21 @@
 import 'package:agentic_hive_shared/src/json_fields.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'ws_error_payload.freezed.dart';
+part 'ws_error_payload.g.dart';
 
 /// Payload of an `error` message.
-final class WsErrorPayload {
+@freezed
+sealed class WsErrorPayload with _$WsErrorPayload {
   /// Creates an error payload.
-  const new({required this.code, required this.message, this.replyTo});
+  const factory({
+    required String code,
+    required String message,
+    String? replyTo,
+  }) = _WsErrorPayload;
 
   /// Decodes an error payload; throws a [FormatException] on a bad shape.
-  factory fromJson(JsonMap json) => WsErrorPayload(
-    code: readField<String>(json, 'code'),
-    message: readField<String>(json, 'message'),
-    replyTo: readField<String?>(json, 'replyTo'),
-  );
-
-  /// A stable error code from [WsErrorCode].
-  final String code;
-
-  /// A human-readable description of the problem.
-  final String message;
-
-  /// The `id` of the client message this error answers, when it had one.
-  final String? replyTo;
-
-  /// Encodes this payload as JSON.
-  JsonMap toJson() => {'code': code, 'message': message, 'replyTo': ?replyTo};
+  factory fromJson(JsonMap json) => parseJson(json, _$WsErrorPayloadFromJson);
 }
 
 /// Error codes sent in [WsErrorPayload.code].
