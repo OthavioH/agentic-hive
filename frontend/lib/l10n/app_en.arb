@@ -115,5 +115,17 @@
   "connectingRetryAction": "Retry connection",
   "@connectingRetryAction": {
     "description": "Button label to retry connecting to the backend."
+  },
+  "routeErrorTitle": "Page not found",
+  "@routeErrorTitle": {
+    "description": "Title shown on the router error page when a route cannot be resolved."
+  },
+  "routeErrorDescription": "The requested page does not exist or could not be opened.",
+  "@routeErrorDescription": {
+    "description": "Description shown on the router error page."
+  },
+  "routeErrorAction": "Back to Overview",
+  "@routeErrorAction": {
+    "description": "Button label on the router error page to return to Overview."
   }
 }
