@@ -27,15 +27,22 @@ const c2 = CupertinoColors.white;
       );
     });
 
-    test('does not flag widgets.dart or design_system imports', () async {
-      await helper.assertNoDiagnostics('''
+    test(
+      'does not flag widgets.dart, design_system, material_ui, or cupertino_ui',
+      () async {
+        await helper.assertNoDiagnostics('''
+import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:design_system/design_system.dart';
 import 'package:flutter/widgets.dart';
+import 'package:material_ui/material_ui.dart';
 
 const Type t1 = HiveTheme;
 const Type t2 = Widget;
+const Type t3 = MaterialUiStub;
+const Type t4 = CupertinoUiStub;
 ''');
-    });
+      },
+    );
   });
 }
 
@@ -48,6 +55,12 @@ class _NoFlutterMaterialImportTest extends AnalysisRuleTest {
     rule = NoFlutterMaterialImport();
     newPackage('design_system').addFile('lib/design_system.dart', '''
 class HiveTheme {}
+''');
+    newPackage('material_ui').addFile('lib/material_ui.dart', '''
+class MaterialUiStub {}
+''');
+    newPackage('cupertino_ui').addFile('lib/cupertino_ui.dart', '''
+class CupertinoUiStub {}
 ''');
     super.setUp();
   }
