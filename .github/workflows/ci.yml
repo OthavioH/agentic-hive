@@ -58,6 +58,14 @@ jobs:
           dart run build_runner build --delete-conflicting-outputs
           git diff --exit-code
 
+      - name: Check generated files are up to date (frontend)
+        if: runner.os == 'Linux'
+        working-directory: frontend
+        run: |
+          flutter gen-l10n
+          dart run build_runner build --delete-conflicting-outputs
+          git diff --exit-code
+
       - name: Test shared
         working-directory: shared
         run: dart test
@@ -79,6 +87,14 @@ jobs:
         working-directory: design_system
         run: flutter test --tags golden
 
+      - name: Test widgetbook
+        working-directory: widgetbook
+        run: flutter test
+
+      - name: Test frontend
+        working-directory: frontend
+        run: flutter test
+
       - name: Build widgetbook (Windows)
         if: runner.os == 'Windows'
         working-directory: widgetbook
@@ -92,4 +108,19 @@ jobs:
       - name: Build widgetbook (macOS)
         if: runner.os == 'macOS'
         working-directory: widgetbook
+        run: flutter build macos --debug
+
+      - name: Build frontend (Windows)
+        if: runner.os == 'Windows'
+        working-directory: frontend
+        run: flutter build windows --debug
+
+      - name: Build frontend (Linux)
+        if: runner.os == 'Linux'
+        working-directory: frontend
+        run: flutter build linux --debug
+
+      - name: Build frontend (macOS)
+        if: runner.os == 'macOS'
+        working-directory: frontend
         run: flutter build macos --debug
