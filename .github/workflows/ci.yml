@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [master, development]
+  pull_request:
+    branches: [master, development]
+
+jobs:
+  dart:
+    name: Dart (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Install dependencies
+        run: dart pub get
+
+      - name: Check formatting
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Analyze (zero issues, infos included)
+        run: dart analyze --fatal-infos
+
+      - name: Check dart fix has nothing to apply
+        shell: bash
+        run: |
+          output="$(dart fix --dry-run)"
+          echo "$output"
+          echo "$output" | grep -q "Nothing to fix!"
+
+      - name: Test shared
+        working-directory: shared
+        run: dart test
+
+      - name: Test backend
+        working-directory: backend
+        run: dart test

@@ -1,87 +1,98 @@
 # Agentic Hive
 
-Orquestrador visual de agentes de IA para Windows. Você monta um workflow em grafo e cada nó roda usando os harnesses que você já tem instalados e logados: Claude Code, Codex, Gemini CLI, Antigravity CLI. O workflow pode continuar rodando sozinho em segundo plano.
+A visual orchestrator for AI agents on the desktop. You build a workflow as a graph, and each node runs on the agent harnesses you already have installed and signed in: Claude Code, Codex, Gemini CLI, Antigravity CLI. A workflow can keep running on its own in the background.
 
-> **Status:** em planejamento. Ainda não há código. As decisões de arquitetura estão em [`docs/adrs/`](docs/adrs/).
+> **Status:** early development. The backend foundation (server, WebSocket, SQLite, logging, configuration) exists; the graph engine and the app do not yet. Architecture decisions live in [`docs/adrs/`](docs/adrs/).
 
-## Por que existe
+## Why it exists
 
-Frameworks como o LangGraph resolvem orquestração de agentes, mas exigem escrever e rodar código para cada tarefa, e chamam as APIs dos modelos diretamente (com chave e cobrança próprias). O Agentic Hive aproveita o que o usuário já paga e configura: as próprias CLIs de agentes. O app só desenha o trilho entre elas.
+Frameworks such as LangGraph solve agent orchestration, but they require writing and running code for each task, and they call model APIs directly (with their own keys and billing). Agentic Hive reuses what the user already pays for and configures: their own agent CLIs. The app only lays the track between them.
 
-O produto não se limita a desenvolvimento de software. Um workflow pode pesquisar, escrever, revisar documentos ou processar arquivos. Qualquer tarefa que um agente de terminal consiga fazer numa pasta serve.
+The product is not limited to software development. A workflow can research, write, review documents or process files. Any task that a terminal agent can do in a folder fits.
 
-## Como funciona
+## How it works
 
 ```
 ┌──────────────────────┐   HTTP + WebSocket    ┌──────────────────────────────┐
 │  Frontend (Flutter)  │ ◄──────────────────►  │  Backend (Dart + shelf)      │
-│  editor de grafos,   │   127.0.0.1 + token   │  motor de grafo, checkpoints │
-│  monitor, aprovações │                       │  (SQLite), servidor MCP      │
+│  graph editor,       │   Unix domain socket  │  graph engine, checkpoints   │
+│  monitor, approvals  │                       │  (SQLite), MCP server        │
 └──────────────────────┘                       └──────────────┬───────────────┘
                                                               │ Process / PTY
                                           ┌───────────────────┼───────────────────┐
                                           ▼                   ▼                   ▼
                                      claude -p           codex exec            agy -p   ...
-                                          └──────── workspace da execução ────────┘
+                                          └────────── run workspace ──────────────┘
 ```
 
-1. **Agentes** são arquivos `.md` (frontmatter + prompt) numa pasta de agentes do usuário.
-2. **Workflows** são grafos: nós ligados por arestas `onSuccess` / `onFailure`, que podem formar ciclos com limite de tentativas.
-3. Uma **execução** (run) ganha um **workspace** próprio. Antes de cada nó, o backend tira um snapshot da pasta para poder voltar atrás.
-4. Cada agente informa o resultado pelo **contrato de resultado**: chama a ferramenta MCP `report_result` do backend ou grava um `result.json`. O exit code só serve para detectar falhas de infraestrutura.
-5. Nós validadores decidem a rota: comando, juiz LLM com resposta em JSON, checagem de arquivo ou aprovação humana.
-6. Nós humanos e a ferramenta `ask_human` pausam a execução. O estado fica salvo no SQLite e a execução retoma quando você responde no app.
+1. **Agents** are `.md` files (frontmatter + prompt) in the user's agents folder.
+2. **Workflows** are graphs: nodes linked by `onSuccess` / `onFailure` edges, which can form cycles with a retry limit.
+3. Each **run** gets its own **workspace**. Before each node, the backend snapshots the folder so it can roll back.
+4. Each agent reports its result through the **result contract**: it calls the backend's `report_result` MCP tool or writes a `result.json`. The exit code only detects infrastructure failures.
+5. Validator nodes decide the route: a command, an LLM judge answering in JSON, a file check, or human approval.
+6. Human nodes and the `ask_human` tool pause the run. The state is saved in SQLite, and the run resumes when you answer in the app.
 
-## Tipos de nó
+## Node types
 
-O código segue uma hierarquia de abstrações. Cada harness é uma subclasse de `HarnessNode`:
+The code follows a hierarchy of abstractions. Each harness is a subclass of `HarnessNode`:
 
 ```
 Node
-├── HarnessNode (abstrato)
+├── HarnessNode (abstract)
 │   ├── ClaudeCodeNode       claude -p --output-format stream-json
 │   ├── CodexNode            codex exec
 │   ├── GeminiCliNode        gemini -p
 │   ├── AntigravityNode      agy -p --output-format stream-json
-│   └── TerminalHarnessNode  qualquer CLI, via pseudo-terminal (PTY)
-├── CommandNode              roda um comando ou script
-├── ValidatorNode (abstrato)
+│   └── TerminalHarnessNode  any CLI, through a pseudo-terminal (PTY)
+├── CommandNode              runs a command or script
+├── ValidatorNode (abstract)
 │   ├── CommandValidatorNode
 │   ├── LlmJudgeNode
 │   └── FileCheckNode
 └── HumanApprovalNode
 ```
 
-As flags exatas de cada CLI precisam ser confirmadas na implementação de cada adapter. Elas mudam entre versões.
+The exact flags of each CLI must be confirmed when each adapter is implemented. They change between versions.
 
-## Estrutura do repositório
+## Repository layout
 
-| Pasta | Conteúdo |
+| Folder | Contents |
 |---|---|
-| `frontend/` | App Flutter desktop (Windows) |
-| `backend/` | Servidor local em Dart (shelf): motor, harnesses, persistência |
-| `shared/` | Pacote Dart com o schema de workflow, eventos e modelos usados pelos dois lados |
-| `docs/adrs/` | Registros de decisões de arquitetura |
+| `frontend/` | Flutter desktop app, with Riverpod (state and DI) and go_router |
+| `backend/` | Local Dart server (shelf): engine, harnesses, persistence |
+| `shared/` | Dart package with the workflow schema, events and models used by both sides |
+| `docs/adrs/` | Architecture decision records |
 
-## Requisitos (previstos)
+## Requirements
 
-- Windows 10/11
-- Pelo menos um harness instalado e logado pelo próprio usuário (o Agentic Hive não gerencia login)
-- Git, usado internamente para os snapshots de workspace
+- Windows 10/11 or Linux (macOS is planned)
+- At least one harness installed and signed in by the user (Agentic Hive does not manage sign-in)
+- Git, used internally for workspace snapshots
+- For development: the latest stable Flutter/Dart SDK (Dart ^3.14)
 
-## Primeiro marco
+## Development
 
-Um spike só do backend, sem UI, que prove os pontos de maior risco no Windows:
+```
+dart pub get                          # from the repository root (pub workspace)
+cd backend && dart run bin/server.dart
+curl --unix-socket .dev-data/backend.sock http://localhost/health
+```
 
-- [ ] Ler um workflow em JSON e rodar coder → validador → revisor, voltando ao coder em caso de reprovação
-- [ ] `ClaudeCodeNode` headless, com o prompt enviado pelo stdin
-- [ ] Contrato de resultado via MCP e `result.json`
-- [ ] Checkpoint em SQLite e snapshot do workspace por nó
-- [ ] Pausa num `HumanApprovalNode` e retomada por HTTP
-- [ ] Cancelamento que encerra toda a árvore de processos
+Quality gates (all must be clean): `dart analyze --fatal-infos`, `dart format --output=none --set-exit-if-changed .`, `dart fix --dry-run`, and `dart test` in each package. See [`backend/AGENTS.md`](backend/AGENTS.md).
 
-## Documentação
+## First milestone
 
-- [`AGENTS.md`](AGENTS.md): regras gerais para quem (humano ou agente) mexe no código
-- [`GLOSSARY.md`](GLOSSARY.md): vocabulário do domínio
-- [`docs/adrs/`](docs/adrs/): decisões de arquitetura e seus motivos
+A backend-only spike, without UI, that proves the highest-risk points on Windows and Linux:
+
+- [ ] Read a workflow from JSON and run coder → validator → reviewer, looping back to the coder on rejection
+- [ ] Headless `ClaudeCodeNode`, with the prompt sent through stdin
+- [ ] Result contract through MCP and `result.json`
+- [ ] SQLite checkpoint and workspace snapshot per node
+- [ ] Pause on a `HumanApprovalNode` and resume over HTTP
+- [ ] Cancellation that terminates the whole process tree
+
+## Documentation
+
+- [`AGENTS.md`](AGENTS.md): general rules for anyone (human or agent) working on the code
+- [`GLOSSARY.md`](GLOSSARY.md): domain vocabulary
+- [`docs/adrs/`](docs/adrs/): architecture decisions and their reasons
