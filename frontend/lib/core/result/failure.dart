@@ -14,10 +14,13 @@ sealed class Failure {
 /// The local backend could not be reached or a transport error occurred.
 final class NetworkFailure extends Failure {
   /// Creates a network failure.
-  const new(super.message, {this.cause});
+  const new(super.message, {this.cause, this.code});
 
   /// Optional underlying cause for diagnostics.
   final Object? cause;
+
+  /// Optional machine-readable error code for transport categorization.
+  final String? code;
 }
 
 /// The backend returned a non-success response or protocol error.

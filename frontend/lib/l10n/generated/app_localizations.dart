@@ -268,6 +268,96 @@ abstract class AppLocalizations {
   /// **'Retry connection'**
   String get connectingRetryAction;
 
+  /// Title on connecting page when server.json is missing.
+  ///
+  /// In en, this message translates to:
+  /// **'Backend is not running'**
+  String get connectingReasonNotRunningTitle;
+
+  /// Message on connecting page when server.json is missing.
+  ///
+  /// In en, this message translates to:
+  /// **'No active backend was found (server.json is missing). Start the Agentic Hive backend service and it will connect automatically.'**
+  String get connectingReasonNotRunningMessage;
+
+  /// Title on connecting page when the backend socket refuses connections.
+  ///
+  /// In en, this message translates to:
+  /// **'Backend socket unreachable'**
+  String get connectingReasonRefusedTitle;
+
+  /// Message on connecting page when the backend socket refuses connections.
+  ///
+  /// In en, this message translates to:
+  /// **'The backend socket refused the connection or is stale. Waiting for the backend service to accept connections.'**
+  String get connectingReasonRefusedMessage;
+
+  /// Title on connecting page when /api/v1/status returns 503 degraded.
+  ///
+  /// In en, this message translates to:
+  /// **'Backend is degraded'**
+  String get connectingReasonDegradedTitle;
+
+  /// Message on connecting page when backend reports degraded status.
+  ///
+  /// In en, this message translates to:
+  /// **'The backend is running, but a required dependency such as the database is unavailable. Retrying automatically.'**
+  String get connectingReasonDegradedMessage;
+
+  /// Title on connecting page when server.hello protocolVersion does not match.
+  ///
+  /// In en, this message translates to:
+  /// **'Protocol version mismatch'**
+  String get connectingReasonProtocolMismatchTitle;
+
+  /// Message on connecting page when WebSocket protocol version is incompatible.
+  ///
+  /// In en, this message translates to:
+  /// **'This desktop app and the running backend use incompatible WebSocket protocol versions. Update the app or backend, then retry.'**
+  String get connectingReasonProtocolMismatchMessage;
+
+  /// Title on connecting page when socket connect, status check, or server.hello times out.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection timed out'**
+  String get connectingReasonTimeoutTitle;
+
+  /// Message on connecting page when connection or handshake times out.
+  ///
+  /// In en, this message translates to:
+  /// **'The backend did not respond in time. Retrying automatically.'**
+  String get connectingReasonTimeoutMessage;
+
+  /// Title on connecting page when an unexpected transport or protocol error occurs.
+  ///
+  /// In en, this message translates to:
+  /// **'Unexpected connection error'**
+  String get connectingReasonUnexpectedTitle;
+
+  /// Message on connecting page when an unexpected error occurs.
+  ///
+  /// In en, this message translates to:
+  /// **'An unexpected error occurred while connecting to the local backend.'**
+  String get connectingReasonUnexpectedMessage;
+
+  /// Countdown badge showing seconds until the next automatic retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retrying in {seconds}s'**
+  String connectingNextRetryIn(int seconds);
+
+  /// Badge shown when automatic retries are halted due to protocol mismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic retry paused'**
+  String get connectingAutoRetryHalted;
+
+  /// Badge showing the number of failed connection attempts.
+  ///
+  /// In en, this message translates to:
+  /// **'Attempt {count}'**
+  String connectingAttemptCount(int count);
+
   /// Title shown on the router error page when a route cannot be resolved.
   ///
   /// In en, this message translates to:

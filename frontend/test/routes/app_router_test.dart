@@ -1,8 +1,9 @@
-import 'dart:io';
+import 'dart:async';
 
 import 'package:agentic_hive_frontend/app.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_client.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_client_provider.dart';
+import 'package:agentic_hive_frontend/core/backend/backend_web_socket_session.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/error/pages/route_error_page.dart';
@@ -14,14 +15,51 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
-final class _FakeBackendClient implements BackendClient {
-  @override
-  Future<Result<HealthResponse>> checkHealth() async =>
-      const Success<HealthResponse>(HealthResponse());
+final class _FakeWebSocketSession implements BackendWebSocketSession {
+  final StreamController<WsEnvelope> _messages =
+      StreamController<WsEnvelope>.broadcast();
+  final Completer<void> _done = Completer<void>();
 
   @override
-  Future<Result<WebSocket>> connectWebSocket() async =>
-      const FailureResult<WebSocket>(NetworkFailure('Unused in router tests'));
+  ServerHelloPayload get serverHello => const ServerHelloPayload(
+    serverVersion: '0.1.0',
+    protocolVersion: wsProtocolVersion,
+  );
+
+  @override
+  Stream<WsEnvelope> get messages => _messages.stream;
+
+  @override
+  Future<void> get done => _done.future;
+
+  @override
+  bool get isClosed => _done.isCompleted;
+
+  @override
+  Future<Result<void>> send(WsEnvelope envelope) async => const Success(null);
+
+  @override
+  Future<void> close([int? code, String? reason]) async {
+    if (!_messages.isClosed) unawaited(_messages.close());
+    if (!_done.isCompleted) _done.complete();
+  }
+}
+
+final class _FakeBackendClient implements BackendClient {
+  @override
+  Future<Result<StatusResponse>> checkStatus() async => const Success(
+    StatusResponse(
+      status: BackendStatus.ok,
+      version: '0.1.0',
+      uptimeSeconds: 10,
+      dataDir: '/tmp/hive',
+      database: DatabaseStatus(ok: true, schemaVersion: 1),
+    ),
+  );
+
+  @override
+  Future<Result<BackendWebSocketSession>> connectWebSocket() async =>
+      Success(_FakeWebSocketSession());
 
   @override
   Future<void> close() async {}

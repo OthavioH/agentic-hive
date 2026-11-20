@@ -116,6 +116,76 @@
   "@connectingRetryAction": {
     "description": "Button label to retry connecting to the backend."
   },
+  "connectingReasonNotRunningTitle": "Backend is not running",
+  "@connectingReasonNotRunningTitle": {
+    "description": "Title on connecting page when server.json is missing."
+  },
+  "connectingReasonNotRunningMessage": "No active backend was found (server.json is missing). Start the Agentic Hive backend service and it will connect automatically.",
+  "@connectingReasonNotRunningMessage": {
+    "description": "Message on connecting page when server.json is missing."
+  },
+  "connectingReasonRefusedTitle": "Backend socket unreachable",
+  "@connectingReasonRefusedTitle": {
+    "description": "Title on connecting page when the backend socket refuses connections."
+  },
+  "connectingReasonRefusedMessage": "The backend socket refused the connection or is stale. Waiting for the backend service to accept connections.",
+  "@connectingReasonRefusedMessage": {
+    "description": "Message on connecting page when the backend socket refuses connections."
+  },
+  "connectingReasonDegradedTitle": "Backend is degraded",
+  "@connectingReasonDegradedTitle": {
+    "description": "Title on connecting page when /api/v1/status returns 503 degraded."
+  },
+  "connectingReasonDegradedMessage": "The backend is running, but a required dependency such as the database is unavailable. Retrying automatically.",
+  "@connectingReasonDegradedMessage": {
+    "description": "Message on connecting page when backend reports degraded status."
+  },
+  "connectingReasonProtocolMismatchTitle": "Protocol version mismatch",
+  "@connectingReasonProtocolMismatchTitle": {
+    "description": "Title on connecting page when server.hello protocolVersion does not match."
+  },
+  "connectingReasonProtocolMismatchMessage": "This desktop app and the running backend use incompatible WebSocket protocol versions. Update the app or backend, then retry.",
+  "@connectingReasonProtocolMismatchMessage": {
+    "description": "Message on connecting page when WebSocket protocol version is incompatible."
+  },
+  "connectingReasonTimeoutTitle": "Connection timed out",
+  "@connectingReasonTimeoutTitle": {
+    "description": "Title on connecting page when socket connect, status check, or server.hello times out."
+  },
+  "connectingReasonTimeoutMessage": "The backend did not respond in time. Retrying automatically.",
+  "@connectingReasonTimeoutMessage": {
+    "description": "Message on connecting page when connection or handshake times out."
+  },
+  "connectingReasonUnexpectedTitle": "Unexpected connection error",
+  "@connectingReasonUnexpectedTitle": {
+    "description": "Title on connecting page when an unexpected transport or protocol error occurs."
+  },
+  "connectingReasonUnexpectedMessage": "An unexpected error occurred while connecting to the local backend.",
+  "@connectingReasonUnexpectedMessage": {
+    "description": "Message on connecting page when an unexpected error occurs."
+  },
+  "connectingNextRetryIn": "Retrying in {seconds}s",
+  "@connectingNextRetryIn": {
+    "description": "Countdown badge showing seconds until the next automatic retry.",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "connectingAutoRetryHalted": "Automatic retry paused",
+  "@connectingAutoRetryHalted": {
+    "description": "Badge shown when automatic retries are halted due to protocol mismatch."
+  },
+  "connectingAttemptCount": "Attempt {count}",
+  "@connectingAttemptCount": {
+    "description": "Badge showing the number of failed connection attempts.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "routeErrorTitle": "Page not found",
   "@routeErrorTitle": {
     "description": "Title shown on the router error page when a route cannot be resolved."

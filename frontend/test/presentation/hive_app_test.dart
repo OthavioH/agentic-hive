@@ -1,9 +1,10 @@
-import 'dart:io';
+import 'dart:async';
 
 import 'package:agentic_hive_frontend/app.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_client.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_client_provider.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_connection.dart';
+import 'package:agentic_hive_frontend/core/backend/backend_web_socket_session.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/agents/pages/agents_page.dart';
@@ -20,21 +21,51 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
-final class _FakeBackendClient implements BackendClient {
-  new({required this.healthResult});
-
-  Result<HealthResponse> healthResult;
-  int healthCheckCount = 0;
+final class _FakeWebSocketSession implements BackendWebSocketSession {
+  final StreamController<WsEnvelope> _messages =
+      StreamController<WsEnvelope>.broadcast();
+  final Completer<void> _done = Completer<void>();
 
   @override
-  Future<Result<HealthResponse>> checkHealth() async {
-    healthCheckCount++;
-    return healthResult;
+  ServerHelloPayload get serverHello => const ServerHelloPayload(
+    serverVersion: '0.1.0',
+    protocolVersion: wsProtocolVersion,
+  );
+
+  @override
+  Stream<WsEnvelope> get messages => _messages.stream;
+
+  @override
+  Future<void> get done => _done.future;
+
+  @override
+  bool get isClosed => _done.isCompleted;
+
+  @override
+  Future<Result<void>> send(WsEnvelope envelope) async => const Success(null);
+
+  @override
+  Future<void> close([int? code, String? reason]) async {
+    if (!_messages.isClosed) unawaited(_messages.close());
+    if (!_done.isCompleted) _done.complete();
+  }
+}
+
+final class _FakeBackendClient implements BackendClient {
+  new({required this.statusResult});
+
+  Result<StatusResponse> statusResult;
+  int statusCheckCount = 0;
+
+  @override
+  Future<Result<StatusResponse>> checkStatus() async {
+    statusCheckCount++;
+    return statusResult;
   }
 
   @override
-  Future<Result<WebSocket>> connectWebSocket() async =>
-      const FailureResult<WebSocket>(NetworkFailure('Unused in widget tests'));
+  Future<Result<BackendWebSocketSession>> connectWebSocket() async =>
+      Success(_FakeWebSocketSession());
 
   @override
   Future<void> close() async {}
@@ -42,9 +73,17 @@ final class _FakeBackendClient implements BackendClient {
 
 void main() {
   const desktopSize = Size(1440, 900);
-  const okHealth = Success<HealthResponse>(HealthResponse());
-  const downHealth = FailureResult<HealthResponse>(
-    NetworkFailure('Backend unreachable'),
+  const okStatus = Success<StatusResponse>(
+    StatusResponse(
+      status: BackendStatus.ok,
+      version: '0.1.0',
+      uptimeSeconds: 10,
+      dataDir: '/tmp/hive',
+      database: DatabaseStatus(ok: true, schemaVersion: 1),
+    ),
+  );
+  const downStatus = FailureResult<StatusResponse>(
+    NetworkFailure('Backend unreachable', code: BackendFailureCode.notRunning),
   );
 
   void configureDesktopWindow(WidgetTester tester) {
@@ -63,7 +102,7 @@ void main() {
       'side rail navigation switches pages and expands/collapses labels',
       (tester) async {
         configureDesktopWindow(tester);
-        final fakeClient = _FakeBackendClient(healthResult: okHealth);
+        final fakeClient = _FakeBackendClient(statusResult: okStatus);
 
         await tester.pumpWidget(
           ProviderScope(
@@ -120,7 +159,7 @@ void main() {
       'starts on /connecting when disconnected and retry invokes reconnect',
       (tester) async {
         configureDesktopWindow(tester);
-        final fakeClient = _FakeBackendClient(healthResult: downHealth);
+        final fakeClient = _FakeBackendClient(statusResult: downStatus);
 
         await tester.pumpWidget(
           ProviderScope(
@@ -128,16 +167,18 @@ void main() {
             child: const HiveApp(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         expect(find.byType(ConnectingPage), findsOneWidget);
         expect(find.byType(HiveSideRail), findsNothing);
-        final initialChecks = fakeClient.healthCheckCount;
+        final initialChecks = fakeClient.statusCheckCount;
 
         await tester.tap(find.byType(HiveButton));
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
-        expect(fakeClient.healthCheckCount, greaterThan(initialChecks));
+        expect(fakeClient.statusCheckCount, greaterThan(initialChecks));
         expect(find.byType(ConnectingPage), findsOneWidget);
       },
     );
@@ -146,7 +187,7 @@ void main() {
       'disconnecting redirects to /connecting and reconnecting restores route',
       (tester) async {
         configureDesktopWindow(tester);
-        final fakeClient = _FakeBackendClient(healthResult: okHealth);
+        final fakeClient = _FakeBackendClient(statusResult: okStatus);
 
         await tester.pumpWidget(
           ProviderScope(
@@ -164,20 +205,18 @@ void main() {
         expect(find.byType(WorkflowsPage), findsOneWidget);
 
         // Transition to disconnected -> redirects to /connecting.
-        fakeClient.healthResult = downHealth;
+        fakeClient.statusResult = downStatus;
         final container = ProviderScope.containerOf(
           tester.element(find.byType(HiveApp)),
         );
-        await container
-            .read(backendConnectionProvider.notifier)
-            .checkConnection();
+        await container.read(backendConnectionProvider.notifier).reconnect();
         await tester.pumpAndSettle();
 
         expect(find.byType(ConnectingPage), findsOneWidget);
         expect(find.byType(HiveSideRail), findsNothing);
 
         // Transition back to connected via retry -> restores /workflows.
-        fakeClient.healthResult = okHealth;
+        fakeClient.statusResult = okStatus;
         await tester.tap(find.byType(HiveButton));
         await tester.pumpAndSettle();
 
