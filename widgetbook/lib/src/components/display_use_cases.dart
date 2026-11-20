@@ -179,6 +179,7 @@ WidgetbookComponent agentAvatarComponent() {
             width: context.hiveSpacing.space8 * 5,
             child: HiveCard(
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   HiveAgentAvatar(
                     visual: _harnessVisuals['Gemini CLI']!,
@@ -190,6 +191,7 @@ WidgetbookComponent agentAvatarComponent() {
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
                         Text(
                           'Review pull request',
@@ -204,6 +206,7 @@ WidgetbookComponent agentAvatarComponent() {
                       ],
                     ),
                   ),
+                  SizedBox(width: context.hiveSpacing.space1),
                   const HiveBadge(label: 'Paused', tone: HiveBadgeTone.warning),
                 ],
               ),
