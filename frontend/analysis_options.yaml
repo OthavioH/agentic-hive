@@ -1,0 +1,25 @@
+include: package:very_good_analysis/analysis_options.yaml
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "lib/l10n/generated/**"
+    - build/**
+    - windows/**
+    - macos/**
+    - linux/**
+
+plugins:
+  hive_lints:
+    path: ../tools/hive_lints
+    diagnostics:
+      no_literal_color: true
+      no_literal_spacing: true
+      no_literal_radius: true
+      no_literal_font_size: true
+      no_literal_duration: true
+      no_raw_catalog_widget: true
+      no_direct_icon_package: true
+      no_flutter_material_import: true
+  riverpod_lint: ^3.2.0

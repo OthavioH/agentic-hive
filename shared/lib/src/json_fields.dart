@@ -1,3 +1,5 @@
+import 'package:json_annotation/json_annotation.dart';
+
 /// A decoded JSON object.
 typedef JsonMap = Map<String, Object?>;
 
@@ -19,4 +21,16 @@ JsonMap readObject(JsonMap json, String key) {
   throw FormatException(
     'Expected "$key" to be a JSON object, got ${value.runtimeType}.',
   );
+}
+
+/// Runs a `json_serializable` [fromJson] decoder and converts any
+/// [CheckedFromJsonException] into a [FormatException] naming the bad field.
+T parseJson<T>(JsonMap json, T Function(JsonMap) fromJson) {
+  try {
+    return fromJson(json);
+  } on CheckedFromJsonException catch (e) {
+    final key = e.key;
+    final detail = e.message ?? e.innerError?.toString() ?? 'invalid value';
+    throw FormatException(key != null ? 'Invalid "$key": $detail' : detail);
+  }
 }

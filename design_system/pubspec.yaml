@@ -1,0 +1,36 @@
+name: design_system
+description: Agentic Hive design system — semantic tokens, themes, Hive* catalog components, HiveIcons, node visuals and motion.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.14.0
+  flutter: ">=3.50.1"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_flux_motion: ^0.1.0
+  flutter_svg: ^2.5.0
+  hugeicons: ^4.4.0
+  material_ui: ^1.11.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  very_good_analysis: ^11.0.0
+
+flutter:
+  assets:
+    - assets/svg/
+  fonts:
+    - family: BricolageGrotesque
+      fonts:
+        - asset: assets/fonts/bricolage_grotesque/BricolageGrotesque-Variable.ttf
+    - family: Geist
+      fonts:
+        - asset: assets/fonts/geist/Geist-Variable.ttf
+    - family: GeistMono
+      fonts:
+        - asset: assets/fonts/geist_mono/GeistMono-Variable.ttf

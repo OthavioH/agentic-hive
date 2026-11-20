@@ -1,0 +1,131 @@
+{
+  "@@locale": "en",
+  "appTitle": "Agentic Hive",
+  "@appTitle": {
+    "description": "Application title shown in window title bars and root metadata."
+  },
+  "navOverview": "Overview",
+  "@navOverview": {
+    "description": "Navigation rail destination label for Overview."
+  },
+  "navWorkflows": "Workflows",
+  "@navWorkflows": {
+    "description": "Navigation rail destination label for Workflows."
+  },
+  "navRuns": "Runs",
+  "@navRuns": {
+    "description": "Navigation rail destination label for Runs."
+  },
+  "navPauses": "Pauses",
+  "@navPauses": {
+    "description": "Navigation rail destination label for Pauses."
+  },
+  "navAgents": "Agents",
+  "@navAgents": {
+    "description": "Navigation rail destination label for Agents."
+  },
+  "navHarnesses": "Harnesses",
+  "@navHarnesses": {
+    "description": "Navigation rail destination label for Harnesses."
+  },
+  "navSettings": "Settings",
+  "@navSettings": {
+    "description": "Navigation rail destination label for Settings."
+  },
+  "railExpandTooltip": "Expand navigation rail",
+  "@railExpandTooltip": {
+    "description": "Tooltip for the button that expands the side rail."
+  },
+  "railCollapseTooltip": "Collapse navigation rail",
+  "@railCollapseTooltip": {
+    "description": "Tooltip for the button that collapses the side rail."
+  },
+  "overviewEmptyTitle": "No activity yet",
+  "@overviewEmptyTitle": {
+    "description": "Empty state title on the Overview placeholder page."
+  },
+  "overviewEmptyDescription": "Workflow runs, active agents, and pending pauses will appear here once you start running workflows.",
+  "@overviewEmptyDescription": {
+    "description": "Empty state description on the Overview placeholder page."
+  },
+  "workflowsEmptyTitle": "No workflows yet",
+  "@workflowsEmptyTitle": {
+    "description": "Empty state title on the Workflows placeholder page."
+  },
+  "workflowsEmptyDescription": "Create a workflow graph to orchestrate agents, validators, and approvals.",
+  "@workflowsEmptyDescription": {
+    "description": "Empty state description on the Workflows placeholder page."
+  },
+  "runsEmptyTitle": "No runs yet",
+  "@runsEmptyTitle": {
+    "description": "Empty state title on the Runs placeholder page."
+  },
+  "runsEmptyDescription": "Start a workflow to monitor live execution, logs, and node checkpoints here.",
+  "@runsEmptyDescription": {
+    "description": "Empty state description on the Runs placeholder page."
+  },
+  "pausesEmptyTitle": "No pending pauses",
+  "@pausesEmptyTitle": {
+    "description": "Empty state title on the Pauses placeholder page."
+  },
+  "pausesEmptyDescription": "Human approval gates and review checkpoints waiting for your decision will appear here.",
+  "@pausesEmptyDescription": {
+    "description": "Empty state description on the Pauses placeholder page."
+  },
+  "agentsEmptyTitle": "No agents configured",
+  "@agentsEmptyTitle": {
+    "description": "Empty state title on the Agents placeholder page."
+  },
+  "agentsEmptyDescription": "Define specialized agent roles and prompts to reuse across your workflows.",
+  "@agentsEmptyDescription": {
+    "description": "Empty state description on the Agents placeholder page."
+  },
+  "harnessesEmptyTitle": "No harnesses detected",
+  "@harnessesEmptyTitle": {
+    "description": "Empty state title on the Harnesses placeholder page."
+  },
+  "harnessesEmptyDescription": "Connected CLI harnesses and their availability status will appear here.",
+  "@harnessesEmptyDescription": {
+    "description": "Empty state description on the Harnesses placeholder page."
+  },
+  "settingsEmptyTitle": "Settings",
+  "@settingsEmptyTitle": {
+    "description": "Empty state title on the Settings placeholder page."
+  },
+  "settingsEmptyDescription": "Theme, workspace defaults, and backend connection preferences will be configured here.",
+  "@settingsEmptyDescription": {
+    "description": "Empty state description on the Settings placeholder page."
+  },
+  "connectingTitle": "Connecting to backend",
+  "@connectingTitle": {
+    "description": "Title shown on the connecting page while waiting for the backend."
+  },
+  "connectingSubtitle": "Waiting for the local Agentic Hive backend service over the Unix domain socket.",
+  "@connectingSubtitle": {
+    "description": "Subtitle shown on the connecting page."
+  },
+  "connectingStatusConnecting": "Connecting to backend...",
+  "@connectingStatusConnecting": {
+    "description": "Status message when connection attempt is in progress."
+  },
+  "connectingStatusDisconnected": "Backend is not responding.",
+  "@connectingStatusDisconnected": {
+    "description": "Status message when backend is unreachable or disconnected."
+  },
+  "connectingRetryAction": "Retry connection",
+  "@connectingRetryAction": {
+    "description": "Button label to retry connecting to the backend."
+  },
+  "routeErrorTitle": "Page not found",
+  "@routeErrorTitle": {
+    "description": "Title shown on the router error page when a route cannot be resolved."
+  },
+  "routeErrorDescription": "The requested page does not exist or could not be opened.",
+  "@routeErrorDescription": {
+    "description": "Description shown on the router error page."
+  },
+  "routeErrorAction": "Back to Overview",
+  "@routeErrorAction": {
+    "description": "Button label on the router error page to return to Overview."
+  }
+}
