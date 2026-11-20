@@ -38,9 +38,25 @@ _Avoid_: project, repo, sandbox
 The saved state of the workspace files before a node, used to roll back.
 _Avoid_: backup, commit
 
+**Shadow repository**:
+The isolated git repository kept outside the user's workspace where snapshots for a run are stored.
+_Avoid_: shadow git, hidden repo, backup repo
+
+**Worktree**:
+An isolated working copy created from a user's git repository on a dedicated branch for a run.
+_Avoid_: clone, sandbox, temp copy
+
 **Checkpoint**:
 The saved state of the graph (position, attempts, node outputs) at the end of each node.
 _Avoid_: save, snapshot (which is about files)
+
+**Event log**:
+The append-only sequence of structured lifecycle and execution events recorded for a run.
+_Avoid_: trace, stdout log
+
+**Circuit breaker**:
+A safeguard that stops a run after consecutive infrastructure failures across nodes, preventing infinite crash loops.
+_Avoid_: retry limit (which is per-edge `maxRetries`)
 
 **Result contract**:
 How an agent tells the backend it has finished and with which status: the `report_result` MCP tool or the `result.json` file.
@@ -51,7 +67,7 @@ The state of a run waiting for a human answer, through an approval node or `ask_
 _Avoid_: block, wait
 
 **Active run**:
-A run that has started and has not finished, failed or been cancelled. A paused run is still active.
+A run that has started and has not finished, failed, been cancelled, been interrupted by a backend restart, or entered `cancellationUncertain`. A paused or cancelling run is still active.
 _Avoid_: live run, open run
 
 **Active node**:
