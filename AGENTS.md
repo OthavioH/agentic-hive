@@ -33,15 +33,16 @@ Each family of behavior has an abstract base, and each variation is an implement
 
 - **Success comes from the result contract** (`report_result` through MCP or `result.json`). A non-zero exit code only signals an infrastructure failure; exit code zero without a report is a failure. See `docs/adrs/0003-result-contract.md`.
 - **The product is generic.** Nothing in the engine may assume the workspace is code, that a user git repository exists, or that there are tests. Domain-specific validations are nodes, never engine rules.
-- **Prompts go through stdin or a file**, never as a command-line argument (size limit on Windows).
+- **Prompts go through stdin or a file**, never as a command-line argument.
 - **Cancellation is only reported as done after confirming** that the process tree has exited.
-- **The server listens only on `127.0.0.1`**, requires a token and checks the `Origin` header.
+- **The backend listens only on a Unix domain socket** in the user's data folder; file permissions are the authentication, and requests with an `Origin` header are rejected. No TCP port, token or session (ADR 0011).
 - **Harness sign-in belongs to the user.** Detect authentication errors and show a clear message; never store harness credentials.
 
 ## Conventions
 
 - **Always the latest stable version.** Before adding or updating a dependency (Dart, Flutter, packages), check the current version on pub.dev and the current documentation (Context7). Never write a version or an API from memory.
-- Windows is the target platform. Handle paths with `package:path` and test process behavior on Windows.
+- **Multi-platform:** Windows and Linux now, macOS designed in (ADR 0012). OS-specific behavior lives behind an abstraction with one implementation per OS; never branch on the platform inline. Handle paths with `package:path`.
+- **Zero tolerance on code quality** (ADR 0014): `very_good_analysis` with no disabled rules. Work is done only when `dart analyze --fatal-infos`, `dart format --output=none --set-exit-if-changed .` and `dart fix --dry-run` all report nothing.
 - Code, identifiers, commit messages and all documentation (README, `AGENTS.md`, ADRs, glossary, agent definitions) are written in English.
 
 ## Agent skills
