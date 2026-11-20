@@ -50,6 +50,7 @@ lib/
 
 ## Localization (`gen-l10n`)
 
+- Localization files live at `frontend/lib/l10n/` (matching Flutter's default `l10n.yaml` convention) rather than `core/l10n/`.
 - Every user-visible string must live in `lib/l10n/app_en.arb` and be read via `AppLocalizations.of(context)!`. Never hardcode user-visible copy in widgets or controllers.
 - Localizations: take `GlobalMaterialLocalizations` from `package:material_ui/material_ui.dart` and `GlobalCupertinoLocalizations` from `package:cupertino_ui/cupertino_ui.dart`, not from `flutter_localizations` (which only provides `GlobalWidgetsLocalizations`).
 
