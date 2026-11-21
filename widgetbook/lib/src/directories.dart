@@ -125,6 +125,7 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
         children: <WidgetbookNode>[
           statusDotComponent(),
           badgeComponent(),
+          diffStatComponent(),
           agentAvatarComponent(),
           connectionIndicatorComponent(),
         ],

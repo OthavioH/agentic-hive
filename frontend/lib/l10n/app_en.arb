@@ -1756,5 +1756,160 @@
   "nodeConfigHumanAllowFeedbackLabel": "Allow feedback message",
   "@nodeConfigHumanAllowFeedbackLabel": {
     "description": "Switch label for allowing the human reviewer to enter feedback."
+  },
+  "runDetailTabsLabel": "Inspector view",
+  "@runDetailTabsLabel": {
+    "description": "Semantic label for the Checkpoints/Snapshots toggle on Run Detail."
+  },
+  "runDetailTabSnapshots": "Snapshots",
+  "@runDetailTabSnapshots": {
+    "description": "Segment label for the workspace snapshots view on Run Detail."
+  },
+  "runDetailIsolationLabel": "Isolation",
+  "@runDetailIsolationLabel": {
+    "description": "Metadata label for how the run workspace is isolated."
+  },
+  "runDetailIsolationDirect": "Direct",
+  "@runDetailIsolationDirect": {
+    "description": "Isolation mode value: the run edits the workspace folder directly."
+  },
+  "runDetailIsolationWorktree": "Worktree",
+  "@runDetailIsolationWorktree": {
+    "description": "Isolation mode value: the run uses an isolated git worktree."
+  },
+  "runDetailWorktreePathLabel": "Worktree path",
+  "@runDetailWorktreePathLabel": {
+    "description": "Metadata label for the git worktree folder of a run."
+  },
+  "runDetailWorktreeBranchLabel": "Branch",
+  "@runDetailWorktreeBranchLabel": {
+    "description": "Metadata label for the hive/<runId> branch of a run worktree."
+  },
+  "snapshotsTitle": "Snapshots",
+  "@snapshotsTitle": {
+    "description": "Title of the workspace snapshots panel."
+  },
+  "snapshotsEmptyMessage": "No snapshots were captured for this run yet.",
+  "@snapshotsEmptyMessage": {
+    "description": "Empty state message for the snapshots panel."
+  },
+  "snapshotsLoadErrorTitle": "Failed to load snapshots",
+  "@snapshotsLoadErrorTitle": {
+    "description": "Title shown when listing snapshots fails."
+  },
+  "snapshotKindPreNode": "Before node",
+  "@snapshotKindPreNode": {
+    "description": "Badge for a snapshot captured before a node ran."
+  },
+  "snapshotKindSafetyPreRestore": "Safety",
+  "@snapshotKindSafetyPreRestore": {
+    "description": "Badge for the automatic snapshot taken right before a restore."
+  },
+  "snapshotNodeUnknown": "Workspace",
+  "@snapshotNodeUnknown": {
+    "description": "Fallback title of a snapshot that is not tied to a node."
+  },
+  "snapshotDiffStatSemanticLabel": "{added} added, {modified} modified, {deleted} deleted",
+  "@snapshotDiffStatSemanticLabel": {
+    "description": "Screen reader label for the +A ~M -D change summary.",
+    "placeholders": {
+      "added": {
+        "type": "int"
+      },
+      "modified": {
+        "type": "int"
+      },
+      "deleted": {
+        "type": "int"
+      }
+    }
+  },
+  "snapshotsShowFilesTooltip": "Show changed files",
+  "@snapshotsShowFilesTooltip": {
+    "description": "Tooltip for expanding the changed files of a snapshot."
+  },
+  "snapshotsHideFilesTooltip": "Hide changed files",
+  "@snapshotsHideFilesTooltip": {
+    "description": "Tooltip for collapsing the changed files of a snapshot."
+  },
+  "snapshotsNoChangedFiles": "No files changed in this snapshot.",
+  "@snapshotsNoChangedFiles": {
+    "description": "Shown when an expanded snapshot has no changed files."
+  },
+  "snapshotsDiffLoadFailed": "Could not load the changed files.",
+  "@snapshotsDiffLoadFailed": {
+    "description": "Shown when loading the changed files of a snapshot fails."
+  },
+  "snapshotChangeAdded": "added",
+  "@snapshotChangeAdded": {
+    "description": "Change type word for a file added in a snapshot."
+  },
+  "snapshotChangeModified": "modified",
+  "@snapshotChangeModified": {
+    "description": "Change type word for a file modified in a snapshot."
+  },
+  "snapshotChangeDeleted": "deleted",
+  "@snapshotChangeDeleted": {
+    "description": "Change type word for a file deleted in a snapshot."
+  },
+  "snapshotsRestoreAction": "Restore",
+  "@snapshotsRestoreAction": {
+    "description": "Button that restores the workspace to a snapshot."
+  },
+  "snapshotsRestoringAction": "Restoring...",
+  "@snapshotsRestoringAction": {
+    "description": "Button label while a restore is running."
+  },
+  "snapshotsRestoreRunActive": "Stop or pause the run before restoring a snapshot.",
+  "@snapshotsRestoreRunActive": {
+    "description": "Notice explaining restore is unavailable while the run is running."
+  },
+  "snapshotsRestoreGitUnavailable": "Restore needs git, which is not available on this machine. Install git and refresh.",
+  "@snapshotsRestoreGitUnavailable": {
+    "description": "Notice explaining restore is unavailable because git is missing."
+  },
+  "snapshotsRestoreCheckFailed": "Could not check whether restore is available. Refresh to try again.",
+  "@snapshotsRestoreCheckFailed": {
+    "description": "Notice shown when the git capability check failed."
+  },
+  "snapshotsRestoreDialogTitle": "Restore this snapshot?",
+  "@snapshotsRestoreDialogTitle": {
+    "description": "Title of the restore confirmation dialog."
+  },
+  "snapshotsRestoreDialogMessage": "Files in the workspace are rolled back to this snapshot and files created after it are removed. Excluded files and .git are kept. A safety snapshot of the current state is taken first.",
+  "@snapshotsRestoreDialogMessage": {
+    "description": "Body of the restore confirmation dialog."
+  },
+  "snapshotsRestoreConfirm": "Restore snapshot",
+  "@snapshotsRestoreConfirm": {
+    "description": "Confirm button of the restore dialog."
+  },
+  "snapshotsRestoreCancel": "Cancel",
+  "@snapshotsRestoreCancel": {
+    "description": "Cancel button of the restore dialog."
+  },
+  "snapshotsRestoreBarrierLabel": "Dismiss restore dialog",
+  "@snapshotsRestoreBarrierLabel": {
+    "description": "Screen reader label of the restore dialog scrim."
+  },
+  "snapshotsRestoreSuccessTitle": "Workspace restored",
+  "@snapshotsRestoreSuccessTitle": {
+    "description": "Title of the banner shown after a successful restore."
+  },
+  "snapshotsRestoreSuccessMessage": "A safety snapshot of the previous state was saved.",
+  "@snapshotsRestoreSuccessMessage": {
+    "description": "Message of the banner shown after a successful restore."
+  },
+  "snapshotsRestoreFailedTitle": "Restore failed",
+  "@snapshotsRestoreFailedTitle": {
+    "description": "Title of the banner shown when a restore fails."
+  },
+  "snapshotsRestoreConflict": "The run is active. Restore is only possible when it is not running.",
+  "@snapshotsRestoreConflict": {
+    "description": "Message when the backend rejects a restore with a conflict."
+  },
+  "snapshotsDismissTooltip": "Dismiss",
+  "@snapshotsDismissTooltip": {
+    "description": "Semantic label of the dismiss button on restore banners."
   }
 }

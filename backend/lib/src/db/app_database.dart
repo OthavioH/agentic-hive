@@ -74,6 +74,16 @@ class Runs extends Table {
   /// Optional error message when the run failed or was interrupted.
   TextColumn get errorMessage => text().nullable()();
 
+  /// Workspace isolation mode (`direct` or `worktree`).
+  TextColumn get isolationMode =>
+      text().withDefault(const Constant('direct'))();
+
+  /// Optional path to the isolated git worktree created for this run.
+  TextColumn get worktreePath => text().nullable()();
+
+  /// Optional branch name (`hive/<runId>`) for an isolated git worktree.
+  TextColumn get worktreeBranch => text().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
@@ -157,6 +167,42 @@ class RunEvents extends Table {
   ];
 }
 
+/// Workspace snapshots captured before nodes or restores for a [Runs] row.
+@DataClassName('SnapshotRow')
+@TableIndex(name: 'idx_snapshots_run_created_at', columns: {#runId, #createdAt})
+class Snapshots extends Table {
+  /// Unique snapshot identifier.
+  TextColumn get id => text()();
+
+  /// Owning run identifier.
+  TextColumn get runId =>
+      text().references(Runs, #id, onDelete: KeyAction.cascade)();
+
+  /// Optional node identifier associated with this snapshot.
+  TextColumn get nodeId => text().nullable()();
+
+  /// Git commit hash in the run's shadow repository.
+  TextColumn get commitHash => text()();
+
+  /// Wire name of snapshot kind (`pre_node` or `safety_pre_restore`).
+  TextColumn get kind => text()();
+
+  /// Number of files added in this snapshot.
+  IntColumn get addedCount => integer()();
+
+  /// Number of files modified in this snapshot.
+  IntColumn get modifiedCount => integer()();
+
+  /// Number of files deleted in this snapshot.
+  IntColumn get deletedCount => integer()();
+
+  /// UTC ISO-8601 creation timestamp.
+  TextColumn get createdAt => text()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
 /// Persisted runtime settings (key/value pairs).
 @DataClassName('SettingRow')
 class Settings extends Table {
@@ -179,7 +225,15 @@ class Settings extends Table {
 /// Raise [schemaVersion] and add a step to [migration] for every schema
 /// change; never edit a migration that has shipped.
 @DriftDatabase(
-  tables: [AppMetadata, Workflows, Runs, Checkpoints, RunEvents, Settings],
+  tables: [
+    AppMetadata,
+    Workflows,
+    Runs,
+    Checkpoints,
+    RunEvents,
+    Settings,
+    Snapshots,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   /// Wraps an already opened query executor [e]; tests pass an in-memory
@@ -194,7 +248,7 @@ class AppDatabase extends _$AppDatabase {
   static const installedAtKey = 'installed_at';
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -220,6 +274,15 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 4) {
         await m.createTable(settings);
+      }
+      if (from < 5) {
+        if (from >= 3) {
+          await m.addColumn(runs, runs.isolationMode);
+          await m.addColumn(runs, runs.worktreePath);
+          await m.addColumn(runs, runs.worktreeBranch);
+        }
+        await m.createTable(snapshots);
+        await m.createIndex(idxSnapshotsRunCreatedAt);
       }
     },
     beforeOpen: (details) async {

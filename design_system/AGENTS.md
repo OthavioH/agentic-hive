@@ -73,6 +73,8 @@ Initial components: `HiveSideRail` (floating pill, collapsed by default, expanda
 
 F2 additions (#10): `HiveTextField` (pill) and `HiveTextArea` (`radiusCard`, optional `mono`) over one shared input frame; `HiveChip.removable` / `HiveChip.filter`; `HiveSegmentedControl`; `HiveConfirmDialog` + `showHiveConfirmDialog` (`radiusPanel`, `background` scrim at `scrimOpacity`); `HiveBanner` (inline) and `HiveToast` + `showHiveToast` (transient), both toned by `HiveFeedbackTone`; `HiveMarkdownView` (`package:markdown`, raw HTML shown as text); `HiveMasterDetail`; `HiveCollapsibleSection`. `HiveButtonVariant.danger` is only for confirming a destructive action inside a confirmation. Selected segments and filter chips use the inverse pair (`background` on `onSurface`); feedback tones color only borders and icons, never text, and are tested as UI (3:1) on every surface.
 
+F8 addition (#17): `HiveDiffStat` (`+A ~M -D` summary pill on `surface2` with `radiusPill`, counts in Geist Mono `onSurface`, zero counts in `onSurfaceMuted`; `success`/`warning`/`danger` color only the leading icons, since light `success` and `warning` miss 4.5:1 as text on `surface2`).
+
 **Desktop platform profile:** Windows, Linux, and macOS; mouse + keyboard first. Every interactive component must have a hover state, a visible keyboard focus indicator, and a semantics label. Support desktop density (sidebar, multi-column, master-detail).
 
 ## Do and Don't

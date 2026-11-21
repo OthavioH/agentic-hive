@@ -76,12 +76,15 @@ abstract final class RunL10n {
       RunEventType.nodeStarted => HiveBadgeTone.info,
       RunEventType.runPaused ||
       RunEventType.runInterrupted ||
-      RunEventType.nodeRetried => HiveBadgeTone.warning,
+      RunEventType.nodeRetried ||
+      RunEventType.snapshotWarning => HiveBadgeTone.warning,
       RunEventType.runSucceeded ||
-      RunEventType.nodeCompleted => HiveBadgeTone.success,
+      RunEventType.nodeCompleted ||
+      RunEventType.snapshotRestored => HiveBadgeTone.success,
       RunEventType.runFailed || RunEventType.nodeFailed => HiveBadgeTone.danger,
       RunEventType.runCancelled ||
-      RunEventType.checkpointSaved => HiveBadgeTone.neutral,
+      RunEventType.checkpointSaved ||
+      RunEventType.snapshotCaptured => HiveBadgeTone.neutral,
     };
   }
 

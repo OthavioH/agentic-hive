@@ -4,6 +4,7 @@ import 'package:agentic_hive_backend/src/api/result_contract/result_contract_han
 import 'package:agentic_hive_backend/src/api/runs/runs_handler.dart';
 import 'package:agentic_hive_backend/src/api/settings/settings_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
+import 'package:agentic_hive_backend/src/api/workspace/workspace_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/health_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/shutdown_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
@@ -31,6 +32,7 @@ Handler buildApiHandler({
   WorkflowHandler? workflowHandler,
   ResultContractHandler? resultContractHandler,
   RunsHandler? runsHandler,
+  WorkspaceHandler? workspaceHandler,
   SettingsHandler? settingsHandler,
 }) {
   final router = Router(notFoundHandler: _notFound)
@@ -40,6 +42,19 @@ Handler buildApiHandler({
     ..get('/ws', webSocketHandler);
   if (workflowHandler != null) {
     router.mount('/api/v1/workflows', workflowHandler.call);
+  }
+  if (workspaceHandler != null) {
+    router
+      ..get('/api/v1/workspace/capabilities', workspaceHandler.capabilities)
+      ..get('/api/v1/runs/<id>/snapshots', workspaceHandler.listSnapshots)
+      ..get(
+        '/api/v1/runs/<id>/snapshots/<snapshotId>/diff',
+        workspaceHandler.getDiff,
+      )
+      ..post(
+        '/api/v1/runs/<id>/snapshots/<snapshotId>/restore',
+        workspaceHandler.restoreSnapshot,
+      );
   }
   if (runsHandler != null) {
     router.mount('/api/v1/runs', runsHandler.call);

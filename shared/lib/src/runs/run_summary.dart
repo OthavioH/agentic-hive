@@ -1,5 +1,6 @@
 import 'package:agentic_hive_shared/src/json_fields.dart';
 import 'package:agentic_hive_shared/src/runs/run_status.dart';
+import 'package:agentic_hive_shared/src/workspace/workspace_isolation_mode.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'run_summary.freezed.dart';
@@ -15,6 +16,10 @@ sealed class RunSummary with _$RunSummary {
     required RunStatus status,
     required DateTime startedAt,
     required int checkpointCount,
+    @Default(WorkspaceIsolationMode.direct)
+    WorkspaceIsolationMode isolationMode,
+    String? worktreePath,
+    String? worktreeBranch,
     String? workflowId,
     DateTime? finishedAt,
   }) = _RunSummary;

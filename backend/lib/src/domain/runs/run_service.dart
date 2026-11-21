@@ -3,13 +3,21 @@ import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
+import 'package:agentic_hive_backend/src/domain/workspace/shadow_snapshot_service.dart';
+import 'package:agentic_hive_backend/src/domain/workspace/workspace_preparation_service.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 /// Domain service for querying and managing [Run]s, [Checkpoint]s, and
 /// [RunEvent]s.
 final class RunService {
   /// Creates a run service.
-  new({required this._runs, required this._checkpoints, required this._events});
+  new({
+    required this._runs,
+    required this._checkpoints,
+    required this._events,
+    this._snapshots,
+    this._workspacePreparation,
+  });
 
   /// Default page size when querying run events without an explicit limit.
   static const int defaultEventsLimit = 200;
@@ -20,6 +28,8 @@ final class RunService {
   final RunRepository _runs;
   final CheckpointRepository _checkpoints;
   final RunEventRepository _events;
+  final ShadowSnapshotService? _snapshots;
+  final WorkspacePreparationService? _workspacePreparation;
 
   /// Lists runs ordered by `startedAt DESC` with optional filters.
   Future<Result<RunsListResponse>> listRuns({
@@ -114,9 +124,37 @@ final class RunService {
     return listResult.map((items) => RunCheckpointsResponse(items: items));
   }
 
-  /// Atomically deletes a non-active run [id] (cascading its checkpoints and
-  /// events).
+  /// Atomically deletes a non-active run [id] (cascading its checkpoints,
+  /// events, and snapshots) and cleans up its shadow repository and any
+  /// associated worktree.
   ///
   /// Returns [ConflictFailure] when the run is `running` or `paused`.
-  Future<Result<void>> deleteRun(String id) => _runs.delete(id);
+  Future<Result<void>> deleteRun(String id) async {
+    final existingResult = await _runs.getById(id);
+    final existing = switch (existingResult) {
+      Success<Run>(:final value) => value,
+      FailureResult<Run>() => null,
+    };
+
+    final deleteResult = await _runs.delete(id);
+    if (deleteResult case FailureResult<void>()) {
+      return deleteResult;
+    }
+
+    if (_snapshots != null) {
+      await _snapshots.deleteShadowRepository(id);
+    }
+    if (existing != null &&
+        _workspacePreparation != null &&
+        existing.isolationMode == WorkspaceIsolationMode.worktree &&
+        existing.worktreePath != null) {
+      await _workspacePreparation.cleanupWorktree(
+        workspacePath: existing.workspacePath,
+        worktreePath: existing.worktreePath!,
+        branchName: existing.worktreeBranch,
+      );
+    }
+
+    return deleteResult;
+  }
 }

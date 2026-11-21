@@ -1,6 +1,7 @@
 import 'package:agentic_hive_shared/src/json_fields.dart';
 import 'package:agentic_hive_shared/src/runs/run_status.dart';
 import 'package:agentic_hive_shared/src/workflows/workflow.dart';
+import 'package:agentic_hive_shared/src/workspace/workspace_isolation_mode.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'run.freezed.dart';
@@ -17,6 +18,10 @@ sealed class Run with _$Run {
     required String workspacePath,
     required RunStatus status,
     required DateTime startedAt,
+    @Default(WorkspaceIsolationMode.direct)
+    WorkspaceIsolationMode isolationMode,
+    String? worktreePath,
+    String? worktreeBranch,
     String? workflowId,
     DateTime? finishedAt,
     String? errorMessage,

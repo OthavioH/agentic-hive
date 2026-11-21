@@ -74,7 +74,38 @@ void main() {
       expect(json.containsKey('workflowId'), isFalse);
       expect(json.containsKey('finishedAt'), isFalse);
       expect(json.containsKey('errorMessage'), isFalse);
+      expect(json.containsKey('worktreePath'), isFalse);
+      expect(json.containsKey('worktreeBranch'), isFalse);
       expect(Run.fromJson(json), run);
+    });
+
+    test('defaults isolationMode to direct when omitted and round-trips '
+        'worktree fields', () {
+      final legacyJson = {
+        'id': 'run-legacy',
+        'workflowName': 'Legacy',
+        'workflowDefinition': sampleWorkflow.toJson(),
+        'workspacePath': '/tmp/ws',
+        'status': 'succeeded',
+        'startedAt': '2026-11-20T12:00:00.000Z',
+      };
+      final legacy = Run.fromJson(legacyJson);
+      expect(legacy.isolationMode, WorkspaceIsolationMode.direct);
+      expect(legacy.worktreePath, isNull);
+      expect(legacy.worktreeBranch, isNull);
+
+      final worktreeRun = Run(
+        id: 'run-wt',
+        workflowName: 'Isolated',
+        workflowDefinition: sampleWorkflow,
+        workspacePath: '/tmp/ws',
+        status: RunStatus.running,
+        startedAt: DateTime.utc(2026, 11, 20, 12),
+        isolationMode: WorkspaceIsolationMode.worktree,
+        worktreePath: '/data/worktrees/run-wt',
+        worktreeBranch: 'hive/run-wt',
+      );
+      expect(Run.fromJson(worktreeRun.toJson()), worktreeRun);
     });
   });
 
@@ -130,6 +161,9 @@ void main() {
         RunEventType.nodeFailed: 'node.failed',
         RunEventType.nodeRetried: 'node.retried',
         RunEventType.checkpointSaved: 'checkpoint.saved',
+        RunEventType.snapshotCaptured: 'snapshot.captured',
+        RunEventType.snapshotRestored: 'snapshot.restored',
+        RunEventType.snapshotWarning: 'snapshot.warning',
       };
 
       expect(expected.length, RunEventType.values.length);

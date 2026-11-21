@@ -52,4 +52,10 @@ final class AppConfig {
 
   /// The folder where agent `.md` files are stored.
   String get agentsDir => _agentsDir ?? p.join(dataDir, 'agents');
+
+  /// The folder where per-run shadow git repositories are stored.
+  String get snapshotsDir => p.join(dataDir, 'snapshots');
+
+  /// The folder where per-run isolated git worktrees are stored.
+  String get worktreesDir => p.join(dataDir, 'worktrees');
 }

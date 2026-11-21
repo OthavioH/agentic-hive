@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/runs/controllers/run_detail_controller.dart';
 import 'package:agentic_hive_frontend/presentation/runs/utils/run_l10n.dart';
+import 'package:agentic_hive_frontend/presentation/runs/widgets/run_inspector_tabs.dart';
+import 'package:agentic_hive_frontend/presentation/workspace/widgets/snapshots_panel.dart';
 import 'package:agentic_hive_frontend/routes/app_routes.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
@@ -115,7 +117,7 @@ class _HeaderRow extends StatelessWidget {
   }
 }
 
-class _RunDetailBody extends ConsumerWidget {
+class _RunDetailBody extends ConsumerStatefulWidget {
   const new({
     required this.runId,
     required this.detailState,
@@ -127,13 +129,32 @@ class _RunDetailBody extends ConsumerWidget {
   final VoidCallback onBack;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_RunDetailBody> createState() => _RunDetailBodyState();
+}
+
+class _RunDetailBodyState extends ConsumerState<_RunDetailBody> {
+  RunInspectorTab _tab = RunInspectorTab.checkpoints;
+
+  String get runId => widget.runId;
+  RunDetailState get detailState => widget.detailState;
+  VoidCallback get onBack => widget.onBack;
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final spacing = context.hiveSpacing;
     final colors = context.hiveColors;
     final typography = context.hiveTypography;
     final run = detailState.run;
     final statusLabel = RunL10n.localizeStatus(l10n, run.status);
+    final inspector = _InspectorColumn(
+      runId: runId,
+      run: run,
+      checkpoints: detailState.checkpoints,
+      selectedCheckpoint: detailState.selectedCheckpoint,
+      tab: _tab,
+      onTabChanged: (tab) => setState(() => _tab = tab),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -180,6 +201,29 @@ class _RunDetailBody extends ConsumerWidget {
                 value: run.workspacePath,
                 mono: true,
               ),
+              _MetadataItem(
+                label: l10n.runDetailIsolationLabel,
+                value: switch (run.isolationMode) {
+                  WorkspaceIsolationMode.direct =>
+                    l10n.runDetailIsolationDirect,
+                  WorkspaceIsolationMode.worktree =>
+                    l10n.runDetailIsolationWorktree,
+                },
+              ),
+              if (run.worktreePath != null)
+                _MetadataItem(
+                  key: const Key('run_detail_worktree_path'),
+                  label: l10n.runDetailWorktreePathLabel,
+                  value: run.worktreePath!,
+                  mono: true,
+                ),
+              if (run.worktreeBranch != null)
+                _MetadataItem(
+                  key: const Key('run_detail_worktree_branch'),
+                  label: l10n.runDetailWorktreeBranchLabel,
+                  value: run.worktreeBranch!,
+                  mono: true,
+                ),
               _MetadataItem(
                 label: l10n.runDetailStartedLabel,
                 value: RunL10n.formatTimestamp(run.startedAt),
@@ -258,14 +302,7 @@ class _RunDetailBody extends ConsumerWidget {
                       ),
                     ),
                     SizedBox(width: spacing.space3),
-                    Expanded(
-                      flex: 2,
-                      child: _CheckpointInspectorColumn(
-                        runId: runId,
-                        checkpoints: detailState.checkpoints,
-                        selectedCheckpoint: detailState.selectedCheckpoint,
-                      ),
-                    ),
+                    Expanded(flex: 2, child: inspector),
                   ],
                 );
               }
@@ -282,14 +319,7 @@ class _RunDetailBody extends ConsumerWidget {
                       ),
                     ),
                     SizedBox(height: spacing.space3),
-                    SizedBox(
-                      height: spacing.space8 * 6,
-                      child: _CheckpointInspectorColumn(
-                        runId: runId,
-                        checkpoints: detailState.checkpoints,
-                        selectedCheckpoint: detailState.selectedCheckpoint,
-                      ),
-                    ),
+                    SizedBox(height: spacing.space8 * 6, child: inspector),
                   ],
                 ),
               );
@@ -302,7 +332,12 @@ class _RunDetailBody extends ConsumerWidget {
 }
 
 class _MetadataItem extends StatelessWidget {
-  const new({required this.label, required this.value, this.mono = false});
+  const new({
+    required this.label,
+    required this.value,
+    this.mono = false,
+    super.key,
+  });
 
   final String label;
   final String value;
@@ -464,6 +499,57 @@ class _EventTimelineColumn extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _InspectorColumn extends StatelessWidget {
+  const new({
+    required this.runId,
+    required this.run,
+    required this.checkpoints,
+    required this.selectedCheckpoint,
+    required this.tab,
+    required this.onTabChanged,
+  });
+
+  final String runId;
+  final Run run;
+  final List<Checkpoint> checkpoints;
+  final Checkpoint? selectedCheckpoint;
+  final RunInspectorTab tab;
+  final ValueChanged<RunInspectorTab> onTabChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = context.hiveSpacing;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Align(
+          alignment: Alignment.centerLeft,
+          child: RunInspectorTabs(selected: tab, onChanged: onTabChanged),
+        ),
+        SizedBox(height: spacing.space2),
+        Expanded(
+          child: switch (tab) {
+            RunInspectorTab.checkpoints => _CheckpointInspectorColumn(
+              runId: runId,
+              checkpoints: checkpoints,
+              selectedCheckpoint: selectedCheckpoint,
+            ),
+            RunInspectorTab.snapshots => SnapshotsPanel(
+              runId: runId,
+              workspacePath: run.workspacePath,
+              runStatus: run.status,
+              nodeLabels: <String, String>{
+                for (final node in run.workflowDefinition.nodes)
+                  node.id: node.label,
+              },
+            ),
+          },
+        ),
+      ],
     );
   }
 }

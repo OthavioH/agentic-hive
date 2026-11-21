@@ -6,6 +6,7 @@ import 'package:agentic_hive_backend/src/api/result_contract/result_contract_han
 import 'package:agentic_hive_backend/src/api/runs/runs_handler.dart';
 import 'package:agentic_hive_backend/src/api/settings/settings_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
+import 'package:agentic_hive_backend/src/api/workspace/workspace_handler.dart';
 import 'package:agentic_hive_backend/src/config/app_config.dart';
 import 'package:agentic_hive_backend/src/config/platform_paths.dart';
 import 'package:agentic_hive_backend/src/data/agents/agent_directory_watcher.dart';
@@ -23,6 +24,8 @@ import 'package:agentic_hive_backend/src/data/runs/drift_run_repository.dart';
 import 'package:agentic_hive_backend/src/data/settings/drift_settings_repository.dart';
 import 'package:agentic_hive_backend/src/data/settings/os_executable_validator.dart';
 import 'package:agentic_hive_backend/src/data/workflows/drift_workflow_repository.dart';
+import 'package:agentic_hive_backend/src/data/workspace/drift_snapshot_repository.dart';
+import 'package:agentic_hive_backend/src/data/workspace/git_client.dart';
 import 'package:agentic_hive_backend/src/db/app_database.dart';
 import 'package:agentic_hive_backend/src/db/database_health_check.dart';
 import 'package:agentic_hive_backend/src/db/metadata_repository.dart';
@@ -48,6 +51,10 @@ import 'package:agentic_hive_backend/src/domain/settings/settings_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
+import 'package:agentic_hive_backend/src/domain/workspace/shadow_snapshot_service.dart';
+import 'package:agentic_hive_backend/src/domain/workspace/snapshot_repository.dart';
+import 'package:agentic_hive_backend/src/domain/workspace/workspace_capabilities_service.dart';
+import 'package:agentic_hive_backend/src/domain/workspace/workspace_preparation_service.dart';
 import 'package:agentic_hive_backend/src/http/api_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/shutdown_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
@@ -230,6 +237,41 @@ Future<void> registerDependencies(
       () => DriftRunEventRepository(di<AppDatabase>()),
       dependsOn: [AppDatabase],
     )
+    ..registerSingleton<GitClient>(GitClient(di<ProcessRunner>()))
+    ..registerSingleton<WorkspaceCapabilitiesService>(
+      WorkspaceCapabilitiesService(di<GitClient>()),
+    )
+    ..registerSingletonWithDependencies<SnapshotRepository>(
+      () => DriftSnapshotRepository(di<AppDatabase>()),
+      dependsOn: [AppDatabase],
+    )
+    ..registerSingletonWithDependencies<WorkspacePreparationService>(
+      () => WorkspacePreparationService(
+        git: di<GitClient>(),
+        worktreesDir: config.worktreesDir,
+        pathContext: platformPaths.context,
+        events: di<RunEventRepository>(),
+      ),
+      dependsOn: [RunEventRepository],
+    )
+    ..registerSingletonWithDependencies<ShadowSnapshotService>(
+      () => ShadowSnapshotService(
+        git: di<GitClient>(),
+        runs: di<RunRepository>(),
+        snapshots: di<SnapshotRepository>(),
+        events: di<RunEventRepository>(),
+        snapshotsDir: config.snapshotsDir,
+        pathContext: platformPaths.context,
+      ),
+      dependsOn: [RunRepository, SnapshotRepository, RunEventRepository],
+    )
+    ..registerSingletonWithDependencies<WorkspaceHandler>(
+      () => WorkspaceHandler(
+        capabilities: di<WorkspaceCapabilitiesService>(),
+        snapshots: di<ShadowSnapshotService>(),
+      ),
+      dependsOn: [ShadowSnapshotService],
+    )
     ..registerSingletonWithDependencies<RunRecoveryService>(
       () => RunRecoveryService(
         runs: di<RunRepository>(),
@@ -242,8 +284,16 @@ Future<void> registerDependencies(
         runs: di<RunRepository>(),
         checkpoints: di<CheckpointRepository>(),
         events: di<RunEventRepository>(),
+        snapshots: di<ShadowSnapshotService>(),
+        workspacePreparation: di<WorkspacePreparationService>(),
       ),
-      dependsOn: [RunRepository, CheckpointRepository, RunEventRepository],
+      dependsOn: [
+        RunRepository,
+        CheckpointRepository,
+        RunEventRepository,
+        ShadowSnapshotService,
+        WorkspacePreparationService,
+      ],
     )
     ..registerSingletonWithDependencies<RunsHandler>(
       () => RunsHandler(service: di<RunService>()),
@@ -325,6 +375,7 @@ Future<void> registerDependencies(
           workflowHandler: di<WorkflowHandler>(),
           resultContractHandler: di<ResultContractHandler>(),
           runsHandler: di<RunsHandler>(),
+          workspaceHandler: di<WorkspaceHandler>(),
           settingsHandler: di<SettingsHandler>(),
         ),
         socket: LocalSocket(
@@ -340,6 +391,7 @@ Future<void> registerDependencies(
         AgentDirectoryWatcher,
         WorkflowHandler,
         RunsHandler,
+        WorkspaceHandler,
         SettingsHandler,
         WsGateway,
       ],
