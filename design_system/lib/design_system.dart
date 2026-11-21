@@ -13,6 +13,7 @@ export 'src/components/hive_collapsible_section.dart';
 export 'src/components/hive_confirm_dialog.dart';
 export 'src/components/hive_connection_indicator.dart';
 export 'src/components/hive_dialog.dart';
+export 'src/components/hive_diff_stat.dart';
 export 'src/components/hive_empty_state.dart';
 export 'src/components/hive_filter_chip.dart';
 export 'src/components/hive_hex_mark.dart';

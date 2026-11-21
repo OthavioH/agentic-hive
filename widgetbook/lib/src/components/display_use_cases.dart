@@ -91,6 +91,46 @@ WidgetbookComponent badgeComponent() {
   );
 }
 
+/// `HiveDiffStat`: typical, zero counts, only one kind, large counts.
+WidgetbookComponent diffStatComponent() {
+  WidgetbookUseCase useCase(String name, HiveDiffStat stat) {
+    return WidgetbookUseCase(
+      name: name,
+      builder: (context) => UseCaseFrame(child: stat),
+    );
+  }
+
+  return WidgetbookComponent(
+    name: 'HiveDiffStat',
+    useCases: <WidgetbookUseCase>[
+      useCase(
+        'Mixed changes',
+        const HiveDiffStat(added: 12, modified: 3, deleted: 1),
+      ),
+      useCase(
+        'No changes',
+        const HiveDiffStat(added: 0, modified: 0, deleted: 0),
+      ),
+      useCase(
+        'Only added',
+        const HiveDiffStat(added: 7, modified: 0, deleted: 0),
+      ),
+      useCase(
+        'Only modified',
+        const HiveDiffStat(added: 0, modified: 4, deleted: 0),
+      ),
+      useCase(
+        'Only deleted',
+        const HiveDiffStat(added: 0, modified: 0, deleted: 9),
+      ),
+      useCase(
+        'Large counts',
+        const HiveDiffStat(added: 1284, modified: 356, deleted: 1027),
+      ),
+    ],
+  );
+}
+
 /// `HiveStatusDot`: every status and the full legend.
 WidgetbookComponent statusDotComponent() {
   return WidgetbookComponent(
