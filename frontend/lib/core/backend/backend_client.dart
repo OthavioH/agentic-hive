@@ -22,6 +22,13 @@ abstract interface class BackendClient {
   /// `server.hello` handshake.
   Future<Result<BackendWebSocketSession>> connectWebSocket();
 
+  /// Sends a `PUT` request to [path] with JSON [body] and decodes the JSON
+  /// object response.
+  Future<Result<JsonMap>> putJson(String path, JsonMap body);
+
+  /// Sends a `DELETE` request to [path].
+  Future<Result<void>> delete(String path);
+
   /// Requests graceful backend shutdown via `POST /api/v1/shutdown`.
   Future<Result<ShutdownResponse>> shutdown({required bool force});
 

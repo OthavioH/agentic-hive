@@ -1,6 +1,11 @@
 /// Contracts shared by the Agentic Hive backend and frontend.
 library;
 
+export 'src/agents/agent_detail.dart';
+export 'src/agents/agent_list_response.dart';
+export 'src/agents/agent_summary.dart';
+export 'src/agents/create_agent_request.dart';
+export 'src/agents/update_agent_request.dart';
 export 'src/harnesses/harness_id.dart';
 export 'src/harnesses/harness_info.dart';
 export 'src/harnesses/harness_status.dart';
@@ -18,6 +23,7 @@ export 'src/workflows/workflow_node.dart';
 export 'src/workflows/workflow_position.dart';
 export 'src/workflows/workflow_summary.dart';
 export 'src/workflows/workflow_validation.dart';
+export 'src/ws/agents_changed_payload.dart';
 export 'src/ws/harness_status_updated_payload.dart';
 export 'src/ws/server_hello_payload.dart';
 export 'src/ws/ws_close_code.dart';

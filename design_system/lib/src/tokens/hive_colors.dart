@@ -300,8 +300,10 @@ class HiveColors extends ThemeExtension<HiveColors> {
 
   /// Every foreground/background pair that must pass WCAG AA.
   ///
-  /// Covers text on every surface, each `on*` pair, and the status roles,
-  /// focus ring and chart palette as UI components on every surface.
+  /// Covers text on every surface, each `on*` pair, the inverse pair used by
+  /// selected segments and filter chips, and the status roles, feedback
+  /// tones (borders and icons of banners, toasts and input errors), focus
+  /// ring and chart palette as UI components on every surface.
   List<HiveContrastPair> get contrastPairs {
     HiveContrastPair pair(
       String fgRole,
@@ -328,6 +330,10 @@ class HiveColors extends ThemeExtension<HiveColors> {
       'statusFailed': statusFailed,
       'statusSucceeded': statusSucceeded,
       'focusRing': focusRing,
+      'success': success,
+      'warning': warning,
+      'danger': danger,
+      'info': info,
       for (var i = 0; i < chart.length; i++) 'chart[$i]': chart[i],
     };
     return <HiveContrastPair>[
@@ -346,6 +352,13 @@ class HiveColors extends ThemeExtension<HiveColors> {
       pair('onWarning', onWarning, 'warning', warning, HiveContrastLevel.text),
       pair('onDanger', onDanger, 'danger', danger, HiveContrastLevel.text),
       pair('onInfo', onInfo, 'info', info, HiveContrastLevel.text),
+      pair(
+        'background',
+        background,
+        'onSurface',
+        onSurface,
+        HiveContrastLevel.text,
+      ),
       for (final s in surfaces.entries)
         for (final u in uiRoles.entries)
           pair(u.key, u.value, s.key, s.value, HiveContrastLevel.ui),

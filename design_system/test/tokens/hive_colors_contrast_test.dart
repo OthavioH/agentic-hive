@@ -23,6 +23,33 @@ void main() {
             expect(pair.passes, isTrue);
           });
         }
+
+        test('covers the inverse pair and feedback tones on every surface', () {
+          final pairs = entry.value.contrastPairs;
+          expect(
+            pairs.any(
+              (p) =>
+                  p.foregroundRole == 'background' &&
+                  p.backgroundRole == 'onSurface' &&
+                  p.level == HiveContrastLevel.text,
+            ),
+            isTrue,
+          );
+          for (final tone in <String>['success', 'warning', 'danger', 'info']) {
+            for (final surface in entry.value.surfaces.keys) {
+              expect(
+                pairs.any(
+                  (p) =>
+                      p.foregroundRole == tone &&
+                      p.backgroundRole == surface &&
+                      p.level == HiveContrastLevel.ui,
+                ),
+                isTrue,
+                reason: '$tone on $surface is not tested',
+              );
+            }
+          }
+        });
       });
     }
   });

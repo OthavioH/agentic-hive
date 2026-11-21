@@ -334,6 +334,16 @@ final class UnixSocketBackendClient implements BackendClient {
   }
 
   @override
+  Future<Result<JsonMap>> putJson(String path, JsonMap body) =>
+      sendJsonRequest('PUT', path, body: body);
+
+  @override
+  Future<Result<void>> delete(String path) async {
+    final result = await sendJsonRequest('DELETE', path);
+    return result.map((_) {});
+  }
+
+  @override
   Future<Result<ShutdownResponse>> shutdown({required bool force}) async {
     if (_closed) {
       return const FailureResult(
@@ -487,6 +497,9 @@ final class UnixSocketBackendClient implements BackendClient {
           'Request failed with status ${response.statusCode}.';
       if (response.statusCode == HttpStatus.notFound) {
         return FailureResult(NotFoundFailure(message));
+      }
+      if (response.statusCode == HttpStatus.badRequest) {
+        return FailureResult(ValidationFailure(message));
       }
       return FailureResult(
         BackendFailure(

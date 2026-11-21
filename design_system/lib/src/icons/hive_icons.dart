@@ -143,12 +143,18 @@ abstract final class HiveIcons {
   /// Warning or error.
   static const HiveIconData alert = _HugeGlyph(HugeIcons.strokeRoundedAlert02);
 
-  /// Information.
+  /// Information (info banners and toasts).
   static const HiveIconData info = _HugeGlyph(
     HugeIcons.strokeRoundedInformationCircle,
   );
 
-  /// Open a dropdown or expand a section.
+  /// Success confirmation (success banners and toasts).
+  static const HiveIconData success = _HugeGlyph(
+    HugeIcons.strokeRoundedCheckmarkCircle02,
+  );
+
+  /// Open a dropdown or expand a section (collapsible sections); rotate for the
+  /// other state.
   static const HiveIconData chevronDown = _HugeGlyph(
     HugeIcons.strokeRoundedArrowDown01,
   );
@@ -264,6 +270,7 @@ abstract final class HiveIcons {
     'check': check,
     'alert': alert,
     'info': info,
+    'success': success,
     'chevronDown': chevronDown,
     'search': search,
     'refresh': refresh,

@@ -12,11 +12,11 @@ import 'package:material_ui/material_ui.dart';
 class HiveFieldFrame extends StatelessWidget {
   /// Creates a field frame around [child].
   const new({
-    required this.label,
     required this.states,
     required this.shape,
     required this.padding,
     required this.child,
+    this.label,
     this.helperText,
     this.errorText,
     this.onTap,
@@ -25,8 +25,8 @@ class HiveFieldFrame extends StatelessWidget {
     super.key,
   });
 
-  /// Visible label above the well.
-  final String label;
+  /// Visible label above the well, or null when the context already names it.
+  final String? label;
 
   /// Current interaction states (hovered, focused, disabled).
   final Set<WidgetState> states;
@@ -99,13 +99,15 @@ class HiveFieldFrame extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          ExcludeSemantics(
-            child: Text(
-              label,
-              style: typography.label.copyWith(color: colors.onSurface),
+          if (label case final visibleLabel?) ...<Widget>[
+            ExcludeSemantics(
+              child: Text(
+                visibleLabel,
+                style: typography.label.copyWith(color: colors.onSurface),
+              ),
             ),
-          ),
-          SizedBox(height: spacing.space1),
+            SizedBox(height: spacing.space1),
+          ],
           MouseRegion(
             cursor: disabled ? SystemMouseCursors.basic : cursor,
             onEnter: disabled ? null : (_) => onHover?.call(true),

@@ -1,15 +1,20 @@
 import 'dart:io';
 
+import 'package:agentic_hive_backend/src/api/agents/agents_handler.dart';
 import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/config/app_config.dart';
 import 'package:agentic_hive_backend/src/config/platform_paths.dart';
+import 'package:agentic_hive_backend/src/data/agents/agent_directory_watcher.dart';
+import 'package:agentic_hive_backend/src/data/agents/local_agent_repository.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/io_process_runner.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/os_executable_locator.dart';
 import 'package:agentic_hive_backend/src/data/workflows/drift_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/db/app_database.dart';
 import 'package:agentic_hive_backend/src/db/database_health_check.dart';
 import 'package:agentic_hive_backend/src/db/metadata_repository.dart';
+import 'package:agentic_hive_backend/src/domain/agents/agent_repository.dart';
+import 'package:agentic_hive_backend/src/domain/agents/agent_service.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/executable_locator.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_detector.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_service.dart';
@@ -138,6 +143,24 @@ Future<void> registerDependencies(
       ),
       dispose: (gateway) => gateway.close(),
     )
+    ..registerSingleton<AgentRepository>(
+      LocalAgentRepository(
+        agentsDir: config.agentsDir,
+        pathContext: platformPaths.context,
+      ),
+    )
+    ..registerSingleton<AgentService>(AgentService(di<AgentRepository>()))
+    ..registerSingleton<AgentsHandler>(AgentsHandler(di<AgentService>()))
+    ..registerSingletonAsync<AgentDirectoryWatcher>(() async {
+      final watcher = AgentDirectoryWatcher(
+        agentsDir: config.agentsDir,
+        repository: di<AgentRepository>(),
+        registry: di<ConnectionRegistry>(),
+        pathContext: platformPaths.context,
+      );
+      await watcher.start();
+      return watcher;
+    }, dispose: (watcher) => watcher.close())
     ..registerSingletonWithDependencies<StatusHandler>(
       () => StatusHandler(
         databaseHealthCheck: di<DatabaseHealthCheck>(),
@@ -156,6 +179,7 @@ Future<void> registerDependencies(
           statusHandler: di<StatusHandler>(),
           shutdownHandler: di<ShutdownHandler>(),
           webSocketHandler: di<WsGateway>().handler,
+          agentsHandler: di<AgentsHandler>(),
           harnessesHandler: di<HarnessesHandler>(),
           workflowHandler: di<WorkflowHandler>(),
         ),
@@ -167,7 +191,7 @@ Future<void> registerDependencies(
         connections: di<ConnectionRegistry>(),
         version: backendVersion,
       ),
-      dependsOn: [StatusHandler, WorkflowHandler],
+      dependsOn: [StatusHandler, AgentDirectoryWatcher, WorkflowHandler],
       dispose: (server) => server.stop(),
     );
 
