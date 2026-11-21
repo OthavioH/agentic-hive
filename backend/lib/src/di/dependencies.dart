@@ -16,6 +16,7 @@ import 'package:agentic_hive_backend/src/data/harnesses/os_executable_locator.da
 import 'package:agentic_hive_backend/src/data/nodes/dart_process_runner.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_process_platform.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_shell_provider.dart';
+import 'package:agentic_hive_backend/src/data/nodes/pty_runner_factory.dart';
 import 'package:agentic_hive_backend/src/data/nodes/unconfigured_node_ports.dart';
 import 'package:agentic_hive_backend/src/data/result_contract/hive_result_contract.dart';
 import 'package:agentic_hive_backend/src/data/runs/drift_checkpoint_repository.dart';
@@ -40,6 +41,7 @@ import 'package:agentic_hive_backend/src/domain/harnesses/harness_service.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_registry.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/pty_session.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/human_pause_gateway.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_coordinator.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_validator.dart';
@@ -175,7 +177,17 @@ Future<void> registerDependencies(
         processTracker: di<ProcessTreeTracker>(),
       ),
     )
-    ..registerSingleton<PtyRunner>(const UnconfiguredPtyRunner())
+    ..registerSingleton<PtySessionRegistry>(
+      PtySessionRegistry(),
+      dispose: (registry) => registry.dispose(),
+    )
+    ..registerSingleton<PtyRunner>(
+      currentPtyRunner(
+        processTracker: di<ProcessTreeTracker>(),
+        processTreeKiller: di<ProcessTreeKiller>(),
+        sessionRegistry: di<PtySessionRegistry>(),
+      ),
+    )
     ..registerSingleton<ResultContractValidator>(
       ResultContractValidator(pathContext: platformPaths.context),
     )
@@ -224,6 +236,7 @@ Future<void> registerDependencies(
         resultContract: di<ResultContract>(),
         approvalPort: di<HumanApprovalPort>(),
         agentPromptResolver: di<AgentPromptResolver>(),
+        processTreeKiller: di<ProcessTreeKiller>(),
       ),
     )
     ..registerSingleton<WorkflowValidator>(
@@ -405,6 +418,7 @@ Future<void> registerDependencies(
         settingsUpdates: di<SettingsService>().settingsUpdates,
         runEvents: di<DriftRunEventRepository>().events,
         runOutputs: di<RunLogStore>().outputs,
+        ptySessions: di<PtySessionRegistry>(),
       ),
       dependsOn: [SettingsService, DriftRunEventRepository],
       dispose: (gateway) => gateway.close(),

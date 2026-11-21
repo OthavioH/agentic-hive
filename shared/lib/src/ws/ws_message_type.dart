@@ -35,4 +35,23 @@ abstract final class WsMessageType {
   /// Server → client, streamed to connections subscribed to `runId` when a
   /// node emits `stdout` or `stderr` output.
   static const runOutput = 'run.output';
+
+  /// Client → server, subscribes the connection to `pty.output` frames for a
+  /// `(runId, nodeId, attempt)` PTY session and requests scrollback replay.
+  static const ptySubscribe = 'pty.subscribe';
+
+  /// Client → server, unsubscribes the connection from `pty.output` frames for
+  /// a `(runId, nodeId, attempt)` PTY session.
+  static const ptyUnsubscribe = 'pty.unsubscribe';
+
+  /// Server → client, streamed to connections subscribed to a PTY session with
+  /// base64-encoded raw PTY output bytes.
+  static const ptyOutput = 'pty.output';
+
+  /// Client → server, sends base64-encoded keystroke/paste bytes to an active
+  /// PTY session.
+  static const ptyInput = 'pty.input';
+
+  /// Client → server, resizes an active PTY session (`cols` and `rows`).
+  static const ptyResize = 'pty.resize';
 }

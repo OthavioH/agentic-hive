@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
@@ -11,6 +13,8 @@ final class _AttemptState {
 
   final String workspacePath;
   final List<String> availableOutputs;
+  final Completer<ResultContractReport> reportCompleter =
+      Completer<ResultContractReport>();
   ResultContractReport? lockedReport;
 }
 
@@ -110,8 +114,21 @@ final class ResultContractCoordinator {
 
     final report = validation.valueOrNull!;
     state.lockedReport = report;
+    if (!state.reportCompleter.isCompleted) {
+      state.reportCompleter.complete(report);
+    }
     return Success(report);
   }
+
+  /// Returns a future that completes when an MCP `report_result` is accepted
+  /// for `(runId, nodeId, attempt)`, or `null` if the attempt is not active.
+  Future<ResultContractReport>? watchMcpReport({
+    required String runId,
+    required String nodeId,
+    required int attempt,
+  }) => _attempts[(runId: runId, nodeId: nodeId, attempt: attempt)]
+      ?.reportCompleter
+      .future;
 
   /// Returns the locked MCP report for `(runId, nodeId, attempt)`, or `null`
   /// if none was accepted.
