@@ -3,12 +3,16 @@ import 'dart:async';
 import 'package:agentic_hive_frontend/app.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_client.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_client_provider.dart';
+import 'package:agentic_hive_frontend/core/backend/backend_connection.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_web_socket_session.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
+import 'package:agentic_hive_frontend/presentation/connecting/pages/connecting_page.dart';
 import 'package:agentic_hive_frontend/presentation/error/pages/route_error_page.dart';
 import 'package:agentic_hive_frontend/presentation/overview/pages/overview_page.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/pages/workflows_page.dart';
 import 'package:agentic_hive_frontend/routes/app_router_provider.dart';
+import 'package:agentic_hive_frontend/routes/app_routes.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,12 +44,18 @@ final class _FakeWebSocketSession implements BackendWebSocketSession {
 
   @override
   Future<void> close([int? code, String? reason]) async {
+    drop();
+  }
+
+  void drop() {
     if (!_messages.isClosed) unawaited(_messages.close());
     if (!_done.isCompleted) _done.complete();
   }
 }
 
 final class _FakeBackendClient implements BackendClient {
+  FutureOr<Result<BackendWebSocketSession>> Function()? onConnectWebSocket;
+
   @override
   Future<Result<StatusResponse>> checkStatus() async => const Success(
     StatusResponse(
@@ -58,11 +68,41 @@ final class _FakeBackendClient implements BackendClient {
   );
 
   @override
-  Future<Result<BackendWebSocketSession>> connectWebSocket() async =>
-      Success(_FakeWebSocketSession());
+  Future<Result<BackendWebSocketSession>> connectWebSocket() async {
+    final handler = onConnectWebSocket;
+    if (handler != null) return await handler();
+    return Success(_FakeWebSocketSession());
+  }
 
   @override
   Future<void> close() async {}
+}
+
+final class _FakeTimer implements Timer {
+  new(this.duration, this.callback);
+
+  final Duration duration;
+  final void Function() callback;
+  bool _active = true;
+  int _tick = 0;
+
+  @override
+  bool get isActive => _active;
+
+  @override
+  int get tick => _tick;
+
+  @override
+  void cancel() {
+    _active = false;
+  }
+
+  void fire() {
+    if (!_active) return;
+    _active = false;
+    _tick++;
+    callback();
+  }
 }
 
 void main() {
@@ -100,4 +140,122 @@ void main() {
 
     expect(find.byType(OverviewPage), findsOneWidget);
   });
+
+  testWidgets(
+    'quick WebSocket recovery within 2s keeps user on current route',
+    (tester) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final firstSession = _FakeWebSocketSession();
+      final secondSession = _FakeWebSocketSession();
+      var calls = 0;
+      final fake = _FakeBackendClient()
+        ..onConnectWebSocket = () {
+          calls++;
+          return Success(calls == 1 ? firstSession : secondSession);
+        };
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            backendClientProvider.overrideWithValue(fake),
+            backendConnectionConfigProvider.overrideWithValue(
+              BackendConnectionConfig(nextRandomDouble: () => 0.5),
+            ),
+          ],
+          child: const HiveApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(HiveApp)),
+      );
+      container.read(appRouterProvider).go(WorkflowsRoute.path);
+      await tester.pumpAndSettle();
+      expect(find.byType(WorkflowsPage), findsOneWidget);
+
+      // Drop the session; immediate silent reconnect succeeds.
+      firstSession.drop();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(WorkflowsPage), findsOneWidget);
+      expect(find.byType(ConnectingPage), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'grace period timeout redirects to /connecting and restores remembered route',
+    (tester) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final timers = <_FakeTimer>[];
+      final firstSession = _FakeWebSocketSession();
+      final recoveredSession = _FakeWebSocketSession();
+      var shouldFail = false;
+      var calls = 0;
+      final fake = _FakeBackendClient()
+        ..onConnectWebSocket = () {
+          calls++;
+          if (calls == 1) return Success(firstSession);
+          if (shouldFail) {
+            return const FailureResult(
+              NetworkFailure(
+                'refused',
+                code: BackendFailureCode.connectionRefused,
+              ),
+            );
+          }
+          return Success(recoveredSession);
+        };
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            backendClientProvider.overrideWithValue(fake),
+            backendConnectionConfigProvider.overrideWithValue(
+              BackendConnectionConfig(
+                nextRandomDouble: () => 0.5,
+                createTimer: (duration, callback) {
+                  final timer = _FakeTimer(duration, callback);
+                  timers.add(timer);
+                  return timer;
+                },
+              ),
+            ),
+          ],
+          child: const HiveApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(HiveApp)),
+      );
+      container.read(appRouterProvider).go(WorkflowsRoute.path);
+      await tester.pumpAndSettle();
+      expect(find.byType(WorkflowsPage), findsOneWidget);
+
+      // Drop session while backend is down; expire the 2-second grace timer.
+      shouldFail = true;
+      firstSession.drop();
+      await tester.pump();
+      expect(timers, isNotEmpty);
+      timers.last.fire();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ConnectingPage), findsOneWidget);
+
+      // Recover and verify remembered route (/workflows) is restored.
+      shouldFail = false;
+      await container.read(backendConnectionProvider.notifier).reconnect();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(WorkflowsPage), findsOneWidget);
+    },
+  );
 }
