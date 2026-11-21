@@ -10,6 +10,13 @@ final class UnconfiguredResultContract implements ResultContract {
   const new();
 
   @override
+  Future<Result<ResultContractSession>> openSession(
+    NodeExecutionContext context,
+  ) async => const FailureResult(
+    NodeExecutionFailure('ResultContract is not configured.'),
+  );
+
+  @override
   String instructionsFor(NodeExecutionContext context) =>
       'Submit your result via the report_result MCP tool or '
       '${context.resultJsonPath ?? 'result.json'}.';

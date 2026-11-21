@@ -51,12 +51,54 @@ final class _FakeResultContract implements ResultContract {
   ResultContractReport report;
 
   @override
+  Future<Result<ResultContractSession>> openSession(
+    NodeExecutionContext context,
+  ) async => Success(_FakeResultContractSession(context, this));
+
+  @override
   String instructionsFor(NodeExecutionContext context) => 'Report result.';
 
   @override
   Future<Result<ResultContractReport?>> readReport(
     NodeExecutionContext context,
   ) async => Success(report);
+}
+
+final class _FakeResultContractSession implements ResultContractSession {
+  new(this._context, this._contract);
+
+  final NodeExecutionContext _context;
+  final _FakeResultContract _contract;
+
+  @override
+  String get runId => _context.runId;
+
+  @override
+  String get nodeId => _context.nodeId;
+
+  @override
+  int get attempt => _context.attempt;
+
+  @override
+  String get instructions => _contract.instructionsFor(_context);
+
+  @override
+  String? get mcpConfigPath => null;
+
+  @override
+  Map<String, String> get env => const <String, String>{};
+
+  @override
+  String? get resultFilePath => null;
+
+  @override
+  Future<Result<ResultContractReport>> resolveOutcome({
+    required int exitCode,
+    bool timedOut = false,
+  }) async => Success(_contract.report);
+
+  @override
+  Future<void> dispose() async {}
 }
 
 void main() {

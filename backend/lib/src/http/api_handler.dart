@@ -1,5 +1,6 @@
 import 'package:agentic_hive_backend/src/api/agents/agents_handler.dart';
 import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
+import 'package:agentic_hive_backend/src/api/result_contract/result_contract_handler.dart';
 import 'package:agentic_hive_backend/src/api/runs/runs_handler.dart';
 import 'package:agentic_hive_backend/src/api/settings/settings_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
@@ -28,6 +29,7 @@ Handler buildApiHandler({
   AgentsHandler? agentsHandler,
   HarnessesHandler? harnessesHandler,
   WorkflowHandler? workflowHandler,
+  ResultContractHandler? resultContractHandler,
   RunsHandler? runsHandler,
   SettingsHandler? settingsHandler,
 }) {
@@ -63,6 +65,18 @@ Handler buildApiHandler({
     router
       ..get('/api/v1/settings', settingsHandler.get)
       ..put('/api/v1/settings', settingsHandler.update);
+  }
+
+  if (resultContractHandler != null) {
+    router
+      ..post(
+        '/api/v1/internal/runs/<runId>/nodes/<nodeId>/attempts/<attempt>/report-result',
+        resultContractHandler.reportResult,
+      )
+      ..post(
+        '/api/v1/internal/runs/<runId>/nodes/<nodeId>/attempts/<attempt>/ask-human',
+        resultContractHandler.askHuman,
+      );
   }
 
   return const Pipeline()
