@@ -1,3 +1,5 @@
+import 'dart:ui' show PictureRecorder;
+
 import 'package:design_system/design_system.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -27,6 +29,79 @@ void main() {
       }
 
       expect(seenShapes.length, HiveNodeStatus.values.length);
+    });
+
+    test('interrupted is a half-filled ring in warning', () {
+      expect(HiveNodeStatus.interrupted.shape, isA<HiveHalfDiscShape>());
+      expect(
+        HiveNodeStatus.interrupted.color(HiveColors.dark),
+        HiveColors.dark.warning,
+      );
+      expect(
+        HiveNodeStatus.interrupted.color(HiveColors.light),
+        HiveColors.light.warning,
+      );
+    });
+
+    test('cancelled is a cross in statusIdle, distinct from idle', () {
+      expect(HiveNodeStatus.cancelled.shape, isA<HiveCrossShape>());
+      expect(
+        HiveNodeStatus.cancelled.color(HiveColors.dark),
+        HiveColors.dark.statusIdle,
+      );
+      expect(
+        HiveNodeStatus.cancelled.color(HiveColors.light),
+        HiveColors.light.statusIdle,
+      );
+      // Same color as idle, so the shape alone must tell them apart.
+      expect(
+        HiveNodeStatus.cancelled.shape.runtimeType,
+        isNot(HiveNodeStatus.idle.shape.runtimeType),
+      );
+    });
+
+    for (final status in <HiveNodeStatus>[
+      HiveNodeStatus.interrupted,
+      HiveNodeStatus.cancelled,
+    ]) {
+      testWidgets('${status.name} paints its shape in its color', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          hiveTestApp(
+            theme: HiveTheme.light(),
+            child: HiveStatusDot(
+              status: status,
+              semanticLabel: status.name,
+              size: 24,
+            ),
+          ),
+        );
+
+        expect(tester.takeException(), isNull);
+        expect(find.bySemanticsLabel(status.name), findsOneWidget);
+        final paint = tester.widget<CustomPaint>(
+          find.descendant(
+            of: find.byType(HiveStatusDot),
+            matching: find.byType(CustomPaint),
+          ),
+        );
+        final painter = paint.painter! as HiveStatusShapePainter;
+        expect(painter.shape, same(status.shape));
+        expect(painter.color, status.color(HiveColors.light));
+        expect(tester.getSize(find.byType(HiveStatusDot)), const Size(24, 24));
+      });
+    }
+
+    testWidgets('new shapes paint onto a canvas', (tester) async {
+      final recorder = PictureRecorder();
+      final canvas = Canvas(recorder);
+      const rect = Rect.fromLTWH(0, 0, 16, 16);
+      const HiveHalfDiscShape().paint(canvas, rect, HiveColors.dark.warning);
+      const HiveCrossShape().paint(canvas, rect, HiveColors.dark.statusIdle);
+      final picture = recorder.endRecording();
+      expect(picture, isNotNull);
+      picture.dispose();
     });
   });
 

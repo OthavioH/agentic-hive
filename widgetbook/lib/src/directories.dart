@@ -66,6 +66,7 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
           textFieldComponent(),
           selectComponent(),
           switchComponent(),
+          filterChipComponent(),
         ],
       ),
       WidgetbookFolder(
@@ -79,6 +80,10 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
           cardComponent(),
           emptyStateComponent(),
         ],
+      ),
+      WidgetbookFolder(
+        name: 'Data',
+        children: <WidgetbookNode>[codeBlockComponent()],
       ),
       WidgetbookFolder(
         name: 'Status',

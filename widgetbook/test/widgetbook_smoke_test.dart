@@ -21,6 +21,13 @@ const Map<String, String> _useCases = <String, String>{
   'With label': 'Entry node',
   'Delete confirmation': 'Delete "Release checklist"?',
   'With content': 'Release checklist (copy)',
+  'Selected · Focused': 'Failed',
+  'Status filter bar': 'Interrupted',
+  'Title and copy': 'Checkpoint 42 · state',
+  'Max height · Scrolls both ways': 'Event log · run_tests',
+  'Empty payload': 'This event has no payload.',
+  'Interrupted': '',
+  'Cancelled': '',
 };
 
 void main() {

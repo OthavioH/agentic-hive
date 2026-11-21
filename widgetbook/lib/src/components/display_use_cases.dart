@@ -11,6 +11,8 @@ const Map<HiveNodeStatus, String> _statusLabels = <HiveNodeStatus, String>{
   HiveNodeStatus.paused: 'Paused',
   HiveNodeStatus.failed: 'Failed',
   HiveNodeStatus.succeeded: 'Succeeded',
+  HiveNodeStatus.interrupted: 'Interrupted',
+  HiveNodeStatus.cancelled: 'Cancelled',
 };
 
 const Map<String, NodeVisual> _harnessVisuals = <String, NodeVisual>{
@@ -392,6 +394,79 @@ WidgetbookComponent emptyStateComponent() {
             icon: HiveIcons.refresh,
             variant: HiveButtonVariant.secondary,
             onPressed: _noop,
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+const String _checkpointPayload = '''
+{
+  "runId": "run_01JD7Q8M4K",
+  "nodeId": "review_pull_request",
+  "sequence": 42,
+  "status": "interrupted",
+  "reason": "The backend restarted while Claude Code was running.",
+  "outputs": {
+    "summary": "Reviewed 12 of 14 changed files before the restart; resume continues from src/engine/scheduler.dart.",
+    "filesReviewed": ["src/engine/run.dart", "src/engine/scheduler.dart"]
+  }
+}''';
+
+/// `HiveCodeBlock`: titled with copy, plain, capped height, empty payload.
+WidgetbookComponent codeBlockComponent() {
+  String entry(int i) =>
+      '  {"sequence": $i, "type": "node.output", "nodeId": "run_tests", '
+      '"line": "test/engine/scheduler_test.dart: resumes from checkpoint '
+      '$i of 40 without re-running completed nodes"},';
+  final longPayload = <String>[
+    '[',
+    for (var i = 1; i <= 40; i++) entry(i),
+    ']',
+  ].join('\n');
+  Widget frame(BuildContext context, Widget child) => UseCaseFrame(
+    child: SizedBox(width: context.hiveSpacing.space8 * 8, child: child),
+  );
+  return WidgetbookComponent(
+    name: 'HiveCodeBlock',
+    useCases: <WidgetbookUseCase>[
+      WidgetbookUseCase(
+        name: 'Title and copy',
+        builder: (context) => frame(
+          context,
+          const HiveCodeBlock(
+            code: _checkpointPayload,
+            title: 'Checkpoint 42 · state',
+            copyLabel: 'Copy checkpoint state',
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Plain',
+        builder: (context) =>
+            frame(context, const HiveCodeBlock(code: _checkpointPayload)),
+      ),
+      WidgetbookUseCase(
+        name: 'Max height · Scrolls both ways',
+        builder: (context) => frame(
+          context,
+          HiveCodeBlock(
+            code: longPayload,
+            title: 'Event log · run_tests',
+            copyLabel: 'Copy event log',
+            maxHeight: context.hiveSpacing.space8 * 4,
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Empty payload',
+        builder: (context) => frame(
+          context,
+          const HiveCodeBlock(
+            code: '',
+            title: 'Event payload',
+            emptyLabel: 'This event has no payload.',
           ),
         ),
       ),

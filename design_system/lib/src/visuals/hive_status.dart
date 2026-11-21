@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:design_system/src/tokens/hive_colors.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -126,6 +128,55 @@ class HiveDiamondShape extends HiveStatusShape {
   }
 }
 
+/// Hollow ring with its left half filled ("interrupted": stopped part-way).
+class HiveHalfDiscShape extends HiveStatusShape {
+  /// Creates the shape.
+  const new();
+
+  @override
+  void paint(Canvas canvas, Rect rect, Color color) {
+    final s = rect.shortestSide;
+    final stroke = s * 0.18;
+    final outer = Rect.fromCenter(center: rect.center, width: s, height: s);
+    canvas
+      ..drawCircle(
+        rect.center,
+        (s - stroke) / 2,
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = stroke,
+      )
+      ..drawArc(outer, math.pi / 2, math.pi, true, Paint()..color = color);
+  }
+}
+
+/// Two crossed rounded bars ("cancelled").
+class HiveCrossShape extends HiveStatusShape {
+  /// Creates the shape.
+  const new();
+
+  @override
+  void paint(Canvas canvas, Rect rect, Color color) {
+    final s = rect.shortestSide;
+    final stroke = s * 0.26;
+    // Inset by half the stroke so the round caps stay inside [rect].
+    final inset = Rect.fromCenter(
+      center: rect.center,
+      width: s - stroke,
+      height: s - stroke,
+    );
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = stroke;
+    canvas
+      ..drawLine(inset.topLeft, inset.bottomRight, paint)
+      ..drawLine(inset.topRight, inset.bottomLeft, paint);
+  }
+}
+
 /// Node status as shown by `HiveStatusDot` and `HiveAgentAvatar`.
 enum HiveNodeStatus {
   /// Not started: hollow ring in `statusIdle`.
@@ -141,7 +192,14 @@ enum HiveNodeStatus {
   failed(HiveDiamondShape(), _failed),
 
   /// Succeeded: filled circle in `statusSucceeded`.
-  succeeded(HiveDiscShape(), _succeeded);
+  succeeded(HiveDiscShape(), _succeeded),
+
+  /// Interrupted (the backend stopped mid-run, e.g. a crash or restart):
+  /// half-filled ring in `warning`.
+  interrupted(HiveHalfDiscShape(), _interrupted),
+
+  /// Cancelled by the user: cross in `statusIdle`.
+  cancelled(HiveCrossShape(), _cancelled);
 
   new(this.shape, this.color);
 
@@ -157,6 +215,8 @@ Color _running(HiveColors c) => c.statusRunning;
 Color _paused(HiveColors c) => c.statusPaused;
 Color _failed(HiveColors c) => c.statusFailed;
 Color _succeeded(HiveColors c) => c.statusSucceeded;
+Color _interrupted(HiveColors c) => c.warning;
+Color _cancelled(HiveColors c) => c.statusIdle;
 
 /// Paints a [HiveStatusShape].
 class HiveStatusShapePainter extends CustomPainter {
