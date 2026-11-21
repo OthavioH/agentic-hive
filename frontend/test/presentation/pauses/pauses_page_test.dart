@@ -1,6 +1,10 @@
+import 'dart:async';
+import 'dart:ui' show Tristate;
+
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/data/pauses/pause_providers.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
+import 'package:agentic_hive_frontend/presentation/pauses/controllers/pauses_controller.dart';
 import 'package:agentic_hive_frontend/presentation/pauses/pages/pauses_page.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:cupertino_ui/cupertino_ui.dart';
@@ -13,6 +17,31 @@ import 'package:material_ui/material_ui.dart';
 
 import 'fake_pause_repository.dart';
 
+final class _FakePeriodicTimer implements Timer {
+  new(this._callback);
+
+  final void Function(Timer) _callback;
+  int _tick = 0;
+  bool _active = true;
+
+  void fire() {
+    if (!_active) return;
+    _tick++;
+    _callback(this);
+  }
+
+  @override
+  void cancel() {
+    _active = false;
+  }
+
+  @override
+  bool get isActive => _active;
+
+  @override
+  int get tick => _tick;
+}
+
 void main() {
   const desktopSize = Size(1440, 900);
 
@@ -22,10 +51,18 @@ void main() {
     addTearDown(tester.view.reset);
   }
 
-  Future<void> pumpPausesPage(WidgetTester tester, FakePauseRepository repo) {
+  Future<void> pumpPausesPage(
+    WidgetTester tester,
+    FakePauseRepository repo, {
+    PausesClockConfig? clockConfig,
+  }) {
     return tester.pumpWidget(
       ProviderScope(
-        overrides: [pauseRepositoryProvider.overrideWithValue(repo)],
+        overrides: [
+          pauseRepositoryProvider.overrideWithValue(repo),
+          if (clockConfig != null)
+            pausesClockConfigProvider.overrideWithValue(clockConfig),
+        ],
         child: MaterialApp(
           theme: HiveTheme.dark(),
           localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
@@ -41,7 +78,7 @@ void main() {
     );
   }
 
-  Pause makeApproval() => Pause(
+  Pause makeApproval({DateTime? createdAt}) => Pause(
     id: 'pause-approval',
     runId: 'run-42',
     nodeId: 'node-approve',
@@ -49,12 +86,12 @@ void main() {
     status: PauseStatus.pending,
     workflowName: 'Release Workflow',
     nodeLabel: 'Manual Gate',
-    createdAt: DateTime.utc(2026, 11, 21, 10),
+    createdAt: createdAt ?? DateTime.utc(2026, 11, 21, 10),
     title: 'Proceed with release?',
     instructions: 'Verify all artifacts before approving.',
   );
 
-  Pause makeQuestion() => Pause(
+  Pause makeQuestion({DateTime? createdAt}) => Pause(
     id: 'pause-question',
     runId: 'run-99',
     nodeId: 'node-ask',
@@ -62,7 +99,7 @@ void main() {
     status: PauseStatus.pending,
     workflowName: 'Migration Assistant',
     nodeLabel: 'Choose Strategy',
-    createdAt: DateTime.utc(2026, 11, 21, 11),
+    createdAt: createdAt ?? DateTime.utc(2026, 11, 21, 11),
     question: 'Which database migration strategy should be used?',
     options: const <String>['Blue-Green', 'Rolling'],
   );
@@ -84,31 +121,41 @@ void main() {
     );
   });
 
-  testWidgets('renders error state and retries on button tap', (tester) async {
-    configureDesktop(tester);
-    final repo = FakePauseRepository();
-    addTearDown(repo.dispose);
+  testWidgets(
+    'renders localized error state without raw backend message and retries',
+    (tester) async {
+      configureDesktop(tester);
+      final repo = FakePauseRepository();
+      addTearDown(repo.dispose);
 
-    var failNext = true;
-    repo.onListPendingPauses = () async {
-      if (failNext) {
-        failNext = false;
-        return const FailureResult(NetworkFailure('Socket unreachable'));
-      }
-      return Success(<Pause>[makeApproval()]);
-    };
+      var failNext = true;
+      repo.onListPendingPauses = () async {
+        if (failNext) {
+          failNext = false;
+          return const FailureResult(NetworkFailure('Raw socket error text'));
+        }
+        return Success(<Pause>[makeApproval()]);
+      };
 
-    await pumpPausesPage(tester, repo);
-    await tester.pumpAndSettle();
+      await pumpPausesPage(tester, repo);
+      await tester.pumpAndSettle();
 
-    expect(find.text('Unable to load pauses'), findsOneWidget);
-    expect(find.text('Socket unreachable'), findsOneWidget);
+      expect(find.text('Unable to load pauses'), findsOneWidget);
+      expect(
+        find.text(
+          'Could not reach the local backend. '
+          'Check the connection and try again.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Raw socket error text'), findsNothing);
 
-    await tester.tap(find.byKey(const Key('pauses_retry_button')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('pauses_retry_button')));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Release Workflow'), findsWidgets);
-  });
+      expect(find.text('Release Workflow'), findsWidgets);
+    },
+  );
 
   testWidgets(
     'approves and rejects humanApproval pause with optional feedback',
@@ -214,4 +261,129 @@ void main() {
     );
     expect(repo.listCallCount, greaterThan(beforeCalls));
   });
+
+  testWidgets('periodic timer refreshes waiting-time labels', (tester) async {
+    configureDesktop(tester);
+    final createdAt = DateTime.utc(2026, 11, 21, 10);
+    var currentNow = DateTime.utc(2026, 11, 21, 10);
+    _FakePeriodicTimer? timer;
+
+    final repo = FakePauseRepository(
+      initial: <Pause>[makeApproval(createdAt: createdAt)],
+    );
+    addTearDown(repo.dispose);
+
+    await pumpPausesPage(
+      tester,
+      repo,
+      clockConfig: PausesClockConfig(
+        now: () => currentNow,
+        createPeriodicTimer: (_, callback) =>
+            timer = _FakePeriodicTimer(callback),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Just now'), findsWidgets);
+
+    currentNow = DateTime.utc(2026, 11, 21, 10, 5);
+    timer!.fire();
+    await tester.pumpAndSettle();
+
+    expect(find.text('5m ago'), findsWidgets);
+  });
+
+  testWidgets(
+    'exposes selected semantics, keeps drafts, and notices remote resolution',
+    (tester) async {
+      configureDesktop(tester);
+      final approval = makeApproval();
+      final question = makeQuestion();
+      final repo = FakePauseRepository(initial: <Pause>[approval, question]);
+      addTearDown(repo.dispose);
+
+      await pumpPausesPage(tester, repo);
+      await tester.pumpAndSettle();
+
+      final approvalSemantics = tester.getSemantics(
+        find.byKey(const Key('pause_list_item_pause-approval')),
+      );
+      final questionSemantics = tester.getSemantics(
+        find.byKey(const Key('pause_list_item_pause-question')),
+      );
+      expect(
+        approvalSemantics.getSemanticsData().flagsCollection.isSelected,
+        Tristate.isTrue,
+      );
+      expect(
+        questionSemantics.getSemanticsData().flagsCollection.isSelected,
+        Tristate.isFalse,
+      );
+
+      // Enter draft feedback on approval pause, switch to question pause, enter
+      // draft answer, and switch back: both drafts are preserved.
+      await tester.enterText(
+        find.byKey(const Key('pauses_feedback_field')),
+        'Hold until metrics settle',
+      );
+      await tester.tap(find.byKey(const Key('pause_list_item_pause-question')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const Key('pauses_answer_field')),
+        'Blue-Green migration',
+      );
+      await tester.tap(find.byKey(const Key('pause_list_item_pause-approval')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Hold until metrics settle'), findsOneWidget);
+
+      // Remote resolution of currently selected pause shows notice banner and
+      // switches to the remaining pause with its preserved draft intact.
+      repo.emitResolved(approval.copyWith(status: PauseStatus.answered));
+      await tester.pump();
+      await tester.pump();
+
+      final liveRegion = tester.widget<Semantics>(
+        find.byKey(const Key('pauses_live_region')),
+      );
+      expect(liveRegion.properties.label, 'Pause resolved: Manual Gate');
+
+      await tester.pumpAndSettle();
+      final clearedLiveRegion = tester.widget<Semantics>(
+        find.byKey(const Key('pauses_live_region')),
+      );
+      expect(clearedLiveRegion.properties.label, isEmpty);
+
+      // Identical consecutive announcement fires again after clearing.
+      repo.emitCreated(approval.copyWith(id: 'pause-approval-dup'));
+      await tester.pump();
+      await tester.pump();
+      expect(
+        tester
+            .widget<Semantics>(find.byKey(const Key('pauses_live_region')))
+            .properties
+            .label,
+        'New pause waiting: Manual Gate',
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<Semantics>(find.byKey(const Key('pauses_live_region')))
+            .properties
+            .label,
+        isEmpty,
+      );
+
+      expect(
+        find.byKey(const Key('pauses_remote_resolved_banner')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Pause "Manual Gate" was resolved or cancelled externally.'),
+        findsOneWidget,
+      );
+      expect(find.text('Blue-Green migration'), findsOneWidget);
+    },
+  );
 }

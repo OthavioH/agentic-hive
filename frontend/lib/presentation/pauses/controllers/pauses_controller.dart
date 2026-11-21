@@ -9,43 +9,121 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'pauses_controller.g.dart';
 
-/// Manages the `/pauses` master-detail inbox, selection, response submission,
-/// 409 conflict recovery, and live WebSocket updates.
+/// Clock and periodic timer configuration for [PausesController], injectable
+/// in tests via [pausesClockConfigProvider].
+final class PausesClockConfig {
+  /// Creates a [PausesClockConfig] with production defaults.
+  const new({
+    this.now = _defaultNow,
+    this.createPeriodicTimer = Timer.periodic,
+    this.refreshInterval = defaultRefreshInterval,
+  });
+
+  static const int _refreshMinutes = 1;
+
+  /// Default 1-minute tick interval for relative waiting-time labels.
+  static const Duration defaultRefreshInterval = Duration(
+    minutes: _refreshMinutes,
+  );
+
+  static DateTime _defaultNow() => DateTime.now().toUtc();
+
+  /// Returns the current timestamp.
+  final DateTime Function() now;
+
+  /// Creates a periodic [Timer] that fires every [refreshInterval].
+  final Timer Function(Duration duration, void Function(Timer) callback)
+  createPeriodicTimer;
+
+  /// Interval between relative waiting-time refreshes.
+  final Duration refreshInterval;
+}
+
+/// Provides [PausesClockConfig] for [PausesController].
+@Riverpod(keepAlive: true)
+PausesClockConfig pausesClockConfig(Ref ref) => const PausesClockConfig();
+
+/// Manages the `/pauses` master-detail inbox, selection, per-pause drafts,
+/// response submission, 409 conflict recovery, and live WebSocket updates.
 @riverpod
 class PausesController extends _$PausesController {
   StreamSubscription<PauseEvent>? _eventsSub;
+  Timer? _clockTimer;
+  int _inFlightLoads = 0;
+  final Map<String, Pause> _createdDuringLoad = <String, Pause>{};
+  final Set<String> _resolvedDuringLoad = <String>{};
+  final Set<String> _locallySubmittedIds = <String>{};
 
   @override
   PausesState build() {
     unawaited(_eventsSub?.cancel());
+    _clockTimer?.cancel();
+    _inFlightLoads = 0;
+    _createdDuringLoad.clear();
+    _resolvedDuringLoad.clear();
+    _locallySubmittedIds.clear();
+
+    final clock = ref.watch(pausesClockConfigProvider);
     _eventsSub = ref
         .read(watchPauseEventsUseCaseProvider)()
         .listen(_handlePauseEvent);
+    _clockTimer = clock.createPeriodicTimer(clock.refreshInterval, (_) {
+      if (!ref.mounted) return;
+      state = state.copyWith(now: clock.now());
+    });
+
     ref.onDispose(() {
       unawaited(_eventsSub?.cancel());
       _eventsSub = null;
+      _clockTimer?.cancel();
+      _clockTimer = null;
     });
 
     unawaited(Future.microtask(loadPauses));
-    return const PausesState();
+    return PausesState(now: clock.now());
   }
 
   /// Loads or refreshes pending pauses from the backend.
+  ///
+  /// When [showLoading] is `false` (silent reconnect or background refresh),
+  /// any previously loaded list is preserved on failure instead of replacing
+  /// the inbox with an error screen.
   Future<void> loadPauses({bool showLoading = true}) async {
     if (showLoading) {
       state = state.copyWith(pauses: const AsyncLoading<List<Pause>>());
     }
+    _inFlightLoads++;
     final result = await ref.read(listPendingPausesUseCaseProvider)();
+    _inFlightLoads--;
     if (!ref.mounted) return;
+
     switch (result) {
       case Success<List<Pause>>(:final value):
-        final sorted = _sorted(value);
+        final mergedById = <String, Pause>{
+          for (final pause in value)
+            if (pause.status == PauseStatus.pending &&
+                !_resolvedDuringLoad.contains(pause.id))
+              pause.id: pause,
+          ..._createdDuringLoad,
+        };
+        if (_inFlightLoads == 0) {
+          _createdDuringLoad.clear();
+          _resolvedDuringLoad.clear();
+        }
+        final sorted = _sorted(mergedById.values.toList());
         state = state.copyWith(
           pauses: AsyncData<List<Pause>>(sorted),
           selectedPauseId: () =>
               _resolveSelection(sorted, state.selectedPauseId),
         );
       case FailureResult<List<Pause>>(:final failure):
+        if (_inFlightLoads == 0) {
+          _createdDuringLoad.clear();
+          _resolvedDuringLoad.clear();
+        }
+        if (!showLoading && state.pauses.hasValue) {
+          return;
+        }
         state = state.copyWith(
           pauses: AsyncError<List<Pause>>(failure, StackTrace.current),
         );
@@ -62,9 +140,39 @@ class PausesController extends _$PausesController {
     );
   }
 
-  /// Dismisses any visible conflict or submission error banner.
+  /// Updates the saved optional feedback draft for [pauseId].
+  void updateFeedbackDraft(String pauseId, String feedback) {
+    if (state.feedbackDraftFor(pauseId) == feedback) return;
+    state = state.copyWith(
+      feedbackDrafts: <String, String>{
+        ...state.feedbackDrafts,
+        pauseId: feedback,
+      },
+    );
+  }
+
+  /// Updates the saved answer draft for [pauseId].
+  void updateAnswerDraft(String pauseId, String answer) {
+    if (state.answerDraftFor(pauseId) == answer) return;
+    state = state.copyWith(
+      answerDrafts: <String, String>{...state.answerDrafts, pauseId: answer},
+    );
+  }
+
+  /// Clears the live-region announcement after it has been rendered so that
+  /// identical consecutive announcements fire again.
+  void clearAnnouncement() {
+    if (state.lastAnnouncement == null) return;
+    state = state.copyWith(lastAnnouncement: () => null);
+  }
+
+  /// Dismisses any visible conflict, remote-resolution, or error banner.
   void dismissNotice() {
-    state = state.copyWith(submitFailure: () => null, hasConflict: false);
+    state = state.copyWith(
+      submitFailure: () => null,
+      hasConflict: false,
+      remoteResolvedNodeLabel: () => null,
+    );
   }
 
   /// Approves or rejects a `humanApproval` pause with optional [feedback].
@@ -107,23 +215,35 @@ class PausesController extends _$PausesController {
       submittingAction: () => action,
       submitFailure: () => null,
       hasConflict: false,
+      remoteResolvedNodeLabel: () => null,
     );
 
     final result = await ref.read(answerPauseUseCaseProvider)(pauseId, request);
     if (!ref.mounted) return false;
 
     switch (result) {
-      case Success<Pause>(:final value):
+      case Success<Pause>():
+        _locallySubmittedIds.add(pauseId);
+        if (_inFlightLoads > 0) {
+          _resolvedDuringLoad.add(pauseId);
+          _createdDuringLoad.remove(pauseId);
+        }
         final updatedList = _removePause(
           state.pauses.asData?.value ?? const <Pause>[],
           pauseId,
         );
+        final nextFeedbackDrafts = Map<String, String>.from(
+          state.feedbackDrafts,
+        )..remove(pauseId);
+        final nextAnswerDrafts = Map<String, String>.from(state.answerDrafts)
+          ..remove(pauseId);
         state = state.copyWith(
           pauses: AsyncData<List<Pause>>(updatedList),
           selectedPauseId: () =>
               _resolveSelection(updatedList, state.selectedPauseId),
           submittingAction: () => null,
-          lastAnnouncement: () => PauseResolvedAnnouncement(value.nodeLabel),
+          feedbackDrafts: nextFeedbackDrafts,
+          answerDrafts: nextAnswerDrafts,
         );
         return true;
       case FailureResult<Pause>(:final failure):
@@ -152,9 +272,18 @@ class PausesController extends _$PausesController {
     switch (event) {
       case PauseCreatedEvent(:final pause):
         if (pause.status != PauseStatus.pending) return;
+        if (_inFlightLoads > 0) {
+          _createdDuringLoad[pause.id] = pause;
+          _resolvedDuringLoad.remove(pause.id);
+        }
         final current = state.pauses.asData?.value;
         if (current == null) {
-          unawaited(loadPauses(showLoading: false));
+          state = state.copyWith(
+            lastAnnouncement: () => PauseArrivedAnnouncement(pause.nodeLabel),
+          );
+          if (_inFlightLoads == 0) {
+            unawaited(loadPauses(showLoading: false));
+          }
           return;
         }
         final next = _upsertPause(current, pause);
@@ -164,15 +293,33 @@ class PausesController extends _$PausesController {
           lastAnnouncement: () => PauseArrivedAnnouncement(pause.nodeLabel),
         );
       case PauseResolvedEvent(:final pause):
+        final wasLocalSubmit = _locallySubmittedIds.remove(pause.id);
+        if (_inFlightLoads > 0) {
+          _resolvedDuringLoad.add(pause.id);
+          _createdDuringLoad.remove(pause.id);
+        }
         final current = state.pauses.asData?.value;
         if (current == null) return;
         final hadPause = current.any((p) => p.id == pause.id);
         if (!hadPause) return;
+        final wasSelected = state.selectedPauseId == pause.id;
         final next = _removePause(current, pause.id);
+        final nextFeedbackDrafts = Map<String, String>.from(
+          state.feedbackDrafts,
+        )..remove(pause.id);
+        final nextAnswerDrafts = Map<String, String>.from(state.answerDrafts)
+          ..remove(pause.id);
         state = state.copyWith(
           pauses: AsyncData<List<Pause>>(next),
           selectedPauseId: () => _resolveSelection(next, state.selectedPauseId),
-          lastAnnouncement: () => PauseResolvedAnnouncement(pause.nodeLabel),
+          feedbackDrafts: nextFeedbackDrafts,
+          answerDrafts: nextAnswerDrafts,
+          remoteResolvedNodeLabel: () => (!wasLocalSubmit && wasSelected)
+              ? pause.nodeLabel
+              : state.remoteResolvedNodeLabel,
+          lastAnnouncement: () => wasLocalSubmit
+              ? state.lastAnnouncement
+              : PauseResolvedAnnouncement(pause.nodeLabel),
         );
       case PauseSyncRequestedEvent():
         unawaited(loadPauses(showLoading: false));

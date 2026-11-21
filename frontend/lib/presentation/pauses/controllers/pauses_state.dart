@@ -29,7 +29,7 @@ final class PauseArrivedAnnouncement extends PauseAnnouncement {
   final String nodeLabel;
 }
 
-/// Announces that an existing pause was resolved or cancelled.
+/// Announces that an existing pause was resolved or cancelled remotely.
 final class PauseResolvedAnnouncement extends PauseAnnouncement {
   /// Creates a [PauseResolvedAnnouncement].
   const new(this.nodeLabel);
@@ -47,7 +47,11 @@ final class PausesState {
     this.submittingAction,
     this.submitFailure,
     this.hasConflict = false,
+    this.remoteResolvedNodeLabel,
     this.lastAnnouncement,
+    this.feedbackDrafts = const <String, String>{},
+    this.answerDrafts = const <String, String>{},
+    this.now,
   });
 
   /// Pending pauses list state.
@@ -65,11 +69,31 @@ final class PausesState {
   /// Whether the last submission failed with HTTP 409 conflict.
   final bool hasConflict;
 
+  /// Node label of the selected pause when it was resolved/cancelled remotely,
+  /// shown as an explicit notice banner so drafts/context are not silently lost.
+  final String? remoteResolvedNodeLabel;
+
   /// Latest live-region announcement for screen readers.
   final PauseAnnouncement? lastAnnouncement;
 
+  /// Preserved optional feedback drafts keyed by pause ID.
+  final Map<String, String> feedbackDrafts;
+
+  /// Preserved answer drafts keyed by pause ID.
+  final Map<String, String> answerDrafts;
+
+  /// Reference timestamp updated periodically to refresh relative waiting
+  /// times.
+  final DateTime? now;
+
   /// Whether a response submission is currently in flight.
   bool get isSubmitting => submittingAction != null;
+
+  /// Returns the preserved feedback draft for [pauseId].
+  String feedbackDraftFor(String pauseId) => feedbackDrafts[pauseId] ?? '';
+
+  /// Returns the preserved answer draft for [pauseId].
+  String answerDraftFor(String pauseId) => answerDrafts[pauseId] ?? '';
 
   /// Returns the currently selected [Pause], or `null` if none is selected.
   Pause? get selectedPause {
@@ -90,7 +114,11 @@ final class PausesState {
     PauseSubmittingAction? Function()? submittingAction,
     Failure? Function()? submitFailure,
     bool? hasConflict,
+    String? Function()? remoteResolvedNodeLabel,
     PauseAnnouncement? Function()? lastAnnouncement,
+    Map<String, String>? feedbackDrafts,
+    Map<String, String>? answerDrafts,
+    DateTime? now,
   }) {
     return PausesState(
       pauses: pauses ?? this.pauses,
@@ -104,9 +132,15 @@ final class PausesState {
           ? submitFailure()
           : this.submitFailure,
       hasConflict: hasConflict ?? this.hasConflict,
+      remoteResolvedNodeLabel: remoteResolvedNodeLabel != null
+          ? remoteResolvedNodeLabel()
+          : this.remoteResolvedNodeLabel,
       lastAnnouncement: lastAnnouncement != null
           ? lastAnnouncement()
           : this.lastAnnouncement,
+      feedbackDrafts: feedbackDrafts ?? this.feedbackDrafts,
+      answerDrafts: answerDrafts ?? this.answerDrafts,
+      now: now ?? this.now,
     );
   }
 }

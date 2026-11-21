@@ -2261,5 +2261,30 @@
   "pausesUnknownError": "An unexpected error occurred.",
   "@pausesUnknownError": {
     "description": "Fallback error message when a pause operation fails."
+  },
+  "pausesFailureNetwork": "Could not reach the local backend. Check the connection and try again.",
+  "@pausesFailureNetwork": {
+    "description": "Localized error message when a pause request fails due to a network/socket failure."
+  },
+  "pausesFailureNotFound": "This pause could not be found.",
+  "@pausesFailureNotFound": {
+    "description": "Localized error message when a pause record is not found."
+  },
+  "pausesFailureValidation": "The submitted response is invalid.",
+  "@pausesFailureValidation": {
+    "description": "Localized error message when a pause answer fails validation."
+  },
+  "pausesFailureBackend": "The local backend encountered an error while processing pauses.",
+  "@pausesFailureBackend": {
+    "description": "Localized error message when the backend returns an error for a pause request."
+  },
+  "pausesRemoteResolvedNotice": "Pause \"{nodeLabel}\" was resolved or cancelled externally.",
+  "@pausesRemoteResolvedNotice": {
+    "description": "Notice shown when the currently selected pause is resolved or cancelled remotely.",
+    "placeholders": {
+      "nodeLabel": {
+        "type": "String"
+      }
+    }
   }
 }

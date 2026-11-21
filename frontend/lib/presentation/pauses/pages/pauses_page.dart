@@ -32,18 +32,39 @@ class PausesPage extends ConsumerWidget {
       null => null,
     };
 
+    if (announcement != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          controller.clearAnnouncement();
+        }
+      });
+    }
+
+    final remoteResolvedLabel = state.remoteResolvedNodeLabel;
+
     return Padding(
       padding: EdgeInsets.all(spacing.space3),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          if (announcement != null)
-            Semantics(
-              liveRegion: true,
-              label: announcement,
-              child: const SizedBox.shrink(),
-            ),
+          Semantics(
+            key: const Key('pauses_live_region'),
+            liveRegion: true,
+            label: announcement ?? '',
+            child: const SizedBox.shrink(),
+          ),
           HivePageHeader(title: l10n.navPauses),
+          if (remoteResolvedLabel != null) ...<Widget>[
+            HiveBanner(
+              key: const Key('pauses_remote_resolved_banner'),
+              tone: HiveFeedbackTone.info,
+              liveRegion: true,
+              title: l10n.pausesRemoteResolvedNotice(remoteResolvedLabel),
+              onDismiss: controller.dismissNotice,
+              dismissSemanticLabel: l10n.pausesDismissNoticeSemantic,
+            ),
+            SizedBox(height: spacing.space2),
+          ],
           Expanded(
             child: state.pauses.when(
               loading: () => const _PausesLoadingSkeleton(),
@@ -73,6 +94,7 @@ class PausesPage extends ConsumerWidget {
                     pauses: pauses,
                     selectedPauseId: state.selectedPauseId,
                     onSelectPause: controller.selectPause,
+                    now: state.now,
                   ),
                   detail: selected == null
                       ? HiveEmptyState(
@@ -104,6 +126,10 @@ class PausesPage extends ConsumerWidget {
                               answer: answer,
                             ),
                           ),
+                          onFeedbackDraftChanged: (text) =>
+                              controller.updateFeedbackDraft(selected.id, text),
+                          onAnswerDraftChanged: (text) =>
+                              controller.updateAnswerDraft(selected.id, text),
                           onDismissNotice: controller.dismissNotice,
                         ),
                 );

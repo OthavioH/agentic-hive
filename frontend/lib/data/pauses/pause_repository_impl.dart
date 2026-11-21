@@ -17,26 +17,47 @@ final class PauseRepositoryImpl implements PauseRepository {
   final PausesRemoteDataSource _remoteDataSource;
   final Stream<PauseEvent> _eventsStream;
   final Set<String> _pendingIds = <String>{};
+  final Map<String, Pause> _createdDuringFetch = <String, Pause>{};
+  final Set<String> _resolvedDuringFetch = <String>{};
   final StreamController<int> _countController =
       StreamController<int>.broadcast();
   StreamSubscription<PauseEvent>? _eventsSub;
+  int _inFlightFetches = 0;
   bool _disposed = false;
   int _lastEmittedCount = 0;
 
   @override
   Future<Result<List<Pause>>> listPendingPauses() async {
+    _inFlightFetches++;
     final result = await _remoteDataSource.listPendingPauses();
-    if (!_disposed) {
-      if (result case Success<List<Pause>>(:final value)) {
-        _pendingIds
-          ..clear()
-          ..addAll(
-            value
-                .where((p) => p.status == PauseStatus.pending)
-                .map((p) => p.id),
-          );
-        _emitCountIfChanged();
+    _inFlightFetches--;
+
+    if (_disposed) return result;
+
+    if (result case Success<List<Pause>>(:final value)) {
+      final mergedById = <String, Pause>{
+        for (final pause in value)
+          if (pause.status == PauseStatus.pending &&
+              !_resolvedDuringFetch.contains(pause.id))
+            pause.id: pause,
+        ..._createdDuringFetch,
+      };
+      if (_inFlightFetches == 0) {
+        _createdDuringFetch.clear();
+        _resolvedDuringFetch.clear();
       }
+      _pendingIds
+        ..clear()
+        ..addAll(mergedById.keys);
+      _emitCountIfChanged();
+      final mergedList = mergedById.values.toList()
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      return Success(mergedList);
+    }
+
+    if (_inFlightFetches == 0) {
+      _createdDuringFetch.clear();
+      _resolvedDuringFetch.clear();
     }
     return result;
   }
@@ -48,6 +69,10 @@ final class PauseRepositoryImpl implements PauseRepository {
   ) async {
     final result = await _remoteDataSource.answerPause(id, request);
     if (!_disposed && result is Success<Pause>) {
+      if (_inFlightFetches > 0) {
+        _resolvedDuringFetch.add(id);
+        _createdDuringFetch.remove(id);
+      }
       if (_pendingIds.remove(id)) {
         _emitCountIfChanged();
       }
@@ -75,11 +100,19 @@ final class PauseRepositoryImpl implements PauseRepository {
     switch (event) {
       case PauseCreatedEvent(:final pause):
         if (pause.status == PauseStatus.pending) {
+          if (_inFlightFetches > 0) {
+            _createdDuringFetch[pause.id] = pause;
+            _resolvedDuringFetch.remove(pause.id);
+          }
           if (_pendingIds.add(pause.id)) {
             _emitCountIfChanged();
           }
         }
       case PauseResolvedEvent(:final pause):
+        if (_inFlightFetches > 0) {
+          _resolvedDuringFetch.add(pause.id);
+          _createdDuringFetch.remove(pause.id);
+        }
         if (_pendingIds.remove(pause.id)) {
           _emitCountIfChanged();
         }

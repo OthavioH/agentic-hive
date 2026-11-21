@@ -10,13 +10,36 @@ final class PausesRemoteDataSource {
   const new(this._client);
 
   static const String _basePath = '/api/v1/pauses';
+  static const int _pageSize = 50;
 
   final BackendClient _client;
 
-  /// Fetches pending pauses (`GET /api/v1/pauses?status=pending`).
+  /// Fetches all pending pauses by paging through `GET /api/v1/pauses`.
   Future<Result<List<Pause>>> listPendingPauses() async {
-    final result = await _client.getJson('$_basePath?status=pending');
-    return result.flatMap(_decodeList);
+    final allItems = <Pause>[];
+    var offset = 0;
+
+    while (true) {
+      final result = await _client.getJson(
+        '$_basePath?status=pending&limit=$_pageSize&offset=$offset',
+      );
+      switch (result) {
+        case FailureResult<JsonMap>(:final failure):
+          return FailureResult(failure);
+        case Success<JsonMap>(:final value):
+          final pageResult = _decodePage(value);
+          switch (pageResult) {
+            case FailureResult<PausesListResponse>(:final failure):
+              return FailureResult(failure);
+            case Success<PausesListResponse>(value: final page):
+              allItems.addAll(page.items);
+              offset += page.items.length;
+              if (page.items.isEmpty || allItems.length >= page.total) {
+                return Success(allItems);
+              }
+          }
+      }
+    }
   }
 
   /// Submits an answer or decision (`POST /api/v1/pauses/<id>/answer`).
@@ -36,9 +59,9 @@ final class PausesRemoteDataSource {
     };
   }
 
-  Result<List<Pause>> _decodeList(JsonMap json) {
+  Result<PausesListResponse> _decodePage(JsonMap json) {
     try {
-      return Success(PausesListResponse.fromJson(json).items);
+      return Success(PausesListResponse.fromJson(json));
     } on FormatException catch (error) {
       return FailureResult(
         BackendFailure('Invalid pauses list response: ${error.message}'),

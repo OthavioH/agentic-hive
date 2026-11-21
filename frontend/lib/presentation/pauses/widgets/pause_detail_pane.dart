@@ -15,6 +15,8 @@ class PauseDetailPane extends StatefulWidget {
     required this.onApprove,
     required this.onReject,
     required this.onSubmitAnswer,
+    required this.onFeedbackDraftChanged,
+    required this.onAnswerDraftChanged,
     required this.onDismissNotice,
     super.key,
   });
@@ -37,6 +39,13 @@ class PauseDetailPane extends StatefulWidget {
   /// Called when submitting an `askHuman` answer.
   final ValueChanged<String> onSubmitAnswer;
 
+  /// Called when the user edits the optional feedback draft for the selected
+  /// pause.
+  final ValueChanged<String> onFeedbackDraftChanged;
+
+  /// Called when the user edits the answer draft for the selected pause.
+  final ValueChanged<String> onAnswerDraftChanged;
+
   /// Called to dismiss a conflict or error banner.
   final VoidCallback onDismissNotice;
 
@@ -52,16 +61,26 @@ class _PauseDetailPaneState extends State<PauseDetailPane> {
   @override
   void initState() {
     super.initState();
-    _feedbackController = TextEditingController();
-    _answerController = TextEditingController();
+    _feedbackController = TextEditingController(
+      text: widget.state.feedbackDraftFor(widget.pause.id),
+    );
+    _answerController = TextEditingController(
+      text: widget.state.answerDraftFor(widget.pause.id),
+    );
   }
 
   @override
   void didUpdateWidget(PauseDetailPane oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.pause.id != widget.pause.id) {
-      _feedbackController.clear();
-      _answerController.clear();
+      final nextFeedback = widget.state.feedbackDraftFor(widget.pause.id);
+      final nextAnswer = widget.state.answerDraftFor(widget.pause.id);
+      _feedbackController
+        ..text = nextFeedback
+        ..selection = TextSelection.collapsed(offset: nextFeedback.length);
+      _answerController
+        ..text = nextAnswer
+        ..selection = TextSelection.collapsed(offset: nextAnswer.length);
       _answerValidationError = null;
     }
   }
@@ -75,12 +94,12 @@ class _PauseDetailPaneState extends State<PauseDetailPane> {
 
   void _selectOptionChip(String option) {
     setState(() {
-      _answerController.text = option;
-      _answerController.selection = TextSelection.collapsed(
-        offset: option.length,
-      );
+      _answerController
+        ..text = option
+        ..selection = TextSelection.collapsed(offset: option.length);
       _answerValidationError = null;
     });
+    widget.onAnswerDraftChanged(option);
   }
 
   void _handleSubmitAnswer(AppLocalizations l10n) {
@@ -104,12 +123,12 @@ class _PauseDetailPaneState extends State<PauseDetailPane> {
     final spacing = context.hiveSpacing;
     final typography = context.hiveTypography;
     final pause = widget.pause;
-    final kindText = PauseL10n.kindLabel(l10n, pause.kind);
-    final waitingText = PauseL10n.formatWaitingTime(l10n, pause.createdAt);
-    final badgeTone = switch (pause.kind) {
-      PauseKind.humanApproval => HiveBadgeTone.warning,
-      PauseKind.askHuman => HiveBadgeTone.info,
-    };
+    final kindText = pause.kind.label(l10n);
+    final waitingText = PauseL10n.formatWaitingTime(
+      l10n,
+      pause.createdAt,
+      now: widget.state.now,
+    );
 
     return SingleChildScrollView(
       padding: EdgeInsets.all(spacing.space3),
@@ -134,7 +153,7 @@ class _PauseDetailPaneState extends State<PauseDetailPane> {
               title: l10n.pausesSubmitErrorTitle,
               message: PauseL10n.localizeError(
                 l10n,
-                widget.state.submitFailure!,
+                widget.state.submitFailure,
               ),
               onDismiss: widget.onDismissNotice,
               dismissSemanticLabel: l10n.pausesDismissNoticeSemantic,
@@ -154,7 +173,7 @@ class _PauseDetailPaneState extends State<PauseDetailPane> {
                       semanticLabel: l10n.pausesStatusPending,
                     ),
                     SizedBox(width: spacing.space1),
-                    HiveBadge(label: kindText, tone: badgeTone),
+                    HiveBadge(label: kindText, tone: pause.kind.badgeTone),
                     SizedBox(width: spacing.space2),
                     Text(
                       waitingText,
@@ -238,6 +257,7 @@ class _PauseDetailPaneState extends State<PauseDetailPane> {
             controller: _feedbackController,
             multiline: true,
             enabled: !isBusy,
+            onChanged: widget.onFeedbackDraftChanged,
           ),
           SizedBox(height: spacing.space3),
         ],
@@ -317,7 +337,8 @@ class _PauseDetailPaneState extends State<PauseDetailPane> {
           multiline: true,
           enabled: !isBusy,
           errorText: _answerValidationError,
-          onChanged: (_) {
+          onChanged: (value) {
+            widget.onAnswerDraftChanged(value);
             if (_answerValidationError != null) {
               setState(() => _answerValidationError = null);
             } else {

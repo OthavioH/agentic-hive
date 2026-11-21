@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/data/pauses/pause_providers.dart';
 import 'package:agentic_hive_frontend/presentation/pauses/controllers/pauses_controller.dart';
@@ -8,6 +10,31 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fake_pause_repository.dart';
+
+final class _FakePeriodicTimer implements Timer {
+  new(this._callback);
+
+  final void Function(Timer) _callback;
+  int _tick = 0;
+  bool _active = true;
+
+  void fire() {
+    if (!_active) return;
+    _tick++;
+    _callback(this);
+  }
+
+  @override
+  void cancel() {
+    _active = false;
+  }
+
+  @override
+  bool get isActive => _active;
+
+  @override
+  int get tick => _tick;
+}
 
 void main() {
   Pause makeApproval({String id = 'pause-1', DateTime? createdAt}) => Pause(
@@ -84,7 +111,7 @@ void main() {
     expect(state.selectedPauseId, 'pause-1');
   });
 
-  test('submitApproval sends decision and removes resolved pause', () async {
+  test('submitApproval sends decision without announcing own submit', () async {
     final repo = FakePauseRepository(initial: <Pause>[makeApproval()]);
     addTearDown(repo.dispose);
 
@@ -108,9 +135,17 @@ void main() {
     expect(repo.recordedAnswers.single.id, 'pause-1');
     expect(repo.recordedAnswers.single.request.decision, 'approved');
     expect(repo.recordedAnswers.single.request.feedback, 'Looks good');
-    final state = container.read(pausesControllerProvider);
+    var state = container.read(pausesControllerProvider);
     expect(state.pauses.requireValue, isEmpty);
-    expect(state.lastAnnouncement, isA<PauseResolvedAnnouncement>());
+    expect(state.lastAnnouncement, isNull);
+
+    // Even if the backend broadcasts pause.resolved for the user's own submit,
+    // it must not announce or show the remote-resolved banner.
+    repo.emitResolved(makeApproval().copyWith(status: PauseStatus.answered));
+    await Future<void>.delayed(Duration.zero);
+    state = container.read(pausesControllerProvider);
+    expect(state.lastAnnouncement, isNull);
+    expect(state.remoteResolvedNodeLabel, isNull);
   });
 
   test('409 conflict sets hasConflict and auto-refreshes inbox', () async {
@@ -143,4 +178,144 @@ void main() {
     expect(state.hasConflict, isTrue);
     expect(repo.listCallCount, greaterThan(initialCalls));
   });
+
+  test(
+    'merges pause.created arriving while loadPauses fetch is in flight',
+    () async {
+      final repo = FakePauseRepository();
+      addTearDown(repo.dispose);
+
+      final fetchCompleter = Completer<Result<List<Pause>>>();
+      repo.onListPendingPauses = () => fetchCompleter.future;
+
+      final container = ProviderContainer.test(
+        overrides: [pauseRepositoryProvider.overrideWithValue(repo)],
+      );
+
+      final sub = container.listen(pausesControllerProvider, (_, _) {});
+      addTearDown(sub.close);
+      await Future<void>.delayed(Duration.zero);
+
+      repo.emitCreated(makeQuestion());
+      await Future<void>.delayed(Duration.zero);
+
+      fetchCompleter.complete(Success(<Pause>[makeApproval()]));
+      await Future<void>.delayed(Duration.zero);
+
+      final items = container
+          .read(pausesControllerProvider)
+          .pauses
+          .requireValue;
+      expect(items.map((p) => p.id), <String>['pause-1', 'pause-2']);
+    },
+  );
+
+  test('silent refresh failure keeps previous data', () async {
+    final repo = FakePauseRepository(initial: <Pause>[makeApproval()]);
+    addTearDown(repo.dispose);
+
+    final container = ProviderContainer.test(
+      overrides: [pauseRepositoryProvider.overrideWithValue(repo)],
+    );
+
+    final sub = container.listen(pausesControllerProvider, (_, _) {});
+    addTearDown(sub.close);
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      container.read(pausesControllerProvider).pauses.requireValue,
+      hasLength(1),
+    );
+
+    repo.onListPendingPauses = () async =>
+        const FailureResult(NetworkFailure('Reconnect failed'));
+
+    await container
+        .read(pausesControllerProvider.notifier)
+        .loadPauses(showLoading: false);
+
+    final state = container.read(pausesControllerProvider);
+    expect(state.pauses.hasValue, isTrue);
+    expect(state.pauses.requireValue.single.id, 'pause-1');
+  });
+
+  test(
+    'periodic clock timer updates state.now and cancels on dispose',
+    () async {
+      final repo = FakePauseRepository(initial: <Pause>[makeApproval()]);
+      addTearDown(repo.dispose);
+
+      var currentNow = DateTime.utc(2026, 11, 21, 10);
+      _FakePeriodicTimer? capturedTimer;
+
+      final container = ProviderContainer.test(
+        overrides: [
+          pauseRepositoryProvider.overrideWithValue(repo),
+          pausesClockConfigProvider.overrideWithValue(
+            PausesClockConfig(
+              now: () => currentNow,
+              createPeriodicTimer: (_, callback) {
+                return capturedTimer = _FakePeriodicTimer(callback);
+              },
+            ),
+          ),
+        ],
+      );
+
+      final sub = container.listen(pausesControllerProvider, (_, _) {});
+      await Future<void>.delayed(Duration.zero);
+
+      expect(container.read(pausesControllerProvider).now, currentNow);
+      expect(capturedTimer, isNotNull);
+      expect(capturedTimer!.isActive, isTrue);
+
+      currentNow = DateTime.utc(2026, 11, 21, 10, 5);
+      capturedTimer!.fire();
+      expect(container.read(pausesControllerProvider).now, currentNow);
+
+      sub.close();
+      container.dispose();
+      expect(capturedTimer!.isActive, isFalse);
+    },
+  );
+
+  test(
+    'preserves drafts across selection and notices remote resolve',
+    () async {
+      final repo = FakePauseRepository(
+        initial: <Pause>[makeApproval(), makeQuestion()],
+      );
+      addTearDown(repo.dispose);
+
+      final container = ProviderContainer.test(
+        overrides: [pauseRepositoryProvider.overrideWithValue(repo)],
+      );
+
+      final sub = container.listen(pausesControllerProvider, (_, _) {});
+      addTearDown(sub.close);
+      await Future<void>.delayed(Duration.zero);
+
+      final notifier = container.read(pausesControllerProvider.notifier)
+        ..updateFeedbackDraft('pause-1', 'Draft feedback 1')
+        ..selectPause('pause-2')
+        ..updateAnswerDraft('pause-2', 'Draft answer 2')
+        ..selectPause('pause-1');
+
+      var state = container.read(pausesControllerProvider);
+      expect(state.feedbackDraftFor('pause-1'), 'Draft feedback 1');
+      expect(state.answerDraftFor('pause-2'), 'Draft answer 2');
+
+      repo.emitResolved(makeApproval().copyWith(status: PauseStatus.answered));
+      await Future<void>.delayed(Duration.zero);
+
+      state = container.read(pausesControllerProvider);
+      expect(state.selectedPauseId, 'pause-2');
+      expect(state.remoteResolvedNodeLabel, 'Approve Production');
+      expect(state.lastAnnouncement, isA<PauseResolvedAnnouncement>());
+      expect(state.feedbackDraftFor('pause-1'), isEmpty);
+      expect(state.answerDraftFor('pause-2'), 'Draft answer 2');
+
+      notifier.clearAnnouncement();
+      expect(container.read(pausesControllerProvider).lastAnnouncement, isNull);
+    },
+  );
 }
