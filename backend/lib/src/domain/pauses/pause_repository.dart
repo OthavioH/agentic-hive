@@ -39,4 +39,12 @@ abstract interface class PauseRepository {
     String runId, {
     required DateTime cancelledAt,
   });
+
+  /// Atomically transitions all `pending` pauses for `(runId, nodeId)` to
+  /// [PauseStatus.cancelled] and returns the newly cancelled pauses.
+  Future<Result<List<Pause>>> cancelPendingForNode(
+    String runId,
+    String nodeId, {
+    required DateTime cancelledAt,
+  });
 }

@@ -557,5 +557,202 @@ void main() {
 
       expect(result.failureOrNull, isA<NotFoundFailure>());
     });
+
+    test(
+      'accepts legacy kind:"approval" from F6-F10 checkpoints on resume',
+      () async {
+        final flow = approvalFlow();
+        await h.createRun(flow, status: RunStatus.paused);
+        await h.checkpoints.append(
+          id: 'cp-legacy',
+          runId: runId,
+          pendingNodeIds: const ['gate'],
+          attemptsByEdge: const {},
+          circuitBreakerCount: 0,
+          nodeOutputs: const {},
+          createdAt: h.tick(),
+        );
+        await h.events.append(
+          id: 'ev-legacy',
+          runId: runId,
+          type: RunEventType.runPaused,
+          createdAt: h.tick(),
+          payload: const <String, Object?>{
+            'pausedNodes': <Object?>[
+              <String, Object?>{
+                'nodeId': 'gate',
+                'kind': 'approval',
+                'question': 'Please review.',
+              },
+            ],
+          },
+        );
+
+        final resumed = await h.engine.resume(
+          runId,
+          input: const ApprovalDecisionInput(
+            decision: HumanApprovalDecision.approved,
+          ),
+        );
+        expect(resumed.valueOrNull?.status, RunStatus.succeeded);
+      },
+    );
+
+    test(
+      'fails the run with node.failed and run.failed when persisting a pause '
+      'in PauseRepository fails',
+      () async {
+        h.pauses.createFailure = const PersistenceFailure('PK collision');
+        await h.createRun(approvalFlow());
+
+        final result = await h.engine.start(runId);
+
+        expect(result.valueOrNull?.status, RunStatus.failed);
+        expect(h.run.status, RunStatus.failed);
+        expect(h.events.ofType(runId, RunEventType.nodeFailed), isNotEmpty);
+        expect(h.events.ofType(runId, RunEventType.runFailed), hasLength(1));
+      },
+    );
+
+    test('cancels pending pause and attempt waiter when a live ask_human node '
+        'ends unanswered', () async {
+      final flow = buildWorkflow(nodeIds: ['ask'], edges: const []);
+      await h.createRun(flow);
+
+      final exitGate = Completer<void>();
+      h.script.on('ask', [
+        (context) async {
+          unawaited(
+            h.gateway.requestHumanAnswer(
+              runId: context.runId,
+              nodeId: context.nodeId,
+              attempt: context.attempt,
+              question: 'Still there?',
+            ),
+          );
+          await exitGate.future;
+          return const FailureResult(NodeExecutionFailure('timed out'));
+        },
+        (_) async => const Success(NodeOutcome(outputLabel: 'onSuccess')),
+      ]);
+
+      final runFuture = h.engine.start(runId);
+      await h.settle();
+
+      expect(h.run.status, RunStatus.paused);
+      final pendingBefore = (await h.pauses.listPendingForRun(runId))
+          .valueOrNull!;
+      expect(pendingBefore, hasLength(1));
+      final pauseId = pendingBefore.single.id;
+
+      // Node exits with timeout failure without waiting for the human answer.
+      exitGate.complete();
+      final finished = await runFuture;
+
+      expect(finished.valueOrNull?.status, RunStatus.succeeded);
+      expect(h.gateway.pendingForRun(runId), isEmpty);
+      final pauseAfter = (await h.pauses.getById(pauseId)).valueOrNull!;
+      expect(pauseAfter.status, PauseStatus.cancelled);
+    });
+
+    test('beginPausedResume accepts back-to-back answers for two concurrent '
+        'approvals without losing the second answer', () async {
+      final flow = buildWorkflow(
+        nodeIds: ['start', 'g1', 'g2'],
+        approvals: {'g1', 'g2'},
+        edges: [
+          edge('start', 'onSuccess', 'g1'),
+          edge('start', 'onSuccess', 'g2'),
+        ],
+      );
+      await h.createRun(flow);
+      final paused = await h.engine.start(runId);
+      expect(paused.valueOrNull?.status, RunStatus.paused);
+
+      final first = await h.engine.beginPausedResume(
+        runId,
+        input: const ApprovalDecisionInput(
+          nodeId: 'g1',
+          decision: HumanApprovalDecision.approved,
+        ),
+      );
+      final second = await h.engine.beginPausedResume(
+        runId,
+        input: const ApprovalDecisionInput(
+          nodeId: 'g2',
+          decision: HumanApprovalDecision.approved,
+        ),
+      );
+
+      expect(first.isSuccess, isTrue);
+      expect(second.isSuccess, isTrue);
+
+      final settled = await second.valueOrNull!.done;
+      expect(settled.valueOrNull?.status, RunStatus.succeeded);
+    });
+
+    test('beginPausedResume accepts back-to-back answers for two post-restart '
+        'ask_human pauses and runs both with their humanAnswers', () async {
+      final flow = buildWorkflow(
+        nodeIds: ['start', 'ask1', 'ask2'],
+        edges: [
+          edge('start', 'onSuccess', 'ask1'),
+          edge('start', 'onSuccess', 'ask2'),
+        ],
+      );
+      await h.createRun(flow, status: RunStatus.paused);
+      await h.checkpoints.append(
+        id: 'cp-1',
+        runId: runId,
+        completedNodeId: 'start',
+        pendingNodeIds: const ['ask1', 'ask2'],
+        attemptsByEdge: const {},
+        circuitBreakerCount: 0,
+        nodeOutputs: const {
+          'start': {'outputLabel': 'onSuccess', 'data': <String, Object?>{}},
+        },
+        createdAt: h.tick(),
+      );
+      await h.events.append(
+        id: 'ev-paused',
+        runId: runId,
+        type: RunEventType.runPaused,
+        createdAt: h.tick(),
+        payload: const <String, Object?>{
+          'pausedNodes': <Object?>[
+            <String, Object?>{
+              'nodeId': 'ask1',
+              'kind': 'askHuman',
+              'question': 'Q1?',
+            },
+            <String, Object?>{
+              'nodeId': 'ask2',
+              'kind': 'askHuman',
+              'question': 'Q2?',
+            },
+          ],
+        },
+      );
+
+      final first = await h.engine.beginPausedResume(
+        runId,
+        input: const HumanAnswerInput(nodeId: 'ask1', answer: 'A1'),
+      );
+      final second = await h.engine.beginPausedResume(
+        runId,
+        input: const HumanAnswerInput(nodeId: 'ask2', answer: 'A2'),
+      );
+
+      expect(first.isSuccess, isTrue);
+      expect(second.isSuccess, isTrue);
+
+      final settled = await second.valueOrNull!.done;
+      expect(settled.valueOrNull?.status, RunStatus.succeeded);
+      final answersByNode = <String, String?>{
+        for (final exec in h.script.executions) exec.nodeId: exec.humanAnswer,
+      };
+      expect(answersByNode['ask1'], 'A1');
+      expect(answersByNode['ask2'], 'A2');
+    });
   });
 }

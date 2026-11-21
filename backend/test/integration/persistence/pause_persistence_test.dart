@@ -45,9 +45,7 @@ void main() {
     startedAt: DateTime.utc(2026, 11, 21, 10),
   );
 
-  test(
-    'migrates schemaVersion 5 to 6 creating Pauses table and indexes',
-    () async {
+  test('migrates schemaVersion 5 to 6 creating Pauses table', () async {
     // Seed a schemaVersion 5 database without the Pauses table.
     final v5Executor = NativeDatabase(dbFile);
     await v5Executor.ensureOpen(_V5SeedUser());

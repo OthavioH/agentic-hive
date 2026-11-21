@@ -3,22 +3,26 @@ import 'package:test/test.dart';
 
 void main() {
   group('Pause contracts', () {
-    test('PauseKind and PauseStatus parse by name', () {
-      expect(PauseKind.fromName('humanApproval'), PauseKind.humanApproval);
-      expect(PauseKind.fromName('askHuman'), PauseKind.askHuman);
-      expect(
-        () => PauseKind.fromName('unknown'),
-        throwsA(isA<FormatException>()),
-      );
+    test(
+      'PauseKind and PauseStatus parse by name (including legacy approval)',
+      () {
+        expect(PauseKind.fromName('humanApproval'), PauseKind.humanApproval);
+        expect(PauseKind.fromName('approval'), PauseKind.humanApproval);
+        expect(PauseKind.fromName('askHuman'), PauseKind.askHuman);
+        expect(
+          () => PauseKind.fromName('unknown'),
+          throwsA(isA<FormatException>()),
+        );
 
-      expect(PauseStatus.fromName('pending'), PauseStatus.pending);
-      expect(PauseStatus.fromName('answered'), PauseStatus.answered);
-      expect(PauseStatus.fromName('cancelled'), PauseStatus.cancelled);
-      expect(
-        () => PauseStatus.fromName('unknown'),
-        throwsA(isA<FormatException>()),
-      );
-    });
+        expect(PauseStatus.fromName('pending'), PauseStatus.pending);
+        expect(PauseStatus.fromName('answered'), PauseStatus.answered);
+        expect(PauseStatus.fromName('cancelled'), PauseStatus.cancelled);
+        expect(
+          () => PauseStatus.fromName('unknown'),
+          throwsA(isA<FormatException>()),
+        );
+      },
+    );
 
     test('Pause round-trips humanApproval and askHuman JSON', () {
       final approval = Pause(

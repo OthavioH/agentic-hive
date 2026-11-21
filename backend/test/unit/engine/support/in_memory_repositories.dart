@@ -1,5 +1,6 @@
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/domain/pauses/pause_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
@@ -210,5 +211,134 @@ final class InMemoryRunEventRepository implements RunEventRepository {
       items: items,
       lastSequence: items.isEmpty ? (afterSequence ?? 0) : items.last.sequence,
     ));
+  }
+}
+
+/// In-memory [PauseRepository] for unit tests.
+final class InMemoryPauseRepository implements PauseRepository {
+  /// Creates an in-memory pause repository.
+  new();
+
+  /// Stored pauses by id.
+  final Map<String, Pause> pauses = <String, Pause>{};
+
+  /// When non-null, [create] fails with this failure.
+  Failure? createFailure;
+
+  @override
+  Future<Result<Pause>> create(Pause pause) async {
+    if (createFailure != null) return FailureResult(createFailure!);
+    if (pauses.containsKey(pause.id)) {
+      return FailureResult(
+        PersistenceFailure('Duplicate pause id "${pause.id}".'),
+      );
+    }
+    pauses[pause.id] = pause;
+    return Success(pause);
+  }
+
+  @override
+  Future<Result<Pause>> getById(String id) async {
+    final pause = pauses[id];
+    if (pause == null) {
+      return FailureResult(NotFoundFailure('Pause "$id" not found.'));
+    }
+    return Success(pause);
+  }
+
+  @override
+  Future<Result<({List<Pause> items, int total})>> list({
+    PauseStatus? status,
+    String? runId,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final filtered =
+        pauses.values
+            .where((p) => status == null || p.status == status)
+            .where((p) => runId == null || p.runId == runId)
+            .toList()
+          ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return Success((
+      items: filtered.skip(offset).take(limit).toList(growable: false),
+      total: filtered.length,
+    ));
+  }
+
+  @override
+  Future<Result<List<Pause>>> listPendingForRun(String runId) async => Success(
+    pauses.values
+        .where((p) => p.runId == runId && p.status == PauseStatus.pending)
+        .toList(growable: false),
+  );
+
+  @override
+  Future<Result<Pause>> markAnswered(
+    String id, {
+    required DateTime answeredAt,
+    String? decision,
+    String? feedback,
+    String? answer,
+  }) async {
+    final existing = pauses[id];
+    if (existing == null) {
+      return FailureResult(NotFoundFailure('Pause "$id" not found.'));
+    }
+    if (existing.status != PauseStatus.pending) {
+      return const FailureResult(
+        ConflictFailure('This pause was already resolved or cancelled.'),
+      );
+    }
+    final updated = existing.copyWith(
+      status: PauseStatus.answered,
+      decision: decision,
+      feedback: feedback,
+      answer: answer,
+      answeredAt: answeredAt,
+    );
+    pauses[id] = updated;
+    return Success(updated);
+  }
+
+  @override
+  Future<Result<List<Pause>>> cancelPendingForRun(
+    String runId, {
+    required DateTime cancelledAt,
+  }) async {
+    final cancelled = <Pause>[];
+    for (final entry in pauses.entries.toList()) {
+      if (entry.value.runId == runId &&
+          entry.value.status == PauseStatus.pending) {
+        final updated = entry.value.copyWith(
+          status: PauseStatus.cancelled,
+          answeredAt: cancelledAt,
+        );
+        pauses[entry.key] = updated;
+        cancelled.add(updated);
+      }
+    }
+    return Success(cancelled);
+  }
+
+  @override
+  Future<Result<List<Pause>>> cancelPendingForNode(
+    String runId,
+    String nodeId, {
+    required DateTime cancelledAt,
+  }) async {
+    final cancelled = <Pause>[];
+    for (final entry in pauses.entries.toList()) {
+      if (entry.value.runId == runId &&
+          entry.value.nodeId == nodeId &&
+          entry.value.status == PauseStatus.pending) {
+        final updated = entry.value.copyWith(
+          status: PauseStatus.cancelled,
+          answeredAt: cancelledAt,
+        );
+        pauses[entry.key] = updated;
+        cancelled.add(updated);
+      }
+    }
+    return Success(cancelled);
   }
 }

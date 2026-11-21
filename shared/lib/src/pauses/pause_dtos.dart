@@ -7,9 +7,13 @@ part 'pause_dtos.g.dart';
 
 /// Request body for `POST /api/v1/pauses/:id/answer`.
 ///
-/// For `PauseKind.humanApproval`, supply [decision] (`approved` or `rejected`)
-/// and optional [feedback]. For `PauseKind.askHuman`, supply a non-blank
-/// [answer].
+/// The wire payload is a flat JSON object (`{"decision": ..., "feedback": ...}`
+/// or `{"answer": ...}`) without a discriminator field because the pause kind
+/// is stored on the target [Pause] record. For `PauseKind.humanApproval`,
+/// supply [decision] (`approved` or `rejected`) and optional [feedback]. For
+/// `PauseKind.askHuman`, supply a non-blank [answer]. Kind-specific validation
+/// against the persisted [Pause] lives in the backend's `PauseAnswerHandler`
+/// strategies.
 @freezed
 sealed class AnswerPauseRequest with _$AnswerPauseRequest {
   /// Creates an answer-pause request.

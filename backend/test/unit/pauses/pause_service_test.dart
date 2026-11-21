@@ -219,6 +219,146 @@ void main() {
         expect(conflict.failureOrNull, isA<ConflictFailure>());
       },
     );
+
+    test(
+      'keeps pause pending when resumePausedRun fails and succeeds on retry',
+      () async {
+        Failure? nextResumeFailure = const PersistenceFailure(
+          'Snapshot rollback failed',
+        );
+        final failingService = PauseService(
+          pauses: repo,
+          pauseGateway: gateway,
+          resumePausedRun: (runId, {required input}) async {
+            if (nextResumeFailure != null) {
+              return FailureResult(nextResumeFailure);
+            }
+            resumedCalls.add((runId, input));
+            return Success(
+              Run(
+                id: runId,
+                workflowName: 'Flow',
+                workflowDefinition: Workflow(
+                  id: 'wf-1',
+                  name: 'Flow',
+                  nodes: const [],
+                  edges: const [],
+                  createdAt: DateTime.utc(2026, 11, 21),
+                  updatedAt: DateTime.utc(2026, 11, 21),
+                ),
+                workspacePath: '/tmp/ws',
+                status: RunStatus.running,
+                startedAt: DateTime.utc(2026, 11, 21),
+              ),
+            );
+          },
+          now: () => DateTime.utc(2026, 11, 21, 12),
+        );
+
+        await repo.create(
+          Pause(
+            id: 'p-rollback-fail',
+            runId: 'r-1',
+            nodeId: 'agent',
+            kind: PauseKind.askHuman,
+            status: PauseStatus.pending,
+            workflowName: 'Flow',
+            nodeLabel: 'Agent',
+            question: 'Retry?',
+            createdAt: DateTime.utc(2026, 11, 21, 11),
+          ),
+        );
+
+        final failed = await failingService.answerPause(
+          'p-rollback-fail',
+          const AnswerPauseRequest(answer: 'yes'),
+        );
+        expect(failed.failureOrNull, isA<PersistenceFailure>());
+        expect(
+          (await repo.getById('p-rollback-fail')).valueOrNull?.status,
+          PauseStatus.pending,
+        );
+
+        nextResumeFailure = null;
+        final retried = await failingService.answerPause(
+          'p-rollback-fail',
+          const AnswerPauseRequest(answer: 'yes'),
+        );
+        expect(retried.isSuccess, isTrue);
+        expect(retried.valueOrNull?.status, PauseStatus.answered);
+        expect(resumedCalls, hasLength(1));
+      },
+    );
+
+    test(
+      'never delivers an answer for a stale pause to another run with the same '
+      'pauseId',
+      () async {
+        final collidingGateway = InMemoryHumanPauseGateway(
+          generateId: () => 'fixed',
+        );
+        addTearDown(collidingGateway.dispose);
+
+        final otherRunWaiter = collidingGateway.requestHumanAnswer(
+          runId: 'run-live-other',
+          nodeId: 'node-b',
+          attempt: 1,
+          question: 'Other run question?',
+        );
+        final collidingId = collidingGateway.allPending.single.pauseId;
+
+        await repo.create(
+          Pause(
+            id: collidingId,
+            runId: 'run-restarted-stale',
+            nodeId: 'node-a',
+            kind: PauseKind.askHuman,
+            status: PauseStatus.pending,
+            workflowName: 'Flow',
+            nodeLabel: 'Node A',
+            question: 'Stale run question?',
+            createdAt: DateTime.utc(2026, 11, 21, 11),
+          ),
+        );
+
+        final guardedService = PauseService(
+          pauses: repo,
+          pauseGateway: collidingGateway,
+          resumePausedRun: (runId, {required input}) async {
+            resumedCalls.add((runId, input));
+            return Success(
+              Run(
+                id: runId,
+                workflowName: 'Flow',
+                workflowDefinition: Workflow(
+                  id: 'wf-1',
+                  name: 'Flow',
+                  nodes: const [],
+                  edges: const [],
+                  createdAt: DateTime.utc(2026, 11, 21),
+                  updatedAt: DateTime.utc(2026, 11, 21),
+                ),
+                workspacePath: '/tmp/ws',
+                status: RunStatus.running,
+                startedAt: DateTime.utc(2026, 11, 21),
+              ),
+            );
+          },
+        );
+
+        final answered = await guardedService.answerPause(
+          collidingId,
+          const AnswerPauseRequest(answer: 'for-stale-run'),
+        );
+        expect(answered.isSuccess, isTrue);
+        expect(resumedCalls, hasLength(1));
+        expect(resumedCalls.single.$1, 'run-restarted-stale');
+        expect(collidingGateway.pendingForRun('run-live-other'), hasLength(1));
+
+        collidingGateway.cancelRun('run-live-other');
+        await otherRunWaiter;
+      },
+    );
   });
 }
 
@@ -291,6 +431,13 @@ final class _FakePauseRepository implements PauseRepository {
   @override
   Future<Result<List<Pause>>> cancelPendingForRun(
     String runId, {
+    required DateTime cancelledAt,
+  }) async => const Success(<Pause>[]);
+
+  @override
+  Future<Result<List<Pause>>> cancelPendingForNode(
+    String runId,
+    String nodeId, {
     required DateTime cancelledAt,
   }) async => const Success(<Pause>[]);
 }

@@ -275,6 +275,63 @@ final class DriftPauseRepository implements PauseRepository {
     }
   }
 
+  @override
+  Future<Result<List<Pause>>> cancelPendingForNode(
+    String runId,
+    String nodeId, {
+    required DateTime cancelledAt,
+  }) async {
+    try {
+      final utcCancelledAt = cancelledAt.toUtc();
+      final cancelled = await _db.transaction(() async {
+        final pendingRows =
+            await (_db.select(_db.pauses)
+                  ..where(
+                    (p) =>
+                        p.runId.equals(runId) &
+                        p.nodeId.equals(nodeId) &
+                        p.status.equals(PauseStatus.pending.name),
+                  )
+                  ..orderBy([(p) => OrderingTerm.asc(p.createdAt)]))
+                .get();
+        if (pendingRows.isEmpty) return <Pause>[];
+
+        await (_db.update(_db.pauses)..where(
+              (p) =>
+                  p.runId.equals(runId) &
+                  p.nodeId.equals(nodeId) &
+                  p.status.equals(PauseStatus.pending.name),
+            ))
+            .write(
+              PausesCompanion(
+                status: Value(PauseStatus.cancelled.name),
+                answeredAt: Value(utcCancelledAt.toIso8601String()),
+              ),
+            );
+
+        final ids = pendingRows.map((r) => r.id).toList(growable: false);
+        final updatedRows =
+            await (_db.select(_db.pauses)
+                  ..where((p) => p.id.isIn(ids))
+                  ..orderBy([(p) => OrderingTerm.asc(p.createdAt)]))
+                .get();
+        return updatedRows.map(_toDomain).toList(growable: false);
+      });
+
+      if (!_resolvedController.isClosed) {
+        cancelled.forEach(_resolvedController.add);
+      }
+      return Success(cancelled);
+    } on Object catch (error) {
+      return FailureResult(
+        PersistenceFailure(
+          'Failed to cancel pending pauses for run "$runId" node "$nodeId".',
+          cause: error,
+        ),
+      );
+    }
+  }
+
   Pause _toDomain(PauseRow row) {
     final decodedOptions = (jsonDecode(row.optionsJson) as List<Object?>)
         .cast<String>()

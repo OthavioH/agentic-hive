@@ -34,11 +34,14 @@ final class _PausedNode {
     this.live = false,
   });
 
+  /// Decodes a paused node from a `run.paused` event payload, accepting both
+  /// the canonical [PauseKind] wire names and the legacy `'approval'` wire
+  /// name written by F6–F10 checkpoints/events.
   factory fromJson(Object? json) {
     final map = json! as Map<Object?, Object?>;
     return _PausedNode(
       nodeId: map['nodeId']! as String,
-      kind: PauseKind.values.byName(map['kind']! as String),
+      kind: PauseKind.fromName(map['kind']! as String),
       question: map['question'] as String?,
       options: (map['options'] as List<Object?>?)?.cast<String>() ?? const [],
       pauseId: map['pauseId'] as String?,
@@ -131,6 +134,15 @@ final class _RunExecution {
 
   /// Answers to inject into the next execution of an `ask_human` node.
   final Map<String, String> humanAnswers = <String, String>{};
+
+  /// Post-restart `ask_human` answers that arrived while another node of this
+  /// run was executing; activated (with snapshot rollback check) once running
+  /// nodes drain.
+  final List<HumanAnswerInput> queuedResumes = <HumanAnswerInput>[];
+
+  /// Set synchronously when `_loop` exits so late resume inputs wait for the
+  /// finishing checkpoint/status write instead of attaching to a closing loop.
+  bool finishing = false;
 
   Completer<void> _wake = Completer<void>();
 
@@ -243,6 +255,9 @@ final class GraphEngine {
 
   final Set<String> _claimed = <String>{};
   final Map<String, _RunExecution> _active = <String, _RunExecution>{};
+  final Map<String, Future<Result<Run>>> _activeFutures =
+      <String, Future<Result<Run>>>{};
+  final Map<String, Future<void>> _prepareLocks = <String, Future<void>>{};
 
   /// `cancel` calls that arrived while `start`/`resume` was still preparing
   /// the run; honoured as soon as the run is driven.
@@ -355,6 +370,182 @@ final class GraphEngine {
         );
         return await _drive(x);
       });
+
+  /// Prepares a paused run resume (or applies [input] to an already-active
+  /// execution of [runId] when another paused branch was just answered) and
+  /// returns the updated [Run] plus the `done` future for the execution pass.
+  ///
+  /// Any preparation or pre-node snapshot rollback failure is returned before
+  /// the run transitions to `running` or the background loop starts, so callers
+  /// only mark the pause `answered` once this handoff succeeds.
+  Future<Result<({Run run, Future<Result<Run>> done})>> beginPausedResume(
+    String runId, {
+    required ResumeInput input,
+  }) => _withPrepareLock(runId, () async {
+    final active = _active[runId];
+    if (active != null && !active.finishing) {
+      final applied = _applyLiveResumeInput(active, input);
+      if (applied case FailureResult<void>(:final failure)) {
+        return FailureResult(failure);
+      }
+      final existingFuture = _activeFutures[runId];
+      if (existingFuture != null) {
+        return Success((run: active.run, done: existingFuture));
+      }
+    }
+    if (active != null && active.finishing) {
+      final existingFuture = _activeFutures[runId];
+      if (existingFuture != null) {
+        await existingFuture;
+      }
+    }
+
+    if (!_claim(runId)) {
+      return FailureResult(
+        ConflictFailure('Run "$runId" is already being executed or changed.'),
+      );
+    }
+    try {
+      final pointResult = await _recovery.resolveResumePoint(runId);
+      if (pointResult case FailureResult<ResumePoint>(:final failure)) {
+        _claimed.remove(runId);
+        return FailureResult(failure);
+      }
+      final point = pointResult.valueOrNull!;
+      if (point.run.status != RunStatus.paused) {
+        _claimed.remove(runId);
+        return FailureResult(
+          ConflictFailure(
+            'Run "$runId" is ${point.run.status.name}; only a paused run '
+            'can be resumed with human input.',
+          ),
+        );
+      }
+
+      final prepared = await _preparePausedResume(point, input);
+      if (prepared case FailureResult<_RunExecution>(:final failure)) {
+        _claimed.remove(runId);
+        return FailureResult(failure);
+      }
+      final x = prepared.valueOrNull!;
+
+      final updated = await _runs.updateStatus(
+        runId,
+        status: RunStatus.running,
+      );
+      if (updated case FailureResult<Run>(:final failure)) {
+        _claimed.remove(runId);
+        return FailureResult(failure);
+      }
+      x.run = updated.valueOrNull!;
+      await _emit(
+        runId,
+        RunEventType.runResumed,
+        payload: <String, Object?>{
+          'from': RunStatus.paused.name,
+          if (input.nodeId != null) 'nodeId': input.nodeId,
+        },
+      );
+
+      _active[runId] = x;
+      final done = _driveClaimed(x);
+      _activeFutures[runId] = done;
+      return Success((run: x.run, done: done));
+    } on Object {
+      _claimed.remove(runId);
+      rethrow;
+    }
+  });
+
+  Future<T> _withPrepareLock<T>(
+    String runId,
+    Future<T> Function() action,
+  ) async {
+    while (_prepareLocks.containsKey(runId)) {
+      await _prepareLocks[runId];
+    }
+    final completer = Completer<void>();
+    _prepareLocks[runId] = completer.future;
+    try {
+      return await action();
+    } finally {
+      unawaited(_prepareLocks.remove(runId));
+      completer.complete();
+    }
+  }
+
+  Future<Result<Run>> _driveClaimed(_RunExecution x) async {
+    final runId = x.run.id;
+    Result<Run> result;
+    try {
+      result = await _drive(x);
+    } finally {
+      unawaited(_activeFutures.remove(runId));
+      _claimed.remove(runId);
+    }
+    final queued = _earlyCancels.remove(runId);
+    if (queued == null) return result;
+
+    final settled = await _settleQueuedCancel(runId, result);
+    queued.complete(settled);
+    return result;
+  }
+
+  Result<void> _applyLiveResumeInput(_RunExecution x, ResumeInput input) {
+    if (x.paused.isEmpty) {
+      return const FailureResult(
+        ValidationFailure('The run has no paused node to resume.'),
+      );
+    }
+    final targetId =
+        input.nodeId ?? (x.paused.length == 1 ? x.paused.keys.single : null);
+    final target = targetId == null ? null : x.paused[targetId];
+    if (target == null) {
+      return FailureResult(
+        ValidationFailure(
+          targetId == null
+              ? 'Several nodes are paused; name the node to resume.'
+              : 'Node "$targetId" is not paused.',
+        ),
+      );
+    }
+
+    switch ((target.kind, input)) {
+      case (PauseKind.humanApproval, final ApprovalDecisionInput approval):
+        x.paused.remove(target.nodeId);
+        x.resolved[target.nodeId] = NodeOutcome(
+          outputLabel: switch (approval.decision) {
+            HumanApprovalDecision.approved => NodeOutput.approved,
+            HumanApprovalDecision.rejected => NodeOutput.rejected,
+          },
+          data: <String, Object?>{
+            'decision': approval.decision.name,
+            if (approval.feedback != null) 'feedback': approval.feedback,
+          },
+        );
+        x.wakeUp();
+        return const Success(null);
+      case (PauseKind.askHuman, HumanAnswerInput(:final answer)):
+        if (answer.trim().isEmpty) {
+          return const FailureResult(
+            ValidationFailure('The human answer must not be blank.'),
+          );
+        }
+        x.paused.remove(target.nodeId);
+        x.queuedResumes.add(
+          HumanAnswerInput(nodeId: target.nodeId, answer: answer),
+        );
+        x.wakeUp();
+        return const Success(null);
+      case (PauseKind.humanApproval, _) || (PauseKind.askHuman, _):
+        return FailureResult(
+          ValidationFailure(
+            'Node "${target.nodeId}" is waiting for '
+            '${_waitingFor(target.kind)}.',
+          ),
+        );
+    }
+  }
 
   /// Cancels [runId].
   ///
@@ -676,8 +867,33 @@ final class GraphEngine {
       after = value.lastSequence;
     }
     final raw = lastPaused?.payload['pausedNodes'];
-    if (raw is! List<Object?>) return const Success(<_PausedNode>[]);
-    return Success(raw.map(_PausedNode.fromJson).toList(growable: false));
+    if (raw is List<Object?>) {
+      return Success(raw.map(_PausedNode.fromJson).toList(growable: false));
+    }
+    final pausesRepo = _pauses;
+    if (pausesRepo != null) {
+      final pendingResult = await pausesRepo.listPendingForRun(runId);
+      if (pendingResult case FailureResult<List<Pause>>(:final failure)) {
+        return FailureResult(failure);
+      }
+      final pendingPauses = pendingResult.valueOrNull!;
+      if (pendingPauses.isNotEmpty) {
+        return Success(
+          pendingPauses
+              .map(
+                (pause) => _PausedNode(
+                  nodeId: pause.nodeId,
+                  kind: pause.kind,
+                  question: pause.question ?? pause.instructions,
+                  options: pause.options,
+                  pauseId: pause.id,
+                ),
+              )
+              .toList(growable: false),
+        );
+      }
+    }
+    return const Success(<_PausedNode>[]);
   }
 
   // ---------------------------------------------------------------------------
@@ -752,14 +968,25 @@ final class GraphEngine {
   Future<Result<Run>> _loop(_RunExecution x) async {
     while (true) {
       if (x.cancelRequested) {
+        x.finishing = true;
         return await _finishCancelled(x);
       }
 
       await _handleSignals(x);
+      if (x.running.isEmpty && x.queuedResumes.isNotEmpty) {
+        await _activateQueuedResumes(x);
+      }
       if (x.failReason == null) await _launchReady(x);
       if (x.cancelRequested) continue;
-      if (x.failReason != null) return await _finishFailed(x);
-      if (x.running.isEmpty) break;
+      if (x.failReason != null) {
+        x.finishing = true;
+        return await _finishFailed(x);
+      }
+      if (x.running.isEmpty) {
+        if (x.queuedResumes.isNotEmpty) continue;
+        x.finishing = true;
+        break;
+      }
       if (x.signals.isNotEmpty) continue;
 
       final event = await Future.any<Object>(<Future<Object>>[
@@ -780,6 +1007,30 @@ final class GraphEngine {
       return await _finishFailed(x);
     }
     return await _finishSucceeded(x);
+  }
+
+  Future<void> _activateQueuedResumes(_RunExecution x) async {
+    while (x.queuedResumes.isNotEmpty) {
+      final input = x.queuedResumes.removeAt(0);
+      final nodeId = input.nodeId!;
+      x.humanAnswers[nodeId] = input.answer;
+      final rollback = await _rollbackBefore(x.run.id, <String>{nodeId});
+      if (rollback case FailureResult<void>(:final failure)) {
+        await _emit(
+          x.run.id,
+          RunEventType.nodeFailed,
+          nodeId: nodeId,
+          payload: <String, Object?>{
+            'infrastructure': false,
+            'message': failure.message,
+          },
+        );
+        x.failReason =
+            'Could not roll back workspace for node "${_labelOf(x, nodeId)}": '
+            '${failure.message}';
+        return;
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -833,6 +1084,7 @@ final class GraphEngine {
       x.statusPaused = true;
     }
     await _persistPauses(x, x.livePaused.values);
+    if (x.failReason != null) return;
     await _emit(
       x.run.id,
       RunEventType.runPaused,
@@ -894,13 +1146,21 @@ final class GraphEngine {
     if (slots <= 0 || x.pending.isEmpty) return;
 
     // While the run waits for a human no new work starts, except nodes whose
-    // outcome the human already decided (they complete immediately).
-    final waiting = x.paused.isNotEmpty || x.livePaused.isNotEmpty;
+    // outcome or human answer was already supplied.
+    final waiting =
+        x.paused.isNotEmpty ||
+        x.livePaused.isNotEmpty ||
+        x.queuedResumes.isNotEmpty;
     final ready = <String>[];
     for (var i = 0; i < x.pending.length && ready.length < slots; i++) {
       final id = x.pending[i];
       if (x.paused.containsKey(id)) continue;
-      if (waiting && !x.resolved.containsKey(id)) continue;
+      if (x.queuedResumes.any((q) => q.nodeId == id)) continue;
+      if (waiting &&
+          !x.resolved.containsKey(id) &&
+          !x.humanAnswers.containsKey(id)) {
+        continue;
+      }
       if (!_isHeld(x, i)) ready.add(id);
     }
     if (ready.isEmpty) return;
@@ -1080,8 +1340,26 @@ final class GraphEngine {
   // ---------------------------------------------------------------------------
 
   Future<void> _onCompletion(_RunExecution x, _NodeCompletion done) async {
-    x.running.remove(done.nodeId);
+    final active = x.running.remove(done.nodeId);
+    final hadAnsweredSignal = x.signals.any(
+      (s) => s.$1.nodeId == done.nodeId && s.$2,
+    );
+    x.signals.removeWhere((s) => s.$1.nodeId == done.nodeId);
+    if (active != null) {
+      _pauseGateway.cancelAttempt(
+        runId: x.run.id,
+        nodeId: done.nodeId,
+        attempt: active.attempt,
+      );
+    }
     final wasLive = x.livePaused.remove(done.nodeId) != null;
+    if (!hadAnsweredSignal) {
+      await _pauses?.cancelPendingForNode(
+        x.run.id,
+        done.nodeId,
+        cancelledAt: _now(),
+      );
+    }
     if (x.cancelRequested) return;
     if (wasLive) await _leaveLivePause(x);
 
@@ -1344,6 +1622,7 @@ final class GraphEngine {
     if (updated case FailureResult<Run>()) return updated;
     x.statusPaused = true;
     await _persistPauses(x, x.paused.values);
+    if (x.failReason != null) return await _finishFailed(x);
     await _emit(
       x.run.id,
       RunEventType.runPaused,
@@ -1366,6 +1645,7 @@ final class GraphEngine {
           fields: {'runId': x.run.id, 'error': failure.message},
         ),
       );
+      await _failPausePersistence(x, nodes.firstOrNull?.nodeId, failure);
       return;
     }
     final existingByNodeId = <String, Pause>{
@@ -1419,8 +1699,30 @@ final class GraphEngine {
             },
           ),
         );
+        await _failPausePersistence(x, node.nodeId, failure);
+        return;
       }
     }
+  }
+
+  Future<void> _failPausePersistence(
+    _RunExecution x,
+    String? nodeId,
+    Failure failure,
+  ) async {
+    _pauseGateway.cancelRun(x.run.id);
+    await _emit(
+      x.run.id,
+      RunEventType.nodeFailed,
+      nodeId: nodeId,
+      payload: <String, Object?>{
+        'infrastructure': false,
+        'message': 'Could not persist pause: ${failure.message}',
+      },
+    );
+    final label = nodeId == null ? 'unknown' : _labelOf(x, nodeId);
+    x.failReason =
+        'Could not persist pause for node "$label": ${failure.message}';
   }
 
   /// Fail-fast: cancels active siblings, waits for their process trees to

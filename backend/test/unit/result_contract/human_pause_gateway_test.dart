@@ -208,5 +208,73 @@ void main() {
         expect((await otherAttemptFuture).valueOrNull, 'Proceed');
       },
     );
+
+    test(
+      'generates collision-free random pauseIds across instances and enforces '
+      'runId/nodeId match on submitAnswer',
+      () async {
+        final secondGateway = InMemoryHumanPauseGateway();
+        addTearDown(secondGateway.dispose);
+
+        final f1 = gateway.requestHumanAnswer(
+          runId: 'run-1',
+          nodeId: 'node-a',
+          attempt: 1,
+          question: 'First process question?',
+        );
+        final f2 = secondGateway.requestHumanAnswer(
+          runId: 'run-2',
+          nodeId: 'node-b',
+          attempt: 1,
+          question: 'Restarted process question?',
+        );
+
+        final id1 = gateway.pendingForRun('run-1').single.pauseId;
+        final id2 = secondGateway.pendingForRun('run-2').single.pauseId;
+        expect(id1, isNot(equals(id2)));
+
+        // Mismatched runId or nodeId must be rejected without consuming the
+        // waiter.
+        expect(
+          gateway
+              .submitAnswer(
+                pauseId: id1,
+                answer: 'wrong run',
+                runId: 'run-other',
+                nodeId: 'node-a',
+              )
+              .failureOrNull,
+          isA<NotFoundFailure>(),
+        );
+        expect(
+          gateway
+              .submitAnswer(
+                pauseId: id1,
+                answer: 'wrong node',
+                runId: 'run-1',
+                nodeId: 'node-other',
+              )
+              .failureOrNull,
+          isA<NotFoundFailure>(),
+        );
+        expect(gateway.pendingForRun('run-1'), hasLength(1));
+
+        expect(
+          gateway
+              .submitAnswer(
+                pauseId: id1,
+                answer: 'correct',
+                runId: 'run-1',
+                nodeId: 'node-a',
+              )
+              .isSuccess,
+          isTrue,
+        );
+        expect((await f1).valueOrNull, 'correct');
+
+        secondGateway.cancelRun('run-2');
+        await f2;
+      },
+    );
   });
 }

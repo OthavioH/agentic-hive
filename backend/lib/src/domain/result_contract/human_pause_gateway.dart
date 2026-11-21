@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/util/ids.dart';
 
 /// Metadata describing an active `ask_human` pause request.
 final class HumanPauseRequest {
@@ -61,7 +62,15 @@ abstract interface class HumanPauseGateway {
   });
 
   /// Delivers [answer] to the pending request identified by [pauseId].
-  Result<void> submitAnswer({required String pauseId, required String answer});
+  ///
+  /// When [runId] or [nodeId] is provided, the pending request must also match
+  /// those identifiers so an answer is never delivered across runs or nodes.
+  Result<void> submitAnswer({
+    required String pauseId,
+    required String answer,
+    String? runId,
+    String? nodeId,
+  });
 
   /// Cancels all pending requests for [runId], unblocking their waiters with a
   /// cancellation failure, and returns the number of cancelled requests.
@@ -93,15 +102,17 @@ final class _PendingPause {
 /// In-memory [HumanPauseGateway] supporting concurrent pending questions,
 /// answer delivery by `pauseId`, and per-run cancellation.
 final class InMemoryHumanPauseGateway implements HumanPauseGateway {
-  /// Creates an in-memory human pause gateway.
-  new();
+  /// Creates an in-memory human pause gateway; [generateId] defaults to a
+  /// collision-free 128-bit random identifier so IDs never collide across
+  /// backend restarts.
+  new({String Function()? generateId}) : _generateId = generateId ?? randomId;
 
+  final String Function() _generateId;
   final Map<String, _PendingPause> _pending = <String, _PendingPause>{};
   final StreamController<HumanPauseRequest> _requests =
       StreamController<HumanPauseRequest>.broadcast(sync: true);
   final StreamController<HumanPauseRequest> _answered =
       StreamController<HumanPauseRequest>.broadcast(sync: true);
-  int _nextId = 1;
 
   @override
   Stream<HumanPauseRequest> get requests => _requests.stream;
@@ -136,7 +147,7 @@ final class InMemoryHumanPauseGateway implements HumanPauseGateway {
       );
     }
 
-    final pauseId = 'pause-${_nextId++}';
+    final pauseId = 'pause-${_generateId()}';
     final request = HumanPauseRequest(
       pauseId: pauseId,
       runId: runId,
@@ -153,13 +164,21 @@ final class InMemoryHumanPauseGateway implements HumanPauseGateway {
   }
 
   @override
-  Result<void> submitAnswer({required String pauseId, required String answer}) {
-    final pending = _pending.remove(pauseId);
-    if (pending == null) {
+  Result<void> submitAnswer({
+    required String pauseId,
+    required String answer,
+    String? runId,
+    String? nodeId,
+  }) {
+    final pending = _pending[pauseId];
+    if (pending == null ||
+        (runId != null && pending.request.runId != runId) ||
+        (nodeId != null && pending.request.nodeId != nodeId)) {
       return FailureResult(
         NotFoundFailure('No pending pause request "$pauseId".'),
       );
     }
+    _pending.remove(pauseId);
     if (!pending.completer.isCompleted) {
       pending.completer.complete(Success(answer));
     }
