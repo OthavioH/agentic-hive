@@ -14,6 +14,14 @@ abstract interface class BackendClient {
   /// Requests graceful backend shutdown via `POST /api/v1/shutdown`.
   Future<Result<ShutdownResponse>> shutdown({required bool force});
 
+  /// Sends an HTTP request with an optional JSON [body] to [path] and decodes
+  /// the JSON object response.
+  Future<Result<JsonMap>> sendJsonRequest(
+    String method,
+    String path, {
+    JsonMap? body,
+  });
+
   /// Closes underlying transport resources.
   Future<void> close();
 }

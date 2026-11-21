@@ -1,3 +1,4 @@
+import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/health_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/shutdown_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
@@ -20,12 +21,16 @@ Handler buildApiHandler({
   required StatusHandler statusHandler,
   required ShutdownHandler shutdownHandler,
   required Handler webSocketHandler,
+  WorkflowHandler? workflowHandler,
 }) {
   final router = Router(notFoundHandler: _notFound)
     ..get('/health', healthHandler)
     ..get('/api/v1/status', statusHandler.call)
     ..post('/api/v1/shutdown', shutdownHandler.call)
     ..get('/ws', webSocketHandler);
+  if (workflowHandler != null) {
+    router.mount('/api/v1/workflows', workflowHandler.call);
+  }
 
   return const Pipeline()
       .addMiddleware(requestIdMiddleware())

@@ -4,6 +4,7 @@
 // published release resolves in the root pub workspace. See README.md.
 import 'package:hive_widgetbook/src/components/action_use_cases.dart';
 import 'package:hive_widgetbook/src/components/display_use_cases.dart';
+import 'package:hive_widgetbook/src/components/form_use_cases.dart' as forms;
 import 'package:hive_widgetbook/src/components/overlay_use_cases.dart';
 import 'package:hive_widgetbook/src/foundations/icon_pages.dart';
 import 'package:hive_widgetbook/src/foundations/motion_page.dart';
@@ -62,16 +63,32 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
         children: <WidgetbookNode>[buttonComponent(), iconButtonComponent()],
       ),
       WidgetbookFolder(
+        name: 'Forms',
+        children: <WidgetbookNode>[
+          forms.textFieldComponent(),
+          forms.selectComponent(),
+          forms.switchComponent(),
+        ],
+      ),
+      WidgetbookFolder(
+        name: 'Overlays',
+        children: <WidgetbookNode>[
+          WidgetbookComponent(
+            name: 'HiveDialog',
+            useCases: <WidgetbookUseCase>[
+              ...dialogComponent().useCases,
+              ...forms.dialogComponent().useCases,
+            ],
+          ),
+        ],
+      ),
+      WidgetbookFolder(
         name: 'Layout',
         children: <WidgetbookNode>[
           pageHeaderComponent(),
           cardComponent(),
           emptyStateComponent(),
         ],
-      ),
-      WidgetbookFolder(
-        name: 'Overlays',
-        children: <WidgetbookNode>[dialogComponent()],
       ),
       WidgetbookFolder(
         name: 'Status',

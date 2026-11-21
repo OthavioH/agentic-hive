@@ -55,7 +55,159 @@ Future<void> _open(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+/// A button that runs [onOpen] with a context below the app's navigator.
+Widget _launcher(Future<void> Function(BuildContext context) onOpen) {
+  return hiveTestApp(
+    child: Builder(
+      builder: (context) => HiveButton(
+        label: 'Delete workflow',
+        onPressed: () => onOpen(context),
+      ),
+    ),
+  );
+}
+
+Future<bool?> _confirm(WidgetTester tester, {bool destructive = true}) async {
+  bool? result;
+  await tester.pumpWidget(
+    _launcher((context) async {
+      result = await HiveDialog.confirm(
+        context: context,
+        title: 'Delete "Release checklist"?',
+        message: 'The workflow and its layout are removed for good.',
+        confirmLabel: 'Delete',
+        cancelLabel: 'Cancel',
+        destructive: destructive,
+      );
+    }),
+  );
+  await tester.tap(find.text('Delete workflow'));
+  await tester.pumpAndSettle();
+  return result;
+}
+
 void main() {
+  group('HiveDialog.confirm', () {
+    testWidgets('shows title, message and both actions', (tester) async {
+      await _confirm(tester);
+
+      expect(find.text('Delete "Release checklist"?'), findsOneWidget);
+      expect(
+        find.text('The workflow and its layout are removed for good.'),
+        findsOneWidget,
+      );
+      expect(find.text('Cancel'), findsOneWidget);
+      expect(find.text('Delete'), findsOneWidget);
+    });
+
+    testWidgets('completes true on confirm', (tester) async {
+      bool? result;
+      await tester.pumpWidget(
+        _launcher((context) async {
+          result = await HiveDialog.confirm(
+            context: context,
+            title: 'Discard unsaved changes?',
+            confirmLabel: 'Discard',
+            cancelLabel: 'Keep editing',
+            destructive: true,
+          );
+        }),
+      );
+      await tester.tap(find.text('Delete workflow'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+
+      expect(result, isTrue);
+      expect(find.text('Discard unsaved changes?'), findsNothing);
+    });
+
+    testWidgets('completes false on cancel, scrim tap and Escape', (
+      tester,
+    ) async {
+      final results = <bool>[];
+      await tester.pumpWidget(
+        _launcher((context) async {
+          results.add(
+            await HiveDialog.confirm(
+              context: context,
+              title: 'Discard unsaved changes?',
+              confirmLabel: 'Discard',
+              cancelLabel: 'Keep editing',
+            ),
+          );
+        }),
+      );
+
+      Future<void> open() async {
+        await tester.tap(find.text('Delete workflow'));
+        await tester.pumpAndSettle();
+        expect(find.text('Discard unsaved changes?'), findsOneWidget);
+      }
+
+      await open();
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+
+      await open();
+      await tester.tapAt(const Offset(4, 4));
+      await tester.pumpAndSettle();
+
+      await open();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      expect(results, <bool>[false, false, false]);
+      expect(find.text('Discard unsaved changes?'), findsNothing);
+    });
+
+    testWidgets('focuses the confirm action so Enter confirms', (tester) async {
+      bool? result;
+      await tester.pumpWidget(
+        _launcher((context) async {
+          result = await HiveDialog.confirm(
+            context: context,
+            title: 'Discard unsaved changes?',
+            confirmLabel: 'Discard',
+            cancelLabel: 'Keep editing',
+          );
+        }),
+      );
+      await tester.tap(find.text('Delete workflow'));
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(result, isTrue);
+    });
+
+    testWidgets('destructive confirm uses the danger variant', (tester) async {
+      await _confirm(tester);
+
+      final confirm = tester.widget<HiveButton>(
+        find.widgetWithText(HiveButton, 'Delete'),
+      );
+      expect(confirm.variant, HiveButtonVariant.danger);
+      final cancel = tester.widget<HiveButton>(
+        find.widgetWithText(HiveButton, 'Cancel'),
+      );
+      expect(cancel.variant, HiveButtonVariant.secondary);
+    });
+
+    testWidgets('non-destructive confirm uses the primary variant', (
+      tester,
+    ) async {
+      await _confirm(tester, destructive: false);
+
+      final confirm = tester.widget<HiveButton>(
+        find.widgetWithText(HiveButton, 'Delete'),
+      );
+      expect(confirm.variant, HiveButtonVariant.primary);
+    });
+  });
+
   group('HiveDialog', () {
     testWidgets('shows title, message, icon and actions', (tester) async {
       await tester.pumpWidget(
@@ -84,7 +236,11 @@ void main() {
     ) async {
       await tester.pumpWidget(
         hiveTestApp(
-          child: const HiveDialog(title: _title, actions: <Widget>[]),
+          child: HiveDialog(
+            title: 'Rename workflow',
+            content: const HiveTextField(label: 'Workflow name'),
+            actions: <Widget>[HiveButton(label: 'Save', onPressed: () {})],
+          ),
         ),
       );
 
@@ -105,6 +261,7 @@ void main() {
       final border = decoration.border! as Border;
       expect(border.top.color, HiveColors.dark.borderSubtle);
       expect(border.top.width, HiveElevation.dark.hairline);
+      expect(find.byType(HiveTextField), findsOneWidget);
     });
 
     testWidgets('names the route with its title for screen readers', (

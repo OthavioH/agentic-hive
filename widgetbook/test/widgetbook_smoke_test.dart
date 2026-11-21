@@ -14,6 +14,16 @@ const Map<String, String> _useCases = <String, String>{
   'Tray icons': 'Asset keys',
   'Stop backend confirmation': 'Stop backend and quit?',
   'Interactive (modal route)': 'No choice yet',
+  'Danger · Default': 'Run workflow',
+  'Single-line · Focused': 'Workflow name',
+  'Single-line · Error': 'Name is required.',
+  'Multi-line · Default': 'Description',
+  'Select · Hovered': 'Source output',
+  'Select · Error': 'An edge needs a source output.',
+  'On · Focused': '',
+  'With label': 'Entry node',
+  'Delete confirmation': 'Delete "Release checklist"?',
+  'With content': 'Release checklist (copy)',
 };
 
 void main() {

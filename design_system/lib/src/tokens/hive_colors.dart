@@ -287,8 +287,7 @@ class HiveColors extends ThemeExtension<HiveColors> {
   /// Opacity applied to a whole disabled control.
   final double disabledOpacity;
 
-  /// Opacity of the `background`-colored scrim behind modal panels
-  /// (dialogs).
+  /// Opacity of the [background] scrim behind modal dialogs.
   final double scrimOpacity;
 
   /// Every surface a foreground role may sit on, by role name.

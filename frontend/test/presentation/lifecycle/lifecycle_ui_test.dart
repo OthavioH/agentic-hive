@@ -68,6 +68,13 @@ final class _FakeBackendClient implements BackendClient {
   }
 
   @override
+  Future<Result<JsonMap>> sendJsonRequest(
+    String method,
+    String path, {
+    JsonMap? body,
+  }) async => const Success(<String, Object?>{});
+
+  @override
   Future<void> close() async {}
 }
 

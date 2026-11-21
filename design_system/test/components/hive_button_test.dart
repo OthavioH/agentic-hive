@@ -49,7 +49,15 @@ void main() {
         ),
       );
 
-      expect(find.byType(CustomPaint), findsOneWidget);
+      // The spinner is the only painter inside the label row (the focus
+      // ring's painter wraps the whole pill).
+      expect(
+        find.descendant(
+          of: find.byType(Row),
+          matching: find.byType(CustomPaint),
+        ),
+        findsOneWidget,
+      );
 
       await tester.tap(find.text('Saving'));
       await tester.pump();

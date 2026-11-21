@@ -221,4 +221,328 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get connectingReasonLaunchFailedMessage =>
       'The local Agentic Hive backend could not be launched. Check that the backend executable is available, then retry.';
+
+  @override
+  String get workflowsPageSubtitle =>
+      'Create, inspect, and manage workflow graphs.';
+
+  @override
+  String get workflowsNewAction => 'New workflow';
+
+  @override
+  String get workflowsSearchLabel => 'Search workflows';
+
+  @override
+  String get workflowsSearchHint => 'Filter by name or description...';
+
+  @override
+  String get workflowsSearchEmptyTitle => 'No matching workflows';
+
+  @override
+  String get workflowsSearchEmptyDescription =>
+      'Try a different search query or clear the filter.';
+
+  @override
+  String get workflowsClearSearchAction => 'Clear search';
+
+  @override
+  String get workflowsLoadErrorTitle => 'Failed to load workflows';
+
+  @override
+  String get workflowsRetryAction => 'Retry';
+
+  @override
+  String get workflowsCreateTitle => 'Create workflow';
+
+  @override
+  String get workflowsNameLabel => 'Workflow name';
+
+  @override
+  String get workflowsNameHint => 'e.g. PR Review Pipeline';
+
+  @override
+  String get workflowsNameRequiredError => 'Enter a workflow name.';
+
+  @override
+  String get workflowsDescriptionLabel => 'Description (optional)';
+
+  @override
+  String get workflowsDescriptionHint =>
+      'Describe what this workflow automates...';
+
+  @override
+  String get workflowsCreateConfirm => 'Create';
+
+  @override
+  String get workflowsCancelAction => 'Cancel';
+
+  @override
+  String get workflowsDuplicateAction => 'Duplicate workflow';
+
+  @override
+  String get workflowsDeleteAction => 'Delete workflow';
+
+  @override
+  String workflowsOpenAction(String name) {
+    return 'Open $name';
+  }
+
+  @override
+  String get workflowsDeleteTitle => 'Delete workflow?';
+
+  @override
+  String workflowsDeleteMessage(String name) {
+    return 'Delete \"$name\"? This action cannot be undone.';
+  }
+
+  @override
+  String get workflowsDeleteConfirm => 'Delete';
+
+  @override
+  String workflowsNodeCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count nodes',
+      one: '1 node',
+      zero: '0 nodes',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String workflowsEdgeCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count edges',
+      one: '1 edge',
+      zero: '0 edges',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get workflowsStatusValid => 'Valid';
+
+  @override
+  String get workflowsStatusInvalid => 'Needs attention';
+
+  @override
+  String workflowsUpdatedLabel(String timestamp) {
+    return 'Updated $timestamp';
+  }
+
+  @override
+  String get editorBackAction => 'Back to workflows';
+
+  @override
+  String get editorAddNodeAction => 'Add node';
+
+  @override
+  String get editorSaveAction => 'Save';
+
+  @override
+  String get editorSavingAction => 'Saving...';
+
+  @override
+  String get editorUnsavedBadge => 'Unsaved changes';
+
+  @override
+  String get editorSavedBadge => 'Saved';
+
+  @override
+  String get editorValidationValid => 'Graph valid';
+
+  @override
+  String editorValidationErrorsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count errors',
+      one: '1 error',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String editorValidationWarningsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count warnings',
+      one: '1 warning',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get editorUnsavedDialogTitle => 'Discard unsaved changes?';
+
+  @override
+  String get editorUnsavedDialogMessage =>
+      'You have unsaved changes to this workflow. Leave without saving?';
+
+  @override
+  String get editorDiscardAction => 'Discard changes';
+
+  @override
+  String get editorKeepEditingAction => 'Keep editing';
+
+  @override
+  String get editorInspectorWorkflowTitle => 'Workflow';
+
+  @override
+  String get editorInspectorNodeTitle => 'Node';
+
+  @override
+  String get editorInspectorEdgeTitle => 'Edge';
+
+  @override
+  String get editorValidationSectionTitle => 'Validation';
+
+  @override
+  String get editorNoValidationIssues => 'No validation issues found.';
+
+  @override
+  String get editorNodeLabelField => 'Label';
+
+  @override
+  String get editorNodeTypeField => 'Node type';
+
+  @override
+  String get editorNodeEntryLabel => 'Entry node';
+
+  @override
+  String get editorDeleteNodeAction => 'Delete node';
+
+  @override
+  String editorDefaultNodeLabel(int number) {
+    return 'Step $number';
+  }
+
+  @override
+  String get editorEntryBadge => 'Entry';
+
+  @override
+  String get editorNodeTypePlaceholder => 'Placeholder';
+
+  @override
+  String get editorEdgeSourceOutputLabel => 'Source output';
+
+  @override
+  String get editorEdgeSourceOutputCustomOption => 'Custom output...';
+
+  @override
+  String get editorEdgeSourceOutputCustomLabel => 'Custom output label';
+
+  @override
+  String get editorEdgeSourceOutputCustomHint => 'e.g. approved, needsReview';
+
+  @override
+  String get editorEdgeMaxRetriesLabel => 'Max retries';
+
+  @override
+  String get editorEdgeMaxRetriesHint => 'Optional (required for cycles)';
+
+  @override
+  String get editorEdgeMaxRetriesHelper =>
+      'Positive integer required on at least one edge in a cycle.';
+
+  @override
+  String get editorDeleteEdgeAction => 'Delete edge';
+
+  @override
+  String get editorOutputPortTooltip => 'Drag to another node to connect';
+
+  @override
+  String get editorZoomInTooltip => 'Zoom in';
+
+  @override
+  String get editorZoomOutTooltip => 'Zoom out';
+
+  @override
+  String get editorZoomResetTooltip => 'Reset view';
+
+  @override
+  String get editorLoadErrorTitle => 'Could not open workflow';
+
+  @override
+  String get editorBackToWorkflowsAction => 'Back to Workflows';
+
+  @override
+  String get editorIssueErrorLabel => 'Error';
+
+  @override
+  String get editorIssueWarningLabel => 'Warning';
+
+  @override
+  String get editorIssueBlankName => 'Workflow name must not be blank.';
+
+  @override
+  String get editorIssueEmptyNodes =>
+      'Workflow must contain at least one node.';
+
+  @override
+  String get editorIssueMissingEntryNode =>
+      'Select a valid entry node for this workflow.';
+
+  @override
+  String editorIssueEmptySourceOutput(String edgeId) {
+    return 'Edge \"$edgeId\" must specify a non-empty source output.';
+  }
+
+  @override
+  String editorIssueOrphanEdge(String edgeId) {
+    return 'Edge \"$edgeId\" references a missing source or target node.';
+  }
+
+  @override
+  String editorIssueDuplicateEdge(
+    String sourceLabel,
+    String sourceOutput,
+    String targetLabel,
+  ) {
+    return 'Duplicate edge from \"$sourceLabel\" ($sourceOutput) to \"$targetLabel\".';
+  }
+
+  @override
+  String editorIssueInvalidMaxRetries(String edgeId) {
+    return 'Edge \"$edgeId\" max retries must be greater than 0.';
+  }
+
+  @override
+  String editorIssueUnboundedCycle(String sourceLabel, String targetLabel) {
+    return 'Cycle involving \"$sourceLabel\" -> \"$targetLabel\" requires at least one edge with max retries greater than 0.';
+  }
+
+  @override
+  String editorIssueUnreachableNode(String nodeLabel) {
+    return 'Node \"$nodeLabel\" is not reachable from the entry node.';
+  }
+
+  @override
+  String editorIssueUnknown(String code) {
+    return 'Workflow graph has a validation issue ($code).';
+  }
+
+  @override
+  String get workflowsFailureNetwork =>
+      'Could not reach the local backend. Check the connection and try again.';
+
+  @override
+  String get workflowsFailureNotFound =>
+      'The requested workflow could not be found.';
+
+  @override
+  String get workflowsFailureValidation =>
+      'The workflow request was invalid. Check your inputs and try again.';
+
+  @override
+  String get workflowsFailureBackend =>
+      'The local backend rejected the workflow request.';
+
+  @override
+  String get workflowsFailureUnexpected =>
+      'An unexpected error occurred while processing the workflow.';
 }
