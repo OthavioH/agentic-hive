@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:agentic_hive_backend/src/api/agents/agents_handler.dart';
 import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
+import 'package:agentic_hive_backend/src/api/result_contract/result_contract_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/config/app_config.dart';
 import 'package:agentic_hive_backend/src/config/platform_paths.dart';
@@ -13,6 +14,7 @@ import 'package:agentic_hive_backend/src/data/nodes/dart_process_runner.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_process_platform.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_shell_provider.dart';
 import 'package:agentic_hive_backend/src/data/nodes/unconfigured_node_ports.dart';
+import 'package:agentic_hive_backend/src/data/result_contract/hive_result_contract.dart';
 import 'package:agentic_hive_backend/src/data/workflows/drift_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/db/app_database.dart';
 import 'package:agentic_hive_backend/src/db/database_health_check.dart';
@@ -25,6 +27,9 @@ import 'package:agentic_hive_backend/src/domain/harnesses/harness_service.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_registry.dart';
+import 'package:agentic_hive_backend/src/domain/result_contract/human_pause_gateway.dart';
+import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_coordinator.dart';
+import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_validator.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
@@ -35,6 +40,7 @@ import 'package:agentic_hive_backend/src/logging/log_formatter.dart';
 import 'package:agentic_hive_backend/src/logging/log_sink.dart';
 import 'package:agentic_hive_backend/src/logging/logging_setup.dart';
 import 'package:agentic_hive_backend/src/logging/redactor.dart';
+import 'package:agentic_hive_backend/src/mcp/hive_mcp_locator.dart';
 import 'package:agentic_hive_backend/src/server/backend_server.dart';
 import 'package:agentic_hive_backend/src/server/local_socket.dart';
 import 'package:agentic_hive_backend/src/server/server_info_file.dart';
@@ -133,7 +139,39 @@ Future<void> registerDependencies(
       DartProcessRunner(platform: di<OsProcessPlatform>()),
     )
     ..registerSingleton<PtyRunner>(const UnconfiguredPtyRunner())
-    ..registerSingleton<ResultContract>(const UnconfiguredResultContract())
+    ..registerSingleton<ResultContractValidator>(
+      ResultContractValidator(pathContext: platformPaths.context),
+    )
+    ..registerSingleton<ResultContractCoordinator>(
+      ResultContractCoordinator(validator: di<ResultContractValidator>()),
+    )
+    ..registerSingleton<HumanPauseGateway>(
+      InMemoryHumanPauseGateway(),
+      dispose: (gateway) {
+        if (gateway is InMemoryHumanPauseGateway) {
+          gateway.dispose();
+        }
+      },
+    )
+    ..registerSingleton<HiveMcpLocator>(
+      HiveMcpLocator(pathContext: platformPaths.context),
+    )
+    ..registerSingleton<ResultContract>(
+      HiveResultContract(
+        coordinator: di<ResultContractCoordinator>(),
+        dataDir: config.dataDir,
+        socketPath: config.socketPath,
+        mcpLocator: di<HiveMcpLocator>(),
+        validator: di<ResultContractValidator>(),
+        pathContext: platformPaths.context,
+      ),
+    )
+    ..registerSingleton<ResultContractHandler>(
+      ResultContractHandler(
+        coordinator: di<ResultContractCoordinator>(),
+        humanPauseGateway: di<HumanPauseGateway>(),
+      ),
+    )
     ..registerSingleton<HumanApprovalPort>(
       const UnconfiguredHumanApprovalPort(),
     )
@@ -213,6 +251,7 @@ Future<void> registerDependencies(
           agentsHandler: di<AgentsHandler>(),
           harnessesHandler: di<HarnessesHandler>(),
           workflowHandler: di<WorkflowHandler>(),
+          resultContractHandler: di<ResultContractHandler>(),
         ),
         socket: LocalSocket(
           config.socketPath,

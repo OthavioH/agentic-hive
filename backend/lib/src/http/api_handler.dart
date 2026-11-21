@@ -1,5 +1,6 @@
 import 'package:agentic_hive_backend/src/api/agents/agents_handler.dart';
 import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
+import 'package:agentic_hive_backend/src/api/result_contract/result_contract_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/health_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/shutdown_handler.dart';
@@ -26,6 +27,7 @@ Handler buildApiHandler({
   AgentsHandler? agentsHandler,
   HarnessesHandler? harnessesHandler,
   WorkflowHandler? workflowHandler,
+  ResultContractHandler? resultContractHandler,
 }) {
   final router = Router(notFoundHandler: _notFound)
     ..get('/health', healthHandler)
@@ -50,6 +52,18 @@ Handler buildApiHandler({
       ..post('/api/v1/agents', agentsHandler.create)
       ..put('/api/v1/agents/<id>', agentsHandler.update)
       ..delete('/api/v1/agents/<id>', agentsHandler.delete);
+  }
+
+  if (resultContractHandler != null) {
+    router
+      ..post(
+        '/api/v1/internal/runs/<runId>/nodes/<nodeId>/attempts/<attempt>/report-result',
+        resultContractHandler.reportResult,
+      )
+      ..post(
+        '/api/v1/internal/runs/<runId>/nodes/<nodeId>/attempts/<attempt>/ask-human',
+        resultContractHandler.askHuman,
+      );
   }
 
   return const Pipeline()
