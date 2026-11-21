@@ -28,11 +28,16 @@ class HiveTextField extends StatefulWidget {
     this.statesController,
     this.focusNode,
     this.autofocus = false,
+    this.showLabel = true,
     super.key,
   });
 
   /// Visible label above the field.
   final String label;
+
+  /// Whether [label] is drawn above the field. When false it is still
+  /// announced to screen readers (rows of a list editor).
+  final bool showLabel;
 
   /// Optional controller; the field owns one when null.
   final TextEditingController? controller;
@@ -168,6 +173,7 @@ class _HiveTextFieldState extends State<HiveTextField> {
 
     return HiveFieldFrame(
       label: widget.label,
+      showLabel: widget.showLabel,
       helperText: widget.helperText,
       errorText: widget.errorText,
       states: states,

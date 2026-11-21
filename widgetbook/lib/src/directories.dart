@@ -66,6 +66,8 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
           textFieldComponent(),
           selectComponent(),
           switchComponent(),
+          keyValueEditorComponent(),
+          stringListFieldComponent(),
         ],
       ),
       WidgetbookFolder(

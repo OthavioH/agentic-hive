@@ -22,11 +22,16 @@ class HiveFieldFrame extends StatelessWidget {
     this.onTap,
     this.onHover,
     this.cursor = SystemMouseCursors.text,
+    this.showLabel = true,
     super.key,
   });
 
   /// Visible label above the well.
   final String label;
+
+  /// Whether [label] is drawn above the well. Rows of a list editor hide it
+  /// and announce their label through semantics only.
+  final bool showLabel;
 
   /// Current interaction states (hovered, focused, disabled).
   final Set<WidgetState> states;
@@ -99,13 +104,15 @@ class HiveFieldFrame extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          ExcludeSemantics(
-            child: Text(
-              label,
-              style: typography.label.copyWith(color: colors.onSurface),
+          if (showLabel) ...<Widget>[
+            ExcludeSemantics(
+              child: Text(
+                label,
+                style: typography.label.copyWith(color: colors.onSurface),
+              ),
             ),
-          ),
-          SizedBox(height: spacing.space1),
+            SizedBox(height: spacing.space1),
+          ],
           MouseRegion(
             cursor: disabled ? SystemMouseCursors.basic : cursor,
             onEnter: disabled ? null : (_) => onHover?.call(true),
@@ -118,30 +125,46 @@ class HiveFieldFrame extends StatelessWidget {
           ),
           if (helper != null) ...<Widget>[
             SizedBox(height: spacing.space1),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                if (hasError) ...<Widget>[
-                  HiveIcon(
-                    HiveIcons.alert,
-                    size: spacing.space2,
-                    color: colors.danger,
-                  ),
-                  SizedBox(width: spacing.spaceHalf),
-                ],
-                Expanded(
-                  child: Text(
-                    helper,
-                    style: typography.bodySmall.copyWith(
-                      color: hasError ? colors.danger : colors.onSurfaceMuted,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            HiveFieldMessage(text: helper, isError: hasError),
           ],
         ],
       ),
+    );
+  }
+}
+
+/// The helper or error line below a form field: `onSurfaceMuted` body text,
+/// or `danger` text with the alert icon while [isError] is set.
+class HiveFieldMessage extends StatelessWidget {
+  /// Creates a field message.
+  const new({required this.text, this.isError = false, super.key});
+
+  /// The message.
+  final String text;
+
+  /// Whether the message reports an error.
+  final bool isError;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.hiveColors;
+    final spacing = context.hiveSpacing;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        if (isError) ...<Widget>[
+          HiveIcon(HiveIcons.alert, size: spacing.space2, color: colors.danger),
+          SizedBox(width: spacing.spaceHalf),
+        ],
+        Expanded(
+          child: Text(
+            text,
+            style: context.hiveTypography.bodySmall.copyWith(
+              color: isError ? colors.danger : colors.onSurfaceMuted,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

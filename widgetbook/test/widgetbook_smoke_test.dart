@@ -21,6 +21,13 @@ const Map<String, String> _useCases = <String, String>{
   'With label': 'Entry node',
   'Delete confirmation': 'Delete "Release checklist"?',
   'With content': 'Release checklist (copy)',
+  'Variables · Filled': 'ANTHROPIC_MODEL',
+  'Variables · Empty': 'No environment variables.',
+  'Variables · Duplicate and empty keys': 'Duplicate key',
+  'Variables · Interactive': 'Add variable',
+  'Arguments · Filled': '--verbose',
+  'Arguments · Error': 'Remove empty arguments.',
+  'Arguments · Disabled': 'Add argument',
 };
 
 void main() {
