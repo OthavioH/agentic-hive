@@ -11,6 +11,9 @@ abstract interface class BackendClient {
   /// `server.hello` handshake.
   Future<Result<BackendWebSocketSession>> connectWebSocket();
 
+  /// Requests graceful backend shutdown via `POST /api/v1/shutdown`.
+  Future<Result<ShutdownResponse>> shutdown({required bool force});
+
   /// Closes underlying transport resources.
   Future<void> close();
 }

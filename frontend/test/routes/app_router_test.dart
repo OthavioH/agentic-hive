@@ -75,6 +75,10 @@ final class _FakeBackendClient implements BackendClient {
   }
 
   @override
+  Future<Result<ShutdownResponse>> shutdown({required bool force}) async =>
+      const Success(ShutdownResponse());
+
+  @override
   Future<void> close() async {}
 }
 

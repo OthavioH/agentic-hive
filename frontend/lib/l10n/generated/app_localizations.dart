@@ -375,6 +375,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Back to Overview'**
   String get routeErrorAction;
+
+  /// Tooltip shown when hovering over the system tray icon.
+  ///
+  /// In en, this message translates to:
+  /// **'Agentic Hive'**
+  String get trayTooltip;
+
+  /// Disabled tray menu header when the backend is connected.
+  ///
+  /// In en, this message translates to:
+  /// **'Agentic Hive — Connected'**
+  String get trayStatusConnected;
+
+  /// Disabled tray menu header when the app is connecting or starting the backend.
+  ///
+  /// In en, this message translates to:
+  /// **'Agentic Hive — Starting…'**
+  String get trayStatusStarting;
+
+  /// Disabled tray menu header when the backend is disconnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Agentic Hive — Disconnected'**
+  String get trayStatusDisconnected;
+
+  /// Tray menu item that restores and focuses the main window.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Agentic Hive'**
+  String get trayActionOpen;
+
+  /// Tray menu item that quits the UI and stops an idle backend.
+  ///
+  /// In en, this message translates to:
+  /// **'Quit'**
+  String get trayActionQuit;
+
+  /// Tray menu item that stops the backend and exits the app.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop Backend & Quit'**
+  String get trayActionStopBackendAndQuit;
+
+  /// Confirmation dialog title when stopping the backend while runs are active.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop backend and quit?'**
+  String get stopBackendDialogTitle;
+
+  /// Confirmation dialog body when stopping the backend with active runs.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{There is 1 active run in progress. Stopping the backend will abort it.} other{There are {count} active runs in progress. Stopping the backend will abort them.}}'**
+  String stopBackendDialogMessage(int count);
+
+  /// Safe cancel button label on the stop backend confirmation dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get stopBackendDialogCancel;
+
+  /// Confirming destructive button label on the stop backend confirmation dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop Backend & Quit'**
+  String get stopBackendDialogConfirm;
+
+  /// Accessibility label for modal dialog scrim dismissal.
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss'**
+  String get dialogDismissLabel;
+
+  /// Title on connecting page when launching the local backend process fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to start backend'**
+  String get connectingReasonLaunchFailedTitle;
+
+  /// Message on connecting page when launching the local backend process fails.
+  ///
+  /// In en, this message translates to:
+  /// **'The local Agentic Hive backend could not be launched. Check that the backend executable is available, then retry.'**
+  String get connectingReasonLaunchFailedMessage;
 }
 
 class _AppLocalizationsDelegate
