@@ -278,7 +278,7 @@ class AppLifecycleController extends _$AppLifecycleController {
       }
     }
 
-    await ref.read(windowLifecycleServiceProvider).exitApplication();
+    await _disposeAndExitApplication();
   }
 
   /// Handles **Stop Backend & Quit** from the tray:
@@ -309,7 +309,7 @@ class AppLifecycleController extends _$AppLifecycleController {
             await ref.read(windowLifecycleServiceProvider).showAndFocus();
             return;
           }
-          await ref.read(windowLifecycleServiceProvider).exitApplication();
+          await _disposeAndExitApplication();
         } else {
           await ref.read(windowLifecycleServiceProvider).showAndFocus();
           if (!ref.mounted) return;
@@ -320,7 +320,7 @@ class AppLifecycleController extends _$AppLifecycleController {
         }
       case FailureResult<StatusResponse>():
         state = state.copyWith(isShuttingDown: true);
-        await ref.read(windowLifecycleServiceProvider).exitApplication();
+        await _disposeAndExitApplication();
     }
   }
 
@@ -333,7 +333,16 @@ class AppLifecycleController extends _$AppLifecycleController {
     );
     await ref.read(backendClientProvider).shutdown(force: true);
     if (!ref.mounted) return;
-    await ref.read(windowLifecycleServiceProvider).exitApplication();
+    await _disposeAndExitApplication();
+  }
+
+  Future<void> _disposeAndExitApplication() async {
+    await ref.read(trayServiceProvider).dispose();
+    if (!ref.mounted) return;
+    final windowService = ref.read(windowLifecycleServiceProvider);
+    await windowService.dispose();
+    if (!ref.mounted) return;
+    await windowService.exitApplication();
   }
 
   /// Cancels the pending **Stop Backend & Quit** confirmation dialog.

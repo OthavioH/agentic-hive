@@ -84,12 +84,34 @@ final class _FakeBackendLauncher implements BackendLauncher {
 }
 
 final class _FakeWindowLifecycleService implements WindowLifecycleService {
+  new({this.events, this.onExitApplication});
+
+  final List<String>? events;
+  final VoidCallback? onExitApplication;
   VoidCallback? onCloseRequested;
   VoidCallback? onQuitRequested;
   int hideCount = 0;
   int showCount = 0;
   int exitCount = 0;
   bool disposed = false;
+  bool exiting = false;
+
+  /// Simulates an OS quit request (`ApplicationQuitRequestedEvent`) that is
+  /// cancelled and forwarded to [onQuitRequested] unless [exiting] or
+  /// [disposed] is already true.
+  ///
+  /// Returns `true` if the quit request was allowed to complete (not
+  /// intercepted), or `false` if it was cancelled and forwarded to
+  /// [onQuitRequested].
+  bool simulateOsQuitRequest() {
+    if (exiting || disposed) {
+      events?.add('osQuitCompleted');
+      return true;
+    }
+    events?.add('osQuitCancelled');
+    onQuitRequested?.call();
+    return false;
+  }
 
   @override
   Future<void> initialize({
@@ -112,16 +134,23 @@ final class _FakeWindowLifecycleService implements WindowLifecycleService {
 
   @override
   Future<void> exitApplication() async {
+    exiting = true;
     exitCount++;
+    events?.add('window.exitApplication');
+    onExitApplication?.call();
   }
 
   @override
   Future<void> dispose() async {
     disposed = true;
+    events?.add('window.dispose');
   }
 }
 
 final class _FakeTrayService implements TrayService {
+  new({this.events});
+
+  final List<String>? events;
   VoidCallback? onTrayClick;
   void Function(TrayAction action)? onAction;
   TrayMenuLabels? lastLabels;
@@ -149,6 +178,7 @@ final class _FakeTrayService implements TrayService {
   @override
   Future<void> dispose() async {
     disposed = true;
+    events?.add('tray.dispose');
   }
 }
 
@@ -439,6 +469,68 @@ void main() {
       );
       expect(client.shutdownForceCalls, isEmpty);
       expect(windowService.exitCount, 0);
+    });
+
+    test(
+      'disposes tray and window services before exitApplication and does not '
+      'cancel re-emitted quit request when exiting (macOS Cmd+Q regression)',
+      () async {
+        final events = <String>[];
+        final client = _FakeBackendClient()..statusResult = Success(_status());
+        final launcher = _FakeBackendLauncher();
+        late final _FakeWindowLifecycleService windowService;
+        windowService = _FakeWindowLifecycleService(
+          events: events,
+          onExitApplication: () {
+            // Simulate Application.quit(0) re-emitting
+            // ApplicationQuitRequestedEvent synchronously during exit.
+            windowService.simulateOsQuitRequest();
+          },
+        );
+        final trayService = _FakeTrayService(events: events);
+
+        createContainer(
+          client: client,
+          launcher: launcher,
+          windowService: windowService,
+          trayService: trayService,
+        ).read(appLifecycleControllerProvider);
+        await flushMicrotasks();
+
+        // Initial OS quit request (e.g. macOS Cmd+Q) is intercepted and starts
+        // the graceful quit sequence.
+        final initialCompleted = windowService.simulateOsQuitRequest();
+        expect(initialCompleted, isFalse);
+        await flushMicrotasks();
+
+        expect(client.shutdownForceCalls, [false]);
+        expect(trayService.disposed, isTrue);
+        expect(windowService.disposed, isTrue);
+        expect(windowService.exitCount, 1);
+        expect(events, [
+          'osQuitCancelled',
+          'tray.dispose',
+          'window.dispose',
+          'window.exitApplication',
+          'osQuitCompleted',
+        ]);
+      },
+    );
+
+    test('NativeWindowLifecycleService sets isExiting and does not cancel quit '
+        'event once exitApplication has started', () async {
+      var quitCode = -1;
+      final service = MacOSWindowLifecycleService(
+        quitRunner: (code) {
+          quitCode = code;
+        },
+      );
+      expect(service.isExiting, isFalse);
+
+      await service.exitApplication();
+
+      expect(service.isExiting, isTrue);
+      expect(quitCode, 0);
     });
   });
 }

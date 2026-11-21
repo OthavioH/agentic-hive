@@ -48,7 +48,7 @@ final class AppLifecycleControllerProvider
 }
 
 String _$appLifecycleControllerHash() =>
-    r'bb8cfcc9212dd586a15cd8664ae02bce3992e5c0';
+    r'5bf49f3c5ff44ff62969c926210ca070ab423807';
 
 /// Coordinates backend auto-launch on startup, window close-to-tray behavior,
 /// system tray menu actions, and graceful backend shutdown (Spec #13).

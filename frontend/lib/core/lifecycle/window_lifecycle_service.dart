@@ -48,10 +48,22 @@ WindowLifecycleService currentWindowLifecycleService() =>
 /// Shared `nativeapi` implementation of [WindowLifecycleService].
 abstract base class NativeWindowLifecycleService
     implements WindowLifecycleService {
+  /// Creates a [NativeWindowLifecycleService].
+  new({this.quitRunner});
+
+  /// Optional test hook invoked with the exit code instead of calling native
+  /// `Application.quit` or `exit`.
+  @visibleForTesting
+  final void Function(int exitCode)? quitRunner;
   Window? _window;
   ListenerId? _windowListenerId;
   na.ListenerId? _appListenerId;
   bool _disposed = false;
+  bool _exiting = false;
+
+  /// Whether an exit sequence has started and quit events must not be
+  /// cancelled.
+  bool get isExiting => _exiting;
 
   /// Whether hiding the window should also remove it from the OS taskbar.
   bool get hideFromTaskbarWhenHidden;
@@ -71,6 +83,7 @@ abstract base class NativeWindowLifecycleService
       _window = window;
       _windowListenerId = window.addListener((event) {
         if (event is WindowCloseRequestedEvent) {
+          if (_exiting) return;
           event.request.cancel();
           onCloseRequested();
         }
@@ -80,11 +93,24 @@ abstract base class NativeWindowLifecycleService
     if (onQuitRequested != null && _appListenerId == null) {
       _appListenerId = na.Application.instance.addListener((event) {
         if (event is na.ApplicationQuitRequestedEvent) {
-          event.request.cancel();
-          onQuitRequested();
+          handleQuitRequestedEvent(event, onQuitRequested);
         }
       });
     }
+  }
+
+  /// Handles an [na.ApplicationQuitRequestedEvent] when intercepted.
+  ///
+  /// Cancels [event] and invokes [onQuitRequested] unless exit is already in
+  /// progress ([isExiting] or disposed).
+  @visibleForTesting
+  void handleQuitRequestedEvent(
+    na.ApplicationQuitRequestedEvent event,
+    VoidCallback onQuitRequested,
+  ) {
+    if (_exiting || _disposed) return;
+    event.request.cancel();
+    onQuitRequested();
   }
 
   @override
@@ -117,6 +143,13 @@ abstract base class NativeWindowLifecycleService
 
   @override
   Future<void> exitApplication() async {
+    _exiting = true;
+    await dispose();
+    final runner = quitRunner;
+    if (runner != null) {
+      runner(0);
+      return;
+    }
     if (na.Application.instance.isRunning()) {
       na.Application.instance.quit(0);
     } else {
@@ -144,6 +177,9 @@ abstract base class NativeWindowLifecycleService
 
 /// Windows implementation of [WindowLifecycleService].
 final class WindowsWindowLifecycleService extends NativeWindowLifecycleService {
+  /// Creates a [WindowsWindowLifecycleService].
+  new({super.quitRunner});
+
   @override
   bool get hideFromTaskbarWhenHidden => true;
 
@@ -153,6 +189,9 @@ final class WindowsWindowLifecycleService extends NativeWindowLifecycleService {
 
 /// Linux implementation of [WindowLifecycleService].
 final class LinuxWindowLifecycleService extends NativeWindowLifecycleService {
+  /// Creates a [LinuxWindowLifecycleService].
+  new({super.quitRunner});
+
   @override
   bool get hideFromTaskbarWhenHidden => true;
 
@@ -162,6 +201,9 @@ final class LinuxWindowLifecycleService extends NativeWindowLifecycleService {
 
 /// macOS implementation of [WindowLifecycleService].
 final class MacOSWindowLifecycleService extends NativeWindowLifecycleService {
+  /// Creates a [MacOSWindowLifecycleService].
+  new({super.quitRunner});
+
   @override
   bool get hideFromTaskbarWhenHidden => false;
 
