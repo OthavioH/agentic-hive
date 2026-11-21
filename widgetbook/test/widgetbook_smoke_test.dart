@@ -11,6 +11,17 @@ const Map<String, String> _useCases = <String, String>{
   'Primary · Default': 'Run workflow',
   'Collapsed (default)': '',
   'Interactive shell': 'Nothing in Overview yet',
+  'Search input': 'Search by id, name, description or tag',
+  'Mono prompt (filled)': 'Prompt',
+  'Tag editor': 'design-system',
+  'Tag filter row': 'backend',
+  'Text only': 'With errors',
+  'Conflict · Changed on disk': 'Reload from disk',
+  'Parse error detail': 'This agent could not be read',
+  'With action and dismiss': 'Reload',
+  'Agent prompt': 'Execution guidance',
+  'Agent editor composition': 'Capabilities & tools',
+  'Narrow · Master': 'Release manager',
 };
 
 void main() {

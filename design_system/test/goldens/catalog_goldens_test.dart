@@ -197,6 +197,173 @@ void main() {
           const HiveHexMark(semanticLabel: 'Agentic Hive'),
         );
       });
+
+      testWidgets('HiveTextField', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_text_field',
+          const SizedBox(
+            width: 360,
+            child: HiveTextField(
+              label: 'Agent id',
+              hintText: 'code-reviewer',
+              errorText: 'An agent with this id already exists',
+            ),
+          ),
+        );
+      });
+
+      testWidgets('HiveTextArea', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_text_area',
+          const SizedBox(
+            width: 360,
+            child: HiveTextArea(
+              label: 'Prompt',
+              hintText: '# Role',
+              mono: true,
+            ),
+          ),
+        );
+      });
+
+      testWidgets('HiveChip', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_chip',
+          Wrap(
+            spacing: 8,
+            children: <Widget>[
+              HiveChip.removable(
+                label: 'review',
+                removeSemanticLabel: 'Remove tag review',
+                onRemoved: () {},
+              ),
+              HiveChip.filter(
+                label: 'backend',
+                selected: true,
+                onSelected: (_) {},
+              ),
+              HiveChip.filter(
+                label: 'docs',
+                selected: false,
+                onSelected: (_) {},
+              ),
+            ],
+          ),
+        );
+      });
+
+      testWidgets('HiveSegmentedControl', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_segmented_control',
+          HiveSegmentedControl<String>(
+            segments: const <HiveSegment<String>>[
+              HiveSegment<String>(value: 'raw', label: 'Raw'),
+              HiveSegment<String>(value: 'preview', label: 'Preview'),
+            ],
+            selected: 'raw',
+            semanticLabel: 'Prompt view',
+            onChanged: (_) {},
+          ),
+        );
+      });
+
+      testWidgets('HiveConfirmDialog', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_confirm_dialog',
+          HiveConfirmDialog(
+            title: 'Delete agent?',
+            message: 'code-reviewer.md will be removed from disk.',
+            confirmLabel: 'Delete',
+            cancelLabel: 'Cancel',
+            tone: HiveConfirmTone.destructive,
+            icon: HiveIcons.delete,
+            onConfirm: () {},
+            onCancel: () {},
+          ),
+          size: const Size(560, 400),
+        );
+      });
+
+      testWidgets('HiveBanner', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_banner',
+          const SizedBox(
+            width: 440,
+            child: HiveBanner(
+              tone: HiveFeedbackTone.danger,
+              title: 'This agent could not be read',
+              message: 'Fix the YAML frontmatter or delete the file.',
+            ),
+          ),
+        );
+      });
+
+      testWidgets('HiveToast', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_toast',
+          const HiveToast(
+            tone: HiveFeedbackTone.success,
+            message: 'Agent saved',
+          ),
+        );
+      });
+
+      testWidgets('HiveCollapsibleSection', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_collapsible_section',
+          const SizedBox(
+            width: 400,
+            child: HiveCollapsibleSection(
+              title: 'Capabilities & tools',
+              subtitle: 'Informational; not enforced',
+              initiallyExpanded: true,
+              child: Text('flutter-validation, context7'),
+            ),
+          ),
+        );
+      });
+
+      testWidgets('HiveMasterDetail', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_master_detail',
+          const SizedBox(
+            width: 800,
+            height: 280,
+            child: HiveMasterDetail(
+              master: Center(child: Text('Agent list')),
+              detail: Center(child: Text('Agent editor')),
+            ),
+          ),
+          size: const Size(840, 320),
+        );
+      });
+
+      testWidgets('HiveMarkdownView', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_markdown_view',
+          const SizedBox(
+            width: 440,
+            child: HiveMarkdownView(
+              data:
+                  '## Responsibilities\n\n'
+                  '- Review **pull requests**\n'
+                  '- Run `dart analyze`\n\n'
+                  '> Never approve your own changes.',
+            ),
+          ),
+          size: const Size(480, 320),
+        );
+      });
     });
   }
 }

@@ -27,6 +27,7 @@ class HiveInteraction extends StatefulWidget {
     this.focusNode,
     this.autofocus = false,
     this.selected,
+    this.expanded,
     this.busy = false,
     super.key,
   });
@@ -51,6 +52,10 @@ class HiveInteraction extends StatefulWidget {
 
   /// Selection state for semantics (rail items), or null when not selectable.
   final bool? selected;
+
+  /// Expansion state for semantics (disclosure headers), or null when the
+  /// component does not expand.
+  final bool? expanded;
 
   /// Whether the component is busy (loading); it then ignores activation.
   final bool busy;
@@ -111,6 +116,7 @@ class _HiveInteractionState extends State<HiveInteraction> {
       button: true,
       enabled: _enabled,
       selected: widget.selected,
+      expanded: widget.expanded,
       label: widget.semanticLabel,
       onTap: interactive ? _activate : null,
       child: ExcludeSemantics(
