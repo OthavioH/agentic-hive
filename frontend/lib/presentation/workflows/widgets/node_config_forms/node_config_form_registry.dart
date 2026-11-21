@@ -122,3 +122,16 @@ NodeConfigFormRegistry createNodeConfigFormRegistry() {
 
   return registry;
 }
+
+/// Parses an optional positive integer timeout from [raw].
+///
+/// Empty/whitespace input returns `(value: null, isValid: true)`. Any non-empty
+/// input that is not a strictly positive integer returns
+/// `(value: null, isValid: false)`.
+({int? value, bool isValid}) parsePositiveTimeout(String raw) {
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) return (value: null, isValid: true);
+  final parsed = int.tryParse(trimmed);
+  if (parsed == null || parsed <= 0) return (value: null, isValid: false);
+  return (value: parsed, isValid: true);
+}

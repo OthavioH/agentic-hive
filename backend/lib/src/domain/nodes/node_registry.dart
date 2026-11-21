@@ -29,6 +29,7 @@ final class NodeRegistry {
   factory withDefaults({
     required NodeProcessRunner processRunner,
     required PtyRunner ptyRunner,
+    required DefaultShellProvider defaultShellProvider,
     required ResultContract resultContract,
     required HumanApprovalPort approvalPort,
     required AgentPromptResolver agentPromptResolver,
@@ -71,6 +72,7 @@ final class NodeRegistry {
         NodeDescriptors.terminal,
         () => TerminalHarnessNode(
           ptyRunner: ptyRunner,
+          defaultShellProvider: defaultShellProvider,
           resultContract: resultContract,
           agentPromptResolver: agentPromptResolver,
         ),

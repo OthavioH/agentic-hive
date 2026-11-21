@@ -13,11 +13,14 @@ class HiveApp extends ConsumerWidget {
   /// Creates the root [HiveApp].
   const new({super.key});
 
+  static final NodeVisualRegistry _nodeVisualRegistry =
+      createNodeVisualRegistry();
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
     return NodeVisualScope(
-      registry: createNodeVisualRegistry(),
+      registry: _nodeVisualRegistry,
       child: MaterialApp.router(
         onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
         themeMode: ThemeMode.dark,

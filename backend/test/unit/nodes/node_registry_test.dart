@@ -1,5 +1,6 @@
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/data/nodes/os_shell_provider.dart';
 import 'package:agentic_hive_backend/src/data/nodes/unconfigured_node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/command_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/headless_harness_nodes.dart';
@@ -30,6 +31,7 @@ void main() {
       registry = NodeRegistry.withDefaults(
         processRunner: const _NoopProcessRunner(),
         ptyRunner: const UnconfiguredPtyRunner(),
+        defaultShellProvider: const PosixShellProvider(),
         resultContract: const UnconfiguredResultContract(),
         approvalPort: const UnconfiguredHumanApprovalPort(),
         agentPromptResolver: const UnconfiguredAgentPromptResolver(),

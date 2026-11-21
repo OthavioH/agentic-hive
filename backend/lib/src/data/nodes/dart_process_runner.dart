@@ -4,22 +4,44 @@ import 'dart:io';
 
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/data/nodes/os_process_platform.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_execution_context.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 
 /// `dart:io` implementation of [NodeProcessRunner].
 final class DartProcessRunner implements NodeProcessRunner {
   /// Creates a Dart process runner.
-  const new();
+  const new({
+    this.platform,
+    this.maxOutputLength = defaultMaxOutputLength,
+    this.drainTimeout = defaultDrainTimeout,
+  });
+
+  /// Default per-stream output cap (1 MiB of characters).
+  static const int defaultMaxOutputLength = 1024 * 1024;
+
+  /// Default maximum time to wait for stream drain after a timeout kill.
+  static const Duration defaultDrainTimeout = Duration(seconds: 2);
+
+  /// OS-specific process launcher and terminator.
+  final OsProcessPlatform? platform;
+
+  /// Maximum number of characters retained per stream (`stdout` / `stderr`).
+  final int maxOutputLength;
+
+  /// Maximum time to wait for pipes to close after terminating a timed-out
+  /// process tree.
+  final Duration drainTimeout;
 
   @override
   Future<Result<ProcessExecutionResult>> run(
     ProcessInvocation invocation, {
     NodeOutputCallback? onOutput,
   }) async {
+    final effectivePlatform = platform ?? currentProcessPlatform();
     final Process process;
     try {
-      process = await Process.start(
+      process = await effectivePlatform.start(
         invocation.executable,
         invocation.arguments,
         workingDirectory: invocation.workingDirectory,
@@ -38,24 +60,33 @@ final class DartProcessRunner implements NodeProcessRunner {
 
     final stdoutBuffer = StringBuffer();
     final stderrBuffer = StringBuffer();
+    final cancelSignal = Completer<void>();
 
     final stdoutDone = _collectStream(
       process.stdout,
       stdoutBuffer,
       'stdout',
       onOutput,
+      cancelSignal.future,
     );
     final stderrDone = _collectStream(
       process.stderr,
       stderrBuffer,
       'stderr',
       onOutput,
+      cancelSignal.future,
     );
 
-    if (invocation.stdinContent != null) {
-      process.stdin.write(invocation.stdinContent);
+    unawaited(process.stdin.done.catchError((Object _) {}));
+    try {
+      if (invocation.stdinContent != null) {
+        process.stdin.write(invocation.stdinContent);
+        await process.stdin.flush();
+      }
+      await process.stdin.close();
+    } on Object {
+      // Ignore broken-pipe / early-exit errors when writing or closing stdin.
     }
-    await process.stdin.close();
 
     var timedOut = false;
     final int exitCode;
@@ -63,9 +94,9 @@ final class DartProcessRunner implements NodeProcessRunner {
     if (timeout != null) {
       exitCode = await process.exitCode.timeout(
         timeout,
-        onTimeout: () {
+        onTimeout: () async {
           timedOut = true;
-          process.kill();
+          await effectivePlatform.terminateTree(process);
           return -1;
         },
       );
@@ -73,7 +104,19 @@ final class DartProcessRunner implements NodeProcessRunner {
       exitCode = await process.exitCode;
     }
 
-    await Future.wait<void>([stdoutDone, stderrDone]);
+    if (timedOut) {
+      await Future.wait<void>(<Future<void>>[stdoutDone, stderrDone]).timeout(
+        drainTimeout,
+        onTimeout: () {
+          if (!cancelSignal.isCompleted) {
+            cancelSignal.complete();
+          }
+          return const <void>[];
+        },
+      );
+    } else {
+      await Future.wait<void>(<Future<void>>[stdoutDone, stderrDone]);
+    }
 
     return Success(
       ProcessExecutionResult(
@@ -90,14 +133,57 @@ final class DartProcessRunner implements NodeProcessRunner {
     StringBuffer buffer,
     String streamName,
     NodeOutputCallback? onOutput,
+    Future<void> cancelSignal,
   ) async {
-    await for (final line
-        in stream.transform(utf8.decoder).transform(const LineSplitter())) {
-      if (buffer.isNotEmpty) {
-        buffer.writeln();
-      }
-      buffer.write(line);
-      onOutput?.call(streamName, line);
-    }
+    final completer = Completer<void>();
+    var truncated = false;
+
+    final subscription = stream
+        .transform(const Utf8Decoder(allowMalformed: true))
+        .transform(const LineSplitter())
+        .listen(
+          (line) {
+            onOutput?.call(streamName, line);
+            if (truncated) return;
+
+            final separatorLength = buffer.isEmpty ? 0 : 1;
+            final remaining = maxOutputLength - buffer.length - separatorLength;
+            if (remaining <= 0) {
+              truncated = true;
+              return;
+            }
+            if (separatorLength > 0) {
+              buffer.writeln();
+            }
+            if (line.length <= remaining) {
+              buffer.write(line);
+            } else {
+              buffer.write(line.substring(0, remaining));
+              truncated = true;
+            }
+          },
+          onError: (Object _) {
+            if (!completer.isCompleted) {
+              completer.complete();
+            }
+          },
+          onDone: () {
+            if (!completer.isCompleted) {
+              completer.complete();
+            }
+          },
+          cancelOnError: true,
+        );
+
+    unawaited(
+      cancelSignal.then((_) async {
+        await subscription.cancel();
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      }),
+    );
+
+    await completer.future;
   }
 }

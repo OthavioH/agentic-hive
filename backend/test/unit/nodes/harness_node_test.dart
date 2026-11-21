@@ -1,5 +1,6 @@
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/data/nodes/os_shell_provider.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/headless_harness_nodes.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_execution_context.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
@@ -303,12 +304,40 @@ void main() {
       );
       expect(result.failureOrNull, isA<ValidationFailure>());
     });
+
+    test('successful run with 401, 429, oauth, and capacity in stdout is not '
+        'misclassified as auth or rate-limit failure', () async {
+      processRunner.result = const ProcessExecutionResult(
+        exitCode: 0,
+        stdout:
+            'Added tests for HTTP 401 and 429 handling, oauth flow, and '
+            'channel capacity.',
+      );
+      final gemini = GeminiCliNode(
+        processRunner: processRunner,
+        resultContract: resultContract,
+        agentPromptResolver: agentResolver,
+      );
+      final geminiResult = await gemini.execute(_context());
+      expect(geminiResult.isSuccess, isTrue);
+      expect(geminiResult.valueOrNull!.outputLabel, NodeOutput.onSuccess);
+
+      final agy = AntigravityNode(
+        processRunner: processRunner,
+        resultContract: resultContract,
+        agentPromptResolver: agentResolver,
+      );
+      final agyResult = await agy.execute(_context());
+      expect(agyResult.isSuccess, isTrue);
+      expect(agyResult.valueOrNull!.outputLabel, NodeOutput.onSuccess);
+    });
   });
 
   group('TerminalHarnessNode', () {
     test('delegates to PtyRunner and resolves ResultContract', () async {
       final node = TerminalHarnessNode(
         ptyRunner: ptyRunner,
+        defaultShellProvider: const PosixShellProvider(),
         resultContract: resultContract,
         agentPromptResolver: agentResolver,
       );

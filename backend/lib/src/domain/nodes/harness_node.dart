@@ -132,27 +132,11 @@ abstract base class HarnessNode extends Node {
       ),
     );
   }
-}
 
-/// Template Method base for headless CLI harness nodes (`claude`, `codex`,
-/// `gemini`, `agy`).
-abstract base class HeadlessHarnessNode extends HarnessNode {
-  /// Creates a headless harness node.
-  const new({
-    required this.processRunner,
-    required super.resultContract,
-    required super.agentPromptResolver,
-  });
-
-  /// Process runner used to invoke the harness CLI.
-  final NodeProcessRunner processRunner;
-
-  /// Builds the CLI [ProcessInvocation] for this harness.
-  ///
-  /// Subclasses must deliver [prompt] via `stdinContent` (or a file), never
-  /// inside [ProcessInvocation.arguments] (ADR 0005).
-  ProcessInvocation buildInvocation({
-    required HarnessNodeConfig config,
+  /// Runs the underlying harness process or PTY session and returns its raw
+  /// execution result.
+  Future<Result<ProcessExecutionResult>> runHarness(
+    NodeExecutionContext context, {
     required String workingDirectory,
     required String prompt,
   });
@@ -192,15 +176,10 @@ abstract base class HeadlessHarnessNode extends HarnessNode {
     }
     final prompt = promptResult.valueOrNull!;
 
-    final invocation = buildInvocation(
-      config: config,
+    final runResult = await runHarness(
+      context,
       workingDirectory: workingDirectory,
       prompt: prompt,
-    );
-
-    final runResult = await processRunner.run(
-      invocation,
-      onOutput: context.onOutput,
     );
     if (runResult case FailureResult<ProcessExecutionResult>(:final failure)) {
       return FailureResult(failure);
@@ -249,31 +228,80 @@ abstract base class HeadlessHarnessNode extends HarnessNode {
   }
 }
 
+/// Template Method base for headless CLI harness nodes (`claude`, `codex`,
+/// `gemini`, `agy`).
+abstract base class HeadlessHarnessNode extends HarnessNode {
+  /// Creates a headless harness node.
+  const new({
+    required this.processRunner,
+    required super.resultContract,
+    required super.agentPromptResolver,
+  });
+
+  /// Process runner used to invoke the harness CLI.
+  final NodeProcessRunner processRunner;
+
+  /// Builds the CLI [ProcessInvocation] for this harness.
+  ///
+  /// Subclasses must deliver [prompt] via `stdinContent` (or a file), never
+  /// inside [ProcessInvocation.arguments] (ADR 0005).
+  ProcessInvocation buildInvocation({
+    required HarnessNodeConfig config,
+    required String workingDirectory,
+    required String prompt,
+  });
+
+  @override
+  Future<Result<ProcessExecutionResult>> runHarness(
+    NodeExecutionContext context, {
+    required String workingDirectory,
+    required String prompt,
+  }) {
+    final config = HarnessNodeConfig.fromJson(context.config);
+    final invocation = buildInvocation(
+      config: config,
+      workingDirectory: workingDirectory,
+      prompt: prompt,
+    );
+    return processRunner.run(invocation, onOutput: context.onOutput);
+  }
+}
+
 /// Shared pattern-based auth/quota detector for CLI output.
+///
+/// Only classifies authentication or rate-limit errors when the process failed
+/// (`exitCode != 0`), so normal agent output mentioning status codes or terms
+/// like `401` or `429` never overrides a successful run.
 HarnessOutputAnalysis analyzeCliOutput(
   ProcessExecutionResult result, {
   required RegExp authPattern,
   required RegExp rateLimitPattern,
 }) {
+  final metadata = <String, Object?>{
+    if (result.stdout.isNotEmpty) 'stdout': result.stdout,
+    if (result.stderr.isNotEmpty) 'stderr': result.stderr,
+  };
+
+  if (result.exitCode == 0 && !result.timedOut) {
+    return HarnessOutputAnalysis(metadata: metadata);
+  }
+
   final combined = '${result.stderr}\n${result.stdout}'.trim();
   if (authPattern.hasMatch(combined)) {
     return HarnessOutputAnalysis(
       isAuthenticationError: true,
       errorMessage: _firstMatchingLine(combined, authPattern),
+      metadata: metadata,
     );
   }
   if (rateLimitPattern.hasMatch(combined)) {
     return HarnessOutputAnalysis(
       isRateLimitError: true,
       errorMessage: _firstMatchingLine(combined, rateLimitPattern),
+      metadata: metadata,
     );
   }
-  return HarnessOutputAnalysis(
-    metadata: <String, Object?>{
-      if (result.stdout.isNotEmpty) 'stdout': result.stdout,
-      if (result.stderr.isNotEmpty) 'stderr': result.stderr,
-    },
-  );
+  return HarnessOutputAnalysis(metadata: metadata);
 }
 
 String? _firstMatchingLine(String text, RegExp pattern) {

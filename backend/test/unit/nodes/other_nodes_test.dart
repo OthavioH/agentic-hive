@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/data/nodes/unconfigured_node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/command_node.dart';
@@ -234,6 +235,106 @@ void main() {
       expect(result.valueOrNull!.outputLabel, NodeOutput.onFailure);
       final failed = result.valueOrNull!.data['failedRules']! as List;
       expect(failed, hasLength(3));
+    });
+
+    test('fileExists recognizes directories and applies default timeout and '
+        'quote-aware command tokenization', () async {
+      await Directory(p.join(tempDir.path, 'lib')).create();
+
+      final runner = _FakeProcessRunner(
+        (_) => const ProcessExecutionResult(exitCode: 0, stdout: 'matched'),
+      );
+      final node = ChecklistValidatorNode(processRunner: runner);
+      final result = await node.execute(
+        ctx(const {
+          'rules': [
+            {'label': 'Has lib dir', 'kind': 'fileExists', 'path': 'lib'},
+            {
+              'label': 'Quoted args',
+              'kind': 'commandSucceeds',
+              'command': 'grep "a b" \'c d\' file.txt',
+            },
+          ],
+        }),
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(result.valueOrNull!.outputLabel, NodeOutput.onSuccess);
+      expect(runner.lastInvocation!.executable, 'grep');
+      expect(runner.lastInvocation!.arguments, ['a b', 'c d', 'file.txt']);
+      expect(
+        runner.lastInvocation!.timeout,
+        ChecklistValidatorNode.defaultCommandTimeout,
+      );
+    });
+
+    test('records timeout as failed rule', () async {
+      final runner = _FakeProcessRunner(
+        (_) => const ProcessExecutionResult(exitCode: -1, timedOut: true),
+      );
+      final node = ChecklistValidatorNode(
+        processRunner: runner,
+        commandTimeout: const Duration(seconds: 5),
+      );
+      final result = await node.execute(
+        ctx(const {
+          'rules': [
+            {
+              'label': 'Slow command',
+              'kind': 'commandSucceeds',
+              'command': 'slow_cmd',
+            },
+          ],
+        }),
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(result.valueOrNull!.outputLabel, NodeOutput.onFailure);
+      expect(runner.lastInvocation!.timeout, const Duration(seconds: 5));
+      final failed = result.valueOrNull!.data['failedRules']! as List;
+      expect(failed, hasLength(1));
+      expect((failed.first as Map)['reason'], 'Command timed out.');
+    });
+  });
+
+  group('resolveWorkspacePath', () {
+    test('rejects absolute, traversal, and symlink escape paths', () async {
+      final outsideDir = await Directory.systemTemp.createTemp('hive_outside_');
+      addTearDown(() {
+        if (outsideDir.existsSync()) {
+          outsideDir.deleteSync(recursive: true);
+        }
+      });
+
+      final node = CommandNode(
+        processRunner: _FakeProcessRunner(
+          (_) => const ProcessExecutionResult(exitCode: 0),
+        ),
+      );
+
+      expect(
+        node.resolveWorkspacePath(tempDir.path, '../outside').failureOrNull,
+        isA<ValidationFailure>(),
+      );
+      expect(
+        node.resolveWorkspacePath(tempDir.path, r'C:\Windows').failureOrNull,
+        isA<ValidationFailure>(),
+      );
+
+      final linkPath = p.join(tempDir.path, 'escape_link');
+      try {
+        Link(linkPath).createSync(outsideDir.path);
+      } on FileSystemException {
+        // Windows without Developer Mode / admin privileges may disallow
+        // creating symlinks; skip symlink assertion in that environment.
+        return;
+      }
+
+      final escaped = node.resolveWorkspacePath(
+        tempDir.path,
+        p.join('escape_link', 'secret.txt'),
+      );
+      expect(escaped.failureOrNull, isA<ValidationFailure>());
     });
   });
 

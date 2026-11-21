@@ -82,11 +82,141 @@
   },
   "harnessesEmptyTitle": "No harnesses detected",
   "@harnessesEmptyTitle": {
-    "description": "Empty state title on the Harnesses placeholder page."
+    "description": "Empty state title on the Harnesses page."
   },
   "harnessesEmptyDescription": "Connected CLI harnesses and their availability status will appear here.",
   "@harnessesEmptyDescription": {
-    "description": "Empty state description on the Harnesses placeholder page."
+    "description": "Empty state description on the Harnesses page."
+  },
+  "harnessesPageSubtitle": "Detected local AI agent CLIs, versions, and sign-in readiness.",
+  "@harnessesPageSubtitle": {
+    "description": "Subtitle shown in the Harnesses page header."
+  },
+  "harnessesRefreshAll": "Refresh",
+  "@harnessesRefreshAll": {
+    "description": "Button label in the Harnesses page header to refresh all harnesses."
+  },
+  "harnessesRetry": "Retry",
+  "@harnessesRetry": {
+    "description": "Button label to retry loading harnesses after an error."
+  },
+  "harnessesLoading": "Checking installed harnesses...",
+  "@harnessesLoading": {
+    "description": "Loading indicator label while fetching harness statuses."
+  },
+  "harnessesLoadErrorTitle": "Failed to load harnesses",
+  "@harnessesLoadErrorTitle": {
+    "description": "Error state title when initial harness loading fails."
+  },
+  "harnessesErrorNetwork": "Could not reach the local backend service.",
+  "@harnessesErrorNetwork": {
+    "description": "Localized error message when loading or refreshing harnesses fails due to a network error."
+  },
+  "harnessesErrorBackend": "The backend returned an error while checking harnesses.",
+  "@harnessesErrorBackend": {
+    "description": "Localized error message when the backend returns a failure while checking harnesses."
+  },
+  "harnessesErrorNotFound": "The requested harness could not be found.",
+  "@harnessesErrorNotFound": {
+    "description": "Localized error message when a harness is not found."
+  },
+  "harnessesErrorUnexpected": "An unexpected error occurred while checking harnesses.",
+  "@harnessesErrorUnexpected": {
+    "description": "Localized fallback error message when loading or refreshing harnesses fails."
+  },
+  "harnessesRefreshError": "Could not refresh harnesses: {message}",
+  "@harnessesRefreshError": {
+    "description": "Toast error message shown when refreshing harnesses fails.",
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessesRecheckTooltip": "Re-check {name}",
+  "@harnessesRecheckTooltip": {
+    "description": "Accessibility label for the per-card re-check button.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessesCopyPathTooltip": "Copy {name} executable path",
+  "@harnessesCopyPathTooltip": {
+    "description": "Accessibility label for copying a harness executable path.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessesPathCopiedToast": "Path copied",
+  "@harnessesPathCopiedToast": {
+    "description": "Toast confirmation shown after copying a harness executable path."
+  },
+  "harnessesExecutablePathLabel": "Executable",
+  "@harnessesExecutablePathLabel": {
+    "description": "Label above or beside the resolved harness executable path."
+  },
+  "harnessesVersionLabel": "Version {version}",
+  "@harnessesVersionLabel": {
+    "description": "Detected version label on a harness card.",
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessesVersionUnknown": "Version unavailable",
+  "@harnessesVersionUnknown": {
+    "description": "Fallback version label when no version could be detected."
+  },
+  "harnessStatusReady": "Ready",
+  "@harnessStatusReady": {
+    "description": "Badge label when a harness is ready."
+  },
+  "harnessStatusNotInstalled": "Not installed",
+  "@harnessStatusNotInstalled": {
+    "description": "Badge label when a harness CLI is not installed on PATH."
+  },
+  "harnessStatusAuthError": "Sign-in required",
+  "@harnessStatusAuthError": {
+    "description": "Badge label when a harness CLI reports an authentication error."
+  },
+  "harnessStatusOutdated": "Update required",
+  "@harnessStatusOutdated": {
+    "description": "Badge label when a harness CLI requires an update."
+  },
+  "harnessStatusUnavailable": "Unavailable",
+  "@harnessStatusUnavailable": {
+    "description": "Badge label when probing a harness CLI fails."
+  },
+  "harnessGuidanceNotInstalled": "Install this CLI and ensure it is available on your system PATH.",
+  "@harnessGuidanceNotInstalled": {
+    "description": "Actionable guidance shown when a harness is not installed."
+  },
+  "harnessGuidanceAuthError": "Sign in directly using the {name} CLI in your terminal. Agentic Hive never stores harness credentials.",
+  "@harnessGuidanceAuthError": {
+    "description": "Actionable guidance shown when a harness has an authentication error.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessGuidanceOutdated": "Update the {name} CLI in your terminal so workflow runs do not block on an interactive update prompt.",
+  "@harnessGuidanceOutdated": {
+    "description": "Actionable guidance shown when a harness is outdated.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessGuidanceUnavailable": "The CLI was found on PATH, but probing its version or status failed.",
+  "@harnessGuidanceUnavailable": {
+    "description": "Actionable guidance shown when a harness probe fails."
   },
   "settingsEmptyTitle": "Settings",
   "@settingsEmptyTitle": {
@@ -756,6 +886,10 @@
   "nodeConfigTimeoutSecondsHint": "Optional positive integer",
   "@nodeConfigTimeoutSecondsHint": {
     "description": "Placeholder hint for timeout in seconds."
+  },
+  "nodeConfigTimeoutSecondsError": "Enter a positive integer.",
+  "@nodeConfigTimeoutSecondsError": {
+    "description": "Validation error shown when timeout in seconds is not a positive integer."
   },
   "nodeConfigExtraArgsLabel": "Extra CLI arguments",
   "@nodeConfigExtraArgsLabel": {

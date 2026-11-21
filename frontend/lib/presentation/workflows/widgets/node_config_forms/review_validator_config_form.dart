@@ -1,5 +1,6 @@
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/node_config_form_registry.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
 import 'package:material_ui/material_ui.dart';
@@ -27,6 +28,7 @@ class _ReviewValidatorConfigFormState extends State<ReviewValidatorConfigForm> {
   final TextEditingController _timeoutController = TextEditingController();
 
   String _harnessType = NodeTypeId.claudeCode;
+  bool _hasTimeoutError = false;
 
   @override
   void initState() {
@@ -51,6 +53,7 @@ class _ReviewValidatorConfigFormState extends State<ReviewValidatorConfigForm> {
   }
 
   void _syncFromNode() {
+    _hasTimeoutError = false;
     final config = _parseConfig(widget.node.config);
     _harnessType = headlessHarnessTypeIds.contains(config.harnessType)
         ? config.harnessType
@@ -77,15 +80,18 @@ class _ReviewValidatorConfigFormState extends State<ReviewValidatorConfigForm> {
   }
 
   void _emit() {
-    final trimmedTimeout = _timeoutController.text.trim();
+    final timeout = parsePositiveTimeout(_timeoutController.text);
+    if (_hasTimeoutError != !timeout.isValid) {
+      setState(() => _hasTimeoutError = !timeout.isValid);
+    }
+    if (!timeout.isValid) return;
+
     widget.onConfigChanged(
       ReviewValidatorNodeConfig(
         harnessType: _harnessType,
         agentId: _nullIfEmpty(_agentIdController.text),
         reviewCriteria: _nullIfEmpty(_criteriaController.text),
-        timeoutSeconds: trimmedTimeout.isEmpty
-            ? null
-            : int.tryParse(trimmedTimeout),
+        timeoutSeconds: timeout.value,
       ).toJson(),
     );
   }
@@ -145,6 +151,9 @@ class _ReviewValidatorConfigFormState extends State<ReviewValidatorConfigForm> {
           key: const Key('config_review_timeout_seconds'),
           label: l10n.nodeConfigTimeoutSecondsLabel,
           hint: l10n.nodeConfigTimeoutSecondsHint,
+          errorText: _hasTimeoutError
+              ? l10n.nodeConfigTimeoutSecondsError
+              : null,
           controller: _timeoutController,
           onChanged: (_) => _emit(),
         ),

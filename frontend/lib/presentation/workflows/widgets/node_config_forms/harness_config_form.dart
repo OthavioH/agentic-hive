@@ -1,4 +1,5 @@
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/node_config_form_registry.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
 import 'package:material_ui/material_ui.dart';
@@ -40,6 +41,7 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
   List<String> _extraArgs = const <String>[];
   List<String> _args = const <String>[];
   String? _syncedNodeId;
+  bool _hasTimeoutError = false;
 
   @override
   void initState() {
@@ -68,6 +70,7 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
 
   void _syncFromNode() {
     _syncedNodeId = widget.node.id;
+    _hasTimeoutError = false;
     if (widget.includeTerminalFields) {
       final config = _parseTerminalConfig(widget.node.config);
       _agentIdController.text = config.agentId ?? '';
@@ -110,21 +113,21 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
     return trimmed.isEmpty ? null : trimmed;
   }
 
-  int? _parseTimeout(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) return null;
-    return int.tryParse(trimmed);
-  }
-
   void _emit() {
     if (_syncedNodeId != widget.node.id) return;
+    final timeout = parsePositiveTimeout(_timeoutController.text);
+    if (_hasTimeoutError != !timeout.isValid) {
+      setState(() => _hasTimeoutError = !timeout.isValid);
+    }
+    if (!timeout.isValid) return;
+
     if (widget.includeTerminalFields) {
       widget.onConfigChanged(
         TerminalHarnessNodeConfig(
           agentId: _nullIfEmpty(_agentIdController.text),
           additionalInstructions: _nullIfEmpty(_instructionsController.text),
           workingDirectory: _nullIfEmpty(_workingDirController.text),
-          timeoutSeconds: _parseTimeout(_timeoutController.text),
+          timeoutSeconds: timeout.value,
           extraArgs: _extraArgs,
           command: _nullIfEmpty(_commandController.text),
           args: _args,
@@ -136,7 +139,7 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
           agentId: _nullIfEmpty(_agentIdController.text),
           additionalInstructions: _nullIfEmpty(_instructionsController.text),
           workingDirectory: _nullIfEmpty(_workingDirController.text),
-          timeoutSeconds: _parseTimeout(_timeoutController.text),
+          timeoutSeconds: timeout.value,
           extraArgs: _extraArgs,
         ).toJson(),
       );
@@ -205,6 +208,9 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
           key: const Key('config_harness_timeout_seconds'),
           label: l10n.nodeConfigTimeoutSecondsLabel,
           hint: l10n.nodeConfigTimeoutSecondsHint,
+          errorText: _hasTimeoutError
+              ? l10n.nodeConfigTimeoutSecondsError
+              : null,
           controller: _timeoutController,
           onChanged: (_) => _emit(),
         ),

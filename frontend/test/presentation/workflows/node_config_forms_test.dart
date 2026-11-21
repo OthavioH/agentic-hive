@@ -449,4 +449,70 @@ void main() {
       ]);
     },
   );
+
+  testWidgets(
+    'Timeout input shows inline error for non-positive or non-numeric values',
+    (tester) async {
+      tester.view.physicalSize = const Size(900, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      JsonMap? latestConfig;
+      final node = WorkflowNode(
+        id: 'n1',
+        type: NodeTypeId.claudeCode,
+        label: 'Implement',
+        config: NodeDescriptors.claudeCode.defaultConfig(),
+        position: const WorkflowPosition(x: 0, y: 0),
+      );
+
+      await tester.pumpWidget(
+        _wrapWithHost(
+          WorkflowInspectorPanel(
+            state: _stateWith(
+              nodes: <WorkflowNode>[node],
+              selectedNodeId: 'n1',
+            ),
+            onUpdateMetadata: ({name, description}) {},
+            onUpdateNodeLabel: (_, _) {},
+            onUpdateNodeConfig: (_, config) => latestConfig = config,
+            onToggleEntryNode: (_, {required isEntry}) {},
+            onDeleteNode: (_) {},
+            onUpdateEdge: (
+              _, {
+              sourceOutput,
+              maxRetries,
+              clearMaxRetries = false,
+            }) {},
+            onDeleteEdge: (_) {},
+            onFocusIssue: (_) {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const Key('config_harness_timeout_seconds')),
+        'abc',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Enter a positive integer.'), findsOneWidget);
+      expect(latestConfig, isNull);
+
+      await tester.enterText(
+        find.byKey(const Key('config_harness_timeout_seconds')),
+        '0',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Enter a positive integer.'), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(const Key('config_harness_timeout_seconds')),
+        '30',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Enter a positive integer.'), findsNothing);
+      expect(HarnessNodeConfig.fromJson(latestConfig!).timeoutSeconds, 30);
+    },
+  );
 }

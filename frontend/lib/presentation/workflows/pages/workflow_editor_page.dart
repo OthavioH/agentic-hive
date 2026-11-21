@@ -323,10 +323,9 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
                   ),
                   SizedBox(height: spacing.space2),
                   Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: <Widget>[
-                        NodePalette(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final palette = NodePalette(
                           onInsertNode: (typeId) {
                             _editorFocusNode.requestFocus();
                             controller.addNode(
@@ -338,26 +337,22 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
                               ),
                             );
                           },
-                        ),
-                        SizedBox(width: spacing.space2),
-                        Expanded(
-                          child: _buildCanvas(
-                            context: context,
-                            l10n: l10n,
-                            colors: colors,
-                            spacing: spacing,
-                            typography: typography,
-                            elevation: elevation,
-                            editorState: editorState,
-                            controller: controller,
-                            errorNodeIds: errorNodeIds,
-                            warningNodeIds: warningNodeIds,
-                            errorEdgeIds: errorEdgeIds,
-                            warningEdgeIds: warningEdgeIds,
-                          ),
-                        ),
-                        SizedBox(width: spacing.space2),
-                        WorkflowInspectorPanel(
+                        );
+                        final canvas = _buildCanvas(
+                          context: context,
+                          l10n: l10n,
+                          colors: colors,
+                          spacing: spacing,
+                          typography: typography,
+                          elevation: elevation,
+                          editorState: editorState,
+                          controller: controller,
+                          errorNodeIds: errorNodeIds,
+                          warningNodeIds: warningNodeIds,
+                          errorEdgeIds: errorEdgeIds,
+                          warningEdgeIds: warningEdgeIds,
+                        );
+                        final inspector = WorkflowInspectorPanel(
                           state: editorState,
                           onUpdateMetadata: controller.updateWorkflowMetadata,
                           onUpdateNodeLabel: controller.updateNodeLabel,
@@ -367,8 +362,34 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
                           onUpdateEdge: controller.updateEdge,
                           onDeleteEdge: controller.deleteEdge,
                           onFocusIssue: controller.focusIssue,
-                        ),
-                      ],
+                        );
+
+                        final minDesktopWidth =
+                            spacing.space8 * 12 + spacing.space2 * 2;
+                        if (constraints.maxWidth < minDesktopWidth) {
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: <Widget>[
+                              Flexible(flex: 2, child: palette),
+                              SizedBox(width: spacing.space2),
+                              Expanded(flex: 3, child: canvas),
+                              SizedBox(width: spacing.space2),
+                              Flexible(flex: 2, child: inspector),
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: <Widget>[
+                            palette,
+                            SizedBox(width: spacing.space2),
+                            Expanded(child: canvas),
+                            SizedBox(width: spacing.space2),
+                            inspector,
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ],

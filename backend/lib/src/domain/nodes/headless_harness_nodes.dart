@@ -12,13 +12,16 @@ final class ClaudeCodeNode extends HeadlessHarnessNode {
   });
 
   static final RegExp _authPattern = RegExp(
-    '(not logged in|please login|authentication failed|invalid api key|'
-    'unauthorized|401)',
+    r'\b(not logged in|please login|authentication failed|invalid api key|'
+    r'unauthorized|http\s*401|status(?:\s+code)?[:\s]+401|'
+    r'error[:\s]+401|401\s+unauthorized)\b',
     caseSensitive: false,
   );
 
   static final RegExp _rateLimitPattern = RegExp(
-    '(rate limit|too many requests|quota exceeded|credit balance|429)',
+    r'\b(rate limit|too many requests|quota exceeded|credit balance|'
+    r'http\s*429|status(?:\s+code)?[:\s]+429|error[:\s]+429|'
+    r'429\s+too\s+many\s+requests)\b',
     caseSensitive: false,
   );
 
@@ -64,13 +67,16 @@ final class CodexNode extends HeadlessHarnessNode {
   });
 
   static final RegExp _authPattern = RegExp(
-    '(not authenticated|login required|authentication error|unauthorized|'
-    'invalid api key|401)',
+    r'\b(not authenticated|login required|authentication error|unauthorized|'
+    r'invalid api key|http\s*401|status(?:\s+code)?[:\s]+401|'
+    r'error[:\s]+401|401\s+unauthorized)\b',
     caseSensitive: false,
   );
 
   static final RegExp _rateLimitPattern = RegExp(
-    '(rate limit|usage limit|quota exceeded|too many requests|429)',
+    r'\b(rate limit|usage limit|quota exceeded|too many requests|'
+    r'http\s*429|status(?:\s+code)?[:\s]+429|error[:\s]+429|'
+    r'429\s+too\s+many\s+requests)\b',
     caseSensitive: false,
   );
 
@@ -111,13 +117,17 @@ final class GeminiCliNode extends HeadlessHarnessNode {
   });
 
   static final RegExp _authPattern = RegExp(
-    '(not signed in|authentication required|oauth|invalid credentials|'
-    'unauthorized|401)',
+    r'\b(not signed in|authentication required|'
+    r'oauth\s+(?:error|failed|expired|required|invalid)|'
+    r'invalid credentials|unauthorized|http\s*401|'
+    r'status(?:\s+code)?[:\s]+401|error[:\s]+401|401\s+unauthorized)\b',
     caseSensitive: false,
   );
 
   static final RegExp _rateLimitPattern = RegExp(
-    '(resource_exhausted|quota exceeded|rate limit|too many requests|429)',
+    r'\b(resource_exhausted|quota exceeded|rate limit|too many requests|'
+    r'http\s*429|status(?:\s+code)?[:\s]+429|error[:\s]+429|'
+    r'429\s+too\s+many\s+requests)\b',
     caseSensitive: false,
   );
 
@@ -164,13 +174,17 @@ final class AntigravityNode extends HeadlessHarnessNode {
   });
 
   static final RegExp _authPattern = RegExp(
-    '(not authenticated|sign in required|authentication failed|unauthorized|'
-    '401)',
+    r'\b(not authenticated|sign in required|authentication failed|'
+    r'unauthorized|http\s*401|status(?:\s+code)?[:\s]+401|'
+    r'error[:\s]+401|401\s+unauthorized)\b',
     caseSensitive: false,
   );
 
   static final RegExp _rateLimitPattern = RegExp(
-    '(rate limit|quota exceeded|capacity|too many requests|429)',
+    r'\b(rate limit|quota exceeded|(?:no|at|over|out of)\s+capacity|'
+    r'capacity\s+(?:exhausted|exceeded|limit)|too many requests|http\s*429|'
+    r'status(?:\s+code)?[:\s]+429|error[:\s]+429|'
+    r'429\s+too\s+many\s+requests)\b',
     caseSensitive: false,
   );
 

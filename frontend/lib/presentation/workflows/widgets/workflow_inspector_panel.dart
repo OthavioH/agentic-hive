@@ -94,9 +94,16 @@ class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncNodeTypeLabel();
+  }
+
+  @override
   void didUpdateWidget(WorkflowInspectorPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     _syncControllers();
+    _syncNodeTypeLabel();
   }
 
   @override
@@ -137,6 +144,17 @@ class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
     } else if (edge == null) {
       _syncedEdgeId = null;
       _useCustomOutput = false;
+    }
+  }
+
+  void _syncNodeTypeLabel() {
+    final node = widget.state.selectedNode;
+    if (node == null) return;
+    final l10n = AppLocalizations.of(context);
+    if (l10n == null) return;
+    final localizedType = resolveNodeTypeLabel(context, l10n, node.type);
+    if (_nodeTypeController.text != localizedType) {
+      _nodeTypeController.text = localizedType;
     }
   }
 
@@ -249,11 +267,6 @@ class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
     final colors = context.hiveColors;
     final elevation = context.hiveElevation;
     final isEntry = widget.state.workflow.entryNodeId == node.id;
-
-    final localizedType = resolveNodeTypeLabel(context, l10n, node.type);
-    if (_nodeTypeController.text != localizedType) {
-      _nodeTypeController.text = localizedType;
-    }
 
     final configForm = _configFormRegistry.buildForm(
       context,

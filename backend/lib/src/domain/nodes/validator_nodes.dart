@@ -80,10 +80,20 @@ final class TestsValidatorNode extends ValidatorNode {
 /// Evaluates deterministic [ChecklistRule]s without an LLM.
 final class ChecklistValidatorNode extends ValidatorNode {
   /// Creates a checklist validator node.
-  const new({required this.processRunner});
+  const new({
+    required this.processRunner,
+    this.commandTimeout = defaultCommandTimeout,
+  });
+
+  /// Default per-command timeout for `commandSucceeds` and
+  /// `outputMatchesRegex`.
+  static const Duration defaultCommandTimeout = Duration(seconds: 60);
 
   /// Process runner port used by `commandSucceeds` and `outputMatchesRegex`.
   final NodeProcessRunner processRunner;
+
+  /// Timeout applied to checklist rule command invocations.
+  final Duration commandTimeout;
 
   @override
   String get typeId => NodeTypeId.checklistValidator;
@@ -143,8 +153,8 @@ final class ChecklistValidatorNode extends ValidatorNode {
         if (pathResult case FailureResult<String>(:final failure)) {
           return FailureResult(failure);
         }
-        final file = File(pathResult.valueOrNull!);
-        if (!file.existsSync()) {
+        if (FileSystemEntity.typeSync(pathResult.valueOrNull!) ==
+            FileSystemEntityType.notFound) {
           return Success('File "${rule.path}" does not exist.');
         }
         return const Success(null);
@@ -159,7 +169,14 @@ final class ChecklistValidatorNode extends ValidatorNode {
           return FailureResult(failure);
         }
 
-        final parts = rule.command!.trim().split(RegExp(r'\s+'));
+        final parts = tokenizeCommand(rule.command!);
+        if (parts.isEmpty) {
+          return FailureResult(
+            ValidationFailure(
+              'Checklist rule "${rule.label}" has an empty command.',
+            ),
+          );
+        }
         final executable = parts.first;
         final args = parts.skip(1).toList();
         final runResult = await processRunner.run(
@@ -167,6 +184,7 @@ final class ChecklistValidatorNode extends ValidatorNode {
             executable: executable,
             arguments: args,
             workingDirectory: workingDirResult.valueOrNull!,
+            timeout: commandTimeout,
           ),
           onOutput: context.onOutput,
         );
@@ -275,4 +293,54 @@ final class ReviewValidatorNode extends ValidatorNode {
       ),
     );
   }
+}
+
+/// Splits a shell-style [command] string into executable and argument tokens,
+/// respecting single quotes, double quotes, and backslash escapes.
+List<String> tokenizeCommand(String command) {
+  final tokens = <String>[];
+  final current = StringBuffer();
+  var inSingleQuotes = false;
+  var inDoubleQuotes = false;
+  var hasToken = false;
+
+  for (var i = 0; i < command.length; i++) {
+    final char = command[i];
+
+    if (char == r'\' && !inSingleQuotes && i + 1 < command.length) {
+      i++;
+      current.write(command[i]);
+      hasToken = true;
+      continue;
+    }
+
+    if (char == "'" && !inDoubleQuotes) {
+      inSingleQuotes = !inSingleQuotes;
+      hasToken = true;
+      continue;
+    }
+
+    if (char == '"' && !inSingleQuotes) {
+      inDoubleQuotes = !inDoubleQuotes;
+      hasToken = true;
+      continue;
+    }
+
+    if (!inSingleQuotes && !inDoubleQuotes && char.trim().isEmpty) {
+      if (hasToken) {
+        tokens.add(current.toString());
+        current.clear();
+        hasToken = false;
+      }
+      continue;
+    }
+
+    current.write(char);
+    hasToken = true;
+  }
+
+  if (hasToken) {
+    tokens.add(current.toString());
+  }
+  return tokens;
 }

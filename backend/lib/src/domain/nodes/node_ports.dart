@@ -223,3 +223,10 @@ abstract interface class AgentPromptResolver {
   /// Resolves the prompt for [agentId], or returns `NotFoundFailure`.
   Future<Result<String>> resolvePrompt(String agentId);
 }
+
+/// Port providing the OS-appropriate default interactive shell executable
+/// for `harness.terminal` when no `command` is configured.
+abstract interface class DefaultShellProvider {
+  /// Default shell executable name or path for the current operating system.
+  String get defaultShell;
+}

@@ -188,7 +188,7 @@ class _PaletteNodeItem extends StatelessWidget {
     return Draggable<String>(
       data: descriptor.typeId,
       feedback: feedback,
-      childWhenDragging: Opacity(opacity: 0.5, child: card),
+      childWhenDragging: Opacity(opacity: colors.disabledOpacity, child: card),
       child: card,
     );
   }

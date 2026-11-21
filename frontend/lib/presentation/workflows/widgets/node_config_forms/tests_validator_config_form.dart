@@ -1,4 +1,5 @@
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/node_config_form_registry.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
 import 'package:material_ui/material_ui.dart';
@@ -26,6 +27,7 @@ class _TestsValidatorConfigFormState extends State<TestsValidatorConfigForm> {
   final TextEditingController _timeoutController = TextEditingController();
 
   List<String> _args = const <String>[];
+  bool _hasTimeoutError = false;
 
   @override
   void initState() {
@@ -50,6 +52,7 @@ class _TestsValidatorConfigFormState extends State<TestsValidatorConfigForm> {
   }
 
   void _syncFromNode() {
+    _hasTimeoutError = false;
     final config = _parseConfig(widget.node.config);
     _commandController.text = config.command;
     _workingDirController.text = config.workingDirectory ?? '';
@@ -66,16 +69,19 @@ class _TestsValidatorConfigFormState extends State<TestsValidatorConfigForm> {
   }
 
   void _emit() {
+    final timeout = parsePositiveTimeout(_timeoutController.text);
+    if (_hasTimeoutError != !timeout.isValid) {
+      setState(() => _hasTimeoutError = !timeout.isValid);
+    }
+    if (!timeout.isValid) return;
+
     final trimmedDir = _workingDirController.text.trim();
-    final trimmedTimeout = _timeoutController.text.trim();
     widget.onConfigChanged(
       TestsValidatorNodeConfig(
         command: _commandController.text,
         args: _args,
         workingDirectory: trimmedDir.isEmpty ? null : trimmedDir,
-        timeoutSeconds: trimmedTimeout.isEmpty
-            ? null
-            : int.tryParse(trimmedTimeout),
+        timeoutSeconds: timeout.value,
       ).toJson(),
     );
   }
@@ -121,6 +127,9 @@ class _TestsValidatorConfigFormState extends State<TestsValidatorConfigForm> {
           key: const Key('config_tests_timeout_seconds'),
           label: l10n.nodeConfigTimeoutSecondsLabel,
           hint: l10n.nodeConfigTimeoutSecondsHint,
+          errorText: _hasTimeoutError
+              ? l10n.nodeConfigTimeoutSecondsError
+              : null,
           controller: _timeoutController,
           onChanged: (_) => _emit(),
         ),
