@@ -188,6 +188,14 @@ abstract final class HiveIcons {
   /// Stop or cancel a run.
   static const HiveIconData stop = _HugeGlyph(HugeIcons.strokeRoundedStop);
 
+  /// Watch a live session without sending input.
+  static const HiveIconData watch = _HugeGlyph(HugeIcons.strokeRoundedView);
+
+  /// Keyboard input: an interactive terminal session.
+  static const HiveIconData keyboard = _HugeGlyph(
+    HugeIcons.strokeRoundedKeyboard,
+  );
+
   /// Edit.
   static const HiveIconData edit = _HugeGlyph(HugeIcons.strokeRoundedEdit02);
 
@@ -284,6 +292,8 @@ abstract final class HiveIcons {
     'play': play,
     'pause': pause,
     'stop': stop,
+    'watch': watch,
+    'keyboard': keyboard,
     'edit': edit,
     'delete': delete,
     'copy': copy,
