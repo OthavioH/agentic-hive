@@ -151,6 +151,7 @@ final class RunService {
       await _workspacePreparation.cleanupWorktree(
         workspacePath: existing.workspacePath,
         worktreePath: existing.worktreePath!,
+        branchName: existing.worktreeBranch,
       );
     }
 

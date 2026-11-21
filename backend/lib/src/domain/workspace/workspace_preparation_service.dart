@@ -4,8 +4,10 @@ import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/data/workspace/git_client.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
+import 'package:agentic_hive_backend/src/logging/log_event.dart';
 import 'package:agentic_hive_backend/src/util/ids.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 
 /// Result of preparing a run's workspace (either direct or isolated worktree).
@@ -45,6 +47,8 @@ final class WorkspacePreparationService {
     required this._pathContext,
     this._events,
   });
+
+  static final _log = Logger('workspace.preparation');
 
   final GitClient _git;
   final String _worktreesDir;
@@ -112,6 +116,43 @@ final class WorkspacePreparationService {
       );
     }
 
+    // A subfolder of a larger repository cannot be isolated with a worktree:
+    // the worktree checks out the whole repository, while snapshots, restore
+    // and the run's `worktreePath` all operate on one directory. Run directly
+    // (snapshots still protect the subfolder) and warn.
+    final prefixResult = await _git.run([
+      '-C',
+      workspacePath,
+      'rev-parse',
+      '--show-prefix',
+    ]);
+    final isRepoSubfolder =
+        prefixResult.launchError == null &&
+        !prefixResult.timedOut &&
+        prefixResult.exitCode == 0 &&
+        prefixResult.stdout.trim().isNotEmpty;
+    if (isRepoSubfolder) {
+      const warning =
+          'Workspace is a subfolder of a larger git repository; '
+          'falling back to direct workspace mode.';
+      if (recordWarningEvent && _events != null) {
+        await _events.append(
+          id: randomId(),
+          runId: runId,
+          type: RunEventType.snapshotWarning,
+          payload: const {'reason': 'repository_subfolder', 'message': warning},
+          createdAt: DateTime.now().toUtc(),
+        );
+      }
+      return Success(
+        PreparedWorkspace(
+          effectiveWorkspacePath: workspacePath,
+          isolationMode: WorkspaceIsolationMode.direct,
+          warningMessage: warning,
+        ),
+      );
+    }
+
     final headResult = await _git.run([
       '-C',
       workspacePath,
@@ -175,30 +216,74 @@ final class WorkspacePreparationService {
     );
   }
 
-  /// Removes and prunes any worktree created for a run.
+  /// Removes and prunes any worktree created for a run, then deletes its
+  /// `hive/<runId>` branch when that is safe (`git branch -d` refuses a branch
+  /// with commits not merged into the repository's current `HEAD`, which is
+  /// kept so the user can still review or merge the run's work).
+  ///
+  /// Failures are logged, never swallowed silently.
   Future<void> cleanupWorktree({
     required String workspacePath,
     required String worktreePath,
+    String? branchName,
   }) async {
-    if (Directory(workspacePath).existsSync()) {
-      await _git.run([
+    final repoExists = Directory(workspacePath).existsSync();
+    if (repoExists) {
+      await _runLogged([
         '-C',
         workspacePath,
         'worktree',
         'remove',
         '--force',
         worktreePath,
-      ]);
-      await _git.run(['-C', workspacePath, 'worktree', 'prune']);
+      ], 'worktree_remove');
+      await _runLogged([
+        '-C',
+        workspacePath,
+        'worktree',
+        'prune',
+      ], 'worktree_prune');
     }
 
     final dir = Directory(worktreePath);
     if (dir.existsSync()) {
       try {
         await dir.delete(recursive: true);
-      } on FileSystemException {
-        // Best-effort cleanup when directory is already removed or locked.
+      } on FileSystemException catch (error) {
+        _log.warning(
+          LogEvent(
+            'workspace.worktree_dir_delete_failed',
+            fields: {'error': error.message},
+          ),
+        );
       }
+    }
+
+    if (repoExists && branchName != null) {
+      await _runLogged([
+        '-C',
+        workspacePath,
+        'branch',
+        '-d',
+        branchName,
+      ], 'branch_delete');
+    }
+  }
+
+  Future<void> _runLogged(List<String> arguments, String step) async {
+    final result = await _git.run(arguments);
+    if (result.launchError != null || result.timedOut || result.exitCode != 0) {
+      _log.warning(
+        LogEvent(
+          'workspace.cleanup_git_failed',
+          fields: {
+            'step': step,
+            'exitCode': result.exitCode,
+            'timedOut': result.timedOut,
+            'error': result.launchError ?? result.stderr.trim(),
+          },
+        ),
+      );
     }
   }
 }

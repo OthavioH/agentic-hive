@@ -37,6 +37,23 @@ final class _MissingGitProcessRunner implements ProcessRunner {
   );
 }
 
+final class _RecordingProcessRunner implements ProcessRunner {
+  new();
+
+  final List<List<String>> calls = [];
+  final _inner = const IoProcessRunner();
+
+  @override
+  Future<ProcessRunResult> run(
+    String executable,
+    List<String> arguments, {
+    required Duration timeout,
+  }) {
+    calls.add(arguments);
+    return _inner.run(executable, arguments, timeout: timeout);
+  }
+}
+
 void main() {
   late Directory tempRoot;
   late Directory dataDir;
@@ -412,7 +429,208 @@ void main() {
     });
   });
 
+  group('ShadowSnapshotService hardening', () {
+    test(
+      'shadow commands ignore user git config and commit with --no-verify',
+      () async {
+        final recorder = _RecordingProcessRunner();
+        final service = ShadowSnapshotService(
+          git: GitClient(recorder),
+          runs: runs,
+          snapshots: snapshots,
+          events: events,
+          snapshotsDir: p.join(dataDir.path, 'snapshots'),
+          pathContext: p.context,
+        );
+        await createRun(id: 'run-cfg', wsPath: workspaceDir.path);
+        await File(p.join(workspaceDir.path, 'a.txt')).writeAsString('a\n');
+        expect(
+          await service.captureSnapshot(
+            runId: 'run-cfg',
+            workspaceDir: workspaceDir.path,
+          ),
+          isA<Success<Snapshot>>(),
+        );
+
+        final shadowCalls = recorder.calls
+            .where(
+              (c) =>
+                  c.any((a) => a.startsWith('--git-dir=')) &&
+                  !c.contains('config') &&
+                  !c.contains('init'),
+            )
+            .toList();
+        expect(shadowCalls, isNotEmpty);
+        for (final call in shadowCalls) {
+          expect(call, contains('commit.gpgsign=false'));
+          expect(call, contains('core.fsmonitor=false'));
+          expect(call, contains('core.excludesFile='));
+          expect(call, contains('core.longpaths=true'));
+          expect(call.any((a) => a.startsWith('core.hooksPath=')), isTrue);
+        }
+        final commit = shadowCalls.firstWhere((c) => c.contains('commit'));
+        expect(commit, contains('--no-verify'));
+      },
+    );
+
+    test('pins every snapshot under refs/hive/snap and clears a stale '
+        'index.lock', () async {
+      await createRun(id: 'run-pin', wsPath: workspaceDir.path);
+      await File(p.join(workspaceDir.path, 'a.txt')).writeAsString('1\n');
+      final first = (await snapshotService.captureSnapshot(
+        runId: 'run-pin',
+        workspaceDir: workspaceDir.path,
+      ) as Success<Snapshot>).value;
+
+      final shadow = snapshotService.shadowRepoPath('run-pin');
+      File(p.join(shadow, 'index.lock')).writeAsStringSync('');
+      await File(p.join(workspaceDir.path, 'a.txt')).writeAsString('2\n');
+      final second = (await snapshotService.captureSnapshot(
+        runId: 'run-pin',
+        workspaceDir: workspaceDir.path,
+      ) as Success<Snapshot>).value;
+      expect(second.commitHash, isNot(first.commitHash));
+      expect(File(p.join(shadow, 'index.lock')).existsSync(), isFalse);
+
+      final refs = (await git.runChecked([
+        '--git-dir=$shadow',
+        'for-each-ref',
+        'refs/hive/snap/',
+        '--format=%(refname)',
+      ]) as Success<String>).value;
+      expect(refs, contains('refs/hive/snap/${first.id}'));
+      expect(refs, contains('refs/hive/snap/${second.id}'));
+    });
+
+    test('size guard also applies to tracked files that grow and escapes '
+        'glob characters in names', () async {
+      await createRun(id: 'run-grow', wsPath: workspaceDir.path);
+      await File(p.join(workspaceDir.path, 'grow.txt')).writeAsString('s\n');
+      await File(p.join(workspaceDir.path, '[big]#.bin'))
+          .writeAsBytes(List.filled(10, 1));
+      await File(p.join(workspaceDir.path, 'other.bin'))
+          .writeAsBytes(List.filled(10, 1));
+      // First capture without a limit tracks the files.
+      await snapshotService.captureSnapshot(
+        runId: 'run-grow',
+        workspaceDir: workspaceDir.path,
+        maxFileSizeBytes: null,
+      );
+
+      await File(p.join(workspaceDir.path, 'grow.txt'))
+          .writeAsBytes(List.filled(500, 2));
+      await File(p.join(workspaceDir.path, '[big]#.bin'))
+          .writeAsBytes(List.filled(500, 2));
+      await File(p.join(workspaceDir.path, 'other.bin'))
+          .writeAsBytes(List.filled(11, 3));
+
+      final snap = (await snapshotService.captureSnapshot(
+        runId: 'run-grow',
+        workspaceDir: workspaceDir.path,
+        maxFileSizeBytes: 100,
+      ) as Success<Snapshot>).value;
+      final shadow = snapshotService.shadowRepoPath('run-grow');
+      final tree = (await git.runChecked([
+        '--git-dir=$shadow',
+        'ls-tree',
+        '-r',
+        '--name-only',
+        snap.commitHash,
+      ]) as Success<String>).value;
+      final blobSize = (await git.runChecked([
+        '--git-dir=$shadow',
+        'cat-file',
+        '-s',
+        '${snap.commitHash}:other.bin',
+      ]) as Success<String>).value;
+      // `other.bin` stays under the limit and is captured in its new form;
+      // grown tracked files are dropped from the snapshot.
+      expect(blobSize.trim(), '11');
+      expect(tree, contains('other.bin'));
+      expect(tree, isNot(contains('grow.txt')));
+      expect(tree, isNot(contains('[big]')));
+
+      final evPage = (await events.listForRun(
+        'run-grow',
+      ) as Success<({List<RunEvent> items, int lastSequence})>).value;
+      final warned = evPage.items
+          .where((e) => e.type == RunEventType.snapshotWarning)
+          .map((e) => e.payload['path'])
+          .toList();
+      expect(warned, unorderedEquals(['grow.txt', '[big]#.bin']));
+    });
+
+    test(
+      'restore reuses the persisted exclusions of the last capture',
+      () async {
+        await createRun(id: 'run-opts', wsPath: workspaceDir.path);
+        await File(p.join(workspaceDir.path, 'keep.txt')).writeAsString('k\n');
+        final snap = (await snapshotService.captureSnapshot(
+          runId: 'run-opts',
+          workspaceDir: workspaceDir.path,
+          extraExclusions: const ['*.cache'],
+        ) as Success<Snapshot>).value;
+        await File(p.join(workspaceDir.path, 'x.cache')).writeAsString('c\n');
+        await File(p.join(workspaceDir.path, 'new.txt')).writeAsString('n\n');
+
+        expect(
+          await snapshotService.restoreSnapshot('run-opts', snap.id),
+          isA<Success<RestoreSnapshotResponse>>(),
+        );
+        expect(File(p.join(workspaceDir.path, 'x.cache')).existsSync(), isTrue);
+        expect(
+          File(p.join(workspaceDir.path, 'new.txt')).existsSync(),
+          isFalse,
+        );
+      },
+    );
+
+    test('concurrent captures for one run are serialized', () async {
+      await createRun(id: 'run-lock', wsPath: workspaceDir.path);
+      await File(p.join(workspaceDir.path, 'a.txt')).writeAsString('a\n');
+      final results = await Future.wait([
+        for (var i = 0; i < 4; i++)
+          snapshotService.captureSnapshot(
+            runId: 'run-lock',
+            workspaceDir: workspaceDir.path,
+          ),
+      ]);
+      expect(results, everyElement(isA<Success<Snapshot>>()));
+    });
+  });
+
   group('WorkspacePreparationService & RunService.deleteRun cleanup', () {
+    test(
+      'falls back to direct mode for a subfolder of a larger repo',
+      () async {
+        await runGit(['init', workspaceDir.path]);
+        await runGit(['-C', workspaceDir.path, 'config', 'user.name', 'User']);
+        await runGit([
+          '-C',
+          workspaceDir.path,
+          'config',
+          'user.email',
+          'user@example.com',
+        ]);
+        final sub = Directory(p.join(workspaceDir.path, 'pkg', 'inner'))
+          ..createSync(recursive: true);
+        await File(p.join(sub.path, 'f.txt')).writeAsString('x\n');
+        await runGit(['-C', workspaceDir.path, 'add', '.']);
+        await runGit(['-C', workspaceDir.path, 'commit', '-m', 'base']);
+        await createRun(id: 'run-sub', wsPath: sub.path);
+
+        final prepared = (await preparationService.prepare(
+          runId: 'run-sub',
+          workspacePath: sub.path,
+          recordWarningEvent: true,
+        ) as Success<PreparedWorkspace>).value;
+        expect(prepared.isolationMode, WorkspaceIsolationMode.direct);
+        expect(prepared.effectiveWorkspacePath, sub.path);
+        expect(prepared.worktreePath, isNull);
+        expect(prepared.warningMessage, isNotNull);
+      },
+    );
+
     test(
       'falls back to direct mode with snapshot.warning on unborn HEAD',
       () async {
@@ -501,6 +719,14 @@ void main() {
         isFalse,
       );
       expect(Directory(prepared.worktreePath!).existsSync(), isFalse);
+      final branches = (await git.runChecked([
+        '-C',
+        workspaceDir.path,
+        'branch',
+        '--list',
+        'hive/run-wt',
+      ]) as Success<String>).value;
+      expect(branches.trim(), isEmpty);
     });
   });
 }

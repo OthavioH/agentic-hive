@@ -11,6 +11,11 @@ final class GitClient {
   /// Default timeout for git CLI invocations.
   static const defaultTimeout = Duration(seconds: 30);
 
+  /// Timeout for commands that scan or rewrite a whole workspace (`add`,
+  /// `commit`, `reset`, `clean`, `ls-files`, ...), which can legitimately take
+  /// minutes on large folders.
+  static const longTimeout = Duration(minutes: 5);
+
   final ProcessRunner _processRunner;
 
   /// Runs `git` with [arguments] and returns the raw [ProcessRunResult].
@@ -23,6 +28,25 @@ final class GitClient {
   /// descriptive [Failure] otherwise.
   Future<Result<String>> runChecked(
     List<String> arguments, {
+    Duration timeout = defaultTimeout,
+    String? failureContext,
+  }) async {
+    final result = await runAllowingExitCodes(
+      arguments,
+      allowedExitCodes: const {0},
+      timeout: timeout,
+      failureContext: failureContext,
+    );
+    return result.map((run) => run.stdout);
+  }
+
+  /// Runs `git` with [arguments] and succeeds with the raw result when the
+  /// process exits with one of [allowedExitCodes] (for example `0` and `1` for
+  /// `diff --quiet`). Launch errors, timeouts and any other exit code become a
+  /// descriptive [Failure].
+  Future<Result<ProcessRunResult>> runAllowingExitCodes(
+    List<String> arguments, {
+    required Set<int> allowedExitCodes,
     Duration timeout = defaultTimeout,
     String? failureContext,
   }) async {
@@ -43,7 +67,7 @@ final class GitClient {
         ),
       );
     }
-    if (result.exitCode != 0) {
+    if (!allowedExitCodes.contains(result.exitCode)) {
       final detail = result.stderr.trim().isNotEmpty
           ? result.stderr.trim()
           : result.stdout.trim();
@@ -54,6 +78,6 @@ final class GitClient {
         ),
       );
     }
-    return Success(result.stdout);
+    return Success(result);
   }
 }

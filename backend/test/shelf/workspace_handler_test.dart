@@ -123,6 +123,14 @@ void main() {
     expect(caps.isGitRepo, isFalse);
   });
 
+  test('GET /api/v1/workspace/capabilities rejects a relative path', () async {
+    final resp = await send(
+      'GET',
+      '/api/v1/workspace/capabilities?path=relative%2Ffolder',
+    );
+    expect(resp.statusCode, 400);
+  });
+
   test('rejects requests with Origin header', () async {
     final resp = await send(
       'GET',
