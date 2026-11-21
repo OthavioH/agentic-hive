@@ -1,6 +1,26 @@
+import 'dart:async';
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+
+typedef _GetPgidNative = Int32 Function(Int32 pid);
+typedef _GetPgidDart = int Function(int pid);
+typedef _SetPgidNative = Int32 Function(Int32 pid, Int32 pgid);
+typedef _SetPgidDart = int Function(int pid, int pgid);
+
+final class _PosixPgidFfi {
+  new _() {
+    final lib = DynamicLibrary.process();
+    getpgid = lib.lookupFunction<_GetPgidNative, _GetPgidDart>('getpgid');
+    setpgid = lib.lookupFunction<_SetPgidNative, _SetPgidDart>('setpgid');
+  }
+
+  static final _PosixPgidFfi instance = ._();
+
+  late final _GetPgidDart getpgid;
+  late final _SetPgidDart setpgid;
+}
 
 /// OS-specific process launching and process-tree termination abstraction.
 ///
@@ -169,6 +189,36 @@ abstract base class PosixProcessPlatform implements OsProcessPlatform {
     );
   }
 
+  /// Ensures [process] has entered its own process group
+  /// (`getpgid(pid) == pid`) before [start] returns to callers.
+  ///
+  /// Attempts `setpgid(pid, pid)` from the parent first and then polls
+  /// `getpgid(pid)` briefly while the child launcher (`setsid` on Linux or
+  /// `/usr/bin/perl` on macOS) completes `setsid()` / `setpgrp(0, 0)` prior to
+  /// `exec`.
+  Future<Process> waitForProcessGroupLeader(Process process) async {
+    final ffi = _PosixPgidFfi.instance;
+    final pid = process.pid;
+    ffi.setpgid(pid, pid);
+    if (ffi.getpgid(pid) == pid) return process;
+
+    var exited = false;
+    unawaited(
+      process.exitCode.then((_) {
+        exited = true;
+      }),
+    );
+
+    final deadline = DateTime.now().add(const Duration(seconds: 2));
+    while (!exited && DateTime.now().isBefore(deadline)) {
+      final currentPgid = ffi.getpgid(pid);
+      if (currentPgid == pid || currentPgid < 0) break;
+      ffi.setpgid(pid, pid);
+      await Future<void>.delayed(const Duration(milliseconds: 2));
+    }
+    return process;
+  }
+
   @override
   Future<void> terminateTree(Process process) async {
     try {
@@ -200,33 +250,36 @@ final class LinuxProcessPlatform extends PosixProcessPlatform {
       workingDirectory: workingDirectory,
       environment: environment,
     );
+    Process process;
     try {
-      return await Process.start(
+      process = await Process.start(
         'setsid',
         <String>[executable, ...arguments],
         workingDirectory: workingDirectory,
         environment: environment,
       );
     } on ProcessException {
-      return await Process.start(
+      process = await Process.start(
         executable,
         arguments,
         workingDirectory: workingDirectory,
         environment: environment,
       );
     }
+    return await waitForProcessGroupLeader(process);
   }
 }
 
 /// macOS [OsProcessPlatform] that spawns each child in its own process group
-/// (`pgid == pid`) by calling `POSIX::setpgid(0, 0)` and `exec`ing the target
-/// binary in-place through `/usr/bin/perl`.
+/// (`pgid == pid`) by calling Perl's built-in `setpgrp(0, 0)` and `exec`ing the
+/// target binary in-place through `/usr/bin/perl`, then awaiting group
+/// leadership confirmation via `getpgid(pid)` before returning.
 final class MacosProcessPlatform extends PosixProcessPlatform {
   /// Creates a macOS process platform.
   const new();
 
-  static const String _setpgidExecScript =
-      r'POSIX::setpgid(0, 0); exec {$ARGV[0]} @ARGV or exit 127';
+  static const String _setpgrpExecScript =
+      r'setpgrp(0, 0); exec {$ARGV[0]} @ARGV or exit 127';
 
   @override
   Future<Process> start(
@@ -241,20 +294,22 @@ final class MacosProcessPlatform extends PosixProcessPlatform {
       workingDirectory: workingDirectory,
       environment: environment,
     );
+    Process process;
     try {
-      return await Process.start(
+      process = await Process.start(
         '/usr/bin/perl',
-        <String>['-MPOSIX', '-e', _setpgidExecScript, executable, ...arguments],
+        <String>['-e', _setpgrpExecScript, executable, ...arguments],
         workingDirectory: workingDirectory,
         environment: environment,
       );
     } on ProcessException {
-      return await Process.start(
+      process = await Process.start(
         executable,
         arguments,
         workingDirectory: workingDirectory,
         environment: environment,
       );
     }
+    return await waitForProcessGroupLeader(process);
   }
 }

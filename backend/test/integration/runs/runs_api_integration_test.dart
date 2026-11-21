@@ -36,16 +36,13 @@ void main() {
 
   setUp(() async {
     dataDir = (await createTempDir()).path;
-    workspaceDir = await Directory.systemTemp.createTemp('hive_runs_ws_');
+    workspaceDir = await createTempDir();
     backend = await startBackend(dataDir);
     http = SocketHttpClient(backend.socketPath);
   });
 
-  tearDown(() async {
+  tearDown(() {
     http.close();
-    if (workspaceDir.existsSync()) {
-      await workspaceDir.delete(recursive: true);
-    }
   });
 
   Future<Workflow> createCommandWorkflow(String scriptPath) async {

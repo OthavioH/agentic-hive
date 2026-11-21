@@ -348,6 +348,7 @@ Future<void> registerDependencies(
         WorkflowRepository,
         GraphEngine,
       ],
+      dispose: (service) => service.dispose(),
     )
     ..registerSingletonWithDependencies<RunsHandler>(
       () => RunsHandler(service: di<RunService>()),

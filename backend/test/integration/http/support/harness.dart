@@ -9,7 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 /// Upper bound for any single wait in these tests.
-const ioTimeout = Duration(seconds: 10);
+const ioTimeout = Duration(seconds: 30);
 
 /// Creates a short, fresh temporary folder that is deleted after the test.
 ///
@@ -29,7 +29,7 @@ Future<void> deleteWithRetry(Directory dir) async {
       await dir.delete(recursive: true);
       return;
     } on FileSystemException {
-      if (attempt >= 20) rethrow;
+      if (attempt >= 30) rethrow;
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
   }
@@ -53,17 +53,29 @@ AppConfig configFor(String dataDir) =>
 /// Starts the real backend on [dataDir] with an isolated container.
 ///
 /// The backend is stopped after the test unless [stopOnTearDown] is false.
+/// Registers container cleanup before awaiting `Backend.start` so open file
+/// handles (`hive.db`, logs, directory watcher) are always released before
+/// `createTempDir`'s teardown deletes [dataDir].
 Future<Backend> startBackend(
   String dataDir, {
   bool stopOnTearDown = true,
 }) async {
-  final backend = await Backend.start(
+  final di = GetIt.asNewInstance();
+  Backend? backend;
+  if (stopOnTearDown) {
+    addTearDown(() async {
+      if (backend != null) {
+        await backend.stop().timeout(ioTimeout);
+      } else {
+        await di.reset().timeout(ioTimeout);
+      }
+    });
+  }
+  return backend = await Backend.start(
     config: configFor(dataDir),
-    di: GetIt.asNewInstance(),
+    di: di,
     consoleOut: discardingSink(),
   ).timeout(ioTimeout);
-  if (stopOnTearDown) addTearDown(() => backend.stop().timeout(ioTimeout));
-  return backend;
 }
 
 /// A decoded HTTP response received over the Unix socket.

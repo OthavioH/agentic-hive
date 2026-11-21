@@ -80,6 +80,23 @@ final class RunService {
     }
   }
 
+  /// Cancels any active in-flight run executions and waits for them to settle
+  /// before backend shutdown closes the log store and database.
+  Future<void> dispose() async {
+    final engine = _engine;
+    if (engine != null && _activeExecutions.isNotEmpty) {
+      final activeIds = _activeExecutions.keys.toList(growable: false);
+      for (final runId in activeIds) {
+        try {
+          await engine.cancel(runId);
+        } on Object {
+          // Best-effort cancellation on shutdown.
+        }
+      }
+    }
+    await waitForActiveExecutions();
+  }
+
   /// Validates [request], enforces the `direct`-mode workspace concurrency
   /// guard, creates the [Run], and starts `GraphEngine` execution
   /// asynchronously.

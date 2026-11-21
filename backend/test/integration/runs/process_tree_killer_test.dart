@@ -14,6 +14,8 @@ import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import '../http/support/harness.dart';
+
 bool _isProcessAlive(int pid) {
   if (Platform.isWindows) {
     final result = Process.runSync('tasklist', <String>[
@@ -30,12 +32,7 @@ bool _isProcessAlive(int pid) {
 void main() {
   test('currentProcessTreeKiller terminates parent and spawned child processes '
       'before returning', () async {
-    final tempDir = await Directory.systemTemp.createTemp('hive_tree_kill_');
-    addTearDown(() async {
-      if (tempDir.existsSync()) {
-        await tempDir.delete(recursive: true);
-      }
-    });
+    final tempDir = await createTempDir();
 
     final childPidFile = File(p.join(tempDir.path, 'child.pid'));
     final parentScript = File(p.join(tempDir.path, 'parent.dart'));
@@ -102,12 +99,7 @@ Future<void> main(List<String> args) async {
 
   test('deterministically returns NodeExecutionFailure when confirmation times '
       'out and blocks new spawns while cancelling', () async {
-    final tempDir = await Directory.systemTemp.createTemp('hive_tree_to_');
-    addTearDown(() async {
-      if (tempDir.existsSync()) {
-        await tempDir.delete(recursive: true);
-      }
-    });
+    final tempDir = await createTempDir();
 
     final script = File(p.join(tempDir.path, 'sleep.dart'));
     await script.writeAsString('''
@@ -118,8 +110,9 @@ Future<void> main() => Future<void>.delayed(const Duration(seconds: 30));
     final process = await Process.start(Platform.resolvedExecutable, <String>[
       script.path,
     ]);
-    addTearDown(() {
+    addTearDown(() async {
       process.kill(ProcessSignal.sigkill);
+      await process.exitCode;
     });
 
     WindowsProcessTreeKiller? winKiller;
@@ -189,12 +182,7 @@ Future<void> main() => Future<void>.delayed(const Duration(seconds: 30));
         ? 'POSIX process group ownership applies to Linux and macOS only.'
         : null,
     () async {
-      final tempDir = await Directory.systemTemp.createTemp('hive_pgid_');
-      addTearDown(() async {
-        if (tempDir.existsSync()) {
-          await tempDir.delete(recursive: true);
-        }
-      });
+      final tempDir = await createTempDir();
 
       final script = File(p.join(tempDir.path, 'sleep.dart'));
       await script.writeAsString('''
