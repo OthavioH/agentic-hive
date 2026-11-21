@@ -90,6 +90,7 @@ final class EngineHarness {
   new({
     int maxConcurrency = GraphEngine.defaultMaxConcurrency,
     int circuitBreakerThreshold = GraphEngine.defaultCircuitBreakerThreshold,
+    Duration cancelGracePeriod = const Duration(seconds: 1),
   }) {
     snapshots.clock = tick;
     final registry = NodeRegistry()
@@ -115,7 +116,7 @@ final class EngineHarness {
       processTreeKiller: killer,
       maxConcurrency: maxConcurrency,
       circuitBreakerThreshold: circuitBreakerThreshold,
-      cancelGracePeriod: const Duration(seconds: 1),
+      cancelGracePeriod: cancelGracePeriod,
       generateId: nextId,
       now: tick,
     );

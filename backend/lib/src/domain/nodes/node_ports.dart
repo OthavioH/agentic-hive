@@ -107,6 +107,8 @@ final class ProcessInvocation {
     this.environment = const <String, String>{},
     this.stdinContent,
     this.timeout,
+    this.runId,
+    this.nodeId,
   });
 
   /// Executable name or path.
@@ -126,6 +128,12 @@ final class ProcessInvocation {
 
   /// Optional execution timeout.
   final Duration? timeout;
+
+  /// Optional run identifier used to track the process tree for cancellation.
+  final String? runId;
+
+  /// Optional node identifier used to track the process tree for cancellation.
+  final String? nodeId;
 }
 
 /// Captured output and exit status of a finished process or PTY session.

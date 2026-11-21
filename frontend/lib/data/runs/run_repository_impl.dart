@@ -42,5 +42,23 @@ final class RunRepositoryImpl implements RunRepository {
       _remoteDataSource.getRunCheckpoints(id);
 
   @override
+  Future<Result<Run>> startRun(StartRunRequest request) =>
+      _remoteDataSource.startRun(request);
+
+  @override
+  Future<Result<Run>> cancelRun(String id) => _remoteDataSource.cancelRun(id);
+
+  @override
+  Future<Result<Run>> resumeRun(String id) => _remoteDataSource.resumeRun(id);
+
+  @override
+  Future<Result<RunNodeLogsResponse>> getNodeLogs(
+    String id,
+    String nodeId, {
+    int? attempt,
+    int? tail,
+  }) => _remoteDataSource.getNodeLogs(id, nodeId, attempt: attempt, tail: tail);
+
+  @override
   Future<Result<void>> deleteRun(String id) => _remoteDataSource.deleteRun(id);
 }

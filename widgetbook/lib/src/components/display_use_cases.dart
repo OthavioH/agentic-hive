@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:design_system/design_system.dart';
 import 'package:hive_widgetbook/src/showcase.dart';
 import 'package:material_ui/material_ui.dart';
@@ -13,6 +15,8 @@ const Map<HiveNodeStatus, String> _statusLabels = <HiveNodeStatus, String>{
   HiveNodeStatus.succeeded: 'Succeeded',
   HiveNodeStatus.interrupted: 'Interrupted',
   HiveNodeStatus.cancelled: 'Cancelled',
+  HiveNodeStatus.cancelling: 'Cancelling',
+  HiveNodeStatus.cancellationUncertain: 'Cancellation uncertain',
 };
 
 const Map<String, NodeVisual> _harnessVisuals = <String, NodeVisual>{
@@ -512,4 +516,180 @@ WidgetbookComponent codeBlockComponent() {
       ),
     ],
   );
+}
+
+const List<HiveLogLine> _harnessOutput = <HiveLogLine>[
+  HiveLogLine(r'$ claude --print --output-format stream-json < prompt.md'),
+  HiveLogLine('Reading workspace: 214 files, 3 ignored by .gitignore'),
+  HiveLogLine('Planning: review src/engine/scheduler.dart and its tests'),
+  HiveLogLine(
+    'warning: CLAUDE.md not found in workspace root',
+    stream: HiveLogStream.stderr,
+  ),
+  HiveLogLine('Running: dart test test/engine/scheduler_test.dart'),
+  HiveLogLine('00:03 +41: All tests passed!'),
+  HiveLogLine(
+    'Error: tool call "Bash" timed out after 120000 ms '
+    '(dart analyze --fatal-infos lib/src/engine/scheduler.dart)',
+    stream: HiveLogStream.stderr,
+  ),
+  HiveLogLine('Retrying with a 600000 ms timeout'),
+  HiveLogLine('Analyzing lib/src/engine... No issues found!'),
+  HiveLogLine('report_result: succeeded (12 files reviewed, 2 comments)'),
+];
+
+const List<(String, HiveLogStream)> _liveChunks = <(String, HiveLogStream)>[
+  ('Resolving dependencies', HiveLogStream.stdout),
+  ('...\nDownloading packages: 37 of 112\n', HiveLogStream.stdout),
+  ('Downloading packages: 112 of 112\n', HiveLogStream.stdout),
+  ('Compiling test/engine/', HiveLogStream.stdout),
+  ('scheduler_test.dart\n', HiveLogStream.stdout),
+  ('00:01 +12: resumes from checkpoint\n', HiveLogStream.stdout),
+  (
+    'Deprecated: --reporter=compact, use --reporter=expanded\n',
+    HiveLogStream.stderr,
+  ),
+  ('00:02 +27: cancels the process tree\n', HiveLogStream.stdout),
+  ('00:03 +41: All tests passed!\n', HiveLogStream.stdout),
+];
+
+/// `HiveLogStreamViewer`: mixed streams, live output with auto-scroll and
+/// Jump to bottom, stderr only, long lines, and empty.
+WidgetbookComponent logStreamViewerComponent() {
+  Widget frame(BuildContext context, Widget child) => UseCaseFrame(
+    child: SizedBox(
+      width: context.hiveSpacing.space8 * 8,
+      height: context.hiveSpacing.space8 * 5,
+      child: child,
+    ),
+  );
+  Widget viewer(HiveLogStreamController controller) => HiveLogStreamViewer(
+    controller: controller,
+    semanticLabel: 'Harness output',
+    jumpToBottomLabel: 'Jump to bottom',
+    stderrSemanticLabel: 'Error',
+    emptyLabel: 'No output yet. The harness has not written anything.',
+  );
+  return WidgetbookComponent(
+    name: 'HiveLogStreamViewer',
+    useCases: <WidgetbookUseCase>[
+      WidgetbookUseCase(
+        name: 'Mixed stdout and stderr',
+        builder: (context) => frame(
+          context,
+          _ControllerHost(
+            seed: (c) => c.appendLines(_harnessOutput),
+            builder: viewer,
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Live · Scroll up to pause',
+        builder: (context) => frame(
+          context,
+          _ControllerHost(
+            seed: (c) => c.appendLines(<HiveLogLine>[
+              for (var i = 0; i < 4; i++) ..._harnessOutput,
+            ]),
+            live: true,
+            builder: viewer,
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Only stderr',
+        builder: (context) => frame(
+          context,
+          _ControllerHost(
+            seed: (c) => c
+              ..append(
+                'Error: Claude Code is not signed in on this machine.\n',
+                stream: HiveLogStream.stderr,
+              )
+              ..append(
+                'Run `claude login` in a terminal, then retry the run.\n',
+                stream: HiveLogStream.stderr,
+              ),
+            builder: viewer,
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Long lines wrap',
+        builder: (context) => frame(
+          context,
+          _ControllerHost(
+            seed: (c) => c
+              ..append(
+                'test/engine/scheduler_test.dart: resumes from checkpoint 42 '
+                'of 40 without re-running completed nodes, then cancels the '
+                'process tree and waits for every child process to exit\n',
+              )
+              ..append(
+                'Unhandled exception: ProcessException: The system cannot '
+                'find the file specified. Command: '
+                r'C:\Users\dev\AppData\Local\Programs\claude\claude.exe '
+                '--print --output-format stream-json\n',
+                stream: HiveLogStream.stderr,
+              ),
+            builder: viewer,
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Empty',
+        builder: (context) =>
+            frame(context, _ControllerHost(seed: (_) {}, builder: viewer)),
+      ),
+    ],
+  );
+}
+
+/// Owns a [HiveLogStreamController] for a use case; with [live] it appends
+/// [_liveChunks] (split mid-line) on a timer, forever.
+class _ControllerHost extends StatefulWidget {
+  const new({required this.seed, required this.builder, this.live = false});
+
+  final void Function(HiveLogStreamController controller) seed;
+  final Widget Function(HiveLogStreamController controller) builder;
+  final bool live;
+
+  @override
+  State<_ControllerHost> createState() => _ControllerHostState();
+}
+
+class _ControllerHostState extends State<_ControllerHost> {
+  late final HiveLogStreamController _controller = HiveLogStreamController(
+    maxLines: 2000,
+  );
+  Timer? _timer;
+  var _next = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.seed(_controller);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (widget.live) {
+      _timer ??= Timer.periodic(context.hiveMotion.long * 2, (_) {
+        final (chunk, stream) = _liveChunks[_next % _liveChunks.length];
+        _next++;
+        _controller.append(chunk, stream: stream);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(_controller);
 }

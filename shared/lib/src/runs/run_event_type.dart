@@ -26,6 +26,14 @@ enum RunEventType {
   @JsonValue('run.failed')
   runFailed('run.failed'),
 
+  /// The run is cancelling and terminating active process trees.
+  @JsonValue('run.cancelling')
+  runCancelling('run.cancelling'),
+
+  /// Cancellation was requested, but process tree exit could not be confirmed.
+  @JsonValue('run.cancellation_uncertain')
+  runCancellationUncertain('run.cancellation_uncertain'),
+
   /// The run was cancelled.
   @JsonValue('run.cancelled')
   runCancelled('run.cancelled'),

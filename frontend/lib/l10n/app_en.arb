@@ -1911,5 +1911,190 @@
   "snapshotsDismissTooltip": "Dismiss",
   "@snapshotsDismissTooltip": {
     "description": "Semantic label of the dismiss button on restore banners."
+  },
+  "runsStatusCancelling": "Cancelling",
+  "@runsStatusCancelling": {
+    "description": "Display label for RunStatus.cancelling."
+  },
+  "runsStatusCancellationUncertain": "Cancellation uncertain",
+  "@runsStatusCancellationUncertain": {
+    "description": "Display label for RunStatus.cancellationUncertain."
+  },
+  "runsStatusIdle": "Idle",
+  "@runsStatusIdle": {
+    "description": "Display label for HiveNodeStatus.idle."
+  },
+  "runsNewAction": "New run",
+  "@runsNewAction": {
+    "description": "Primary button label to start a new run from the Runs page."
+  },
+  "workflowsRunAction": "Run workflow",
+  "@workflowsRunAction": {
+    "description": "Button label and tooltip to start a run from a workflow."
+  },
+  "startRunDialogTitle": "Start run",
+  "@startRunDialogTitle": {
+    "description": "Title of the Start Run dialog."
+  },
+  "startRunWorkflowLabel": "Workflow",
+  "@startRunWorkflowLabel": {
+    "description": "Label for the workflow selector in the Start Run dialog."
+  },
+  "startRunWorkflowPlaceholder": "Select a workflow",
+  "@startRunWorkflowPlaceholder": {
+    "description": "Placeholder text when no workflow is selected in the Start Run dialog."
+  },
+  "startRunNoWorkflowsMessage": "Create a workflow before starting a run.",
+  "@startRunNoWorkflowsMessage": {
+    "description": "Message shown in the Start Run dialog when no workflows exist."
+  },
+  "startRunWorkspaceLabel": "Workspace folder",
+  "@startRunWorkspaceLabel": {
+    "description": "Label for the workspace folder path input in the Start Run dialog."
+  },
+  "startRunWorkspaceHint": "Path to workspace folder",
+  "@startRunWorkspaceHint": {
+    "description": "Placeholder hint for the workspace folder path input."
+  },
+  "startRunBrowseAction": "Browse",
+  "@startRunBrowseAction": {
+    "description": "Button label to open the folder picker in the Start Run dialog."
+  },
+  "startRunIsolationLabel": "Workspace isolation",
+  "@startRunIsolationLabel": {
+    "description": "Label for the workspace isolation mode selector."
+  },
+  "startRunIsolationDirect": "Direct",
+  "@startRunIsolationDirect": {
+    "description": "Option label for direct workspace isolation mode."
+  },
+  "startRunIsolationDirectDescription": "Run directly in the selected folder.",
+  "@startRunIsolationDirectDescription": {
+    "description": "Helper description for direct workspace isolation mode."
+  },
+  "startRunIsolationWorktree": "Worktree",
+  "@startRunIsolationWorktree": {
+    "description": "Option label for git worktree isolation mode."
+  },
+  "startRunIsolationWorktreeDescription": "Isolate changes in a dedicated git worktree.",
+  "@startRunIsolationWorktreeDescription": {
+    "description": "Helper description for git worktree isolation mode."
+  },
+  "startRunWorktreeUnavailableNoGit": "Git is not installed; worktree isolation is unavailable.",
+  "@startRunWorktreeUnavailableNoGit": {
+    "description": "Message explaining why worktree mode is disabled when git is not available."
+  },
+  "startRunWorktreeUnavailableNotRepo": "Select a git repository with at least one commit to use worktree isolation.",
+  "@startRunWorktreeUnavailableNotRepo": {
+    "description": "Message explaining why worktree mode is disabled when the folder is not a git repo with commits."
+  },
+  "startRunCheckingCapabilities": "Checking workspace git capabilities...",
+  "@startRunCheckingCapabilities": {
+    "description": "Status message while checking workspace capabilities."
+  },
+  "startRunValidationWorkflowRequired": "Select a workflow.",
+  "@startRunValidationWorkflowRequired": {
+    "description": "Validation error when submitting Start Run without a workflow."
+  },
+  "startRunValidationWorkspaceRequired": "Choose a workspace folder.",
+  "@startRunValidationWorkspaceRequired": {
+    "description": "Validation error when submitting Start Run without a workspace folder."
+  },
+  "startRunConfirmAction": "Start run",
+  "@startRunConfirmAction": {
+    "description": "Confirm button label in the Start Run dialog."
+  },
+  "startRunStartingAction": "Starting...",
+  "@startRunStartingAction": {
+    "description": "Button label while a Start Run request is in flight."
+  },
+  "startRunConflictError": "A direct run is already active on this workspace folder. Choose worktree isolation or wait for the active run to finish.",
+  "@startRunConflictError": {
+    "description": "Error message shown when starting a second direct run on the same workspace returns 409 Conflict."
+  },
+  "runDetailCancelAction": "Cancel",
+  "@runDetailCancelAction": {
+    "description": "Header button label to cancel an active run."
+  },
+  "runDetailCancellingAction": "Cancelling...",
+  "@runDetailCancellingAction": {
+    "description": "Header button label while a run is in cancelling state."
+  },
+  "runDetailRetryCancelAction": "Retry cancel",
+  "@runDetailRetryCancelAction": {
+    "description": "Header button label to retry cancelling a cancellationUncertain run."
+  },
+  "runDetailResumeAction": "Resume",
+  "@runDetailResumeAction": {
+    "description": "Header button label to resume an interrupted run."
+  },
+  "runDetailResumingAction": "Resuming...",
+  "@runDetailResumingAction": {
+    "description": "Header button label while a resume request is in flight."
+  },
+  "runDetailGraphTitle": "Workflow graph",
+  "@runDetailGraphTitle": {
+    "description": "Heading for the read-only live workflow graph in the Run Monitor."
+  },
+  "runDetailFollowActiveBadge": "Following active",
+  "@runDetailFollowActiveBadge": {
+    "description": "Badge label indicating the Output tab automatically follows the active node."
+  },
+  "runDetailFollowActiveButton": "Follow active",
+  "@runDetailFollowActiveButton": {
+    "description": "Button label to re-enable auto-following the active node."
+  },
+  "runDetailTabOutput": "Output",
+  "@runDetailTabOutput": {
+    "description": "Inspector tab label for live node output logs."
+  },
+  "runDetailTabEvents": "Events",
+  "@runDetailTabEvents": {
+    "description": "Inspector tab label for the chronological run event log."
+  },
+  "runDetailTabCheckpoints": "Checkpoints",
+  "@runDetailTabCheckpoints": {
+    "description": "Inspector tab label for saved run checkpoints."
+  },
+  "runDetailTabSnapshots": "Snapshots",
+  "@runDetailTabSnapshots": {
+    "description": "Inspector tab label for workspace snapshots."
+  },
+  "runDetailOutputTitle": "Node output",
+  "@runDetailOutputTitle": {
+    "description": "Semantic label and heading for the node output viewer."
+  },
+  "runDetailOutputSelectNode": "Select a node on the graph or wait for a node to start.",
+  "@runDetailOutputSelectNode": {
+    "description": "Empty state message when no node is selected or active yet."
+  },
+  "runDetailOutputEmpty": "No output yet.",
+  "@runDetailOutputEmpty": {
+    "description": "Empty state text inside the log stream viewer when a node has emitted no output."
+  },
+  "runDetailOutputAttemptLabel": "Attempt",
+  "@runDetailOutputAttemptLabel": {
+    "description": "Label for the attempt selector dropdown in the Output tab."
+  },
+  "runDetailOutputAttemptOption": "Attempt #{attempt}",
+  "@runDetailOutputAttemptOption": {
+    "description": "Option label in the attempt selector.",
+    "placeholders": {
+      "attempt": {
+        "type": "int"
+      }
+    }
+  },
+  "runDetailOutputJumpToBottom": "Jump to bottom",
+  "@runDetailOutputJumpToBottom": {
+    "description": "Button label to jump to the bottom of the live log stream."
+  },
+  "runDetailOutputStderrLabel": "Error",
+  "@runDetailOutputStderrLabel": {
+    "description": "Semantic prefix announced before stderr log lines."
+  },
+  "runDetailOutputTruncatedNotice": "Showing the most recent lines; earlier output was truncated.",
+  "@runDetailOutputTruncatedNotice": {
+    "description": "Notice shown when the fetched node log response was truncated."
   }
 }

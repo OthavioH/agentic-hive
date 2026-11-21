@@ -76,6 +76,26 @@ final class _FakeRunRepository implements RunRepository {
       const Success(<Checkpoint>[]);
 
   @override
+  Future<Result<Run>> startRun(StartRunRequest request) async =>
+      const FailureResult(NotFoundFailure('unused'));
+
+  @override
+  Future<Result<Run>> cancelRun(String id) async =>
+      const FailureResult(NotFoundFailure('unused'));
+
+  @override
+  Future<Result<Run>> resumeRun(String id) async =>
+      const FailureResult(NotFoundFailure('unused'));
+
+  @override
+  Future<Result<RunNodeLogsResponse>> getNodeLogs(
+    String id,
+    String nodeId, {
+    int? attempt,
+    int? tail,
+  }) async => const FailureResult(NotFoundFailure('unused'));
+
+  @override
   Future<Result<void>> deleteRun(String id) async {
     deletedIds.add(id);
     items.removeWhere((run) => run.id == id);
@@ -158,6 +178,10 @@ Widget _buildRouterHost() {
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     routerConfig: router,
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(context).copyWith(disableAnimations: true),
+      child: child!,
+    ),
   );
 }
 
@@ -303,6 +327,10 @@ void main() {
         find.byKey(const Key('runs_load_more_button')),
         500,
       );
+      await tester.ensureVisible(
+        find.byKey(const Key('runs_load_more_button')),
+      );
+      await tester.pumpAndSettle();
       expect(find.byKey(const Key('runs_load_more_button')), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('runs_load_more_button')));

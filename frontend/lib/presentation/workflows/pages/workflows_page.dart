@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
+import 'package:agentic_hive_frontend/presentation/runs/widgets/start_run_dialog.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflows_list_controller.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/utils/workflow_l10n.dart';
 import 'package:agentic_hive_frontend/routes/app_routes.dart';
@@ -43,6 +44,19 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
 
     if (created != null && context.mounted) {
       WorkflowEditorRoute(id: created.id).go(context);
+    }
+  }
+
+  Future<void> _showStartRunDialog(
+    BuildContext context,
+    String workflowId,
+  ) async {
+    final created = await StartRunDialog.show(
+      context,
+      initialWorkflowId: workflowId,
+    );
+    if (created != null && context.mounted) {
+      RunDetailRoute(id: created.id).go(context);
     }
   }
 
@@ -308,6 +322,23 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
                                           ),
                                         ),
                                         SizedBox(width: spacing.space2),
+                                        HiveIconButton(
+                                          key: Key(
+                                            'run_workflow_${summary.id}',
+                                          ),
+                                          icon: HiveIcons.play,
+                                          semanticLabel:
+                                              l10n.workflowsRunAction,
+                                          onPressed: isBusy
+                                              ? null
+                                              : () => unawaited(
+                                                  _showStartRunDialog(
+                                                    context,
+                                                    summary.id,
+                                                  ),
+                                                ),
+                                        ),
+                                        SizedBox(width: spacing.space1),
                                         HiveIconButton(
                                           key: Key(
                                             'duplicate_workflow_${summary.id}',

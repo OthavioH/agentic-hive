@@ -59,6 +59,24 @@ final class _FakeRunRepository implements RunRepository {
   }
 
   @override
+  Future<Result<Run>> markCancellationUncertainWithEvent(
+    String runId, {
+    required String eventId,
+    required DateTime createdAt,
+    JsonMap payload = const {},
+  }) async {
+    final existing = store[runId];
+    if (existing == null || existing.status != RunStatus.cancelling) {
+      return FailureResult(
+        NotFoundFailure('Cancelling run "$runId" not found.'),
+      );
+    }
+    final updated = existing.copyWith(status: RunStatus.cancellationUncertain);
+    store[runId] = updated;
+    return Success(updated);
+  }
+
+  @override
   Future<Result<Run>> getById(String id) async {
     final run = store[id];
     if (run == null) {
@@ -108,6 +126,8 @@ final class _FakeRunRepository implements RunRepository {
     required RunStatus status,
     DateTime? finishedAt,
     String? errorMessage,
+    bool clearFinishedAt = false,
+    bool clearErrorMessage = false,
   }) async {
     final existing = store[id];
     if (existing == null) {
@@ -115,8 +135,10 @@ final class _FakeRunRepository implements RunRepository {
     }
     final updated = existing.copyWith(
       status: status,
-      finishedAt: finishedAt,
-      errorMessage: errorMessage,
+      finishedAt: clearFinishedAt ? null : (finishedAt ?? existing.finishedAt),
+      errorMessage: clearErrorMessage
+          ? null
+          : (errorMessage ?? existing.errorMessage),
     );
     store[id] = updated;
     return Success(updated);

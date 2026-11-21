@@ -53,12 +53,28 @@ final class ShadowSnapshotService implements SnapshotService {
   static const _noHooksDirName = 'hive-no-hooks';
 
   final Map<String, Future<void>> _runLocks = {};
+  final Map<String, List<String>> _runExclusions = {};
   final GitClient _git;
   final RunRepository _runs;
   final SnapshotRepository _snapshots;
   final RunEventRepository _events;
   final String _snapshotsDir;
   final p.Context _pathContext;
+
+  /// Registers per-run extra exclusion patterns (for example from
+  /// `StartRunRequest.ignorePatterns`) applied to every snapshot captured or
+  /// restored for [runId].
+  void configureRunExclusions(String runId, List<String> exclusions) {
+    final cleaned = exclusions
+        .map((pattern) => pattern.trim())
+        .where((pattern) => pattern.isNotEmpty)
+        .toList(growable: false);
+    if (cleaned.isEmpty) {
+      _runExclusions.remove(runId);
+    } else {
+      _runExclusions[runId] = cleaned;
+    }
+  }
 
   /// Absolute path to the shadow git repository for [runId].
   String shadowRepoPath(String runId) =>
@@ -111,13 +127,23 @@ final class ShadowSnapshotService implements SnapshotService {
       return FailureResult(failure);
     }
     await _clearStaleIndexLock(shadowDir);
+    final configuredExclusions = _runExclusions[runId] ?? const <String>[];
+    final effectiveOptions = configuredExclusions.isEmpty
+        ? options
+        : _CaptureOptions(
+            extraExclusions: <String>{
+              ...configuredExclusions,
+              ...options.extraExclusions,
+            }.toList(growable: false),
+            maxFileSizeBytes: options.maxFileSizeBytes,
+          );
     await File(_pathContext.join(shadowDir, _optionsFileName))
-        .writeAsString(jsonEncode(options.toJson()));
+        .writeAsString(jsonEncode(effectiveOptions.toJson()));
 
     final excludeFile = File(_pathContext.join(shadowDir, 'info', 'exclude'));
     final baseExclusions = await _buildExclusions(
       workspaceDir: workspaceDir,
-      extraExclusions: options.extraExclusions,
+      extraExclusions: effectiveOptions.extraExclusions,
     );
     await excludeFile.parent.create(recursive: true);
     await excludeFile.writeAsString(baseExclusions);
@@ -427,10 +453,11 @@ final class ShadowSnapshotService implements SnapshotService {
     }
     final run = (runResult as Success<Run>).value;
 
-    if (run.status == RunStatus.running) {
+    if (run.status.isExecutingProcesses) {
       return FailureResult(
         ConflictFailure(
-          'Cannot restore snapshot while run "$runId" is running.',
+          'Cannot restore snapshot while run "$runId" is '
+          '${run.status.name}.',
         ),
       );
     }
@@ -460,14 +487,15 @@ final class ShadowSnapshotService implements SnapshotService {
     }
     final safetySnapshot = (safetyResult as Success<Snapshot>).value;
 
-    // The safety capture can take a while; make sure the run did not start in
-    // the meantime before rewriting files.
+    // The safety capture can take a while; make sure the run did not start
+    // executing processes in the meantime before rewriting files.
     final recheck = await _runs.getById(runId);
     if (recheck case Success<Run>(:final value)
-        when value.status == RunStatus.running) {
+        when value.status.isExecutingProcesses) {
       return FailureResult(
         ConflictFailure(
-          'Cannot restore snapshot while run "$runId" is running.',
+          'Cannot restore snapshot while run "$runId" is '
+          '${value.status.name}.',
         ),
       );
     }

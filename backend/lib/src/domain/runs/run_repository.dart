@@ -23,11 +23,17 @@ abstract interface class RunRepository {
 
   /// Updates the [status] (and optional [finishedAt] and [errorMessage]) of
   /// run [id].
+  ///
+  /// Set [clearFinishedAt] or [clearErrorMessage] to `true` to reset those
+  /// columns to `null` (for example when retrying cancellation on a
+  /// `cancellationUncertain` run).
   Future<Result<Run>> updateStatus(
     String id, {
     required RunStatus status,
     DateTime? finishedAt,
     String? errorMessage,
+    bool clearFinishedAt = false,
+    bool clearErrorMessage = false,
   });
 
   /// Atomically transitions [runId] from `running` to `interrupted` and
@@ -42,10 +48,23 @@ abstract interface class RunRepository {
     JsonMap payload = const {},
   });
 
+  /// Atomically transitions [runId] from `cancelling` to
+  /// `cancellationUncertain` and appends a `run.cancellation_uncertain` event
+  /// inside a single transaction.
+  ///
+  /// Returns `NotFoundFailure` if the run does not exist or is no longer
+  /// `cancelling`.
+  Future<Result<Run>> markCancellationUncertainWithEvent(
+    String runId, {
+    required String eventId,
+    required DateTime createdAt,
+    JsonMap payload = const {},
+  });
+
   /// Atomically deletes a non-active run [id] (cascading its checkpoints and
   /// events).
   ///
-  /// Returns `ConflictFailure` when the run is `running` or `paused`, or
-  /// `NotFoundFailure` when [id] does not exist.
+  /// Returns `ConflictFailure` when the run is active (`running`, `paused`,
+  /// or `cancelling`), or `NotFoundFailure` when [id] does not exist.
   Future<Result<void>> delete(String id);
 }

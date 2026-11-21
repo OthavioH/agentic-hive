@@ -13,6 +13,7 @@ import 'package:agentic_hive_backend/src/domain/result_contract/human_pause_gate
 import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/process_tree_killer.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_log_store.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_recovery_service.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/snapshot_service.dart';
@@ -132,9 +133,6 @@ final class _RunExecution {
   /// Completes with the outcome of the pending `cancel` call(s).
   Completer<Result<Run>>? cancelCompleter;
   bool cancelRequested = false;
-
-  /// Set when the last kill could not be confirmed.
-  bool killUnconfirmed = false;
   String? failReason;
 
   /// Future that completes when the loop must look at new input.
@@ -191,6 +189,7 @@ final class GraphEngine {
     required this._snapshots,
     required this._pauseGateway,
     required this._processTreeKiller,
+    this._logStore,
     this.maxConcurrency = defaultMaxConcurrency,
     this.circuitBreakerThreshold = defaultCircuitBreakerThreshold,
     this.cancelGracePeriod = const Duration(seconds: 10),
@@ -223,6 +222,7 @@ final class GraphEngine {
   final SnapshotService _snapshots;
   final HumanPauseGateway _pauseGateway;
   final ProcessTreeKiller _processTreeKiller;
+  final RunLogStore? _logStore;
   final String Function() _generateId;
   final DateTime Function() _now;
 
@@ -318,6 +318,8 @@ final class GraphEngine {
             }
             x = prepared.valueOrNull!;
           case RunStatus.running ||
+              RunStatus.cancelling ||
+              RunStatus.cancellationUncertain ||
               RunStatus.succeeded ||
               RunStatus.failed ||
               RunStatus.cancelled:
@@ -350,10 +352,12 @@ final class GraphEngine {
 
   /// Cancels [runId].
   ///
-  /// A run executing in this process aborts its active nodes and reports
-  /// `run.cancelled` only after the [ProcessTreeKiller] confirmed that every
-  /// process tree exited. When the exit cannot be confirmed the call returns a
-  /// [ConflictFailure], the run stays `running` and driven by the engine, and
+  /// A run executing in this process transitions to [RunStatus.cancelling]
+  /// (`run.cancelling`), aborts its active nodes, and reports `run.cancelled`
+  /// only after the [ProcessTreeKiller] confirms that every process tree has
+  /// exited and all active node futures have settled within
+  /// [cancelGracePeriod]. When exit cannot be confirmed, the run transitions
+  /// to [RunStatus.cancellationUncertain] (`run.cancellation_uncertain`) and
   /// `cancel` can be called again to retry the kill.
   ///
   /// A `cancel` that arrives while `start` or `resume` is still preparing the
@@ -390,11 +394,13 @@ final class GraphEngine {
             eventType: RunEventType.runCancelled,
             payload: <String, Object?>{'from': run.status.name},
           );
-        case RunStatus.running:
+        case RunStatus.cancellationUncertain:
+          return await _retryCancel(runId);
+        case RunStatus.running || RunStatus.cancelling:
           return FailureResult(
             ConflictFailure(
-              'Run "$runId" is marked running but is not executing in this '
-              'backend; wait for recovery to mark it interrupted.',
+              'Run "$runId" is marked ${run.status.name} but is not executing '
+              'in this backend; wait for recovery.',
             ),
           );
         case RunStatus.succeeded || RunStatus.failed || RunStatus.cancelled:
@@ -434,7 +440,10 @@ final class GraphEngine {
       case FailureResult<Run>():
         return result;
       case Success<Run>(:final value):
-        if (value.status == RunStatus.cancelled) return result;
+        if (value.status == RunStatus.cancelled ||
+            value.status == RunStatus.cancellationUncertain) {
+          return result;
+        }
         if (value.status == RunStatus.paused ||
             value.status == RunStatus.interrupted) {
           return await cancel(runId);
@@ -735,17 +744,7 @@ final class GraphEngine {
   Future<Result<Run>> _loop(_RunExecution x) async {
     while (true) {
       if (x.cancelRequested) {
-        final cancelled = await _finishCancelled(x);
-        if (!x.killUnconfirmed) return cancelled;
-        // The process tree could not be confirmed gone: keep driving the run
-        // so `cancel` can be retried, and tell this caller why it failed.
-        x
-          ..killUnconfirmed = false
-          ..cancelRequested = false;
-        final waiter = x.cancelCompleter;
-        x.cancelCompleter = null;
-        waiter?.complete(cancelled);
-        continue;
+        return await _finishCancelled(x);
       }
 
       await _handleSignals(x);
@@ -985,9 +984,42 @@ final class GraphEngine {
           config: workflowNode.config,
           inputs: _inputsFor(x, id),
           humanAnswer: x.humanAnswers.remove(id),
+          onOutput: _logStore == null
+              ? null
+              : (stream, line) => _recordNodeOutput(
+                  runId: x.run.id,
+                  nodeId: id,
+                  attempt: attempt,
+                  stream: stream,
+                  chunk: line,
+                ),
         ),
       );
     }
+  }
+
+  void _recordNodeOutput({
+    required String runId,
+    required String nodeId,
+    required int attempt,
+    required String stream,
+    required String chunk,
+  }) {
+    final store = _logStore;
+    if (store == null) return;
+    final outputStream = stream == 'stderr'
+        ? RunOutputStream.stderr
+        : RunOutputStream.stdout;
+    unawaited(
+      store.appendOutput(
+        runId: runId,
+        nodeId: nodeId,
+        attempt: attempt,
+        stream: outputStream,
+        chunk: chunk,
+        timestamp: _now(),
+      ),
+    );
   }
 
   Future<_NodeCompletion> _execute(
@@ -1343,23 +1375,40 @@ final class GraphEngine {
   }
 
   Future<Result<Run>> _finishCancelled(_RunExecution x) async {
+    final fromStatus = x.statusPaused ? 'paused' : 'running';
+    final cancelling = await _runs.updateStatus(
+      x.run.id,
+      status: RunStatus.cancelling,
+    );
+    if (cancelling case FailureResult<Run>()) return cancelling;
+    x.run = cancelling.valueOrNull!;
+    await _emit(
+      x.run.id,
+      RunEventType.runCancelling,
+      payload: <String, Object?>{'from': fromStatus},
+    );
+
     final stopped = await _stopRunningNodes(x);
     if (stopped case FailureResult<void>(:final failure)) {
-      // Cancellation is never reported as done without confirmation that the
-      // process tree exited: the run stays `running` and cancellable.
-      x.killUnconfirmed = true;
       _log.warning(
         LogEvent(
           'graph_engine.cancel_kill_unconfirmed',
           fields: {'runId': x.run.id, 'error': failure.message},
         ),
       );
-      return FailureResult(
-        ConflictFailure(
-          'Could not confirm that run "${x.run.id}" stopped: '
-          '${failure.message}. The run is still active; cancel it again to '
-          'retry.',
-        ),
+      _pauseGateway.cancelRun(x.run.id);
+      x.running.clear();
+      x.livePaused.clear();
+      return await _finishTerminal(
+        x.run.id,
+        status: RunStatus.cancellationUncertain,
+        eventType: RunEventType.runCancellationUncertain,
+        payload: <String, Object?>{
+          'from': fromStatus,
+          'error': failure.message,
+        },
+        errorMessage:
+            'Could not confirm that all processes exited: ${failure.message}',
       );
     }
     _pauseGateway.cancelRun(x.run.id);
@@ -1367,12 +1416,65 @@ final class GraphEngine {
       x.run.id,
       status: RunStatus.cancelled,
       eventType: RunEventType.runCancelled,
-      payload: <String, Object?>{'from': x.statusPaused ? 'paused' : 'running'},
+      payload: <String, Object?>{'from': fromStatus},
+    );
+  }
+
+  Future<Result<Run>> _retryCancel(String runId) async {
+    final cancelling = await _runs.updateStatus(
+      runId,
+      status: RunStatus.cancelling,
+      clearFinishedAt: true,
+      clearErrorMessage: true,
+    );
+    if (cancelling case FailureResult<Run>()) return cancelling;
+    await _emit(
+      runId,
+      RunEventType.runCancelling,
+      payload: const <String, Object?>{
+        'from': 'cancellationUncertain',
+        'retry': true,
+      },
+    );
+
+    final killed = await _processTreeKiller.killTree(runId: runId);
+    if (killed case FailureResult<void>(:final failure)) {
+      _log.warning(
+        LogEvent(
+          'graph_engine.retry_cancel_unconfirmed',
+          fields: {'runId': runId, 'error': failure.message},
+        ),
+      );
+      return await _finishTerminal(
+        runId,
+        status: RunStatus.cancellationUncertain,
+        eventType: RunEventType.runCancellationUncertain,
+        payload: <String, Object?>{
+          'from': 'cancellationUncertain',
+          'retry': true,
+          'error': failure.message,
+        },
+        errorMessage:
+            'Could not confirm that all processes exited: ${failure.message}',
+      );
+    }
+
+    _pauseGateway.cancelRun(runId);
+    return await _finishTerminal(
+      runId,
+      status: RunStatus.cancelled,
+      eventType: RunEventType.runCancelled,
+      payload: const <String, Object?>{
+        'from': 'cancellationUncertain',
+        'retry': true,
+      },
     );
   }
 
   /// Kills the process trees of every running node, waits for the kill to be
-  /// confirmed, then lets the abandoned node futures settle.
+  /// confirmed, then requires all active node futures to settle within
+  /// [cancelGracePeriod]. If node futures do not settle in time, treats the
+  /// termination as unconfirmed so the run enters `cancellationUncertain`.
   Future<Result<void>> _stopRunningNodes(_RunExecution x) async {
     if (x.running.isEmpty) return const Success(null);
     final futures = x.running.values
@@ -1380,13 +1482,27 @@ final class GraphEngine {
         .toList(growable: false);
 
     final killed = await _processTreeKiller.killTree(runId: x.run.id);
-    if (killed.isSuccess) {
-      await Future.wait(
-        futures,
-      ).timeout(cancelGracePeriod, onTimeout: () => const <_NodeCompletion>[]);
-      x.running.clear();
-      x.livePaused.clear();
+    if (killed.isFailure) return killed;
+
+    var timedOut = false;
+    await Future.wait(futures).timeout(
+      cancelGracePeriod,
+      onTimeout: () {
+        timedOut = true;
+        return const <_NodeCompletion>[];
+      },
+    );
+    if (timedOut) {
+      return FailureResult(
+        NodeExecutionFailure(
+          'Timed out after ${cancelGracePeriod.inSeconds}s waiting for '
+          'active node execution of run "${x.run.id}" to settle after kill.',
+        ),
+      );
     }
+
+    x.running.clear();
+    x.livePaused.clear();
     return killed;
   }
 }

@@ -11,6 +11,20 @@ abstract class HiveStatusShape {
 
   /// Paints the shape filling [rect] in [color].
   void paint(Canvas canvas, Rect rect, Color color);
+
+  /// Whether the shape has a looping transition (see [paintFrame]).
+  ///
+  /// Animated shapes must stay legible on their still frame, because
+  /// `HiveStatusDot` paints only frame `0` when
+  /// `MediaQuery.disableAnimations` is set.
+  bool get isAnimated => false;
+
+  /// Paints the frame at [progress] (from 0 to 1) of the looping transition.
+  ///
+  /// Still shapes ignore [progress] and paint [paint].
+  void paintFrame(Canvas canvas, Rect rect, Color color, double progress) {
+    paint(canvas, rect, color);
+  }
 }
 
 /// Hollow ring.
@@ -177,6 +191,95 @@ class HiveCrossShape extends HiveStatusShape {
   }
 }
 
+/// Open ring with a rounded stop square inside ("cancelling": a stop was
+/// requested and the process tree is still exiting).
+///
+/// The ring's gap turns slowly while animations are enabled.
+class HiveStopRingShape extends HiveStatusShape {
+  /// Creates the shape.
+  const new();
+
+  @override
+  bool get isAnimated => true;
+
+  @override
+  void paint(Canvas canvas, Rect rect, Color color) {
+    paintFrame(canvas, rect, color, 0);
+  }
+
+  @override
+  void paintFrame(Canvas canvas, Rect rect, Color color, double progress) {
+    final s = rect.shortestSide;
+    final stroke = s * 0.16;
+    final ring = Rect.fromCenter(
+      center: rect.center,
+      width: s - stroke,
+      height: s - stroke,
+    );
+    final square = s * 0.36;
+    canvas
+      ..drawArc(
+        ring,
+        -math.pi / 2 + progress * 2 * math.pi,
+        math.pi * 1.5,
+        false,
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeWidth = stroke,
+      )
+      ..drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: rect.center, width: square, height: square),
+          Radius.circular(square * 0.25),
+        ),
+        Paint()..color = color,
+      );
+  }
+}
+
+/// Hollow up-pointing triangle with an exclamation mark ("cancellation
+/// uncertain": the stop could not be confirmed and processes may still run).
+class HiveAlertTriangleShape extends HiveStatusShape {
+  /// Creates the shape.
+  const new();
+
+  @override
+  void paint(Canvas canvas, Rect rect, Color color) {
+    final s = rect.shortestSide;
+    final stroke = s * 0.13;
+    final r = Rect.fromCenter(
+      center: rect.center,
+      width: s - stroke,
+      height: s - stroke,
+    );
+    final outline = Path()
+      ..moveTo(r.center.dx, r.top)
+      ..lineTo(r.right, r.bottom)
+      ..lineTo(r.left, r.bottom)
+      ..close();
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = stroke;
+    canvas
+      ..drawPath(outline, paint)
+      ..drawLine(
+        Offset(r.center.dx, r.top + r.height * 0.4),
+        Offset(r.center.dx, r.top + r.height * 0.66),
+        paint,
+      )
+      ..drawCircle(
+        Offset(r.center.dx, r.top + r.height * 0.84),
+        stroke * 0.6,
+        Paint()..color = color,
+      );
+  }
+}
+
 /// Node status as shown by `HiveStatusDot` and `HiveAgentAvatar`.
 enum HiveNodeStatus {
   /// Not started: hollow ring in `statusIdle`.
@@ -199,7 +302,16 @@ enum HiveNodeStatus {
   interrupted(HiveHalfDiscShape(), _interrupted),
 
   /// Cancelled by the user: cross in `statusIdle`.
-  cancelled(HiveCrossShape(), _cancelled);
+  cancelled(HiveCrossShape(), _cancelled),
+
+  /// Cancel requested, waiting for the process tree to exit: open ring with
+  /// a stop square in `warning`, its gap turning slowly unless
+  /// `MediaQuery.disableAnimations` is set.
+  cancelling(HiveStopRingShape(), _cancelling),
+
+  /// The backend could not confirm the process tree exited: hollow alert
+  /// triangle in `danger`.
+  cancellationUncertain(HiveAlertTriangleShape(), _cancellationUncertain);
 
   new(this.shape, this.color);
 
@@ -217,11 +329,17 @@ Color _failed(HiveColors c) => c.statusFailed;
 Color _succeeded(HiveColors c) => c.statusSucceeded;
 Color _interrupted(HiveColors c) => c.warning;
 Color _cancelled(HiveColors c) => c.statusIdle;
+Color _cancelling(HiveColors c) => c.warning;
+Color _cancellationUncertain(HiveColors c) => c.danger;
 
 /// Paints a [HiveStatusShape].
 class HiveStatusShapePainter extends CustomPainter {
   /// Creates a painter for [shape] in [color].
-  const new({required this.shape, required this.color});
+  ///
+  /// Pass [animation] to paint the frame at its value and repaint whenever it
+  /// ticks; without it the still frame `0` is painted.
+  const new({required this.shape, required this.color, this.animation})
+    : super(repaint: animation);
 
   /// The shape to paint.
   final HiveStatusShape shape;
@@ -229,13 +347,18 @@ class HiveStatusShapePainter extends CustomPainter {
   /// The fill or stroke color.
   final Color color;
 
+  /// Drives [HiveStatusShape.paintFrame]; null paints the still frame.
+  final Animation<double>? animation;
+
   @override
   void paint(Canvas canvas, Size size) {
-    shape.paint(canvas, Offset.zero & size, color);
+    shape.paintFrame(canvas, Offset.zero & size, color, animation?.value ?? 0);
   }
 
   @override
   bool shouldRepaint(HiveStatusShapePainter oldDelegate) {
-    return oldDelegate.shape != shape || oldDelegate.color != color;
+    return oldDelegate.shape != shape ||
+        oldDelegate.color != color ||
+        oldDelegate.animation != animation;
   }
 }

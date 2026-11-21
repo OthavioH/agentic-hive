@@ -6,7 +6,7 @@ enum RestoreAvailability {
   /// Restore is allowed.
   available,
 
-  /// The run is `running`; restore is rejected until it stops.
+  /// The run is active; restore is rejected until it stops.
   runActive,
 
   /// `git` is missing, so the shadow repository cannot be used.
@@ -24,7 +24,7 @@ enum RestoreAvailability {
     required RunStatus status,
     required Result<WorkspaceCapabilities>? capabilities,
   }) {
-    if (status == RunStatus.running) return runActive;
+    if (status.isExecutingProcesses) return runActive;
     return switch (capabilities) {
       null || FailureResult<WorkspaceCapabilities>() => checkFailed,
       Success<WorkspaceCapabilities>(:final value) =>

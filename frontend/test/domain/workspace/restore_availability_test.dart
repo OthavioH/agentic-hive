@@ -20,19 +20,22 @@ const _gitMissing = Success<WorkspaceCapabilities>(
 
 void main() {
   group('RestoreAvailability.resolve', () {
-    test('is runActive while the run is running, regardless of git', () {
-      expect(
-        RestoreAvailability.resolve(
-          status: RunStatus.running,
-          capabilities: _gitOk,
-        ),
-        RestoreAvailability.runActive,
-      );
+    test('is runActive while processes can still write '
+        '(isExecutingProcesses), regardless of git', () {
+      for (final status in RunStatus.values.where(
+        (s) => s.isExecutingProcesses,
+      )) {
+        expect(
+          RestoreAvailability.resolve(status: status, capabilities: _gitOk),
+          RestoreAvailability.runActive,
+          reason: status.name,
+        );
+      }
     });
 
-    test('is available for every non-running status when git works', () {
+    test('is available for paused, interrupted, and terminal statuses', () {
       for (final status in RunStatus.values.where(
-        (s) => s != RunStatus.running,
+        (s) => !s.isExecutingProcesses,
       )) {
         expect(
           RestoreAvailability.resolve(status: status, capabilities: _gitOk),

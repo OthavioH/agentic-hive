@@ -72,6 +72,45 @@ final class _FakeRunRepository implements RunRepository {
     return const Success(<Checkpoint>[]);
   }
 
+  String? lastNodeId;
+  int? lastAttempt;
+  int? lastTail;
+  StartRunRequest? lastStartRequest;
+
+  @override
+  Future<Result<Run>> startRun(StartRunRequest request) {
+    lastStartRequest = request;
+    return getRun('run-started');
+  }
+
+  @override
+  Future<Result<Run>> cancelRun(String id) {
+    lastId = id;
+    return getRun(id);
+  }
+
+  @override
+  Future<Result<Run>> resumeRun(String id) {
+    lastId = id;
+    return getRun(id);
+  }
+
+  @override
+  Future<Result<RunNodeLogsResponse>> getNodeLogs(
+    String id,
+    String nodeId, {
+    int? attempt,
+    int? tail,
+  }) async {
+    lastId = id;
+    lastNodeId = nodeId;
+    lastAttempt = attempt;
+    lastTail = tail;
+    return Success(
+      RunNodeLogsResponse(runId: id, nodeId: nodeId, attempt: attempt ?? 1),
+    );
+  }
+
   @override
   Future<Result<void>> deleteRun(String id) async {
     lastId = id;
@@ -122,6 +161,32 @@ void main() {
       final delRes = await container.read(deleteRunProvider).call('run-1');
       expect(delRes.isSuccess, isTrue);
       expect(repo.lastId, 'run-1');
+
+      const startReq = StartRunRequest(
+        workflowId: 'wf-1',
+        workspacePath: '/tmp',
+        workspaceIsolationMode: WorkspaceIsolationMode.worktree,
+      );
+      final startRes = await container.read(startRunProvider).call(startReq);
+      expect(startRes.isSuccess, isTrue);
+      expect(repo.lastStartRequest, startReq);
+
+      final cancelRes = await container.read(cancelRunProvider).call('run-2');
+      expect(cancelRes.isSuccess, isTrue);
+      expect(repo.lastId, 'run-2');
+
+      final resumeRes = await container.read(resumeRunProvider).call('run-3');
+      expect(resumeRes.isSuccess, isTrue);
+      expect(repo.lastId, 'run-3');
+
+      final logsRes = await container
+          .read(getNodeLogsProvider)
+          .call('run-1', 'node-1', attempt: 2, tail: 100);
+      expect(logsRes.isSuccess, isTrue);
+      expect(repo.lastId, 'run-1');
+      expect(repo.lastNodeId, 'node-1');
+      expect(repo.lastAttempt, 2);
+      expect(repo.lastTail, 100);
     });
   });
 }

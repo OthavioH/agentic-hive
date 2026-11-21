@@ -20,13 +20,26 @@ void main() {
   );
 
   group('RunStatus', () {
-    test('isActive is true only for running and paused', () {
+    test('isActive is true only for running, paused, and cancelling', () {
       expect(RunStatus.running.isActive, isTrue);
       expect(RunStatus.paused.isActive, isTrue);
+      expect(RunStatus.cancelling.isActive, isTrue);
+      expect(RunStatus.cancellationUncertain.isActive, isFalse);
       expect(RunStatus.interrupted.isActive, isFalse);
       expect(RunStatus.succeeded.isActive, isFalse);
       expect(RunStatus.failed.isActive, isFalse);
       expect(RunStatus.cancelled.isActive, isFalse);
+    });
+
+    test('isExecutingProcesses is true only for running and cancelling', () {
+      expect(RunStatus.running.isExecutingProcesses, isTrue);
+      expect(RunStatus.cancelling.isExecutingProcesses, isTrue);
+      expect(RunStatus.paused.isExecutingProcesses, isFalse);
+      expect(RunStatus.cancellationUncertain.isExecutingProcesses, isFalse);
+      expect(RunStatus.interrupted.isExecutingProcesses, isFalse);
+      expect(RunStatus.succeeded.isExecutingProcesses, isFalse);
+      expect(RunStatus.failed.isExecutingProcesses, isFalse);
+      expect(RunStatus.cancelled.isExecutingProcesses, isFalse);
     });
 
     test('fromName parses valid names and throws on unknown', () {
@@ -155,6 +168,8 @@ void main() {
         RunEventType.runInterrupted: 'run.interrupted',
         RunEventType.runSucceeded: 'run.succeeded',
         RunEventType.runFailed: 'run.failed',
+        RunEventType.runCancelling: 'run.cancelling',
+        RunEventType.runCancellationUncertain: 'run.cancellation_uncertain',
         RunEventType.runCancelled: 'run.cancelled',
         RunEventType.nodeStarted: 'node.started',
         RunEventType.nodeCompleted: 'node.completed',
@@ -256,6 +271,51 @@ void main() {
         ],
       );
       expect(RunCheckpointsResponse.fromJson(dto.toJson()), dto);
+    });
+
+    test('StartRunRequest round-trips through JSON', () {
+      const dto = StartRunRequest(
+        workflowId: 'wf-1',
+        workspacePath: '/tmp/ws',
+        workspaceIsolationMode: WorkspaceIsolationMode.direct,
+        ignorePatterns: ['build/', '*.tmp'],
+      );
+      expect(StartRunRequest.fromJson(dto.toJson()), dto);
+
+      const minimal = StartRunRequest(
+        workflowId: 'wf-2',
+        workspacePath: '/tmp/ws2',
+      );
+      final minimalJson = minimal.toJson();
+      expect(minimalJson.containsKey('workspaceIsolationMode'), isFalse);
+      expect(minimalJson.containsKey('ignorePatterns'), isFalse);
+      expect(StartRunRequest.fromJson(minimalJson), minimal);
+    });
+
+    test('RunNodeLogsResponse round-trips through JSON', () {
+      final dto = RunNodeLogsResponse(
+        runId: 'run-1',
+        nodeId: 'n1',
+        attempt: 2,
+        availableAttempts: const [1, 2],
+        entries: [
+          RunLogEntry(
+            stream: RunOutputStream.stdout,
+            chunk: 'hello world',
+            timestamp: DateTime.utc(2026, 11, 20, 12),
+            offset: 1,
+          ),
+          RunLogEntry(
+            stream: RunOutputStream.stderr,
+            chunk: 'warning line',
+            timestamp: DateTime.utc(2026, 11, 20, 12, 0, 1),
+            offset: 2,
+          ),
+        ],
+        truncated: true,
+        offset: 2,
+      );
+      expect(RunNodeLogsResponse.fromJson(dto.toJson()), dto);
     });
   });
 }

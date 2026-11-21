@@ -196,6 +196,60 @@ void main() {
       expect(client.lastMethod, 'DELETE');
       expect(client.lastPath, '/api/v1/runs/run-1');
       expect(delRes.isSuccess, isTrue);
+
+      client.nextResponse = Success(sampleRun.toJson());
+      final startRes = await repo.startRun(
+        const StartRunRequest(
+          workflowId: 'wf-1',
+          workspacePath: '/tmp/workspace',
+          workspaceIsolationMode: WorkspaceIsolationMode.worktree,
+        ),
+      );
+      expect(client.lastMethod, 'POST');
+      expect(client.lastPath, '/api/v1/runs');
+      expect(client.lastBody?['workflowId'], 'wf-1');
+      expect(startRes.valueOrNull?.id, 'run-1');
+
+      client.nextResponse = Success(sampleRun.toJson());
+      final cancelRes = await repo.cancelRun('run-1');
+      expect(client.lastMethod, 'POST');
+      expect(client.lastPath, '/api/v1/runs/run-1/cancel');
+      expect(cancelRes.valueOrNull?.id, 'run-1');
+
+      client.nextResponse = Success(sampleRun.toJson());
+      final resumeRes = await repo.resumeRun('run-1');
+      expect(client.lastMethod, 'POST');
+      expect(client.lastPath, '/api/v1/runs/run-1/resume');
+      expect(resumeRes.valueOrNull?.id, 'run-1');
+
+      client.nextResponse = Success(
+        RunNodeLogsResponse(
+          runId: 'run-1',
+          nodeId: 'node-1',
+          attempt: 2,
+          availableAttempts: const <int>[1, 2],
+          entries: <RunLogEntry>[
+            RunLogEntry(
+              stream: RunOutputStream.stdout,
+              chunk: 'hello\n',
+              timestamp: now,
+            ),
+          ],
+        ).toJson(),
+      );
+      final logsRes = await repo.getNodeLogs(
+        'run-1',
+        'node-1',
+        attempt: 2,
+        tail: 50,
+      );
+      expect(client.lastMethod, 'GET');
+      expect(
+        client.lastPath,
+        '/api/v1/runs/run-1/nodes/node-1/logs?attempt=2&tail=50',
+      );
+      expect(logsRes.valueOrNull?.attempt, 2);
+      expect(logsRes.valueOrNull?.entries, hasLength(1));
     });
 
     test('returns BackendFailure on malformed payload', () async {

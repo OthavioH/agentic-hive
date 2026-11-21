@@ -21,6 +21,8 @@ import 'package:agentic_hive_backend/src/data/result_contract/hive_result_contra
 import 'package:agentic_hive_backend/src/data/runs/drift_checkpoint_repository.dart';
 import 'package:agentic_hive_backend/src/data/runs/drift_run_event_repository.dart';
 import 'package:agentic_hive_backend/src/data/runs/drift_run_repository.dart';
+import 'package:agentic_hive_backend/src/data/runs/file_run_log_store.dart';
+import 'package:agentic_hive_backend/src/data/runs/process_tree_killer_factory.dart';
 import 'package:agentic_hive_backend/src/data/settings/drift_settings_repository.dart';
 import 'package:agentic_hive_backend/src/data/settings/os_executable_validator.dart';
 import 'package:agentic_hive_backend/src/data/workflows/drift_workflow_repository.dart';
@@ -31,6 +33,7 @@ import 'package:agentic_hive_backend/src/db/database_health_check.dart';
 import 'package:agentic_hive_backend/src/db/metadata_repository.dart';
 import 'package:agentic_hive_backend/src/domain/agents/agent_repository.dart';
 import 'package:agentic_hive_backend/src/domain/agents/agent_service.dart';
+import 'package:agentic_hive_backend/src/domain/engine/graph_engine.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/executable_locator.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_detector.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_service.dart';
@@ -41,7 +44,9 @@ import 'package:agentic_hive_backend/src/domain/result_contract/human_pause_gate
 import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_coordinator.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_validator.dart';
 import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart';
+import 'package:agentic_hive_backend/src/domain/runs/process_tree_killer.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_log_store.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_recovery_service.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_service.dart';
@@ -157,8 +162,18 @@ Future<void> registerDependencies(
     )
     ..registerSingleton<OsProcessPlatform>(currentProcessPlatform())
     ..registerSingleton<DefaultShellProvider>(currentDefaultShellProvider())
+    ..registerSingleton<ManagedProcessTreeKiller>(currentProcessTreeKiller())
+    ..registerSingleton<ProcessTreeKiller>(
+      di<ManagedProcessTreeKiller>().killer,
+    )
+    ..registerSingleton<ProcessTreeTracker>(
+      di<ManagedProcessTreeKiller>().tracker,
+    )
     ..registerSingleton<NodeProcessRunner>(
-      DartProcessRunner(platform: di<OsProcessPlatform>()),
+      DartProcessRunner(
+        platform: di<OsProcessPlatform>(),
+        processTracker: di<ProcessTreeTracker>(),
+      ),
     )
     ..registerSingleton<PtyRunner>(const UnconfiguredPtyRunner())
     ..registerSingleton<ResultContractValidator>(
@@ -233,9 +248,21 @@ Future<void> registerDependencies(
       () => DriftCheckpointRepository(di<AppDatabase>()),
       dependsOn: [AppDatabase],
     )
-    ..registerSingletonWithDependencies<RunEventRepository>(
+    ..registerSingletonWithDependencies<DriftRunEventRepository>(
       () => DriftRunEventRepository(di<AppDatabase>()),
       dependsOn: [AppDatabase],
+      dispose: (repo) => repo.close(),
+    )
+    ..registerSingletonWithDependencies<RunEventRepository>(
+      () => di<DriftRunEventRepository>(),
+      dependsOn: [DriftRunEventRepository],
+    )
+    ..registerSingleton<RunLogStore>(
+      FileRunLogStore(
+        runsDir: config.runsDir,
+        pathContext: platformPaths.context,
+      ),
+      dispose: (store) => store.close(),
     )
     ..registerSingleton<GitClient>(GitClient(di<ProcessRunner>()))
     ..registerSingleton<WorkspaceCapabilitiesService>(
@@ -279,6 +306,26 @@ Future<void> registerDependencies(
       ),
       dependsOn: [RunRepository, CheckpointRepository],
     )
+    ..registerSingletonWithDependencies<GraphEngine>(
+      () => GraphEngine(
+        registry: di<NodeRegistry>(),
+        runs: di<RunRepository>(),
+        checkpoints: di<CheckpointRepository>(),
+        events: di<RunEventRepository>(),
+        recovery: di<RunRecoveryService>(),
+        snapshots: di<ShadowSnapshotService>(),
+        pauseGateway: di<HumanPauseGateway>(),
+        processTreeKiller: di<ProcessTreeKiller>(),
+        logStore: di<RunLogStore>(),
+      ),
+      dependsOn: [
+        RunRepository,
+        CheckpointRepository,
+        RunEventRepository,
+        RunRecoveryService,
+        ShadowSnapshotService,
+      ],
+    )
     ..registerSingletonWithDependencies<RunService>(
       () => RunService(
         runs: di<RunRepository>(),
@@ -286,6 +333,11 @@ Future<void> registerDependencies(
         events: di<RunEventRepository>(),
         snapshots: di<ShadowSnapshotService>(),
         workspacePreparation: di<WorkspacePreparationService>(),
+        workflows: di<WorkflowRepository>(),
+        workflowValidator: di<WorkflowValidator>(),
+        engine: di<GraphEngine>(),
+        logStore: di<RunLogStore>(),
+        pathContext: platformPaths.context,
       ),
       dependsOn: [
         RunRepository,
@@ -293,7 +345,10 @@ Future<void> registerDependencies(
         RunEventRepository,
         ShadowSnapshotService,
         WorkspacePreparationService,
+        WorkflowRepository,
+        GraphEngine,
       ],
+      dispose: (service) => service.dispose(),
     )
     ..registerSingletonWithDependencies<RunsHandler>(
       () => RunsHandler(service: di<RunService>()),
@@ -348,8 +403,10 @@ Future<void> registerDependencies(
         serverVersion: backendVersion,
         harnessStatusUpdates: di<HarnessService>().statusUpdates,
         settingsUpdates: di<SettingsService>().settingsUpdates,
+        runEvents: di<DriftRunEventRepository>().events,
+        runOutputs: di<RunLogStore>().outputs,
       ),
-      dependsOn: [SettingsService],
+      dependsOn: [SettingsService, DriftRunEventRepository],
       dispose: (gateway) => gateway.close(),
     )
     ..registerSingletonWithDependencies<StatusHandler>(

@@ -75,6 +75,8 @@ F2 additions (#10): `HiveTextField` (pill) and `HiveTextArea` (`radiusCard`, opt
 
 F8 addition (#17): `HiveDiffStat` (`+A ~M -D` summary pill on `surface2` with `radiusPill`, counts in Geist Mono `onSurface`, zero counts in `onSurfaceMuted`; `success`/`warning`/`danger` color only the leading icons, since light `success` and `warning` miss 4.5:1 as text on `surface2`).
 
+F10 additions (#20): `HiveNodeStatus.cancelling` (open ring with a stop square in `warning`; the ring's gap turns slowly, still under `MediaQuery.disableAnimations`) and `HiveNodeStatus.cancellationUncertain` (hollow alert triangle in `danger`). `HiveLogStreamViewer` + `HiveLogStreamController` (Geist Mono lines on `surface1` with `radiusCard`; chunks may end mid-line; `stderr` lines in `danger` text, which reaches 4.5:1 on `surface1` in both themes, plus a `danger` gutter marker; follows new lines until the user scrolls up, then shows a secondary **Jump to bottom** `HiveButton`).
+
 **Desktop platform profile:** Windows, Linux, and macOS; mouse + keyboard first. Every interactive component must have a hover state, a visible keyboard focus indicator, and a semantics label. Support desktop density (sidebar, multi-column, master-detail).
 
 ## Do and Don't

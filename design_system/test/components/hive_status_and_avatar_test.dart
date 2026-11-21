@@ -60,9 +60,106 @@ void main() {
       );
     });
 
+    test('cancelling is a stop ring in warning', () {
+      expect(HiveNodeStatus.cancelling.shape, isA<HiveStopRingShape>());
+      expect(HiveNodeStatus.cancelling.shape.isAnimated, isTrue);
+      for (final colors in <HiveColors>[HiveColors.dark, HiveColors.light]) {
+        expect(HiveNodeStatus.cancelling.color(colors), colors.warning);
+      }
+    });
+
+    test('cancellationUncertain is an alert triangle in danger', () {
+      expect(
+        HiveNodeStatus.cancellationUncertain.shape,
+        isA<HiveAlertTriangleShape>(),
+      );
+      expect(HiveNodeStatus.cancellationUncertain.shape.isAnimated, isFalse);
+      for (final colors in <HiveColors>[HiveColors.dark, HiveColors.light]) {
+        expect(
+          HiveNodeStatus.cancellationUncertain.color(colors),
+          colors.danger,
+        );
+      }
+    });
+
+    test('only cancelling animates', () {
+      expect(
+        HiveNodeStatus.values.where((s) => s.shape.isAnimated),
+        <HiveNodeStatus>[HiveNodeStatus.cancelling],
+      );
+    });
+
+    test('every status color reaches 3:1 as UI on every surface', () {
+      for (final colors in <HiveColors>[HiveColors.dark, HiveColors.light]) {
+        for (final status in HiveNodeStatus.values) {
+          for (final surface in colors.surfaces.entries) {
+            expect(
+              HiveContrast.ratio(status.color(colors), surface.value),
+              greaterThanOrEqualTo(HiveContrastLevel.ui.minimumRatio),
+              reason: '${status.name} on ${surface.key}',
+            );
+          }
+        }
+      }
+    });
+
+    testWidgets('cancelling loops its transition while animations run', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        hiveTestApp(
+          child: const HiveStatusDot(
+            status: HiveNodeStatus.cancelling,
+            semanticLabel: 'Cancelling',
+          ),
+        ),
+      );
+
+      final painter = _painterOf(tester);
+      expect(painter.animation, isNotNull);
+      final start = painter.animation!.value;
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(painter.animation!.value, isNot(start));
+      expect(tester.hasRunningAnimations, isTrue);
+
+      // Switching to a still status stops the loop.
+      await tester.pumpWidget(
+        hiveTestApp(
+          child: const HiveStatusDot(
+            status: HiveNodeStatus.cancelled,
+            semanticLabel: 'Cancelled',
+          ),
+        ),
+      );
+      expect(_painterOf(tester).animation, isNull);
+      expect(tester.hasRunningAnimations, isFalse);
+    });
+
+    testWidgets('cancelling is still when animations are disabled', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: hiveTestApp(
+            child: const HiveStatusDot(
+              status: HiveNodeStatus.cancelling,
+              semanticLabel: 'Cancelling',
+            ),
+          ),
+        ),
+      );
+
+      expect(_painterOf(tester).animation, isNull);
+      expect(tester.hasRunningAnimations, isFalse);
+      expect(find.bySemanticsLabel('Cancelling'), findsOneWidget);
+    });
+
     for (final status in <HiveNodeStatus>[
       HiveNodeStatus.interrupted,
       HiveNodeStatus.cancelled,
+      HiveNodeStatus.cancelling,
+      HiveNodeStatus.cancellationUncertain,
     ]) {
       testWidgets('${status.name} paints its shape in its color', (
         tester,
@@ -99,6 +196,14 @@ void main() {
       const rect = Rect.fromLTWH(0, 0, 16, 16);
       const HiveHalfDiscShape().paint(canvas, rect, HiveColors.dark.warning);
       const HiveCrossShape().paint(canvas, rect, HiveColors.dark.statusIdle);
+      const HiveStopRingShape()
+        ..paint(canvas, rect, HiveColors.dark.warning)
+        ..paintFrame(canvas, rect, HiveColors.dark.warning, 0.5);
+      const HiveAlertTriangleShape().paint(
+        canvas,
+        rect,
+        HiveColors.dark.danger,
+      );
       final picture = recorder.endRecording();
       expect(picture, isNotNull);
       picture.dispose();
@@ -190,4 +295,14 @@ void main() {
       expect(find.byType(HiveStatusDot), findsNothing);
     });
   });
+}
+
+HiveStatusShapePainter _painterOf(WidgetTester tester) {
+  final paint = tester.widget<CustomPaint>(
+    find.descendant(
+      of: find.byType(HiveStatusDot),
+      matching: find.byType(CustomPaint),
+    ),
+  );
+  return paint.painter! as HiveStatusShapePainter;
 }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_service.dart';
 import 'package:agentic_hive_backend/src/http/failure_response.dart';
@@ -12,9 +14,13 @@ final class RunsHandler {
   new({required this._service, Handler? notFound}) {
     _router = (notFound == null ? Router() : Router(notFoundHandler: notFound))
       ..get('/', _list)
+      ..post('/', _start)
       ..get('/<id>', _getById)
+      ..post('/<id>/cancel', _cancel)
+      ..post('/<id>/resume', _resume)
       ..get('/<id>/events', _events)
       ..get('/<id>/checkpoints', _checkpoints)
+      ..get('/<id>/nodes/<nodeId>/logs', _logs)
       ..delete('/<id>', _delete);
   }
 
@@ -56,8 +62,46 @@ final class RunsHandler {
     return _mapResult(request, result, 200);
   }
 
+  Future<Response> _start(Request request) async {
+    final parsed = await _readJsonBody(request, StartRunRequest.fromJson);
+    if (parsed.error != null) return parsed.error!;
+    final result = await _service.startRun(parsed.value!);
+    return _mapResult(request, result, 201);
+  }
+
   Future<Response> _getById(Request request, String id) async {
     final result = await _service.getRun(id);
+    return _mapResult(request, result, 200);
+  }
+
+  Future<Response> _cancel(Request request, String id) async {
+    final result = await _service.cancelRun(id);
+    return _mapResult(request, result, 200);
+  }
+
+  Future<Response> _resume(Request request, String id) async {
+    final result = await _service.resumeRun(id);
+    return _mapResult(request, result, 200);
+  }
+
+  Future<Response> _logs(Request request, String id, String nodeId) async {
+    final params = request.url.queryParameters;
+    final attemptParsed = _parseOptionalInt(
+      request,
+      params['attempt'],
+      'attempt',
+    );
+    if (attemptParsed.error != null) return attemptParsed.error!;
+
+    final tailParsed = _parseOptionalInt(request, params['tail'], 'tail');
+    if (tailParsed.error != null) return tailParsed.error!;
+
+    final result = await _service.getNodeLogs(
+      runId: id,
+      nodeId: nodeId,
+      attempt: attemptParsed.value,
+      tail: tailParsed.value,
+    );
     return _mapResult(request, result, 200);
   }
 
@@ -127,6 +171,31 @@ final class RunsHandler {
       );
     }
     return (value: parsed, error: null);
+  }
+
+  Future<({T? value, Response? error})> _readJsonBody<T>(
+    Request request,
+    T Function(JsonMap json) fromJson,
+  ) async {
+    final body = await request.readAsString();
+    if (body.trim().isEmpty) {
+      return (
+        value: null,
+        error: _badRequest(request, 'Request body is empty.'),
+      );
+    }
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is! JsonMap) {
+        return (
+          value: null,
+          error: _badRequest(request, 'Request body must be a JSON object.'),
+        );
+      }
+      return (value: fromJson(decoded), error: null);
+    } on FormatException catch (e) {
+      return (value: null, error: _badRequest(request, e.message));
+    }
   }
 
   Response _badRequest(Request request, String message) => errorResponse(

@@ -19,11 +19,15 @@ import 'package:agentic_hive_frontend/domain/harnesses/get_harnesses_use_case.da
 import 'package:agentic_hive_frontend/domain/harnesses/refresh_harness_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/refresh_harnesses_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/watch_harness_updates_use_case.dart';
+import 'package:agentic_hive_frontend/domain/runs/use_cases/cancel_run.dart';
 import 'package:agentic_hive_frontend/domain/runs/use_cases/delete_run.dart';
+import 'package:agentic_hive_frontend/domain/runs/use_cases/get_node_logs.dart';
 import 'package:agentic_hive_frontend/domain/runs/use_cases/get_run.dart';
 import 'package:agentic_hive_frontend/domain/runs/use_cases/get_run_checkpoints.dart';
 import 'package:agentic_hive_frontend/domain/runs/use_cases/get_run_events.dart';
 import 'package:agentic_hive_frontend/domain/runs/use_cases/list_runs.dart';
+import 'package:agentic_hive_frontend/domain/runs/use_cases/resume_run.dart';
+import 'package:agentic_hive_frontend/domain/runs/use_cases/start_run.dart';
 import 'package:agentic_hive_frontend/domain/settings/get_settings.dart';
 import 'package:agentic_hive_frontend/domain/settings/pick_directory.dart';
 import 'package:agentic_hive_frontend/domain/settings/pick_file.dart';
@@ -150,6 +154,23 @@ GetRunCheckpoints getRunCheckpoints(Ref ref) =>
 /// Provides [DeleteRun].
 @riverpod
 DeleteRun deleteRun(Ref ref) => DeleteRun(ref.watch(runRepositoryProvider));
+
+/// Provides [StartRun].
+@riverpod
+StartRun startRun(Ref ref) => StartRun(ref.watch(runRepositoryProvider));
+
+/// Provides [CancelRun].
+@riverpod
+CancelRun cancelRun(Ref ref) => CancelRun(ref.watch(runRepositoryProvider));
+
+/// Provides [ResumeRun].
+@riverpod
+ResumeRun resumeRun(Ref ref) => ResumeRun(ref.watch(runRepositoryProvider));
+
+/// Provides [GetNodeLogs].
+@riverpod
+GetNodeLogs getNodeLogs(Ref ref) =>
+    GetNodeLogs(ref.watch(runRepositoryProvider));
 
 /// Provides [GetWorkspaceCapabilities].
 @riverpod

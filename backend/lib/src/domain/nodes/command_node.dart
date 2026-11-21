@@ -47,6 +47,8 @@ final class CommandNode extends Node {
         timeout: config.timeoutSeconds != null
             ? Duration(seconds: config.timeoutSeconds!)
             : null,
+        runId: context.runId,
+        nodeId: context.nodeId,
       ),
       onOutput: context.onOutput,
     );

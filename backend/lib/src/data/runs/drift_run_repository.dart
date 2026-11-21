@@ -164,6 +164,8 @@ final class DriftRunRepository implements RunRepository {
     required RunStatus status,
     DateTime? finishedAt,
     String? errorMessage,
+    bool clearFinishedAt = false,
+    bool clearErrorMessage = false,
   }) async {
     try {
       return await _db.transaction(() async {
@@ -173,12 +175,16 @@ final class DriftRunRepository implements RunRepository {
             )..where((row) => row.id.equals(id))).write(
               RunsCompanion(
                 status: Value(status.name),
-                finishedAt: finishedAt == null
-                    ? const Value.absent()
-                    : Value(finishedAt.toUtc().toIso8601String()),
-                errorMessage: errorMessage == null
-                    ? const Value.absent()
-                    : Value(errorMessage),
+                finishedAt: clearFinishedAt
+                    ? const Value(null)
+                    : (finishedAt == null
+                          ? const Value.absent()
+                          : Value(finishedAt.toUtc().toIso8601String())),
+                errorMessage: clearErrorMessage
+                    ? const Value(null)
+                    : (errorMessage == null
+                          ? const Value.absent()
+                          : Value(errorMessage)),
               ),
             );
         if (updated == 0) {
@@ -202,21 +208,54 @@ final class DriftRunRepository implements RunRepository {
     required String eventId,
     required DateTime createdAt,
     JsonMap payload = const {},
+  }) => _transitionWithEvent(
+    runId,
+    fromStatus: RunStatus.running,
+    toStatus: RunStatus.interrupted,
+    eventType: RunEventType.runInterrupted,
+    eventId: eventId,
+    createdAt: createdAt,
+    payload: payload,
+  );
+
+  @override
+  Future<Result<Run>> markCancellationUncertainWithEvent(
+    String runId, {
+    required String eventId,
+    required DateTime createdAt,
+    JsonMap payload = const {},
+  }) => _transitionWithEvent(
+    runId,
+    fromStatus: RunStatus.cancelling,
+    toStatus: RunStatus.cancellationUncertain,
+    eventType: RunEventType.runCancellationUncertain,
+    eventId: eventId,
+    createdAt: createdAt,
+    payload: payload,
+  );
+
+  Future<Result<Run>> _transitionWithEvent(
+    String runId, {
+    required RunStatus fromStatus,
+    required RunStatus toStatus,
+    required RunEventType eventType,
+    required String eventId,
+    required DateTime createdAt,
+    required JsonMap payload,
   }) async {
     try {
       return await _db.transaction(() async {
         final updated =
             await (_db.update(_db.runs)..where(
                   (row) =>
-                      row.id.equals(runId) &
-                      row.status.equals(RunStatus.running.name),
+                      row.id.equals(runId) & row.status.equals(fromStatus.name),
                 ))
-                .write(
-                  RunsCompanion(status: Value(RunStatus.interrupted.name)),
-                );
+                .write(RunsCompanion(status: Value(toStatus.name)));
         if (updated == 0) {
           return FailureResult(
-            NotFoundFailure('Running run "$runId" not found.'),
+            NotFoundFailure(
+              'Run "$runId" with status "${fromStatus.name}" not found.',
+            ),
           );
         }
 
@@ -236,7 +275,7 @@ final class DriftRunRepository implements RunRepository {
                 id: eventId,
                 runId: runId,
                 sequence: nextSequence,
-                type: RunEventType.runInterrupted.wireName,
+                type: eventType.wireName,
                 payloadJson: jsonEncode(payload),
                 createdAt: utcCreatedAt.toIso8601String(),
               ),
@@ -250,7 +289,7 @@ final class DriftRunRepository implements RunRepository {
     } on Object catch (error) {
       return FailureResult(
         PersistenceFailure(
-          'Failed to mark run "$runId" interrupted.',
+          'Failed to transition run "$runId" to "${toStatus.name}".',
           cause: error,
         ),
       );
@@ -268,6 +307,7 @@ final class DriftRunRepository implements RunRepository {
                       row.status.isNotIn([
                         RunStatus.running.name,
                         RunStatus.paused.name,
+                        RunStatus.cancelling.name,
                       ]),
                 ))
                 .go();

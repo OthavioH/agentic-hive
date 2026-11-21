@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/runs/controllers/run_detail_controller.dart';
 import 'package:agentic_hive_frontend/presentation/runs/utils/run_l10n.dart';
+import 'package:agentic_hive_frontend/presentation/runs/widgets/run_graph_view.dart';
 import 'package:agentic_hive_frontend/presentation/runs/widgets/run_inspector_tabs.dart';
+import 'package:agentic_hive_frontend/presentation/runs/widgets/run_output_panel.dart';
 import 'package:agentic_hive_frontend/presentation/workspace/widgets/snapshots_panel.dart';
 import 'package:agentic_hive_frontend/routes/app_routes.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
@@ -133,7 +135,7 @@ class _RunDetailBody extends ConsumerStatefulWidget {
 }
 
 class _RunDetailBodyState extends ConsumerState<_RunDetailBody> {
-  RunInspectorTab _tab = RunInspectorTab.checkpoints;
+  RunInspectorTab _tab = RunInspectorTab.output;
 
   String get runId => widget.runId;
   RunDetailState get detailState => widget.detailState;
@@ -145,13 +147,26 @@ class _RunDetailBodyState extends ConsumerState<_RunDetailBody> {
     final spacing = context.hiveSpacing;
     final colors = context.hiveColors;
     final typography = context.hiveTypography;
+    final controller = ref.read(runDetailControllerProvider(runId).notifier);
     final run = detailState.run;
     final statusLabel = RunL10n.localizeStatus(l10n, run.status);
+    final isCancelling = run.status == RunStatus.cancelling;
+    final showCancel =
+        run.status == RunStatus.running ||
+        run.status == RunStatus.paused ||
+        isCancelling;
+    final showRetryCancel = run.status == RunStatus.cancellationUncertain;
+    final showResume = run.status == RunStatus.interrupted;
+
+    final graphView = RunGraphView(
+      workflow: run.workflowDefinition,
+      nodeStatuses: detailState.nodeStatuses,
+      selectedNodeId: detailState.inspectedNodeId,
+      onSelectNode: (nodeId) => unawaited(controller.selectNode(nodeId)),
+    );
     final inspector = _InspectorColumn(
       runId: runId,
-      run: run,
-      checkpoints: detailState.checkpoints,
-      selectedCheckpoint: detailState.selectedCheckpoint,
+      detailState: detailState,
       tab: _tab,
       onTabChanged: (tab) => setState(() => _tab = tab),
     );
@@ -179,17 +194,63 @@ class _RunDetailBodyState extends ConsumerState<_RunDetailBody> {
                 ),
               ],
             ),
+            if (showCancel)
+              HiveButton(
+                key: const Key('run_detail_cancel_button'),
+                label: isCancelling
+                    ? l10n.runDetailCancellingAction
+                    : l10n.runDetailCancelAction,
+                icon: HiveIcons.stop,
+                variant: HiveButtonVariant.danger,
+                loading: isCancelling || detailState.isActionInFlight,
+                onPressed: (isCancelling || detailState.isActionInFlight)
+                    ? null
+                    : () => unawaited(controller.cancelRun()),
+              ),
+            if (showRetryCancel)
+              HiveButton(
+                key: const Key('run_detail_retry_cancel_button'),
+                label: l10n.runDetailRetryCancelAction,
+                icon: HiveIcons.stop,
+                variant: HiveButtonVariant.danger,
+                loading: detailState.isActionInFlight,
+                onPressed: detailState.isActionInFlight
+                    ? null
+                    : () => unawaited(controller.cancelRun()),
+              ),
+            if (showResume)
+              HiveButton(
+                key: const Key('run_detail_resume_button'),
+                label: detailState.isActionInFlight
+                    ? l10n.runDetailResumingAction
+                    : l10n.runDetailResumeAction,
+                icon: HiveIcons.play,
+                loading: detailState.isActionInFlight,
+                onPressed: detailState.isActionInFlight
+                    ? null
+                    : () => unawaited(controller.resumeRun()),
+              ),
             HiveButton(
               key: const Key('run_detail_refresh_button'),
               label: l10n.runsRefreshAction,
               icon: HiveIcons.refresh,
               variant: HiveButtonVariant.secondary,
-              onPressed: () => unawaited(
-                ref.read(runDetailControllerProvider(runId).notifier).refresh(),
-              ),
+              loading: detailState.isRefreshing,
+              onPressed: () => unawaited(controller.refresh()),
             ),
           ],
         ),
+        if (detailState.actionFailure != null) ...<Widget>[
+          HiveBanner(
+            key: const Key('run_detail_action_failure_banner'),
+            tone: HiveFeedbackTone.danger,
+            title: RunL10n.localizeFailure(l10n, detailState.actionFailure!),
+            onDismiss: controller.dismissActionFailure,
+            dismissSemanticLabel: l10n.snapshotsDismissTooltip,
+            liveRegion: true,
+          ),
+          SizedBox(height: spacing.space2),
+        ],
         HiveCard(
           surface: HiveCardSurface.surface2,
           child: Wrap(
@@ -293,14 +354,7 @@ class _RunDetailBodyState extends ConsumerState<_RunDetailBody> {
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
-                    Expanded(
-                      flex: 3,
-                      child: _EventTimelineColumn(
-                        runId: runId,
-                        events: detailState.events,
-                        expandedEventIds: detailState.expandedEventIds,
-                      ),
-                    ),
+                    Expanded(flex: 3, child: graphView),
                     SizedBox(width: spacing.space3),
                     Expanded(flex: 2, child: inspector),
                   ],
@@ -310,14 +364,7 @@ class _RunDetailBodyState extends ConsumerState<_RunDetailBody> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
-                    SizedBox(
-                      height: spacing.space8 * 6,
-                      child: _EventTimelineColumn(
-                        runId: runId,
-                        events: detailState.events,
-                        expandedEventIds: detailState.expandedEventIds,
-                      ),
-                    ),
+                    SizedBox(height: spacing.space8 * 6, child: graphView),
                     SizedBox(height: spacing.space3),
                     SizedBox(height: spacing.space8 * 6, child: inspector),
                   ],
@@ -506,37 +553,46 @@ class _EventTimelineColumn extends ConsumerWidget {
 class _InspectorColumn extends StatelessWidget {
   const new({
     required this.runId,
-    required this.run,
-    required this.checkpoints,
-    required this.selectedCheckpoint,
+    required this.detailState,
     required this.tab,
     required this.onTabChanged,
   });
 
   final String runId;
-  final Run run;
-  final List<Checkpoint> checkpoints;
-  final Checkpoint? selectedCheckpoint;
+  final RunDetailState detailState;
   final RunInspectorTab tab;
   final ValueChanged<RunInspectorTab> onTabChanged;
 
   @override
   Widget build(BuildContext context) {
     final spacing = context.hiveSpacing;
+    final run = detailState.run;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         Align(
           alignment: Alignment.centerLeft,
-          child: RunInspectorTabs(selected: tab, onChanged: onTabChanged),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: RunInspectorTabs(selected: tab, onChanged: onTabChanged),
+          ),
         ),
         SizedBox(height: spacing.space2),
         Expanded(
           child: switch (tab) {
+            RunInspectorTab.output => RunOutputPanel(
+              runId: runId,
+              detailState: detailState,
+            ),
+            RunInspectorTab.events => _EventTimelineColumn(
+              runId: runId,
+              events: detailState.events,
+              expandedEventIds: detailState.expandedEventIds,
+            ),
             RunInspectorTab.checkpoints => _CheckpointInspectorColumn(
               runId: runId,
-              checkpoints: checkpoints,
-              selectedCheckpoint: selectedCheckpoint,
+              checkpoints: detailState.checkpoints,
+              selectedCheckpoint: detailState.selectedCheckpoint,
             ),
             RunInspectorTab.snapshots => SnapshotsPanel(
               runId: runId,
