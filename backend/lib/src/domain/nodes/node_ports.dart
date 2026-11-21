@@ -65,6 +65,10 @@ abstract interface class ResultContractSession {
   /// or `null` if not applicable.
   String? get resultFilePath;
 
+  /// Optional future that completes when an MCP `report_result` call is
+  /// accepted for this attempt while the process is still running.
+  Future<ResultContractReport>? get onMcpReportAccepted;
+
   /// Resolves the final [ResultContractReport] after the harness process exits,
   /// enforcing ADR 0003 precedence.
   Future<Result<ResultContractReport>> resolveOutcome({
@@ -178,7 +182,18 @@ final class PtyInvocation {
     this.environment = const <String, String>{},
     this.initialInput,
     this.timeout,
+    this.runId,
+    this.nodeId,
+    this.attempt = 1,
+    this.cols = defaultCols,
+    this.rows = defaultRows,
   });
+
+  /// Default PTY width in columns.
+  static const int defaultCols = 120;
+
+  /// Default PTY height in rows.
+  static const int defaultRows = 36;
 
   /// Executable to launch inside the PTY.
   final String executable;
@@ -197,6 +212,23 @@ final class PtyInvocation {
 
   /// Optional session timeout.
   final Duration? timeout;
+
+  /// Optional run identifier used to register the PTY session and track its
+  /// process tree.
+  final String? runId;
+
+  /// Optional node identifier used to register the PTY session and track its
+  /// process tree.
+  final String? nodeId;
+
+  /// 1-based attempt number for this node execution.
+  final int attempt;
+
+  /// Initial terminal width in columns.
+  final int cols;
+
+  /// Initial terminal height in rows.
+  final int rows;
 }
 
 /// Port for running interactive PTY sessions (ConPTY/PTY fallback, ADR 0005).

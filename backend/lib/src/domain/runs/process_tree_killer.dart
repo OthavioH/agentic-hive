@@ -24,8 +24,20 @@ abstract interface class ProcessTreeTracker {
     required Process process,
   });
 
+  /// Registers a child process by [pid] (for FFI-spawned processes such as PTY
+  /// sessions that do not have a `dart:io` [Process] handle).
+  void trackPid({
+    required String runId,
+    required String nodeId,
+    required int pid,
+    Future<int>? exitCode,
+  });
+
   /// Unregisters [process] after it exits normally.
   void untrack(Process process);
+
+  /// Unregisters a process tracked by [pid] after it exits normally.
+  void untrackPid(int pid);
 
   /// Whether cancellation has been requested for [runId], in which case new
   /// child processes for [runId] must not be started (or must be terminated

@@ -3,12 +3,15 @@ import 'dart:async';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/runs/controllers/run_detail_controller.dart';
 import 'package:agentic_hive_frontend/presentation/runs/utils/run_l10n.dart';
+import 'package:agentic_hive_frontend/presentation/runs/widgets/pty_terminal_panel.dart';
+import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// Inspector panel displaying live `stdout`/`stderr` output for a node attempt.
-class RunOutputPanel extends ConsumerWidget {
+/// Inspector panel displaying live `stdout`/`stderr` output or an embedded
+/// PTY terminal for a node attempt.
+class RunOutputPanel extends ConsumerStatefulWidget {
   /// Creates a [RunOutputPanel].
   const new({required this.runId, required this.detailState, super.key});
 
@@ -18,27 +21,54 @@ class RunOutputPanel extends ConsumerWidget {
   /// Current run detail state.
   final RunDetailState detailState;
 
-  String? _nodeLabel(String? nodeId) {
+  @override
+  ConsumerState<RunOutputPanel> createState() => _RunOutputPanelState();
+}
+
+class _RunOutputPanelState extends ConsumerState<RunOutputPanel> {
+  final Set<(String, int)> _activeTerminalSessions = <(String, int)>{};
+
+  WorkflowNode? _findNode(String? nodeId) {
     if (nodeId == null) return null;
-    for (final node in detailState.run.workflowDefinition.nodes) {
-      if (node.id == nodeId) return node.label;
+    for (final node in widget.detailState.run.workflowDefinition.nodes) {
+      if (node.id == nodeId) return node;
     }
-    return nodeId;
+    return null;
   }
 
+  static bool _isNodeActive(HiveNodeStatus? status) =>
+      status == HiveNodeStatus.running ||
+      status == HiveNodeStatus.paused ||
+      status == HiveNodeStatus.cancelling;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final spacing = context.hiveSpacing;
     final colors = context.hiveColors;
     final typography = context.hiveTypography;
-    final controller = ref.read(runDetailControllerProvider(runId).notifier);
+    final detailState = widget.detailState;
+    final controller = ref.read(
+      runDetailControllerProvider(widget.runId).notifier,
+    );
 
     final nodeId = detailState.inspectedNodeId;
-    final nodeLabel = _nodeLabel(nodeId);
+    final node = _findNode(nodeId);
+    final nodeLabel = node?.label ?? nodeId;
     final nodeStatus = nodeId != null
         ? (detailState.nodeStatuses[nodeId] ?? HiveNodeStatus.idle)
         : null;
+
+    final isTerminalNode = node?.type == NodeTypeId.terminal;
+    final attempt = detailState.selectedAttempt ?? 1;
+    final isActive = _isNodeActive(nodeStatus);
+    if (nodeId != null && isTerminalNode && isActive) {
+      _activeTerminalSessions.add((nodeId, attempt));
+    }
+    final showTerminal =
+        nodeId != null &&
+        isTerminalNode &&
+        (isActive || _activeTerminalSessions.contains((nodeId, attempt)));
 
     return HiveCard(
       surface: HiveCardSurface.surface2,
@@ -105,7 +135,7 @@ class RunOutputPanel extends ConsumerWidget {
               ],
             ),
           ],
-          if (detailState.logsTruncated) ...<Widget>[
+          if (!showTerminal && detailState.logsTruncated) ...<Widget>[
             SizedBox(height: spacing.space2),
             HiveBadge(
               label: l10n.runDetailOutputTruncatedNotice,
@@ -120,6 +150,15 @@ class RunOutputPanel extends ConsumerWidget {
                     icon: HiveIcons.terminal,
                     title: l10n.runDetailOutputTitle,
                     message: l10n.runDetailOutputSelectNode,
+                  )
+                : showTerminal
+                ? PtyTerminalPanel(
+                    key: Key('run_pty_terminal_${nodeId}_$attempt'),
+                    runId: widget.runId,
+                    nodeId: nodeId,
+                    attempt: attempt,
+                    nodeLabel: nodeLabel ?? l10n.runDetailOutputTitle,
+                    isEnded: !isActive,
                   )
                 : detailState.isLoadingLogs && controller.logController.isEmpty
                 ? Center(

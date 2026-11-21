@@ -186,22 +186,25 @@ final class _TrackedWindowsProcess {
   new({
     required this.runId,
     required this.nodeId,
-    required this.process,
+    required this.pid,
+    required Future<int>? exitCode,
     required this.jobHandle,
     required this.processHandle,
     required this.knownDescendantPids,
     required this.descendantSnapshotValid,
   }) {
-    unawaited(
-      process.exitCode.then((_) {
-        exited = true;
-      }),
-    );
+    if (exitCode != null) {
+      unawaited(
+        exitCode.then((_) {
+          exited = true;
+        }),
+      );
+    }
   }
 
   final String runId;
   final String nodeId;
-  final Process process;
+  final int pid;
   HANDLE? jobHandle;
   HANDLE? processHandle;
   final Set<int> knownDescendantPids;
@@ -260,8 +263,20 @@ final class WindowsProcessTreeKiller
     required String runId,
     required String nodeId,
     required Process process,
+  }) => trackPid(
+    runId: runId,
+    nodeId: nodeId,
+    pid: process.pid,
+    exitCode: process.exitCode,
+  );
+
+  @override
+  void trackPid({
+    required String runId,
+    required String nodeId,
+    required int pid,
+    Future<int>? exitCode,
   }) {
-    final pid = process.pid;
     HANDLE? jobHandle;
     HANDLE? processHandle;
 
@@ -336,7 +351,8 @@ final class WindowsProcessTreeKiller
       _TrackedWindowsProcess(
         runId: runId,
         nodeId: nodeId,
-        process: process,
+        pid: pid,
+        exitCode: exitCode,
         jobHandle: jobHandle,
         processHandle: processHandle,
         knownDescendantPids: descendants,
@@ -360,10 +376,13 @@ final class WindowsProcessTreeKiller
   }
 
   @override
-  void untrack(Process process) {
+  void untrack(Process process) => untrackPid(process.pid);
+
+  @override
+  void untrackPid(int pid) {
     for (var i = _tracked.length - 1; i >= 0; i--) {
       final entry = _tracked[i];
-      if (entry.process.pid != process.pid || entry.killing) continue;
+      if (entry.pid != pid || entry.killing) continue;
       // Do not forget the entry if cancellation was attempted and unconfirmed,
       // or if descendant processes are still alive in the job or tree.
       if (!entry.cancelAttempted && _isConfirmedExited(entry)) {
@@ -437,7 +456,7 @@ final class WindowsProcessTreeKiller
 
   Future<void> _terminateEntry(_TrackedWindowsProcess entry) async {
     // Capture any descendants visible right now before terminating the root.
-    final liveDescendants = _snapshotDescendantPids(entry.process.pid);
+    final liveDescendants = _snapshotDescendantPids(entry.pid);
     if (liveDescendants != null) {
       entry.knownDescendantPids.addAll(liveDescendants);
       entry.descendantSnapshotValid = true;
@@ -451,10 +470,10 @@ final class WindowsProcessTreeKiller
         '/T',
         '/F',
         '/PID',
-        '${entry.process.pid}',
+        '${entry.pid}',
       ]);
     } on ProcessException {
-      entry.process.kill(ProcessSignal.sigkill);
+      Process.killPid(entry.pid, ProcessSignal.sigkill);
     }
 
     final job = entry.jobHandle;
@@ -466,7 +485,7 @@ final class WindowsProcessTreeKiller
             'process_tree.terminate_job_failed',
             fields: {
               'runId': entry.runId,
-              'pid': entry.process.pid,
+              'pid': entry.pid,
               'error': terminated.error,
             },
           ),
@@ -499,7 +518,7 @@ final class WindowsProcessTreeKiller
             WaitForSingleObject(procHandle, 0).value == WAIT_OBJECT_0);
     if (!rootExited) return false;
 
-    final currentDescendants = _snapshotDescendantPids(entry.process.pid);
+    final currentDescendants = _snapshotDescendantPids(entry.pid);
     if (currentDescendants != null) {
       entry.knownDescendantPids.addAll(currentDescendants);
       entry.descendantSnapshotValid = true;

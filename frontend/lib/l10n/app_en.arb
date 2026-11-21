@@ -2097,6 +2097,51 @@
   "@runDetailOutputTruncatedNotice": {
     "description": "Notice shown when the fetched node log response was truncated."
   },
+  "runTerminalModeWatchLabel": "Watching (read-only)",
+  "@runTerminalModeWatchLabel": {
+    "description": "Header mode label for HiveTerminalView in Watch mode."
+  },
+  "runTerminalModeInteractiveLabel": "You have control",
+  "@runTerminalModeInteractiveLabel": {
+    "description": "Header mode label for HiveTerminalView in Interactive mode."
+  },
+  "runTerminalModeEndedLabel": "Session ended",
+  "@runTerminalModeEndedLabel": {
+    "description": "Header mode label for HiveTerminalView when the node has finished."
+  },
+  "runTerminalEndedEmptyNote": "This terminal session has ended. View the node's stored logs in the Output tab.",
+  "@runTerminalEndedEmptyNote": {
+    "description": "Empty-terminal note shown in Ended mode when no live terminal output was captured."
+  },
+  "runTerminalBadgeWatch": "Watch",
+  "@runTerminalBadgeWatch": {
+    "description": "Badge label indicating the terminal is in read-only Watch mode."
+  },
+  "runTerminalBadgeInteractive": "Interactive",
+  "@runTerminalBadgeInteractive": {
+    "description": "Badge label indicating the user has taken over terminal input."
+  },
+  "runTerminalBadgeEnded": "Ended",
+  "@runTerminalBadgeEnded": {
+    "description": "Badge label indicating the terminal session has ended."
+  },
+  "runTerminalTakeOverAction": "Take over",
+  "@runTerminalTakeOverAction": {
+    "description": "Button label to switch the embedded terminal from Watch to Interactive mode."
+  },
+  "runTerminalReleaseAction": "Release",
+  "@runTerminalReleaseAction": {
+    "description": "Button label to return the embedded terminal from Interactive to Watch mode."
+  },
+  "runTerminalSemanticLabel": "{nodeLabel} terminal",
+  "@runTerminalSemanticLabel": {
+    "description": "Accessibility label for the embedded terminal region of a node.",
+    "placeholders": {
+      "nodeLabel": {
+        "type": "String"
+      }
+    }
+  },
   "navPausesPendingSemantic": "Pauses, {count} pending",
   "@navPausesPendingSemantic": {
     "description": "Accessibility label for the Pauses side rail destination when pending pauses exist.",
@@ -2248,6 +2293,10 @@
         "type": "String"
       }
     }
+  },
+  "nodeConfigSendPromptToStdinLabel": "Send prompt to stdin",
+  "@nodeConfigSendPromptToStdinLabel": {
+    "description": "Switch label for TerminalHarnessNodeConfig.sendPromptToStdin in the workflow inspector."
   },
   "pausesAnnounceResolved": "Pause resolved: {nodeLabel}",
   "@pausesAnnounceResolved": {

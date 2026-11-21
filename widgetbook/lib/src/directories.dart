@@ -9,6 +9,7 @@ import 'package:hive_widgetbook/src/components/feedback_use_cases.dart';
 import 'package:hive_widgetbook/src/components/form_use_cases.dart' as forms;
 import 'package:hive_widgetbook/src/components/input_use_cases.dart';
 import 'package:hive_widgetbook/src/components/overlay_use_cases.dart';
+import 'package:hive_widgetbook/src/components/terminal_use_cases.dart';
 import 'package:hive_widgetbook/src/foundations/icon_pages.dart';
 import 'package:hive_widgetbook/src/foundations/motion_page.dart';
 import 'package:hive_widgetbook/src/foundations/token_pages.dart';
@@ -113,6 +114,7 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
         children: <WidgetbookNode>[
           codeBlockComponent(),
           logStreamViewerComponent(),
+          terminalViewComponent(),
         ],
       ),
       WidgetbookFolder(

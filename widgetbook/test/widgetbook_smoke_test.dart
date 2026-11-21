@@ -51,6 +51,9 @@ const Map<String, String> _useCases = <String, String>{
   'Arguments · Filled': '--verbose',
   'Arguments · Error': 'Remove empty arguments.',
   'Arguments · Disabled': 'Add argument',
+  'Interactive · Taken over': 'Hand back',
+  'Ended': 'Session ended',
+  'ANSI palette': 'Take over',
 };
 
 void main() {

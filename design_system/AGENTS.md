@@ -79,6 +79,8 @@ F10 additions (#20): `HiveNodeStatus.cancelling` (open ring with a stop square i
 
 F11 addition (#23): `HiveRailItem.badgeCount` / `HiveRailDestination.badgeCount` (count pill in `onWarning` on `warning` with a `background` hairline ring; inside the circle's top-right corner when collapsed, trailing the label when expanded; counts above `HiveRailItem.maxBadgeCount` show as `99+`). The pill is excluded from semantics: the consumer passes the count through `semanticLabel` (e.g. `Pauses, 3 pending`).
 
+F12 addition (#21): `HiveTerminalView` + `HiveTerminalController` (VT100/xterm emulator over `xterm`, imported only in `hive_terminal_view.dart`). Raw PTY bytes in through `appendBytes` (UTF-8 decoded across chunks), typed keys out through `onInput` as bytes, screen size in cells through `onResize` after layout (the consumer debounces). `HiveTerminalMode.watch` (read-only, `info` eye icon), `.interactive` (taken over, `accentMuted` keyboard icon, `focusRing` border while focused) and `.ended` (read-only, cursor hidden, no resizes, `onSurfaceMuted` stop icon). Frame: `surface1` panel with `radiusPanel`, screen in a `background` well with `radiusCard`, Geist Mono `mono` role. Colors come from `HiveTerminalColors` (derived from `HiveColors`; every ANSI text color reaches 4.5:1 on the terminal background, and the ANSI fill colors carry `foreground` at 4.5:1).
+
 **Desktop platform profile:** Windows, Linux, and macOS; mouse + keyboard first. Every interactive component must have a hover state, a visible keyboard focus indicator, and a semantics label. Support desktop density (sidebar, multi-column, master-detail).
 
 ## Do and Don't
