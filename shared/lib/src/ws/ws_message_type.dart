@@ -19,4 +19,20 @@ abstract final class WsMessageType {
 
   /// Server → client, broadcast when runtime settings are updated.
   static const settingsUpdated = 'settings.updated';
+
+  /// Client → server, subscribes the connection to `run.output` frames for a
+  /// specific `runId`.
+  static const runSubscribe = 'run.subscribe';
+
+  /// Client → server, unsubscribes the connection from `run.output` frames for
+  /// a specific `runId`.
+  static const runUnsubscribe = 'run.unsubscribe';
+
+  /// Server → client, broadcast globally when a run lifecycle/execution event
+  /// is recorded.
+  static const runEvent = 'run.event';
+
+  /// Server → client, streamed to connections subscribed to `runId` when a
+  /// node emits `stdout` or `stderr` output.
+  static const runOutput = 'run.output';
 }

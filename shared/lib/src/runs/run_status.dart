@@ -6,6 +6,14 @@ enum RunStatus {
   /// The run is waiting for human input (approval node or `ask_human`).
   paused,
 
+  /// Cancellation was requested and the backend is terminating active
+  /// process trees.
+  cancelling,
+
+  /// Cancellation was requested, but process tree exit could not be
+  /// confirmed within the timeout.
+  cancellationUncertain,
+
   /// The run was interrupted by a backend restart while running.
   interrupted,
 
@@ -18,8 +26,8 @@ enum RunStatus {
   /// The run was cancelled by the user.
   cancelled;
 
-  /// Whether this run is still active (`running` or `paused`).
-  bool get isActive => this == running || this == paused;
+  /// Whether this run is still active (`running`, `paused`, or `cancelling`).
+  bool get isActive => this == running || this == paused || this == cancelling;
 
   /// Parses a [RunStatus] by its enum [name], throwing a [FormatException]
   /// when unknown.
