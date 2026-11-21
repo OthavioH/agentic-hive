@@ -6,6 +6,7 @@ import 'package:agentic_hive_frontend/data/agents/agent_providers.dart';
 import 'package:agentic_hive_frontend/data/harnesses/harness_repository_impl.dart';
 import 'package:agentic_hive_frontend/data/runs/run_providers.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
+import 'package:agentic_hive_frontend/data/workspace/workspace_providers.dart';
 import 'package:agentic_hive_frontend/domain/agents/create_agent_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/delete_agent_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/get_agent_use_case.dart';
@@ -28,6 +29,10 @@ import 'package:agentic_hive_frontend/domain/workflows/use_cases/get_workflow.da
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/list_workflows.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/update_workflow.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/validate_workflow.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/get_snapshot_diff.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/get_workspace_capabilities.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/list_run_snapshots.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/restore_snapshot.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'use_case_providers.g.dart';
@@ -138,3 +143,23 @@ GetRunCheckpoints getRunCheckpoints(Ref ref) =>
 /// Provides [DeleteRun].
 @riverpod
 DeleteRun deleteRun(Ref ref) => DeleteRun(ref.watch(runRepositoryProvider));
+
+/// Provides [GetWorkspaceCapabilities].
+@riverpod
+GetWorkspaceCapabilities getWorkspaceCapabilities(Ref ref) =>
+    GetWorkspaceCapabilities(ref.watch(workspaceRepositoryProvider));
+
+/// Provides [ListRunSnapshots].
+@riverpod
+ListRunSnapshots listRunSnapshots(Ref ref) =>
+    ListRunSnapshots(ref.watch(workspaceRepositoryProvider));
+
+/// Provides [GetSnapshotDiff].
+@riverpod
+GetSnapshotDiff getSnapshotDiff(Ref ref) =>
+    GetSnapshotDiff(ref.watch(workspaceRepositoryProvider));
+
+/// Provides [RestoreSnapshot].
+@riverpod
+RestoreSnapshot restoreSnapshot(Ref ref) =>
+    RestoreSnapshot(ref.watch(workspaceRepositoryProvider));
