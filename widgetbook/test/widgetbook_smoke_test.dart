@@ -11,6 +11,16 @@ const Map<String, String> _useCases = <String, String>{
   'Primary · Default': 'Run workflow',
   'Collapsed (default)': '',
   'Interactive shell': 'Nothing in Overview yet',
+  'Danger · Default': 'Run workflow',
+  'Single-line · Focused': 'Workflow name',
+  'Single-line · Error': 'Name is required.',
+  'Multi-line · Default': 'Description',
+  'Select · Hovered': 'Source output',
+  'Select · Error': 'An edge needs a source output.',
+  'On · Focused': '',
+  'With label': 'Entry node',
+  'Delete confirmation': 'Delete "Release checklist"?',
+  'With content': 'Release checklist (copy)',
 };
 
 void main() {

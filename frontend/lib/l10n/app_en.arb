@@ -197,5 +197,425 @@
   "routeErrorAction": "Back to Overview",
   "@routeErrorAction": {
     "description": "Button label on the router error page to return to Overview."
+  },
+  "workflowsPageSubtitle": "Create, inspect, and manage workflow graphs.",
+  "@workflowsPageSubtitle": {
+    "description": "Subtitle on the Workflows list page header."
+  },
+  "workflowsNewAction": "New workflow",
+  "@workflowsNewAction": {
+    "description": "Primary button label to create a new workflow."
+  },
+  "workflowsSearchLabel": "Search workflows",
+  "@workflowsSearchLabel": {
+    "description": "Label for the workflow search field."
+  },
+  "workflowsSearchHint": "Filter by name or description...",
+  "@workflowsSearchHint": {
+    "description": "Placeholder hint for the workflow search field."
+  },
+  "workflowsSearchEmptyTitle": "No matching workflows",
+  "@workflowsSearchEmptyTitle": {
+    "description": "Title shown when the workflow search filter matches no items."
+  },
+  "workflowsSearchEmptyDescription": "Try a different search query or clear the filter.",
+  "@workflowsSearchEmptyDescription": {
+    "description": "Description shown when the workflow search filter matches no items."
+  },
+  "workflowsClearSearchAction": "Clear search",
+  "@workflowsClearSearchAction": {
+    "description": "Button label to clear the workflow search filter."
+  },
+  "workflowsLoadErrorTitle": "Failed to load workflows",
+  "@workflowsLoadErrorTitle": {
+    "description": "Title shown when loading the workflows list fails."
+  },
+  "workflowsRetryAction": "Retry",
+  "@workflowsRetryAction": {
+    "description": "Button label to retry loading workflows."
+  },
+  "workflowsCreateTitle": "Create workflow",
+  "@workflowsCreateTitle": {
+    "description": "Title of the create workflow dialog."
+  },
+  "workflowsNameLabel": "Workflow name",
+  "@workflowsNameLabel": {
+    "description": "Label for the workflow name input."
+  },
+  "workflowsNameHint": "e.g. PR Review Pipeline",
+  "@workflowsNameHint": {
+    "description": "Placeholder hint for the workflow name input."
+  },
+  "workflowsNameRequiredError": "Enter a workflow name.",
+  "@workflowsNameRequiredError": {
+    "description": "Validation error shown when creating a workflow with an empty name."
+  },
+  "workflowsDescriptionLabel": "Description (optional)",
+  "@workflowsDescriptionLabel": {
+    "description": "Label for the workflow description input."
+  },
+  "workflowsDescriptionHint": "Describe what this workflow automates...",
+  "@workflowsDescriptionHint": {
+    "description": "Placeholder hint for the workflow description input."
+  },
+  "workflowsCreateConfirm": "Create",
+  "@workflowsCreateConfirm": {
+    "description": "Confirm button label in the create workflow dialog."
+  },
+  "workflowsCancelAction": "Cancel",
+  "@workflowsCancelAction": {
+    "description": "Cancel button label in workflow dialogs."
+  },
+  "workflowsDuplicateAction": "Duplicate workflow",
+  "@workflowsDuplicateAction": {
+    "description": "Semantic label and tooltip for duplicating a workflow."
+  },
+  "workflowsDeleteAction": "Delete workflow",
+  "@workflowsDeleteAction": {
+    "description": "Semantic label and tooltip for deleting a workflow."
+  },
+  "workflowsOpenAction": "Open {name}",
+  "@workflowsOpenAction": {
+    "description": "Semantic label for opening a workflow card in the editor.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workflowsDeleteTitle": "Delete workflow?",
+  "@workflowsDeleteTitle": {
+    "description": "Title of the delete workflow confirmation dialog."
+  },
+  "workflowsDeleteMessage": "Delete \"{name}\"? This action cannot be undone.",
+  "@workflowsDeleteMessage": {
+    "description": "Message in the delete workflow confirmation dialog.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workflowsDeleteConfirm": "Delete",
+  "@workflowsDeleteConfirm": {
+    "description": "Confirm button label in the delete workflow dialog."
+  },
+  "workflowsNodeCount": "{count, plural, =0{0 nodes} =1{1 node} other{{count} nodes}}",
+  "@workflowsNodeCount": {
+    "description": "Node count label on a workflow summary card.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workflowsEdgeCount": "{count, plural, =0{0 edges} =1{1 edge} other{{count} edges}}",
+  "@workflowsEdgeCount": {
+    "description": "Edge count label on a workflow summary card.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workflowsStatusValid": "Valid",
+  "@workflowsStatusValid": {
+    "description": "Badge label when a workflow has no validation errors."
+  },
+  "workflowsStatusInvalid": "Needs attention",
+  "@workflowsStatusInvalid": {
+    "description": "Badge label when a workflow has validation errors."
+  },
+  "workflowsUpdatedLabel": "Updated {timestamp}",
+  "@workflowsUpdatedLabel": {
+    "description": "Timestamp label on a workflow summary card.",
+    "placeholders": {
+      "timestamp": {
+        "type": "String"
+      }
+    }
+  },
+  "editorBackAction": "Back to workflows",
+  "@editorBackAction": {
+    "description": "Tooltip and semantic label for the back button in the graph editor."
+  },
+  "editorAddNodeAction": "Add node",
+  "@editorAddNodeAction": {
+    "description": "Button label to add a new node to the graph canvas."
+  },
+  "editorSaveAction": "Save",
+  "@editorSaveAction": {
+    "description": "Primary button label to save changes in the graph editor."
+  },
+  "editorSavingAction": "Saving...",
+  "@editorSavingAction": {
+    "description": "Label shown while saving a workflow."
+  },
+  "editorUnsavedBadge": "Unsaved changes",
+  "@editorUnsavedBadge": {
+    "description": "Badge indicating the workflow has unsaved local edits."
+  },
+  "editorSavedBadge": "Saved",
+  "@editorSavedBadge": {
+    "description": "Badge indicating all workflow changes are saved."
+  },
+  "editorValidationValid": "Graph valid",
+  "@editorValidationValid": {
+    "description": "Badge indicating the workflow graph passed validation."
+  },
+  "editorValidationErrorsCount": "{count, plural, =1{1 error} other{{count} errors}}",
+  "@editorValidationErrorsCount": {
+    "description": "Badge showing the number of validation errors in the graph.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "editorValidationWarningsCount": "{count, plural, =1{1 warning} other{{count} warnings}}",
+  "@editorValidationWarningsCount": {
+    "description": "Badge showing the number of validation warnings in the graph.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "editorUnsavedDialogTitle": "Discard unsaved changes?",
+  "@editorUnsavedDialogTitle": {
+    "description": "Title of the confirmation dialog when leaving the editor with unsaved changes."
+  },
+  "editorUnsavedDialogMessage": "You have unsaved changes to this workflow. Leave without saving?",
+  "@editorUnsavedDialogMessage": {
+    "description": "Message of the confirmation dialog when leaving the editor with unsaved changes."
+  },
+  "editorDiscardAction": "Discard changes",
+  "@editorDiscardAction": {
+    "description": "Confirm button label to discard unsaved edits and leave the editor."
+  },
+  "editorKeepEditingAction": "Keep editing",
+  "@editorKeepEditingAction": {
+    "description": "Cancel button label to stay in the graph editor."
+  },
+  "editorInspectorWorkflowTitle": "Workflow",
+  "@editorInspectorWorkflowTitle": {
+    "description": "Inspector panel header when no node or edge is selected."
+  },
+  "editorInspectorNodeTitle": "Node",
+  "@editorInspectorNodeTitle": {
+    "description": "Inspector panel header when a node is selected."
+  },
+  "editorInspectorEdgeTitle": "Edge",
+  "@editorInspectorEdgeTitle": {
+    "description": "Inspector panel header when an edge is selected."
+  },
+  "editorValidationSectionTitle": "Validation",
+  "@editorValidationSectionTitle": {
+    "description": "Section header for validation diagnostics in the inspector."
+  },
+  "editorNoValidationIssues": "No validation issues found.",
+  "@editorNoValidationIssues": {
+    "description": "Message shown in the inspector when the workflow has no errors or warnings."
+  },
+  "editorNodeLabelField": "Label",
+  "@editorNodeLabelField": {
+    "description": "Text field label for editing a node's display label."
+  },
+  "editorNodeTypeField": "Node type",
+  "@editorNodeTypeField": {
+    "description": "Read-only field label for a node's type identifier."
+  },
+  "editorNodeEntryLabel": "Entry node",
+  "@editorNodeEntryLabel": {
+    "description": "Switch label for toggling whether the selected node is the workflow entry node."
+  },
+  "editorDeleteNodeAction": "Delete node",
+  "@editorDeleteNodeAction": {
+    "description": "Button label to delete the selected node."
+  },
+  "editorDefaultNodeLabel": "Step {number}",
+  "@editorDefaultNodeLabel": {
+    "description": "Default label assigned to a newly added placeholder node.",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "editorEntryBadge": "Entry",
+  "@editorEntryBadge": {
+    "description": "Badge displayed on the entry node card on the canvas."
+  },
+  "editorNodeTypePlaceholder": "Placeholder",
+  "@editorNodeTypePlaceholder": {
+    "description": "Display label for generic placeholder nodes before F5 node types."
+  },
+  "editorEdgeSourceOutputLabel": "Source output",
+  "@editorEdgeSourceOutputLabel": {
+    "description": "Select field label for choosing an edge's sourceOutput."
+  },
+  "editorEdgeSourceOutputCustomOption": "Custom output...",
+  "@editorEdgeSourceOutputCustomOption": {
+    "description": "Select option for entering a custom sourceOutput value."
+  },
+  "editorEdgeSourceOutputCustomLabel": "Custom output label",
+  "@editorEdgeSourceOutputCustomLabel": {
+    "description": "Text field label for entering a custom edge sourceOutput."
+  },
+  "editorEdgeSourceOutputCustomHint": "e.g. approved, needsReview",
+  "@editorEdgeSourceOutputCustomHint": {
+    "description": "Placeholder hint for custom edge sourceOutput."
+  },
+  "editorEdgeMaxRetriesLabel": "Max retries",
+  "@editorEdgeMaxRetriesLabel": {
+    "description": "Text field label for an edge's maxRetries limit."
+  },
+  "editorEdgeMaxRetriesHint": "Optional (required for cycles)",
+  "@editorEdgeMaxRetriesHint": {
+    "description": "Placeholder hint for an edge's maxRetries field."
+  },
+  "editorEdgeMaxRetriesHelper": "Positive integer required on at least one edge in a cycle.",
+  "@editorEdgeMaxRetriesHelper": {
+    "description": "Helper text under the maxRetries input."
+  },
+  "editorDeleteEdgeAction": "Delete edge",
+  "@editorDeleteEdgeAction": {
+    "description": "Button label to delete the selected edge."
+  },
+  "editorOutputPortTooltip": "Drag to another node to connect",
+  "@editorOutputPortTooltip": {
+    "description": "Tooltip and semantic label for a node's output port handle."
+  },
+  "editorZoomInTooltip": "Zoom in",
+  "@editorZoomInTooltip": {
+    "description": "Tooltip and semantic label for canvas zoom-in button."
+  },
+  "editorZoomOutTooltip": "Zoom out",
+  "@editorZoomOutTooltip": {
+    "description": "Tooltip and semantic label for canvas zoom-out button."
+  },
+  "editorZoomResetTooltip": "Reset view",
+  "@editorZoomResetTooltip": {
+    "description": "Tooltip and semantic label for resetting canvas pan and zoom."
+  },
+  "editorLoadErrorTitle": "Could not open workflow",
+  "@editorLoadErrorTitle": {
+    "description": "Title shown when loading a workflow in the editor fails."
+  },
+  "editorBackToWorkflowsAction": "Back to Workflows",
+  "@editorBackToWorkflowsAction": {
+    "description": "Button label to return to the workflows list from an editor error state."
+  },
+  "editorIssueErrorLabel": "Error",
+  "@editorIssueErrorLabel": {
+    "description": "Severity label for a validation error item."
+  },
+  "editorIssueWarningLabel": "Warning",
+  "@editorIssueWarningLabel": {
+    "description": "Severity label for a validation warning item."
+  },
+  "editorIssueBlankName": "Workflow name must not be blank.",
+  "@editorIssueBlankName": {
+    "description": "Localized validation message when the workflow name is blank."
+  },
+  "editorIssueEmptyNodes": "Workflow must contain at least one node.",
+  "@editorIssueEmptyNodes": {
+    "description": "Localized validation message when the workflow contains no nodes."
+  },
+  "editorIssueMissingEntryNode": "Select a valid entry node for this workflow.",
+  "@editorIssueMissingEntryNode": {
+    "description": "Localized validation message when entryNodeId is missing or invalid."
+  },
+  "editorIssueEmptySourceOutput": "Edge \"{edgeId}\" must specify a non-empty source output.",
+  "@editorIssueEmptySourceOutput": {
+    "description": "Localized validation message when an edge has an empty sourceOutput.",
+    "placeholders": {
+      "edgeId": {
+        "type": "String"
+      }
+    }
+  },
+  "editorIssueOrphanEdge": "Edge \"{edgeId}\" references a missing source or target node.",
+  "@editorIssueOrphanEdge": {
+    "description": "Localized validation message when an edge references a missing node.",
+    "placeholders": {
+      "edgeId": {
+        "type": "String"
+      }
+    }
+  },
+  "editorIssueDuplicateEdge": "Duplicate edge from \"{sourceLabel}\" ({sourceOutput}) to \"{targetLabel}\".",
+  "@editorIssueDuplicateEdge": {
+    "description": "Localized validation message when two edges share source, output, and target.",
+    "placeholders": {
+      "sourceLabel": {
+        "type": "String"
+      },
+      "sourceOutput": {
+        "type": "String"
+      },
+      "targetLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "editorIssueInvalidMaxRetries": "Edge \"{edgeId}\" max retries must be greater than 0.",
+  "@editorIssueInvalidMaxRetries": {
+    "description": "Localized validation message when an edge has maxRetries <= 0.",
+    "placeholders": {
+      "edgeId": {
+        "type": "String"
+      }
+    }
+  },
+  "editorIssueUnboundedCycle": "Cycle involving \"{sourceLabel}\" -> \"{targetLabel}\" requires at least one edge with max retries greater than 0.",
+  "@editorIssueUnboundedCycle": {
+    "description": "Localized validation message when a directed cycle has no positive maxRetries edge.",
+    "placeholders": {
+      "sourceLabel": {
+        "type": "String"
+      },
+      "targetLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "editorIssueUnreachableNode": "Node \"{nodeLabel}\" is not reachable from the entry node.",
+  "@editorIssueUnreachableNode": {
+    "description": "Localized validation message when a node cannot be reached from entryNodeId.",
+    "placeholders": {
+      "nodeLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "editorIssueUnknown": "Workflow graph has a validation issue ({code}).",
+  "@editorIssueUnknown": {
+    "description": "Fallback localized validation message for an unrecognized validation issue code.",
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "workflowsFailureNetwork": "Could not reach the local backend. Check the connection and try again.",
+  "@workflowsFailureNetwork": {
+    "description": "Localized error message when a workflow operation fails with a NetworkFailure."
+  },
+  "workflowsFailureNotFound": "The requested workflow could not be found.",
+  "@workflowsFailureNotFound": {
+    "description": "Localized error message when a workflow operation fails with a NotFoundFailure."
+  },
+  "workflowsFailureValidation": "The workflow request was invalid. Check your inputs and try again.",
+  "@workflowsFailureValidation": {
+    "description": "Localized error message when a workflow operation fails with a ValidationFailure."
+  },
+  "workflowsFailureBackend": "The local backend rejected the workflow request.",
+  "@workflowsFailureBackend": {
+    "description": "Localized error message when a workflow operation fails with a BackendFailure."
+  },
+  "workflowsFailureUnexpected": "An unexpected error occurred while processing the workflow.",
+  "@workflowsFailureUnexpected": {
+    "description": "Localized error message when a workflow operation fails with an UnexpectedFailure."
   }
 }
