@@ -30,6 +30,7 @@ HttpFailureMapping mapFailureToHttp(Failure failure, {String? requestId}) =>
           details: details,
         ),
       ),
+      PauseRequestedFailure(:final message) ||
       ConflictFailure(:final message) => (
         statusCode: 409,
         error: ApiError(

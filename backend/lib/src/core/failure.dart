@@ -69,6 +69,43 @@ final class HarnessRateLimitFailure extends Failure {
   final String harnessType;
 }
 
+/// Why a node asked the engine to pause its run.
+enum PauseKind {
+  /// A `human_approval` node waits for an approve/reject decision.
+  approval,
+
+  /// A harness called `ask_human` and waits for a free-form answer.
+  askHuman,
+}
+
+/// A node did not finish because it needs a human before the run can go on.
+///
+/// Returned (never thrown) by a node or port that wants the run paused
+/// (ADR 0007, ADR 0019). The engine persists a checkpoint and releases the run
+/// from memory instead of counting this as a failure.
+final class PauseRequestedFailure extends Failure {
+  /// Creates a pause request.
+  const new(
+    super.message, {
+    required this.kind,
+    required this.runId,
+    required this.nodeId,
+    this.question,
+  });
+
+  /// What the node is waiting for.
+  final PauseKind kind;
+
+  /// Run that must pause.
+  final String runId;
+
+  /// Node that requested the pause.
+  final String nodeId;
+
+  /// Question or instructions shown to the human, when known.
+  final String? question;
+}
+
 /// A node failed due to an infrastructure error (missing report, non-zero
 /// exit, timeout, or process spawn error).
 final class NodeExecutionFailure extends Failure {

@@ -18,6 +18,7 @@ final class NodeExecutionContext {
     this.config = const <String, Object?>{},
     this.inputs = const <String, Object?>{},
     this.resultJsonPath,
+    this.humanAnswer,
     this.onOutput,
   });
 
@@ -44,6 +45,10 @@ final class NodeExecutionContext {
 
   /// Optional path to `result.json` for harnesses without MCP.
   final String? resultJsonPath;
+
+  /// The human's answer to an earlier `ask_human` question, set when the
+  /// engine re-runs a node after resuming its paused run (ADR 0019).
+  final String? humanAnswer;
 
   /// Optional callback for streamed output lines.
   final NodeOutputCallback? onOutput;

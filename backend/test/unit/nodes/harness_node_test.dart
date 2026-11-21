@@ -52,6 +52,9 @@ final class _FakeResultContract implements ResultContract {
 
   ResultContractReport? report;
 
+  /// When set, reading the report fails with this failure.
+  Failure? readFailure;
+
   @override
   Future<Result<ResultContractSession>> openSession(
     NodeExecutionContext context,
@@ -70,7 +73,8 @@ final class _FakeResultContract implements ResultContract {
   @override
   Future<Result<ResultContractReport?>> readReport(
     NodeExecutionContext context,
-  ) async => Success(report);
+  ) async =>
+      readFailure == null ? Success(report) : FailureResult(readFailure!);
 }
 
 final class _FakeResultContractSession implements ResultContractSession {
@@ -154,11 +158,13 @@ final class _FakeAgentPromptResolver implements AgentPromptResolver {
 
 NodeExecutionContext _context({
   JsonMap config = const {'additionalInstructions': 'Implement feature X'},
+  String? humanAnswer,
 }) => NodeExecutionContext(
   runId: 'run-1',
   nodeId: 'node-1',
   workspacePath: '/tmp/workspace',
   config: config,
+  humanAnswer: humanAnswer,
 );
 
 void main() {
@@ -229,6 +235,35 @@ void main() {
       expect(
         invocation.stdinContent,
         contains('Call report_result when finished.'),
+      );
+    });
+
+    test('injects the human answer into the prompt on a re-run', () async {
+      final node = ClaudeCodeNode(
+        processRunner: processRunner,
+        resultContract: resultContract,
+        agentPromptResolver: agentResolver,
+      );
+
+      await node.execute(_context(humanAnswer: 'Use PostgreSQL.'));
+
+      final stdin = processRunner.lastInvocation!.stdinContent!;
+      expect(stdin, contains('## Human Answer'));
+      expect(stdin, contains('Use PostgreSQL.'));
+    });
+
+    test('adds no human answer section without an answer', () async {
+      final node = ClaudeCodeNode(
+        processRunner: processRunner,
+        resultContract: resultContract,
+        agentPromptResolver: agentResolver,
+      );
+
+      await node.execute(_context());
+
+      expect(
+        processRunner.lastInvocation!.stdinContent,
+        isNot(contains('Human Answer')),
       );
     });
 
@@ -345,6 +380,24 @@ void main() {
 
       final result = await node.execute(_context());
       expect(result.failureOrNull, isA<HarnessRateLimitFailure>());
+    });
+
+    test('a malformed result report is an infrastructure failure', () async {
+      resultContract.readFailure = const ValidationFailure(
+        'Invalid JSON in fallback result.json.',
+      );
+      final node = CodexNode(
+        processRunner: processRunner,
+        resultContract: resultContract,
+        agentPromptResolver: agentResolver,
+      );
+
+      final result = await node.execute(_context());
+
+      final failure = result.failureOrNull;
+      expect(failure, isA<NodeExecutionFailure>());
+      expect(failure!.message, contains('Invalid JSON'));
+      expect((failure as NodeExecutionFailure).exitCode, 0);
     });
 
     test('maps timeout to NodeExecutionFailure', () async {

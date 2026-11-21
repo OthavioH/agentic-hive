@@ -42,6 +42,20 @@ void main() {
       );
     });
 
+    test('maps PauseRequestedFailure to 409 conflict', () {
+      final mapped = mapFailureToHttp(
+        const PauseRequestedFailure(
+          'Run paused.',
+          kind: PauseKind.approval,
+          runId: 'run-1',
+          nodeId: 'gate',
+        ),
+      );
+
+      expect(mapped.statusCode, 409);
+      expect(mapped.error.code, ApiErrorCode.conflict);
+    });
+
     test('maps ConflictFailure to 409 conflict with message', () {
       final mapped = mapFailureToHttp(
         const ConflictFailure('Run is already active.'),

@@ -41,6 +41,15 @@ final class HumanPauseRequest {
 /// Port coordinating blocking `ask_human` pauses between `hive-mcp` HTTP
 /// requests and human responses or run cancellation (ADR 0019).
 abstract interface class HumanPauseGateway {
+  /// Emits every new pending request, so the graph engine can pause the run
+  /// (ADR 0019) while the harness waits.
+  Stream<HumanPauseRequest> get requests;
+
+  /// Emits a request once a human answered it through [submitAnswer], so the
+  /// graph engine can move the run from `paused` back to `running` while the
+  /// live harness continues (ADR 0019).
+  Stream<HumanPauseRequest> get answered;
+
   /// Suspends until a human answers [question] via [submitAnswer] or the run
   /// is cancelled via [cancelRun].
   Future<Result<String>> requestHumanAnswer({
@@ -88,7 +97,17 @@ final class InMemoryHumanPauseGateway implements HumanPauseGateway {
   new();
 
   final Map<String, _PendingPause> _pending = <String, _PendingPause>{};
+  final StreamController<HumanPauseRequest> _requests =
+      StreamController<HumanPauseRequest>.broadcast(sync: true);
+  final StreamController<HumanPauseRequest> _answered =
+      StreamController<HumanPauseRequest>.broadcast(sync: true);
   int _nextId = 1;
+
+  @override
+  Stream<HumanPauseRequest> get requests => _requests.stream;
+
+  @override
+  Stream<HumanPauseRequest> get answered => _answered.stream;
 
   @override
   List<HumanPauseRequest> get allPending =>
@@ -129,6 +148,7 @@ final class InMemoryHumanPauseGateway implements HumanPauseGateway {
     );
     final completer = Completer<Result<String>>();
     _pending[pauseId] = _PendingPause(request: request, completer: completer);
+    _requests.add(request);
     return completer.future;
   }
 
@@ -143,6 +163,7 @@ final class InMemoryHumanPauseGateway implements HumanPauseGateway {
     if (!pending.completer.isCompleted) {
       pending.completer.complete(Success(answer));
     }
+    _answered.add(pending.request);
     return const Success(null);
   }
 
@@ -184,6 +205,8 @@ final class InMemoryHumanPauseGateway implements HumanPauseGateway {
 
   /// Cancels all remaining pending pause requests on shutdown.
   void dispose() {
+    unawaited(_requests.close());
+    unawaited(_answered.close());
     final ids = _pending.keys.toList(growable: false);
     for (final pauseId in ids) {
       final pending = _pending.remove(pauseId);
