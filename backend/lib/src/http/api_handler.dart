@@ -1,3 +1,4 @@
+import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/health_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
 import 'package:agentic_hive_backend/src/http/json_response.dart';
@@ -18,11 +19,19 @@ import 'package:shelf_router/shelf_router.dart';
 Handler buildApiHandler({
   required StatusHandler statusHandler,
   required Handler webSocketHandler,
+  HarnessesHandler? harnessesHandler,
 }) {
   final router = Router(notFoundHandler: _notFound)
     ..get('/health', healthHandler)
     ..get('/api/v1/status', statusHandler.call)
     ..get('/ws', webSocketHandler);
+
+  if (harnessesHandler != null) {
+    router
+      ..get('/api/v1/harnesses', harnessesHandler.list)
+      ..post('/api/v1/harnesses/refresh', harnessesHandler.refreshAll)
+      ..post('/api/v1/harnesses/<id>/refresh', harnessesHandler.refreshOne);
+  }
 
   return const Pipeline()
       .addMiddleware(requestIdMiddleware())
