@@ -111,31 +111,28 @@ final class SocketHttpClient {
     Map<String, String> headers = const {},
   }) => _send('DELETE', pathAndQuery, headers: headers);
 
-  Future<SocketResponse> _send(
-    String method,
-    String pathAndQuery, {
-    Map<String, String> headers = const {},
-  }) async {
-    final request = await _client
-        .openUrl(method, Uri.parse('http://localhost$pathAndQuery'))
-        .timeout(ioTimeout);
-    headers.forEach(request.headers.set);
-    final response = await request.close().timeout(ioTimeout);
-    final body = await response
-        .transform(utf8.decoder)
-        .join()
-        .timeout(ioTimeout);
-    return SocketResponse(response.statusCode, response.headers, body);
-  }
-
   /// Sends `POST` to [pathAndQuery] with optional [headers] and [body].
   Future<SocketResponse> post(
     String pathAndQuery, {
     Map<String, String> headers = const {},
     String? body,
+  }) => _send('POST', pathAndQuery, headers: headers, body: body);
+
+  /// Sends `PUT` to [pathAndQuery] with optional [headers] and [body].
+  Future<SocketResponse> put(
+    String pathAndQuery, {
+    Map<String, String> headers = const {},
+    String? body,
+  }) => _send('PUT', pathAndQuery, headers: headers, body: body);
+
+  Future<SocketResponse> _send(
+    String method,
+    String pathAndQuery, {
+    Map<String, String> headers = const {},
+    String? body,
   }) async {
     final request = await _client
-        .postUrl(Uri.parse('http://localhost$pathAndQuery'))
+        .openUrl(method, Uri.parse('http://localhost$pathAndQuery'))
         .timeout(ioTimeout);
     headers.forEach(request.headers.set);
     if (body != null) {

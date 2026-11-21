@@ -257,6 +257,7 @@ final class UnixSocketBackendClient implements BackendClient {
 
   Failure _mapHttpError(int statusCode, String rawBody) {
     String? code;
+    Map<String, String>? details;
     var message = 'Request failed with status $statusCode.';
     try {
       final decoded = jsonDecode(rawBody);
@@ -264,12 +265,20 @@ final class UnixSocketBackendClient implements BackendClient {
         final apiError = ApiError.fromJson(decoded);
         code = apiError.code;
         message = apiError.message;
+        details = apiError.details;
       }
     } on Object {
       // Keep default status message when body is not an ApiError JSON object.
     }
     if (statusCode == HttpStatus.notFound) {
       return NotFoundFailure(message);
+    }
+    if (statusCode == HttpStatus.badRequest ||
+        statusCode == HttpStatus.unprocessableEntity) {
+      return ValidationFailure(
+        message,
+        details: details ?? const <String, String>{},
+      );
     }
     return BackendFailure(message, code: code, statusCode: statusCode);
   }
@@ -498,8 +507,14 @@ final class UnixSocketBackendClient implements BackendClient {
       if (response.statusCode == HttpStatus.notFound) {
         return FailureResult(NotFoundFailure(message));
       }
-      if (response.statusCode == HttpStatus.badRequest) {
-        return FailureResult(ValidationFailure(message));
+      if (response.statusCode == HttpStatus.badRequest ||
+          response.statusCode == HttpStatus.unprocessableEntity) {
+        return FailureResult(
+          ValidationFailure(
+            message,
+            details: apiError?.details ?? const <String, String>{},
+          ),
+        );
       }
       return FailureResult(
         BackendFailure(

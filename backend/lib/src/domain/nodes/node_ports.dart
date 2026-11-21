@@ -40,10 +40,53 @@ final class ResultContractReport {
   final String? summary;
 }
 
+/// Per-attempt execution session opened by [ResultContract.openSession].
+abstract interface class ResultContractSession {
+  /// Active run identifier.
+  String get runId;
+
+  /// Active node identifier.
+  String get nodeId;
+
+  /// 1-based attempt number.
+  int get attempt;
+
+  /// Prompt instructions telling the harness how to submit its result report.
+  String get instructions;
+
+  /// Temporary MCP config JSON file path for harnesses requiring file config,
+  /// or `null` when no file is generated.
+  String? get mcpConfigPath;
+
+  /// Environment variables containing the `hive-mcp` execution context.
+  Map<String, String> get env;
+
+  /// Backend-managed fallback `result.json` path outside the user's workspace,
+  /// or `null` if not applicable.
+  String? get resultFilePath;
+
+  /// Resolves the final [ResultContractReport] after the harness process exits,
+  /// enforcing ADR 0003 precedence.
+  Future<Result<ResultContractReport>> resolveOutcome({
+    required int exitCode,
+    bool timedOut = false,
+  });
+
+  /// Cleans up temporary MCP config files, unregisters the attempt, and
+  /// cancels any pending `ask_human` pauses for this attempt.
+  Future<void> dispose();
+}
+
 /// Port for reading and instructing the ADR 0003 result contract.
 ///
 /// Concretely implemented by F7 (MCP `report_result` + `result.json` reader).
 abstract interface class ResultContract {
+  /// Opens a per-attempt session for [context], registering the attempt and
+  /// preparing MCP config, environment variables, and fallback `result.json`.
+  Future<Result<ResultContractSession>> openSession(
+    NodeExecutionContext context,
+  );
+
   /// Prompt instructions telling the harness how to submit its result report.
   String instructionsFor(NodeExecutionContext context);
 

@@ -19,6 +19,15 @@ abstract interface class HarnessService {
   /// Re-runs detection for [id], updates cache, and broadcasts the result.
   Future<Result<HarnessInfo>> refreshOne(HarnessId id);
 
+  /// Applies custom executable path overrides for all harnesses.
+  ///
+  /// When [triggerRefresh] is `true`, any harness whose override changed is
+  /// immediately re-detected and broadcast.
+  Future<void> applyExecutableOverrides(
+    Map<HarnessId, String> overrides, {
+    bool triggerRefresh = true,
+  });
+
   /// Records an observed authentication error for [id] and broadcasts it.
   void reportAuthError(HarnessId id, {String? message});
 
@@ -39,6 +48,7 @@ final class DefaultHarnessService implements HarnessService {
   final Map<HarnessId, HarnessDetector> _detectors;
   final DateTime Function() _now;
   final Map<HarnessId, HarnessInfo> _cache = {};
+  final Map<HarnessId, String?> _overrides = {};
   final StreamController<HarnessInfo> _statusController =
       StreamController<HarnessInfo>.broadcast();
 
@@ -82,6 +92,29 @@ final class DefaultHarnessService implements HarnessService {
     _cache[id] = updated;
     _emit(updated);
     return Success(updated);
+  }
+
+  @override
+  Future<void> applyExecutableOverrides(
+    Map<HarnessId, String> overrides, {
+    bool triggerRefresh = true,
+  }) async {
+    final changedIds = <HarnessId>[];
+    for (final entry in _detectors.entries) {
+      final id = entry.key;
+      final detector = entry.value;
+      final raw = overrides[id]?.trim();
+      final next = (raw == null || raw.isEmpty) ? null : raw;
+      final prev = _overrides[id];
+      if (prev != next) {
+        _overrides[id] = next;
+        detector.setExecutableOverride(next);
+        changedIds.add(id);
+      }
+    }
+    if (triggerRefresh && changedIds.isNotEmpty) {
+      await Future.wait([for (final id in changedIds) refreshOne(id)]);
+    }
   }
 
   @override

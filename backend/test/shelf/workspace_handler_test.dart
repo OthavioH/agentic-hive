@@ -82,7 +82,7 @@ void main() {
     handler = buildApiHandler(
       statusHandler: StatusHandler(
         databaseHealthCheck: FakeDatabaseHealthCheck(
-          const DatabaseStatus(ok: true, schemaVersion: 4),
+          const DatabaseStatus(ok: true, schemaVersion: 5),
         ),
         version: '0.1.0',
         dataDir: tempDir.path,

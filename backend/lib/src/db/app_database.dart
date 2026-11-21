@@ -203,12 +203,37 @@ class Snapshots extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
+/// Persisted runtime settings (key/value pairs).
+@DataClassName('SettingRow')
+class Settings extends Table {
+  /// Setting key (for example `agents_dir`, `default_workspace_dir`,
+  /// `harness_override.claude_code`).
+  TextColumn get key => text()();
+
+  /// Setting value as text.
+  TextColumn get value => text()();
+
+  /// UTC ISO-8601 last-updated timestamp.
+  TextColumn get updatedAt => text()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {key};
+}
+
 /// The backend's SQLite database.
 ///
 /// Raise [schemaVersion] and add a step to [migration] for every schema
 /// change; never edit a migration that has shipped.
 @DriftDatabase(
-  tables: [AppMetadata, Workflows, Runs, Checkpoints, RunEvents, Snapshots],
+  tables: [
+    AppMetadata,
+    Workflows,
+    Runs,
+    Checkpoints,
+    RunEvents,
+    Settings,
+    Snapshots,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   /// Wraps an already opened query executor [e]; tests pass an in-memory
@@ -223,7 +248,7 @@ class AppDatabase extends _$AppDatabase {
   static const installedAtKey = 'installed_at';
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -248,6 +273,9 @@ class AppDatabase extends _$AppDatabase {
         await m.createIndex(idxRunEventsRunSequence);
       }
       if (from < 4) {
+        await m.createTable(settings);
+      }
+      if (from < 5) {
         if (from >= 3) {
           await m.addColumn(runs, runs.isolationMode);
           await m.addColumn(runs, runs.worktreePath);
