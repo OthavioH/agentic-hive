@@ -1070,5 +1070,151 @@
   "workflowsFailureUnexpected": "An unexpected error occurred while processing the workflow.",
   "@workflowsFailureUnexpected": {
     "description": "Localized error message when a workflow operation fails with an UnexpectedFailure."
+  },
+  "settingsPageSubtitle": "Configure appearance, default paths, and custom harness executables.",
+  "@settingsPageSubtitle": {
+    "description": "Subtitle shown in the Settings page header."
+  },
+  "settingsSave": "Save",
+  "@settingsSave": {
+    "description": "Primary button label to save pending settings changes."
+  },
+  "settingsDiscard": "Discard",
+  "@settingsDiscard": {
+    "description": "Secondary button label to discard pending settings changes."
+  },
+  "settingsSavedToast": "Settings saved",
+  "@settingsSavedToast": {
+    "description": "Toast confirmation shown after settings are saved successfully."
+  },
+  "settingsSaveError": "Could not save settings: {message}",
+  "@settingsSaveError": {
+    "description": "Toast error message shown when saving settings fails with a non-validation error.",
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsLoading": "Loading settings...",
+  "@settingsLoading": {
+    "description": "Loading indicator label while fetching settings."
+  },
+  "settingsLoadErrorTitle": "Failed to load settings",
+  "@settingsLoadErrorTitle": {
+    "description": "Error state title when loading settings fails."
+  },
+  "settingsRetry": "Retry",
+  "@settingsRetry": {
+    "description": "Button label to retry loading settings after an error."
+  },
+  "settingsErrorNetwork": "Could not reach the local backend service.",
+  "@settingsErrorNetwork": {
+    "description": "Localized error message when loading or saving settings fails due to a network error."
+  },
+  "settingsErrorBackend": "The backend returned an error while processing settings.",
+  "@settingsErrorBackend": {
+    "description": "Localized error message when the backend returns a failure while processing settings."
+  },
+  "settingsErrorUnexpected": "An unexpected error occurred while processing settings.",
+  "@settingsErrorUnexpected": {
+    "description": "Localized fallback error message for settings failures."
+  },
+  "settingsSectionAppearance": "Appearance",
+  "@settingsSectionAppearance": {
+    "description": "Section title for theme and appearance settings."
+  },
+  "settingsSectionAppearanceDescription": "Choose how Agentic Hive looks on this device. Changes apply immediately.",
+  "@settingsSectionAppearanceDescription": {
+    "description": "Description under the Appearance section title."
+  },
+  "settingsThemeLabel": "Theme",
+  "@settingsThemeLabel": {
+    "description": "Accessibility and row label for the theme segmented control."
+  },
+  "settingsThemeDark": "Dark",
+  "@settingsThemeDark": {
+    "description": "Dark theme option in the theme segmented control."
+  },
+  "settingsThemeLight": "Light",
+  "@settingsThemeLight": {
+    "description": "Light theme option in the theme segmented control."
+  },
+  "settingsThemeSystem": "System",
+  "@settingsThemeSystem": {
+    "description": "System theme option in the theme segmented control."
+  },
+  "settingsSectionPaths": "Paths",
+  "@settingsSectionPaths": {
+    "description": "Section title for folder path settings."
+  },
+  "settingsSectionPathsDescription": "Configure where agents are loaded from and the default workspace for new runs.",
+  "@settingsSectionPathsDescription": {
+    "description": "Description under the Paths section title."
+  },
+  "settingsAgentsFolderLabel": "Agents folder",
+  "@settingsAgentsFolderLabel": {
+    "description": "Label for the Agents folder text field."
+  },
+  "settingsAgentsFolderHint": "Path to your agents directory",
+  "@settingsAgentsFolderHint": {
+    "description": "Placeholder text for the Agents folder text field."
+  },
+  "settingsAgentsFolderHelper": "Default: {path}",
+  "@settingsAgentsFolderHelper": {
+    "description": "Helper text showing the default agents folder path.",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsDefaultWorkspaceLabel": "Default workspace",
+  "@settingsDefaultWorkspaceLabel": {
+    "description": "Label for the Default workspace text field."
+  },
+  "settingsDefaultWorkspaceHint": "Optional default workspace folder",
+  "@settingsDefaultWorkspaceHint": {
+    "description": "Placeholder text for the Default workspace text field."
+  },
+  "settingsBrowse": "Browse",
+  "@settingsBrowse": {
+    "description": "Button label to open the native file or folder picker."
+  },
+  "settingsResetToDefault": "Reset to default",
+  "@settingsResetToDefault": {
+    "description": "Button label to reset the Agents folder to its default path."
+  },
+  "settingsClear": "Clear",
+  "@settingsClear": {
+    "description": "Button label to clear an optional path field."
+  },
+  "settingsSectionHarnesses": "Harnesses",
+  "@settingsSectionHarnesses": {
+    "description": "Section title for per-harness executable path overrides."
+  },
+  "settingsSectionHarnessesDescription": "Override auto-detected CLI executable paths when needed. Leave blank for auto-detection.",
+  "@settingsSectionHarnessesDescription": {
+    "description": "Description under the Harnesses section title."
+  },
+  "settingsHarnessPathHint": "Auto-detect from PATH",
+  "@settingsHarnessPathHint": {
+    "description": "Placeholder text for an optional custom harness executable path."
+  },
+  "settingsHarnessClaudeCode": "Claude Code",
+  "@settingsHarnessClaudeCode": {
+    "description": "Display label for the Claude Code harness."
+  },
+  "settingsHarnessCodex": "Codex",
+  "@settingsHarnessCodex": {
+    "description": "Display label for the Codex harness."
+  },
+  "settingsHarnessGeminiCli": "Gemini CLI",
+  "@settingsHarnessGeminiCli": {
+    "description": "Display label for the Gemini CLI harness."
+  },
+  "settingsHarnessAntigravity": "Antigravity",
+  "@settingsHarnessAntigravity": {
+    "description": "Display label for the Antigravity harness."
   }
 }

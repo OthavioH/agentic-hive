@@ -9,6 +9,8 @@ import 'package:agentic_hive_frontend/core/lifecycle/backend_launcher.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/tray_service.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/window_lifecycle_service.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
+import 'package:agentic_hive_frontend/core/theme/app_theme_preference.dart';
+import 'package:agentic_hive_frontend/core/theme/theme_preference_store.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/agents/pages/agents_page.dart';
 import 'package:agentic_hive_frontend/presentation/connecting/pages/connecting_page.dart';
@@ -137,6 +139,20 @@ final class _FakeWindowLifecycleService implements WindowLifecycleService {
   Future<void> dispose() async {}
 }
 
+final class _FakeThemePreferenceStore implements ThemePreferenceStore {
+  new({this.initial = AppThemePreference.dark});
+
+  AppThemePreference initial;
+
+  @override
+  Future<AppThemePreference> load() async => initial;
+
+  @override
+  Future<void> save(AppThemePreference preference) async {
+    initial = preference;
+  }
+}
+
 final class _FakeTrayService implements TrayService {
   @override
   Future<void> initialize({
@@ -196,6 +212,9 @@ void main() {
                 _FakeWindowLifecycleService(),
               ),
               trayServiceProvider.overrideWithValue(_FakeTrayService()),
+              themePreferenceStoreProvider.overrideWithValue(
+                _FakeThemePreferenceStore(),
+              ),
             ],
             child: const HiveApp(),
           ),
@@ -260,6 +279,9 @@ void main() {
                 _FakeWindowLifecycleService(),
               ),
               trayServiceProvider.overrideWithValue(_FakeTrayService()),
+              themePreferenceStoreProvider.overrideWithValue(
+                _FakeThemePreferenceStore(),
+              ),
             ],
             child: const HiveApp(),
           ),
@@ -295,6 +317,9 @@ void main() {
                 _FakeWindowLifecycleService(),
               ),
               trayServiceProvider.overrideWithValue(_FakeTrayService()),
+              themePreferenceStoreProvider.overrideWithValue(
+                _FakeThemePreferenceStore(),
+              ),
             ],
             child: const HiveApp(),
           ),
@@ -326,6 +351,39 @@ void main() {
 
         expect(find.byType(WorkflowsPage), findsOneWidget);
         expect(find.byType(HiveSideRail), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'applies persisted local theme on startup including on /connecting',
+      (tester) async {
+        configureDesktopWindow(tester);
+        final fakeClient = _FakeBackendClient(statusResult: downStatus);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              backendClientProvider.overrideWithValue(fakeClient),
+              backendLauncherProvider.overrideWithValue(_FakeBackendLauncher()),
+              windowLifecycleServiceProvider.overrideWithValue(
+                _FakeWindowLifecycleService(),
+              ),
+              trayServiceProvider.overrideWithValue(_FakeTrayService()),
+              themePreferenceStoreProvider.overrideWithValue(
+                _FakeThemePreferenceStore(initial: AppThemePreference.light),
+              ),
+            ],
+            child: const HiveApp(),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.byType(ConnectingPage), findsOneWidget);
+        final materialApp = tester.widget<MaterialApp>(
+          find.byType(MaterialApp),
+        );
+        expect(materialApp.themeMode, ThemeMode.light);
       },
     );
   });

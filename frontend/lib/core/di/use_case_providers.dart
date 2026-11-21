@@ -4,6 +4,8 @@
 // depend on domain use cases without importing data implementations.
 import 'package:agentic_hive_frontend/data/agents/agent_providers.dart';
 import 'package:agentic_hive_frontend/data/harnesses/harness_repository_impl.dart';
+import 'package:agentic_hive_frontend/data/settings/file_picker_repository_impl.dart';
+import 'package:agentic_hive_frontend/data/settings/settings_repository_impl.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
 import 'package:agentic_hive_frontend/domain/agents/create_agent_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/delete_agent_use_case.dart';
@@ -15,6 +17,11 @@ import 'package:agentic_hive_frontend/domain/harnesses/get_harnesses_use_case.da
 import 'package:agentic_hive_frontend/domain/harnesses/refresh_harness_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/refresh_harnesses_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/watch_harness_updates_use_case.dart';
+import 'package:agentic_hive_frontend/domain/settings/get_settings.dart';
+import 'package:agentic_hive_frontend/domain/settings/pick_directory.dart';
+import 'package:agentic_hive_frontend/domain/settings/pick_file.dart';
+import 'package:agentic_hive_frontend/domain/settings/update_settings.dart';
+import 'package:agentic_hive_frontend/domain/settings/watch_settings_updates.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/create_workflow.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/delete_workflow.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/duplicate_workflow.dart';
@@ -110,3 +117,27 @@ DeleteWorkflow deleteWorkflow(Ref ref) =>
 @riverpod
 ValidateWorkflow validateWorkflow(Ref ref) =>
     ValidateWorkflow(ref.watch(workflowRepositoryProvider));
+
+/// Provides [GetSettings].
+@riverpod
+GetSettings getSettings(Ref ref) =>
+    GetSettings(ref.watch(settingsRepositoryProvider));
+
+/// Provides [UpdateSettings].
+@riverpod
+UpdateSettings updateSettings(Ref ref) =>
+    UpdateSettings(ref.watch(settingsRepositoryProvider));
+
+/// Provides [WatchSettingsUpdates].
+@riverpod
+WatchSettingsUpdates watchSettingsUpdates(Ref ref) =>
+    WatchSettingsUpdates(ref.watch(settingsRepositoryProvider));
+
+/// Provides [PickDirectory].
+@riverpod
+PickDirectory pickDirectory(Ref ref) =>
+    PickDirectory(ref.watch(filePickerRepositoryProvider));
+
+/// Provides [PickFile].
+@riverpod
+PickFile pickFile(Ref ref) => PickFile(ref.watch(filePickerRepositoryProvider));

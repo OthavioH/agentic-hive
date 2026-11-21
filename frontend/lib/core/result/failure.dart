@@ -44,7 +44,10 @@ final class NotFoundFailure extends Failure {
 /// Input or state failed validation.
 final class ValidationFailure extends Failure {
   /// Creates a validation failure.
-  const new(super.message);
+  const new(super.message, {this.details = const <String, String>{}});
+
+  /// Optional per-field validation error messages keyed by field name.
+  final Map<String, String> details;
 }
 
 /// An unexpected internal failure.
