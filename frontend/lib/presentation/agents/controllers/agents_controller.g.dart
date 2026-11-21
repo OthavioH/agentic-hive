@@ -50,7 +50,7 @@ final class AgentsControllerProvider
   }
 }
 
-String _$agentsControllerHash() => r'd60022e705a58858b85ec79fd36b3be6e95f98b7';
+String _$agentsControllerHash() => r'7f82eabd151834e9071b3c02fedd51f904860146';
 
 /// Manages the Agent library list, search/tag filters, inline creation,
 /// structured draft editing, `expectedHash` conflict resolution, and live

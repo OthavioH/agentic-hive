@@ -56,3 +56,32 @@ Result<String> validateAgentSlug(String id) {
   }
   return Success(id);
 }
+
+/// Validates that [id] is a safe single-directory `.md` file basename without
+/// path traversal, directory separators, leading dots, or control characters.
+///
+/// Used by read/delete operations so users can inspect and delete existing
+/// root `.md` files whose filenames do not conform to [validateAgentSlug]
+/// (e.g. `My Agent.md`).
+Result<String> validateAgentLookupId(String id) {
+  if (id.isEmpty || id.length > _maxSlugLength) {
+    return const FailureResult(
+      ValidationFailure(
+        'Agent id must be between 1 and $_maxSlugLength characters.',
+      ),
+    );
+  }
+  if (id.startsWith('.') ||
+      id.contains('/') ||
+      id.contains(r'\') ||
+      id.contains('..') ||
+      id.contains('\u0000')) {
+    return FailureResult(
+      ValidationFailure(
+        'Agent id "$id" must not contain path separators, "..", or a leading '
+        'dot.',
+      ),
+    );
+  }
+  return Success(id);
+}

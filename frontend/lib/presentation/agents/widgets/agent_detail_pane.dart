@@ -167,7 +167,12 @@ class _AgentDetailPaneState extends State<AgentDetailPane> {
     }
 
     if (!widget.state.isCreating && widget.state.detail.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: HiveSpinner(
+          size: context.hiveSpacing.space4,
+          color: context.hiveColors.accent,
+        ),
+      );
     }
 
     if (!widget.state.isCreating && widget.state.detail.hasError) {
@@ -196,7 +201,12 @@ class _AgentDetailPaneState extends State<AgentDetailPane> {
 
     final draft = widget.state.draft;
     if (draft == null) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: HiveSpinner(
+          size: context.hiveSpacing.space4,
+          color: context.hiveColors.accent,
+        ),
+      );
     }
 
     if (draft.parseError != null) {
@@ -330,7 +340,7 @@ class _AgentDetailPaneState extends State<AgentDetailPane> {
                 if (widget.state.saveError != null) ...<Widget>[
                   HiveBanner(
                     tone: HiveFeedbackTone.danger,
-                    title: widget.state.saveError!,
+                    title: _localizeSaveError(l10n, widget.state.saveError!),
                     liveRegion: true,
                     onDismiss: widget.onDismissSaveError,
                     dismissSemanticLabel: l10n.agentsDismissTooltip,
@@ -475,6 +485,13 @@ class _AgentDetailPaneState extends State<AgentDetailPane> {
       ],
     );
   }
+
+  String _localizeSaveError(AppLocalizations l10n, AgentSaveError error) =>
+      switch (error) {
+        AgentSaveNameRequiredError() => l10n.agentsFieldNameRequired,
+        AgentSaveSlugInvalidError() => l10n.agentsFieldSlugInvalid,
+        AgentSaveRemoteError(:final message) => message,
+      };
 
   Widget _buildActionBar(
     BuildContext context,

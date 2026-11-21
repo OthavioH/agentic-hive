@@ -25,7 +25,16 @@ final class AgentsHandler {
 
   /// `GET /api/v1/agents/<id>` — returns the full agent detail.
   Future<Response> getById(Request request, String id) async {
-    final result = await _service.getById(id);
+    final decodedId = _decodePathId(id);
+    if (decodedId == null) {
+      return errorResponse(
+        request,
+        400,
+        code: ApiErrorCode.badRequest,
+        message: 'Invalid URL-encoded agent id.',
+      );
+    }
+    final result = await _service.getById(decodedId);
     return result.fold<Response>(
       onSuccess: (detail) => jsonResponse(200, detail),
       onFailure: (failure) => failureResponse(request, failure),
@@ -58,6 +67,15 @@ final class AgentsHandler {
 
   /// `PUT /api/v1/agents/<id>` — updates an existing `<id>.md` file.
   Future<Response> update(Request request, String id) async {
+    final decodedId = _decodePathId(id);
+    if (decodedId == null) {
+      return errorResponse(
+        request,
+        400,
+        code: ApiErrorCode.badRequest,
+        message: 'Invalid URL-encoded agent id.',
+      );
+    }
     final decoded = await _decodeJsonBody(request);
     if (decoded.error != null) return decoded.error!;
 
@@ -73,7 +91,7 @@ final class AgentsHandler {
       );
     }
 
-    final result = await _service.update(id, body);
+    final result = await _service.update(decodedId, body);
     return result.fold<Response>(
       onSuccess: (detail) => jsonResponse(200, detail),
       onFailure: (failure) => failureResponse(request, failure),
@@ -82,11 +100,33 @@ final class AgentsHandler {
 
   /// `DELETE /api/v1/agents/<id>` — deletes `<id>.md`.
   Future<Response> delete(Request request, String id) async {
-    final result = await _service.delete(id);
+    final decodedId = _decodePathId(id);
+    if (decodedId == null) {
+      return errorResponse(
+        request,
+        400,
+        code: ApiErrorCode.badRequest,
+        message: 'Invalid URL-encoded agent id.',
+      );
+    }
+    final result = await _service.delete(decodedId);
     return result.fold<Response>(
-      onSuccess: (_) => jsonResponse(200, {'id': id, 'deleted': true}),
+      onSuccess: (_) => jsonResponse(200, {'id': decodedId, 'deleted': true}),
       onFailure: (failure) => failureResponse(request, failure),
     );
+  }
+
+  static final _invalidPercentEscape = RegExp(
+    r'%([^0-9A-Fa-f]|[0-9A-Fa-f][^0-9A-Fa-f]|.$)|%$',
+  );
+
+  String? _decodePathId(String rawId) {
+    if (_invalidPercentEscape.hasMatch(rawId)) return null;
+    try {
+      return Uri.decodeComponent(rawId);
+    } on FormatException {
+      return null;
+    }
   }
 
   Future<({JsonMap? json, Response? error})> _decodeJsonBody(

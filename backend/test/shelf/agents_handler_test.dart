@@ -211,6 +211,54 @@ void main() {
       expect(updateRes.statusCode, 400);
     });
 
+    test('GET and DELETE succeed for non-slug .md filename while PUT and path '
+        'traversal return 400', () async {
+      const raw = '---\nname: [broken\n---\nBody';
+      await File(p.join(tempDir.path, 'My Agent.md')).writeAsString(raw);
+
+      final listRes = await handler(buildRequest('/api/v1/agents'));
+      expect(listRes.statusCode, 200);
+      final list = AgentListResponse.fromJson(await readJson(listRes));
+      expect(list.agents.map((a) => a.id), contains('My Agent'));
+
+      final getRes = await handler(buildRequest('/api/v1/agents/My%20Agent'));
+      expect(getRes.statusCode, 200);
+      final detail = AgentDetail.fromJson(await readJson(getRes));
+      expect(detail.id, 'My Agent');
+      expect(detail.parseError, isNotNull);
+
+      // Updating a non-slug filename remains forbidden by validateAgentSlug.
+      final putRes = await handler(
+        _jsonRequest(
+          '/api/v1/agents/My%20Agent',
+          method: 'PUT',
+          body: UpdateAgentRequest(
+            name: 'Renamed',
+            expectedHash: detail.contentHash,
+          ).toJson(),
+        ),
+      );
+      expect(putRes.statusCode, 400);
+
+      // Path traversal or leading-dot filenames are rejected with 400.
+      for (final badId in ['.hidden', '..%2Fsecret', 'sub%5Cagent']) {
+        final badGet = await handler(buildRequest('/api/v1/agents/$badId'));
+        expect(badGet.statusCode, 400);
+        final badDel = await handler(
+          buildRequest('/api/v1/agents/$badId', method: 'DELETE'),
+        );
+        expect(badDel.statusCode, 400);
+      }
+
+      // Deleting the non-slug file succeeds.
+      final deleteRes = await handler(
+        buildRequest('/api/v1/agents/My%20Agent', method: 'DELETE'),
+      );
+      expect(deleteRes.statusCode, 200);
+      expect(await readJson(deleteRes), {'id': 'My Agent', 'deleted': true});
+      expect(File(p.join(tempDir.path, 'My Agent.md')).existsSync(), isFalse);
+    });
+
     test('rejects Origin header with 403', () async {
       final res = await handler(
         buildRequest(

@@ -44,9 +44,36 @@ final class SaveAgentConflict extends SaveAgentOutcome {
 /// Saving failed due to validation, transport, or backend error.
 final class SaveAgentFailure extends SaveAgentOutcome {
   /// Creates a [SaveAgentFailure].
+  const new(this.error);
+
+  /// Structured error reported by the save attempt.
+  final AgentSaveError error;
+}
+
+/// Structured error surfaced by an agent save or delete action so the UI can
+/// localize validation messages without hardcoding English strings in state.
+sealed class AgentSaveError {
+  const new();
+}
+
+/// Validation failed because the draft agent name is empty.
+final class AgentSaveNameRequiredError extends AgentSaveError {
+  /// Creates an [AgentSaveNameRequiredError].
+  const new();
+}
+
+/// Validation failed because the draft agent slug ID is invalid.
+final class AgentSaveSlugInvalidError extends AgentSaveError {
+  /// Creates an [AgentSaveSlugInvalidError].
+  const new();
+}
+
+/// Save or delete failed with a backend or transport error [message].
+final class AgentSaveRemoteError extends AgentSaveError {
+  /// Creates an [AgentSaveRemoteError].
   const new(this.message);
 
-  /// Human-readable error message.
+  /// Backend or transport failure description.
   final String message;
 }
 
@@ -141,8 +168,8 @@ final class AgentsState {
   /// Whether the prompt editor is in Preview mode (`true`) or Raw (`false`).
   final bool isPreviewMode;
 
-  /// Error message from the most recent failed save or delete.
-  final String? saveError;
+  /// Error from the most recent failed save or delete.
+  final AgentSaveError? saveError;
 
   /// External modification or deletion notice for the open agent.
   final ExternalChangeNotice externalNotice;
@@ -193,7 +220,7 @@ final class AgentsState {
     bool? isSaving,
     bool? isDeleting,
     bool? isPreviewMode,
-    String? Function()? saveError,
+    AgentSaveError? Function()? saveError,
     ExternalChangeNotice? externalNotice,
   }) => AgentsState(
     agents: agents ?? this.agents,

@@ -133,5 +133,59 @@ Do work.
         AgentMarkdownCodec.computeContentHash(bytes),
       );
     });
+
+    test('quotes YAML special indicator characters in names, tags, and '
+        'extraFrontmatter', () {
+      const specialScalars = <String>[
+        '*Reviewer*',
+        '&x',
+        '> quote',
+        '@home',
+        '%x',
+        '`code`',
+        '~',
+        '!tag',
+        '|pipe',
+        '?question',
+      ];
+
+      for (final special in specialScalars) {
+        final encoded = AgentMarkdownCodec.encode(
+          name: special,
+          description: 'Desc $special',
+          tags: specialScalars,
+          requiredSkills: <String>[special],
+          requiredTools: <String>[special],
+          allowedTools: <String>[special],
+          deniedTools: <String>[special],
+          prompt: 'Body for $special',
+          extraFrontmatter: <String, Object?>{
+            'custom_scalar': special,
+            'custom_list': specialScalars,
+          },
+        );
+
+        final decoded = AgentMarkdownCodec.decode(
+          id: 'special',
+          bytes: utf8.encode(encoded),
+          updatedAt: updatedAt,
+        );
+
+        expect(
+          decoded.detail.parseError,
+          isNull,
+          reason: 'Expected "$special" to round-trip without parseError',
+        );
+        expect(decoded.detail.name, special);
+        expect(decoded.detail.description, 'Desc $special');
+        expect(decoded.detail.tags, specialScalars);
+        expect(decoded.detail.requiredSkills, <String>[special]);
+        expect(decoded.detail.requiredTools, <String>[special]);
+        expect(decoded.detail.allowedTools, <String>[special]);
+        expect(decoded.detail.deniedTools, <String>[special]);
+        expect(decoded.extraFrontmatter['custom_scalar'], special);
+        expect(decoded.extraFrontmatter['custom_list'], specialScalars);
+      }
+    });
   });
 }

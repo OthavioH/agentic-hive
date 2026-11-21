@@ -255,20 +255,22 @@ class AgentsController extends _$AgentsController {
   Future<SaveAgentOutcome> save() async {
     final current = state.draft;
     if (current == null) {
-      return const SaveAgentFailure('No active draft to save.');
+      return const SaveAgentFailure(
+        AgentSaveRemoteError('No active draft to save.'),
+      );
     }
 
     final trimmedName = current.name.trim();
     if (trimmedName.isEmpty) {
-      const msg = 'Name is required.';
-      state = state.copyWith(saveError: () => msg);
-      return const SaveAgentFailure(msg);
+      const err = AgentSaveNameRequiredError();
+      state = state.copyWith(saveError: () => err);
+      return const SaveAgentFailure(err);
     }
 
     if (state.isCreating && !AgentSlug.isValid(current.id)) {
-      const msg = 'Invalid agent slug ID.';
-      state = state.copyWith(saveError: () => msg);
-      return const SaveAgentFailure(msg);
+      const err = AgentSaveSlugInvalidError();
+      state = state.copyWith(saveError: () => err);
+      return const SaveAgentFailure(err);
     }
 
     state = state.copyWith(isSaving: true, saveError: () => null);
@@ -288,7 +290,9 @@ class AgentsController extends _$AgentsController {
         ),
       );
       if (!ref.mounted) {
-        return const SaveAgentFailure('Controller disposed.');
+        return const SaveAgentFailure(
+          AgentSaveRemoteError('Controller disposed.'),
+        );
       }
       return _applySaveResult(result, created: true);
     }
@@ -308,7 +312,9 @@ class AgentsController extends _$AgentsController {
       ),
     );
     if (!ref.mounted) {
-      return const SaveAgentFailure('Controller disposed.');
+      return const SaveAgentFailure(
+        AgentSaveRemoteError('Controller disposed.'),
+      );
     }
     return _applySaveResult(result, created: false);
   }
@@ -318,13 +324,17 @@ class AgentsController extends _$AgentsController {
   Future<SaveAgentOutcome> forceOverwrite() async {
     final current = state.draft;
     if (current == null) {
-      return const SaveAgentFailure('No active draft to overwrite.');
+      return const SaveAgentFailure(
+        AgentSaveRemoteError('No active draft to overwrite.'),
+      );
     }
 
     state = state.copyWith(isSaving: true, saveError: () => null);
     final latestResult = await ref.read(getAgentUseCaseProvider)(current.id);
     if (!ref.mounted) {
-      return const SaveAgentFailure('Controller disposed.');
+      return const SaveAgentFailure(
+        AgentSaveRemoteError('Controller disposed.'),
+      );
     }
 
     switch (latestResult) {
@@ -344,7 +354,9 @@ class AgentsController extends _$AgentsController {
           ),
         );
         if (!ref.mounted) {
-          return const SaveAgentFailure('Controller disposed.');
+          return const SaveAgentFailure(
+            AgentSaveRemoteError('Controller disposed.'),
+          );
         }
         return _applySaveResult(updateResult, created: false);
       case FailureResult<AgentDetail>(:final failure):
@@ -363,15 +375,15 @@ class AgentsController extends _$AgentsController {
             ),
           );
           if (!ref.mounted) {
-            return const SaveAgentFailure('Controller disposed.');
+            return const SaveAgentFailure(
+              AgentSaveRemoteError('Controller disposed.'),
+            );
           }
           return _applySaveResult(createResult, created: true);
         }
-        state = state.copyWith(
-          isSaving: false,
-          saveError: () => failure.message,
-        );
-        return SaveAgentFailure(failure.message);
+        final err = AgentSaveRemoteError(failure.message);
+        state = state.copyWith(isSaving: false, saveError: () => err);
+        return SaveAgentFailure(err);
     }
   }
 
@@ -413,7 +425,7 @@ class AgentsController extends _$AgentsController {
       case FailureResult<void>(:final failure):
         state = state.copyWith(
           isDeleting: false,
-          saveError: () => failure.message,
+          saveError: () => AgentSaveRemoteError(failure.message),
         );
         return FailureResult<void>(failure);
     }
@@ -460,8 +472,9 @@ class AgentsController extends _$AgentsController {
                 failure.code == ApiErrorCode.conflict)) {
           return SaveAgentConflict(failure.message);
         }
-        state = state.copyWith(saveError: () => failure.message);
-        return SaveAgentFailure(failure.message);
+        final err = AgentSaveRemoteError(failure.message);
+        state = state.copyWith(saveError: () => err);
+        return SaveAgentFailure(err);
     }
   }
 

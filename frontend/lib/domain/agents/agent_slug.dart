@@ -46,9 +46,12 @@ abstract final class AgentSlug {
     return replaced;
   }
 
+  /// Maximum character length of an agent filename slug.
+  static const int maxLength = 128;
+
   /// Returns `true` when [slug] is a valid cross-platform agent filename id.
   static bool isValid(String slug) {
-    if (slug.isEmpty || slug.length > 64) return false;
+    if (slug.isEmpty || slug.length > maxLength) return false;
     if (!_validPattern.hasMatch(slug)) return false;
     if (_reservedOsNames.contains(slug)) return false;
     return true;

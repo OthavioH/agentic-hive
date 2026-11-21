@@ -26,6 +26,7 @@ export 'src/components/hive_text_field.dart';
 export 'src/components/hive_toast.dart';
 export 'src/foundation/hive_feedback_tone.dart';
 export 'src/foundation/hive_interaction.dart';
+export 'src/foundation/hive_spinner.dart';
 export 'src/icons/hive_icons.dart';
 export 'src/motion/hive_motion.dart';
 export 'src/theme/hive_theme.dart';

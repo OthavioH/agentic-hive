@@ -14,10 +14,10 @@ final class AgentService {
   /// Lists all agents in the library.
   Future<Result<List<AgentSummary>>> list() => _repository.list();
 
-  /// Loads the agent with slug [id].
+  /// Loads the agent with filename stem [id].
   Future<Result<AgentDetail>> getById(String id) {
-    final slug = validateAgentSlug(id);
-    if (slug case FailureResult(:final failure)) {
+    final validId = validateAgentLookupId(id);
+    if (validId case FailureResult(:final failure)) {
       return Future.value(FailureResult(failure));
     }
     return _repository.getById(id);
@@ -58,10 +58,10 @@ final class AgentService {
     return _repository.update(id, request);
   }
 
-  /// Deletes the agent with slug [id].
+  /// Deletes the agent with filename stem [id].
   Future<Result<void>> delete(String id) {
-    final slug = validateAgentSlug(id);
-    if (slug case FailureResult(:final failure)) {
+    final validId = validateAgentLookupId(id);
+    if (validId case FailureResult(:final failure)) {
       return Future.value(FailureResult(failure));
     }
     return _repository.delete(id);

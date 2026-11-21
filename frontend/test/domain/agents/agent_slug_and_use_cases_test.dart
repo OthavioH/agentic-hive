@@ -75,6 +75,8 @@ void main() {
     test('validates cross-platform safe lowercase slugs', () {
       expect(AgentSlug.isValid('code-reviewer'), isTrue);
       expect(AgentSlug.isValid('agent_1'), isTrue);
+      expect(AgentSlug.isValid('a' * 128), isTrue);
+      expect(AgentSlug.isValid('a' * 129), isFalse);
       expect(AgentSlug.isValid(''), isFalse);
       expect(AgentSlug.isValid('CodeReviewer'), isFalse);
       expect(AgentSlug.isValid('../escape'), isFalse);

@@ -24,7 +24,22 @@ final class LocalAgentRepository implements AgentRepository {
   Future<void> ensureDirectory() =>
       Directory(agentsDir).create(recursive: true);
 
-  File _fileFor(String id) => File(_path.join(agentsDir, '$id.md'));
+  File? _safeFileFor(String id) {
+    if (id.isEmpty ||
+        id.startsWith('.') ||
+        id.contains('/') ||
+        id.contains(r'\') ||
+        id.contains('..') ||
+        id.contains('\u0000')) {
+      return null;
+    }
+    final root = _path.normalize(agentsDir);
+    final candidate = _path.normalize(_path.join(root, '$id.md'));
+    if (!_path.equals(_path.dirname(candidate), root)) {
+      return null;
+    }
+    return File(candidate);
+  }
 
   @override
   Future<Result<List<AgentSummary>>> list() async {
@@ -39,6 +54,7 @@ final class LocalAgentRepository implements AgentRepository {
         if (_path.extension(entity.path).toLowerCase() != '.md') continue;
 
         final id = _path.basenameWithoutExtension(entity.path);
+        if (id.isEmpty || id.startsWith('.') || id.contains('..')) continue;
         final bytes = await entity.readAsBytes();
         final stat = entity.statSync();
         final decoded = AgentMarkdownCodec.decode(
@@ -60,7 +76,12 @@ final class LocalAgentRepository implements AgentRepository {
   @override
   Future<Result<AgentDetail>> getById(String id) async {
     try {
-      final file = _fileFor(id);
+      final file = _safeFileFor(id);
+      if (file == null) {
+        return FailureResult(
+          ValidationFailure('Invalid agent filename id "$id".'),
+        );
+      }
       if (!file.existsSync()) {
         return FailureResult(NotFoundFailure('Agent "$id" not found.'));
       }
@@ -83,7 +104,12 @@ final class LocalAgentRepository implements AgentRepository {
   Future<Result<AgentDetail>> create(CreateAgentRequest request) async {
     try {
       await ensureDirectory();
-      final file = _fileFor(request.id);
+      final file = _safeFileFor(request.id);
+      if (file == null) {
+        return FailureResult(
+          ValidationFailure('Invalid agent filename id "${request.id}".'),
+        );
+      }
       if (file.existsSync()) {
         return FailureResult(
           ConflictFailure('Agent "${request.id}" already exists.'),
@@ -132,7 +158,12 @@ final class LocalAgentRepository implements AgentRepository {
     UpdateAgentRequest request,
   ) async {
     try {
-      final file = _fileFor(id);
+      final file = _safeFileFor(id);
+      if (file == null) {
+        return FailureResult(
+          ValidationFailure('Invalid agent filename id "$id".'),
+        );
+      }
       if (!file.existsSync()) {
         return FailureResult(NotFoundFailure('Agent "$id" not found.'));
       }
@@ -203,7 +234,12 @@ final class LocalAgentRepository implements AgentRepository {
   @override
   Future<Result<void>> delete(String id) async {
     try {
-      final file = _fileFor(id);
+      final file = _safeFileFor(id);
+      if (file == null) {
+        return FailureResult(
+          ValidationFailure('Invalid agent filename id "$id".'),
+        );
+      }
       if (!file.existsSync()) {
         return FailureResult(NotFoundFailure('Agent "$id" not found.'));
       }

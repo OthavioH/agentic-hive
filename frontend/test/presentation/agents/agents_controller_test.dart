@@ -347,5 +347,46 @@ void main() {
         ExternalChangeNotice.deletedExternally,
       );
     });
+
+    test(
+      'reports typed AgentSaveError for missing name and invalid slug',
+      () async {
+        final repo = _InMemoryAgentRepository();
+        addTearDown(repo.dispose);
+
+        final container = ProviderContainer.test(
+          overrides: [agentRepositoryProvider.overrideWithValue(repo)],
+        )..listen(agentsControllerProvider, (_, _) {});
+        await Future<void>.delayed(Duration.zero);
+
+        final notifier = container.read(agentsControllerProvider.notifier)
+          ..startCreate();
+
+        final emptyNameOutcome = await notifier.save();
+        expect(emptyNameOutcome, isA<SaveAgentFailure>());
+        expect(
+          (emptyNameOutcome as SaveAgentFailure).error,
+          isA<AgentSaveNameRequiredError>(),
+        );
+        expect(
+          container.read(agentsControllerProvider).saveError,
+          isA<AgentSaveNameRequiredError>(),
+        );
+
+        notifier
+          ..updateName('Valid Name')
+          ..updateSlug('Invalid Slug!');
+        final badSlugOutcome = await notifier.save();
+        expect(badSlugOutcome, isA<SaveAgentFailure>());
+        expect(
+          (badSlugOutcome as SaveAgentFailure).error,
+          isA<AgentSaveSlugInvalidError>(),
+        );
+        expect(
+          container.read(agentsControllerProvider).saveError,
+          isA<AgentSaveSlugInvalidError>(),
+        );
+      },
+    );
   });
 }

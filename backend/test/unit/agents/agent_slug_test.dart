@@ -36,4 +36,32 @@ void main() {
       });
     }
   });
+
+  group('validateAgentLookupId', () {
+    for (final valid in ['reviewer', 'My Agent', 'Upper_Case.v1', 'con']) {
+      test('accepts "$valid" for read/delete lookup', () {
+        final result = validateAgentLookupId(valid);
+        expect(result, isA<Success<String>>());
+        expect(result.valueOrNull, valid);
+      });
+    }
+
+    for (final invalid in [
+      '',
+      '.hidden',
+      '..',
+      '../traversal',
+      'a..b',
+      'a/b',
+      r'a\b',
+      'a\u0000b',
+      'a' * 129,
+    ]) {
+      test('rejects unsafe lookup id "$invalid"', () {
+        final result = validateAgentLookupId(invalid);
+        expect(result, isA<FailureResult<String>>());
+        expect(result.failureOrNull, isA<ValidationFailure>());
+      });
+    }
+  });
 }

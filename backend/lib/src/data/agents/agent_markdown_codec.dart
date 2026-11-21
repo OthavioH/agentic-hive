@@ -335,23 +335,26 @@ void _writeListItem(StringBuffer buffer, Object? item, {required int indent}) {
   }
 }
 
+final _safePlainScalarPattern = RegExp(r'^[A-Za-z0-9][A-Za-z0-9 _./()-]*$');
+
+const _yamlKeywordScalars = <String>{
+  'true',
+  'false',
+  'null',
+  'yes',
+  'no',
+  'on',
+  'off',
+  'y',
+  'n',
+};
+
 String _formatYamlString(String value) {
   if (value.isEmpty ||
-      value.contains('\n') ||
-      value.contains('\r') ||
-      value.contains(':') ||
-      value.contains('#') ||
-      value.contains('"') ||
-      value.contains("'") ||
-      value.startsWith(' ') ||
       value.endsWith(' ') ||
-      value.startsWith('-') ||
-      value.startsWith('[') ||
-      value.startsWith('{') ||
-      value == 'true' ||
-      value == 'false' ||
-      value == 'null' ||
-      num.tryParse(value) != null) {
+      _yamlKeywordScalars.contains(value.toLowerCase()) ||
+      num.tryParse(value) != null ||
+      !_safePlainScalarPattern.hasMatch(value)) {
     return jsonEncode(value);
   }
   return value;

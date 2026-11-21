@@ -142,7 +142,9 @@ class _AgentListPaneState extends State<AgentListPane> {
     final colors = context.hiveColors;
 
     return widget.state.agents.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => Center(
+        child: HiveSpinner(size: spacing.space4, color: colors.accent),
+      ),
       error: (error, _) {
         final message = error is Failure ? error.message : error.toString();
         return Padding(
