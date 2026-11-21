@@ -40,9 +40,11 @@ void main() {
         stream: RunOutputStream.stderr,
         chunk: 'error line',
         timestamp: DateTime.utc(2026, 11, 20, 12, 0, 5),
+        offset: 7,
       );
       final json = payload.toJson();
       expect(json['stream'], 'stderr');
+      expect(json['offset'], 7);
       expect(RunOutputPayload.fromJson(json), payload);
     });
   });

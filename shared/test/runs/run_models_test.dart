@@ -292,14 +292,17 @@ void main() {
             stream: RunOutputStream.stdout,
             chunk: 'hello world',
             timestamp: DateTime.utc(2026, 11, 20, 12),
+            offset: 1,
           ),
           RunLogEntry(
             stream: RunOutputStream.stderr,
             chunk: 'warning line',
             timestamp: DateTime.utc(2026, 11, 20, 12, 0, 1),
+            offset: 2,
           ),
         ],
         truncated: true,
+        offset: 2,
       );
       expect(RunNodeLogsResponse.fromJson(dto.toJson()), dto);
     });

@@ -25,6 +25,11 @@ sealed class StartRunRequest with _$StartRunRequest {
 }
 
 /// One line or chunk of captured output from a node attempt log.
+///
+/// [offset] is the strictly increasing 1-based sequence number assigned to
+/// this chunk within its `(runId, nodeId, attempt)` log stream. It matches
+/// `RunOutputPayload.offset` on WebSocket `run.output` frames so clients can
+/// deduplicate REST snapshots against live WebSocket chunks.
 @freezed
 sealed class RunLogEntry with _$RunLogEntry {
   /// Creates a run log entry.
@@ -32,6 +37,7 @@ sealed class RunLogEntry with _$RunLogEntry {
     required RunOutputStream stream,
     required String chunk,
     required DateTime timestamp,
+    @Default(0) int offset,
   }) = _RunLogEntry;
 
   /// Decodes a run log entry; throws a [FormatException] on a bad shape.
@@ -39,6 +45,11 @@ sealed class RunLogEntry with _$RunLogEntry {
 }
 
 /// Response body for `GET /api/v1/runs/:id/nodes/:nodeId/logs`.
+///
+/// [offset] is the 1-based sequence number of the last entry included in
+/// [entries] (or `0` when [entries] is empty). Live `run.output` WebSocket
+/// frames with `payload.offset <= response.offset` are already represented in
+/// [entries] and should be skipped when merging live output after a REST fetch.
 @freezed
 sealed class RunNodeLogsResponse with _$RunNodeLogsResponse {
   /// Creates a run-node-logs response.
@@ -49,6 +60,7 @@ sealed class RunNodeLogsResponse with _$RunNodeLogsResponse {
     @Default(<int>[]) List<int> availableAttempts,
     @Default(<RunLogEntry>[]) List<RunLogEntry> entries,
     @Default(false) bool truncated,
+    @Default(0) int offset,
   }) = _RunNodeLogsResponse;
 
   /// Decodes a run-node-logs response; throws a [FormatException] on a bad
