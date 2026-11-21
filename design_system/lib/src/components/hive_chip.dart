@@ -35,7 +35,7 @@ abstract class HiveChip extends StatelessWidget {
     WidgetStatesController? statesController,
     FocusNode? focusNode,
     Key? key,
-  }) = HiveFilterChip;
+  }) = HiveChipFilter;
 
   /// Visible text.
   final String label;
@@ -107,7 +107,7 @@ class HiveRemovableChip extends HiveChip {
 }
 
 /// The filter (toggle) variant of [HiveChip].
-class HiveFilterChip extends HiveChip {
+class HiveChipFilter extends HiveChip {
   /// Creates a filter chip.
   const new({
     required super.label,
