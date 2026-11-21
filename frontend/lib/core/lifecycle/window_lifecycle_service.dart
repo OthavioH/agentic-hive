@@ -71,12 +71,15 @@ abstract base class NativeWindowLifecycleService
   /// Whether showing the window should also activate the OS application.
   bool get activateAppOnShow;
 
+  /// Whether a native GUI display session is available for window/app hooks.
+  bool get hasDisplay => true;
+
   @override
   Future<void> initialize({
     required VoidCallback onCloseRequested,
     VoidCallback? onQuitRequested,
   }) async {
-    if (_disposed) return;
+    if (_disposed || !hasDisplay) return;
 
     final window = WindowManager.instance.getCurrent();
     if (window != null && _windowListenerId == null) {
@@ -115,6 +118,7 @@ abstract base class NativeWindowLifecycleService
 
   @override
   Future<void> hideToTray() async {
+    if (_disposed || !hasDisplay) return;
     final window = _window ?? WindowManager.instance.getCurrent();
     if (window == null) return;
     window.hide();
@@ -125,6 +129,7 @@ abstract base class NativeWindowLifecycleService
 
   @override
   Future<void> showAndFocus() async {
+    if (_disposed || !hasDisplay) return;
     final window = _window ?? WindowManager.instance.getCurrent();
     if (window == null) return;
     if (hideFromTaskbarWhenHidden) {
@@ -164,12 +169,16 @@ abstract base class NativeWindowLifecycleService
     final windowListenerId = _windowListenerId;
     _windowListenerId = null;
     if (windowListenerId != null) {
-      _window?.removeListener(windowListenerId);
+      try {
+        _window?.removeListener(windowListenerId);
+      } on Object catch (_) {}
     }
     final appListenerId = _appListenerId;
     _appListenerId = null;
     if (appListenerId != null) {
-      na.Application.instance.removeListener(appListenerId);
+      try {
+        na.Application.instance.removeListener(appListenerId);
+      } on Object catch (_) {}
     }
     _window = null;
   }
@@ -190,13 +199,24 @@ final class WindowsWindowLifecycleService extends NativeWindowLifecycleService {
 /// Linux implementation of [WindowLifecycleService].
 final class LinuxWindowLifecycleService extends NativeWindowLifecycleService {
   /// Creates a [LinuxWindowLifecycleService].
-  new({super.quitRunner});
+  new({super.quitRunner, this.environment});
+
+  /// Optional environment map override for testing display detection.
+  @visibleForTesting
+  final Map<String, String>? environment;
 
   @override
   bool get hideFromTaskbarWhenHidden => true;
 
   @override
   bool get activateAppOnShow => false;
+
+  @override
+  bool get hasDisplay {
+    final env = environment ?? Platform.environment;
+    return (env['DISPLAY']?.isNotEmpty ?? false) ||
+        (env['WAYLAND_DISPLAY']?.isNotEmpty ?? false);
+  }
 }
 
 /// macOS implementation of [WindowLifecycleService].

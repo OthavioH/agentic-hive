@@ -107,12 +107,15 @@ abstract base class NativeTrayService implements TrayService {
   /// Whether the icon should be marked as a macOS template image.
   bool get isTemplateIcon;
 
+  /// Whether a native GUI display session is available for tray hooks.
+  bool get hasDisplay => true;
+
   @override
   Future<void> initialize({
     required VoidCallback onTrayClick,
     required void Function(TrayAction action) onAction,
   }) async {
-    if (_disposed) return;
+    if (_disposed || !hasDisplay) return;
     _onAction = onAction;
 
     final trayIcon = TrayIcon.create();
@@ -230,22 +233,30 @@ abstract base class NativeTrayService implements TrayService {
 
     if (trayIcon != null) {
       if (listenerId != null) {
-        trayIcon.removeListener(listenerId);
+        try {
+          trayIcon.removeListener(listenerId);
+        } on Object catch (_) {}
       }
-      trayIcon
-        ..setContextMenu(null)
-        ..setVisible(false)
-        ..dispose();
+      try {
+        trayIcon
+          ..setContextMenu(null)
+          ..setVisible(false)
+          ..dispose();
+      } on Object catch (_) {}
     }
     _disposeMenuResources();
   }
 
   void _disposeMenuResources() {
     for (final item in _currentItems) {
-      item.dispose();
+      try {
+        item.dispose();
+      } on Object catch (_) {}
     }
     _currentItems.clear();
-    _currentMenu?.dispose();
+    try {
+      _currentMenu?.dispose();
+    } on Object catch (_) {}
     _currentMenu = null;
   }
 }
@@ -261,11 +272,25 @@ final class WindowsTrayService extends NativeTrayService {
 
 /// Linux implementation of [TrayService] using [HiveTrayAssets.linux].
 final class LinuxTrayService extends NativeTrayService {
+  /// Creates a [LinuxTrayService].
+  new({this.environment});
+
+  /// Optional environment map override for testing display detection.
+  @visibleForTesting
+  final Map<String, String>? environment;
+
   @override
   String get iconAsset => HiveTrayAssets.linux;
 
   @override
   bool get isTemplateIcon => false;
+
+  @override
+  bool get hasDisplay {
+    final env = environment ?? Platform.environment;
+    return (env['DISPLAY']?.isNotEmpty ?? false) ||
+        (env['WAYLAND_DISPLAY']?.isNotEmpty ?? false);
+  }
 }
 
 /// macOS implementation of [TrayService] using [HiveTrayAssets.macosTemplate].
