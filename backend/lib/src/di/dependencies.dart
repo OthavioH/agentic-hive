@@ -1,10 +1,12 @@
 import 'dart:io';
 
 import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
+import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/config/app_config.dart';
 import 'package:agentic_hive_backend/src/config/platform_paths.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/io_process_runner.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/os_executable_locator.dart';
+import 'package:agentic_hive_backend/src/data/workflows/drift_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/db/app_database.dart';
 import 'package:agentic_hive_backend/src/db/database_health_check.dart';
 import 'package:agentic_hive_backend/src/db/metadata_repository.dart';
@@ -12,6 +14,9 @@ import 'package:agentic_hive_backend/src/domain/harnesses/executable_locator.dar
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_detector.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_service.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_service.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
 import 'package:agentic_hive_backend/src/http/api_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
 import 'package:agentic_hive_backend/src/logging/log_formatter.dart';
@@ -103,6 +108,22 @@ Future<void> registerDependencies(
     ..registerSingleton<HarnessesHandler>(
       HarnessesHandler(harnessService: di<HarnessService>()),
     )
+    ..registerSingletonWithDependencies<WorkflowRepository>(
+      () => DriftWorkflowRepository(di<AppDatabase>()),
+      dependsOn: [AppDatabase],
+    )
+    ..registerSingleton<WorkflowValidator>(const WorkflowValidator())
+    ..registerSingletonWithDependencies<WorkflowService>(
+      () => WorkflowService(
+        repository: di<WorkflowRepository>(),
+        validator: di<WorkflowValidator>(),
+      ),
+      dependsOn: [WorkflowRepository],
+    )
+    ..registerSingletonWithDependencies<WorkflowHandler>(
+      () => WorkflowHandler(service: di<WorkflowService>()),
+      dependsOn: [WorkflowService],
+    )
     ..registerSingleton<ConnectionRegistry>(ConnectionRegistry())
     ..registerSingleton<WsGateway>(
       WsGateway(
@@ -128,6 +149,7 @@ Future<void> registerDependencies(
           statusHandler: di<StatusHandler>(),
           webSocketHandler: di<WsGateway>().handler,
           harnessesHandler: di<HarnessesHandler>(),
+          workflowHandler: di<WorkflowHandler>(),
         ),
         socket: LocalSocket(
           config.socketPath,
@@ -137,7 +159,7 @@ Future<void> registerDependencies(
         connections: di<ConnectionRegistry>(),
         version: backendVersion,
       ),
-      dependsOn: [StatusHandler],
+      dependsOn: [StatusHandler, WorkflowHandler],
       dispose: (server) => server.stop(),
     );
 

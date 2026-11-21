@@ -15,19 +15,22 @@ class HiveApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
-    return MaterialApp.router(
-      onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
-      themeMode: ThemeMode.dark,
-      theme: HiveTheme.light(),
-      darkTheme: HiveTheme.dark(),
-      localizationsDelegates: const [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: AppLocalizations.supportedLocales,
-      routerConfig: router,
+    return NodeVisualScope(
+      registry: NodeVisualRegistry(),
+      child: MaterialApp.router(
+        onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
+        themeMode: ThemeMode.dark,
+        theme: HiveTheme.light(),
+        darkTheme: HiveTheme.dark(),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        routerConfig: router,
+      ),
     );
   }
 }

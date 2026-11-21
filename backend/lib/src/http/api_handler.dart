@@ -1,4 +1,5 @@
 import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
+import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/health_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
 import 'package:agentic_hive_backend/src/http/json_response.dart';
@@ -20,11 +21,15 @@ Handler buildApiHandler({
   required StatusHandler statusHandler,
   required Handler webSocketHandler,
   HarnessesHandler? harnessesHandler,
+  WorkflowHandler? workflowHandler,
 }) {
   final router = Router(notFoundHandler: _notFound)
     ..get('/health', healthHandler)
     ..get('/api/v1/status', statusHandler.call)
     ..get('/ws', webSocketHandler);
+  if (workflowHandler != null) {
+    router.mount('/api/v1/workflows', workflowHandler.call);
+  }
 
   if (harnessesHandler != null) {
     router

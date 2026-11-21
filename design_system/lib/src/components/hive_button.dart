@@ -16,7 +16,10 @@ enum HiveButtonVariant {
   secondary(_surface3, _onSurface, _borderSubtle),
 
   /// Low-emphasis actions: transparent with `onSurface`.
-  ghost(_transparent, _onSurface, null);
+  ghost(_transparent, _onSurface, null),
+
+  /// Destructive confirmations (delete, discard): `danger` with `onDanger`.
+  danger(_danger, _onDanger, null);
 
   new(this.background, this.foreground, this.border);
 
@@ -35,6 +38,8 @@ Color _onAccent(HiveColors c) => c.onAccent;
 Color _surface3(HiveColors c) => c.surface3;
 Color _onSurface(HiveColors c) => c.onSurface;
 Color _borderSubtle(HiveColors c) => c.borderSubtle;
+Color _danger(HiveColors c) => c.danger;
+Color _onDanger(HiveColors c) => c.onDanger;
 Color _transparent(HiveColors c) => c.background.withValues(alpha: 0);
 
 /// Button size, as spacing and typography tokens.

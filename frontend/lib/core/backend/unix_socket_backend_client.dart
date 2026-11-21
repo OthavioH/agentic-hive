@@ -334,9 +334,115 @@ final class UnixSocketBackendClient implements BackendClient {
   }
 
   @override
+  Future<Result<JsonMap>> sendJsonRequest(
+    String method,
+    String path, {
+    JsonMap? body,
+  }) async {
+    if (_closed) {
+      return const FailureResult(
+        NetworkFailure('Backend client has been closed.'),
+      );
+    }
+
+    final clientResult = await _ensureHttpClient();
+    if (clientResult case FailureResult<HttpClient>(:final failure)) {
+      return FailureResult(failure);
+    }
+    final client = (clientResult as Success<HttpClient>).value;
+
+    try {
+      final response = await () async {
+        final request = await client.openUrl(
+          method,
+          Uri.parse('http://localhost$path'),
+        );
+        if (body != null) {
+          request.headers.contentType = ContentType.json;
+          request.write(jsonEncode(body));
+        }
+        return await request.close();
+      }().timeout(connectTimeout);
+
+      final rawBody = await response
+          .transform(utf8.decoder)
+          .join()
+          .timeout(connectTimeout);
+
+      final decoded = rawBody.trim().isEmpty
+          ? <String, Object?>{}
+          : jsonDecode(rawBody);
+      if (decoded is! Map<String, Object?>) {
+        return const FailureResult(
+          BackendFailure('Invalid JSON response payload.'),
+        );
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return Success(decoded);
+      }
+
+      final apiError = _tryParseApiError(decoded);
+      final message =
+          apiError?.message ??
+          'Request failed with status ${response.statusCode}.';
+      if (response.statusCode == HttpStatus.notFound) {
+        return FailureResult(NotFoundFailure(message));
+      }
+      return FailureResult(
+        BackendFailure(
+          message,
+          code: apiError?.code,
+          statusCode: response.statusCode,
+        ),
+      );
+    } on TimeoutException catch (error) {
+      _resetHttpClient();
+      return FailureResult(
+        NetworkFailure(
+          'Timed out waiting for backend response.',
+          cause: error,
+          code: BackendFailureCode.timeout,
+        ),
+      );
+    } on SocketException catch (error) {
+      _resetHttpClient();
+      return FailureResult(
+        NetworkFailure(
+          'Unable to reach backend socket.',
+          cause: error,
+          code: BackendFailureCode.connectionRefused,
+        ),
+      );
+    } on HttpException catch (error) {
+      _resetHttpClient();
+      return FailureResult(
+        NetworkFailure('HTTP transport error.', cause: error),
+      );
+    } on FormatException catch (error) {
+      return FailureResult(
+        BackendFailure('Malformed JSON from backend: ${error.message}'),
+      );
+    } on Object catch (error) {
+      _resetHttpClient();
+      return FailureResult(
+        UnexpectedFailure('Unexpected error calling backend.', cause: error),
+      );
+    }
+  }
+
+  @override
   Future<void> close() async {
     _closed = true;
     _resetHttpClient();
+  }
+
+  ApiError? _tryParseApiError(JsonMap json) {
+    try {
+      return ApiError.fromJson(json);
+    } on FormatException {
+      return null;
+    }
   }
 
   String? _tryExtractDegradedMessage(String body) {

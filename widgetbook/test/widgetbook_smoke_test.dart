@@ -14,6 +14,16 @@ const Map<String, String> _useCases = <String, String>{
   'Loading sizes': 'Loading sizes',
   'success · Default icon': 'Claude Code is ready',
   'Long message': '',
+  'Danger · Default': 'Run workflow',
+  'Single-line · Focused': 'Workflow name',
+  'Single-line · Error': 'Name is required.',
+  'Multi-line · Default': 'Description',
+  'Select · Hovered': 'Source output',
+  'Select · Error': 'An edge needs a source output.',
+  'On · Focused': '',
+  'With label': 'Entry node',
+  'Delete confirmation': 'Delete "Release checklist"?',
+  'With content': 'Release checklist (copy)',
 };
 
 void main() {
@@ -105,7 +115,7 @@ void main() {
     await tester.pumpWidget(const HiveWidgetbook());
     await tester.pump();
 
-    final node = find.text('Live').first;
+    final node = find.text('Live').last;
     await tester.ensureVisible(node);
     await tester.pump();
     await tester.tap(node);
