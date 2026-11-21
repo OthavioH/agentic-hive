@@ -8,7 +8,7 @@ part of 'backend_connection_config.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
-/// Provides [BackendConnectionConfig] for [BackendConnection].
+/// Provides [BackendConnectionConfig] for `BackendConnection`.
 ///
 /// Tests can override this provider to control clocks, timers, and jitter
 /// deterministically.
@@ -16,7 +16,7 @@ part of 'backend_connection_config.dart';
 @ProviderFor(backendConnectionConfig)
 final backendConnectionConfigProvider = BackendConnectionConfigProvider._();
 
-/// Provides [BackendConnectionConfig] for [BackendConnection].
+/// Provides [BackendConnectionConfig] for `BackendConnection`.
 ///
 /// Tests can override this provider to control clocks, timers, and jitter
 /// deterministically.
@@ -29,7 +29,7 @@ final class BackendConnectionConfigProvider
           BackendConnectionConfig
         >
     with $Provider<BackendConnectionConfig> {
-  /// Provides [BackendConnectionConfig] for [BackendConnection].
+  /// Provides [BackendConnectionConfig] for `BackendConnection`.
   ///
   /// Tests can override this provider to control clocks, timers, and jitter
   /// deterministically.

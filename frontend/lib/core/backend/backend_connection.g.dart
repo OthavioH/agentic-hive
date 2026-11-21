@@ -50,7 +50,7 @@ final class BackendConnectionProvider
   }
 }
 
-String _$backendConnectionHash() => r'eaf879ce5140ec94133fd174f02beee777cf67ae';
+String _$backendConnectionHash() => r'76916e412efacf58a7521ab33c6e7f7b44095277';
 
 /// Tracks connectivity to the local backend, manages the live WebSocket
 /// session, and drives automatic reconnection with exponential backoff and a
@@ -126,7 +126,7 @@ final class BackendWebSocketSessionProvider
 }
 
 String _$backendWebSocketSessionHash() =>
-    r'2d3248e3f4ccf742349416af02bcd2e165513aa6';
+    r'41479980d1f359a797b4f54aac1473a638a75a9a';
 
 /// Broadcast stream of post-handshake [WsEnvelope] messages from the backend.
 

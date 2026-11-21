@@ -118,19 +118,19 @@ void main() {
                 ).toJson(),
               ),
             )
-            ..add(
-              jsonEncode(
-                const WsEnvelope(
-                  type: 'run.started',
-                  id: 'evt-1',
-                  payload: {'runId': 'r-1'},
-                ).toJson(),
-              ),
-            )
             ..listen((raw) {
               if (raw is String) {
                 serverReceived.add(
                   WsEnvelope.fromJson(jsonDecode(raw) as Map<String, Object?>),
+                );
+                ws.add(
+                  jsonEncode(
+                    const WsEnvelope(
+                      type: 'run.started',
+                      id: 'evt-1',
+                      payload: {'runId': 'r-1'},
+                    ).toJson(),
+                  ),
                 );
               }
             });
@@ -148,8 +148,7 @@ void main() {
       final session = (wsResult as Success<BackendWebSocketSession>).value;
       addTearDown(session.close);
 
-      final firstEvent = await session.messages.first;
-      expect(firstEvent.type, 'run.started');
+      final firstEventFuture = session.messages.first;
 
       const outgoing = WsEnvelope(
         type: 'run.cancel',
@@ -158,7 +157,9 @@ void main() {
       );
       final sendResult = await session.send(outgoing);
       expect(sendResult, isA<Success<void>>());
-      await Future<void>.delayed(HiveMotionTokens.standard.short);
+
+      final firstEvent = await firstEventFuture;
+      expect(firstEvent.type, 'run.started');
       expect(serverReceived, [outgoing]);
     });
 
