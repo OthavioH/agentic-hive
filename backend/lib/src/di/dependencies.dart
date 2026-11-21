@@ -1,12 +1,21 @@
 import 'dart:io';
 
+import 'package:agentic_hive_backend/src/api/runs/runs_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/config/app_config.dart';
 import 'package:agentic_hive_backend/src/config/platform_paths.dart';
+import 'package:agentic_hive_backend/src/data/runs/drift_checkpoint_repository.dart';
+import 'package:agentic_hive_backend/src/data/runs/drift_run_event_repository.dart';
+import 'package:agentic_hive_backend/src/data/runs/drift_run_repository.dart';
 import 'package:agentic_hive_backend/src/data/workflows/drift_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/db/app_database.dart';
 import 'package:agentic_hive_backend/src/db/database_health_check.dart';
 import 'package:agentic_hive_backend/src/db/metadata_repository.dart';
+import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_recovery_service.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
@@ -88,6 +97,38 @@ Future<void> registerDependencies(
       () => WorkflowHandler(service: di<WorkflowService>()),
       dependsOn: [WorkflowService],
     )
+    ..registerSingletonWithDependencies<RunRepository>(
+      () => DriftRunRepository(di<AppDatabase>()),
+      dependsOn: [AppDatabase],
+    )
+    ..registerSingletonWithDependencies<CheckpointRepository>(
+      () => DriftCheckpointRepository(di<AppDatabase>()),
+      dependsOn: [AppDatabase],
+    )
+    ..registerSingletonWithDependencies<RunEventRepository>(
+      () => DriftRunEventRepository(di<AppDatabase>()),
+      dependsOn: [AppDatabase],
+    )
+    ..registerSingletonWithDependencies<RunRecoveryService>(
+      () => RunRecoveryService(
+        runs: di<RunRepository>(),
+        checkpoints: di<CheckpointRepository>(),
+        events: di<RunEventRepository>(),
+      ),
+      dependsOn: [RunRepository, CheckpointRepository, RunEventRepository],
+    )
+    ..registerSingletonWithDependencies<RunService>(
+      () => RunService(
+        runs: di<RunRepository>(),
+        checkpoints: di<CheckpointRepository>(),
+        events: di<RunEventRepository>(),
+      ),
+      dependsOn: [RunRepository, CheckpointRepository, RunEventRepository],
+    )
+    ..registerSingletonWithDependencies<RunsHandler>(
+      () => RunsHandler(service: di<RunService>()),
+      dependsOn: [RunService],
+    )
     ..registerSingleton<ConnectionRegistry>(ConnectionRegistry())
     ..registerSingleton<WsGateway>(
       WsGateway(
@@ -111,6 +152,7 @@ Future<void> registerDependencies(
           statusHandler: di<StatusHandler>(),
           webSocketHandler: di<WsGateway>().handler,
           workflowHandler: di<WorkflowHandler>(),
+          runsHandler: di<RunsHandler>(),
         ),
         socket: LocalSocket(
           config.socketPath,
@@ -120,7 +162,7 @@ Future<void> registerDependencies(
         connections: di<ConnectionRegistry>(),
         version: backendVersion,
       ),
-      dependsOn: [StatusHandler, WorkflowHandler],
+      dependsOn: [StatusHandler, WorkflowHandler, RunsHandler],
       dispose: (server) => server.stop(),
     );
 

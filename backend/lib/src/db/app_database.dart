@@ -44,11 +44,124 @@ class Workflows extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
+/// Execution runs of saved workflows.
+@DataClassName('RunRow')
+class Runs extends Table {
+  /// Unique run identifier.
+  TextColumn get id => text()();
+
+  /// Optional identifier of the source workflow (null if deleted or ad-hoc).
+  TextColumn get workflowId => text().nullable()();
+
+  /// Snapshot of the workflow name at run start.
+  TextColumn get workflowName => text()();
+
+  /// Frozen JSON snapshot of the `Workflow` definition at run start.
+  TextColumn get workflowDefinitionJson => text()();
+
+  /// Path to the workspace folder used by this run.
+  TextColumn get workspacePath => text()();
+
+  /// Current run status name.
+  TextColumn get status => text()();
+
+  /// UTC ISO-8601 start timestamp.
+  TextColumn get startedAt => text()();
+
+  /// Optional UTC ISO-8601 completion timestamp.
+  TextColumn get finishedAt => text().nullable()();
+
+  /// Optional error message when the run failed or was interrupted.
+  TextColumn get errorMessage => text().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+/// Per-node execution checkpoints for a [Runs] row.
+@DataClassName('CheckpointRow')
+@TableIndex(name: 'idx_checkpoints_run_sequence', columns: {#runId, #sequence})
+class Checkpoints extends Table {
+  /// Unique checkpoint identifier.
+  TextColumn get id => text()();
+
+  /// Owning run identifier.
+  TextColumn get runId =>
+      text().references(Runs, #id, onDelete: KeyAction.cascade)();
+
+  /// Monotonic 1-based sequence number within [runId].
+  IntColumn get sequence => integer()();
+
+  /// Node that just completed (null for an initial checkpoint).
+  TextColumn get completedNodeId => text().nullable()();
+
+  /// JSON-encoded list of node IDs pending execution.
+  TextColumn get pendingNodeIdsJson => text()();
+
+  /// JSON-encoded map of edge ID to retry attempt count.
+  TextColumn get attemptsByEdgeJson => text()();
+
+  /// Global consecutive infrastructure failure count.
+  IntColumn get circuitBreakerCount => integer()();
+
+  /// JSON-encoded map of node ID to structured output map.
+  TextColumn get nodeOutputsJson => text()();
+
+  /// UTC ISO-8601 creation timestamp.
+  TextColumn get createdAt => text()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<Set<Column<Object>>> get uniqueKeys => [
+    {runId, sequence},
+  ];
+}
+
+/// Append-only lifecycle and execution events for a [Runs] row.
+@DataClassName('RunEventRow')
+@TableIndex(name: 'idx_run_events_run_sequence', columns: {#runId, #sequence})
+class RunEvents extends Table {
+  /// Unique event identifier.
+  TextColumn get id => text()();
+
+  /// Owning run identifier.
+  TextColumn get runId =>
+      text().references(Runs, #id, onDelete: KeyAction.cascade)();
+
+  /// Monotonic 1-based sequence number within [runId].
+  IntColumn get sequence => integer()();
+
+  /// Dot-notation `RunEventType` wire name.
+  TextColumn get type => text()();
+
+  /// Optional node identifier associated with this event.
+  TextColumn get nodeId => text().nullable()();
+
+  /// Optional edge identifier associated with this event.
+  TextColumn get edgeId => text().nullable()();
+
+  /// JSON-encoded structured event payload.
+  TextColumn get payloadJson => text()();
+
+  /// UTC ISO-8601 creation timestamp.
+  TextColumn get createdAt => text()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<Set<Column<Object>>> get uniqueKeys => [
+    {runId, sequence},
+  ];
+}
+
 /// The backend's SQLite database.
 ///
 /// Raise [schemaVersion] and add a step to [migration] for every schema
 /// change; never edit a migration that has shipped.
-@DriftDatabase(tables: [AppMetadata, Workflows])
+@DriftDatabase(tables: [AppMetadata, Workflows, Runs, Checkpoints, RunEvents])
 class AppDatabase extends _$AppDatabase {
   /// Wraps an already opened query executor [e]; tests pass an in-memory
   /// one.
@@ -62,7 +175,7 @@ class AppDatabase extends _$AppDatabase {
   static const installedAtKey = 'installed_at';
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -78,6 +191,13 @@ class AppDatabase extends _$AppDatabase {
     onUpgrade: (m, from, to) async {
       if (from < 2) {
         await m.createTable(workflows);
+      }
+      if (from < 3) {
+        await m.createTable(runs);
+        await m.createTable(checkpoints);
+        await m.createTable(runEvents);
+        await m.createIndex(idxCheckpointsRunSequence);
+        await m.createIndex(idxRunEventsRunSequence);
       }
     },
     beforeOpen: (details) async {
