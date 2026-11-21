@@ -210,6 +210,141 @@ final class UnixSocketBackendClient implements BackendClient {
   }
 
   @override
+  Future<Result<JsonMap>> getJson(String path) =>
+      _sendJsonRequest(method: 'GET', path: path);
+
+  @override
+  Future<Result<JsonMap>> postJson(String path, JsonMap body) =>
+      _sendJsonRequest(method: 'POST', path: path, body: body);
+
+  @override
+  Future<Result<JsonMap>> putJson(String path, JsonMap body) =>
+      _sendJsonRequest(method: 'PUT', path: path, body: body);
+
+  @override
+  Future<Result<void>> delete(String path) async {
+    final result = await _sendJsonRequest(
+      method: 'DELETE',
+      path: path,
+      expectJson: false,
+    );
+    return result.map((_) {});
+  }
+
+  Future<Result<JsonMap>> _sendJsonRequest({
+    required String method,
+    required String path,
+    JsonMap? body,
+    bool expectJson = true,
+  }) async {
+    if (_closed) {
+      return const FailureResult(
+        NetworkFailure('Backend client has been closed.'),
+      );
+    }
+
+    final clientResult = await _ensureHttpClient();
+    if (clientResult case FailureResult<HttpClient>(:final failure)) {
+      return FailureResult(failure);
+    }
+    final client = (clientResult as Success<HttpClient>).value;
+
+    try {
+      final response = await () async {
+        final request = await client.openUrl(
+          method,
+          Uri.parse('http://localhost$path'),
+        );
+        if (body != null) {
+          request.headers.contentType = ContentType.json;
+          request.write(jsonEncode(body));
+        }
+        return await request.close();
+      }().timeout(connectTimeout);
+
+      final rawBody = await response
+          .transform(utf8.decoder)
+          .join()
+          .timeout(connectTimeout);
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return FailureResult(_mapErrorResponse(response.statusCode, rawBody));
+      }
+
+      if (!expectJson) {
+        return const Success(<String, Object?>{});
+      }
+
+      final decoded = jsonDecode(rawBody);
+      if (decoded is! Map<String, Object?>) {
+        return const FailureResult(
+          BackendFailure('Invalid JSON object response from backend.'),
+        );
+      }
+      return Success(decoded);
+    } on TimeoutException catch (error) {
+      _resetHttpClient();
+      return FailureResult(
+        NetworkFailure(
+          'Timed out waiting for backend response.',
+          cause: error,
+          code: BackendFailureCode.timeout,
+        ),
+      );
+    } on SocketException catch (error) {
+      _resetHttpClient();
+      return FailureResult(
+        NetworkFailure(
+          'Unable to reach backend socket.',
+          cause: error,
+          code: BackendFailureCode.connectionRefused,
+        ),
+      );
+    } on HttpException catch (error) {
+      _resetHttpClient();
+      return FailureResult(
+        NetworkFailure('HTTP transport error.', cause: error),
+      );
+    } on FormatException catch (error) {
+      return FailureResult(
+        BackendFailure('Malformed JSON from backend: ${error.message}'),
+      );
+    } on Object catch (error) {
+      _resetHttpClient();
+      return FailureResult(
+        UnexpectedFailure('Unexpected transport error.', cause: error),
+      );
+    }
+  }
+
+  Failure _mapErrorResponse(int statusCode, String rawBody) {
+    ApiError? apiError;
+    try {
+      final decoded = jsonDecode(rawBody);
+      if (decoded is Map<String, Object?>) {
+        apiError = ApiError.fromJson(decoded);
+      }
+    } on Object {
+      apiError = null;
+    }
+
+    final message =
+        apiError?.message ?? 'Request failed with status $statusCode.';
+
+    if (statusCode == HttpStatus.notFound) {
+      return NotFoundFailure(message);
+    }
+    if (statusCode == HttpStatus.badRequest) {
+      return ValidationFailure(message);
+    }
+    return BackendFailure(
+      message,
+      code: apiError?.code,
+      statusCode: statusCode,
+    );
+  }
+
+  @override
   Future<void> close() async {
     _closed = true;
     _resetHttpClient();

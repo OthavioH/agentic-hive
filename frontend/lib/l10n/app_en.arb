@@ -197,5 +197,267 @@
   "routeErrorAction": "Back to Overview",
   "@routeErrorAction": {
     "description": "Button label on the router error page to return to Overview."
+  },
+  "agentsNewAction": "New agent",
+  "@agentsNewAction": {
+    "description": "Primary button label in the Agents page header to create a new agent."
+  },
+  "agentsSaveAction": "Save",
+  "@agentsSaveAction": {
+    "description": "Primary button label to save the current agent draft."
+  },
+  "agentsDeleteAction": "Delete",
+  "@agentsDeleteAction": {
+    "description": "Button label to delete the selected agent."
+  },
+  "agentsInsertTemplateAction": "Insert template",
+  "@agentsInsertTemplateAction": {
+    "description": "Button label to populate a new agent draft with the starter Markdown template."
+  },
+  "agentsRetryAction": "Retry",
+  "@agentsRetryAction": {
+    "description": "Button label to retry loading agents or agent details."
+  },
+  "agentsReloadAction": "Reload from disk",
+  "@agentsReloadAction": {
+    "description": "Action label to reload the agent from disk, discarding local edits."
+  },
+  "agentsOverwriteAction": "Overwrite",
+  "@agentsOverwriteAction": {
+    "description": "Action label to overwrite external disk changes with local edits."
+  },
+  "agentsCancelAction": "Cancel",
+  "@agentsCancelAction": {
+    "description": "Cancel button label in confirmation dialogs."
+  },
+  "agentsBackToListAction": "Back to list",
+  "@agentsBackToListAction": {
+    "description": "Button label on narrow layouts to return from the editor to the agent list."
+  },
+  "agentsSearchHint": "Search agents by ID, name, description, or tag",
+  "@agentsSearchHint": {
+    "description": "Placeholder text in the agent library search input."
+  },
+  "agentsSearchClearTooltip": "Clear search",
+  "@agentsSearchClearTooltip": {
+    "description": "Semantics label for the clear button in the agent search field."
+  },
+  "agentsNoMatchesTitle": "No matching agents",
+  "@agentsNoMatchesTitle": {
+    "description": "Empty state title when search or tag filters match no agents."
+  },
+  "agentsNoMatchesDescription": "Try a different search query or clear your tag filters.",
+  "@agentsNoMatchesDescription": {
+    "description": "Empty state description when search or tag filters match no agents."
+  },
+  "agentsSelectPromptTitle": "Select an agent",
+  "@agentsSelectPromptTitle": {
+    "description": "Empty state title in the detail pane when no agent is selected."
+  },
+  "agentsSelectPromptDescription": "Choose an agent from the list to inspect or edit it, or create a new one.",
+  "@agentsSelectPromptDescription": {
+    "description": "Empty state description in the detail pane when no agent is selected."
+  },
+  "agentsParseErrorBadge": "Parse error",
+  "@agentsParseErrorBadge": {
+    "description": "Badge label on agent list items whose .md file failed to parse."
+  },
+  "agentsParseErrorTitle": "Unable to parse agent file",
+  "@agentsParseErrorTitle": {
+    "description": "Banner title when inspecting a malformed agent .md file."
+  },
+  "agentsLoadErrorTitle": "Failed to load agents",
+  "@agentsLoadErrorTitle": {
+    "description": "Banner title when listing agents fails."
+  },
+  "agentsDetailErrorTitle": "Failed to load agent",
+  "@agentsDetailErrorTitle": {
+    "description": "Banner title when loading a specific agent fails."
+  },
+  "agentsFieldName": "Name",
+  "@agentsFieldName": {
+    "description": "Label for the agent name field."
+  },
+  "agentsFieldNameHint": "e.g. Code Reviewer",
+  "@agentsFieldNameHint": {
+    "description": "Hint text for the agent name field."
+  },
+  "agentsFieldSlug": "Slug ID",
+  "@agentsFieldSlug": {
+    "description": "Label for the agent filename slug ID field."
+  },
+  "agentsFieldSlugHint": "e.g. code-reviewer",
+  "@agentsFieldSlugHint": {
+    "description": "Hint text for the agent slug ID field."
+  },
+  "agentsFieldSlugHelper": "Filename (<id>.md). Editable only before first save.",
+  "@agentsFieldSlugHelper": {
+    "description": "Helper text explaining that the slug is the filename and immutable after creation."
+  },
+  "agentsFieldSlugInvalid": "Use lowercase letters, numbers, hyphens, or underscores (no reserved OS names).",
+  "@agentsFieldSlugInvalid": {
+    "description": "Validation error shown when the agent slug ID is invalid."
+  },
+  "agentsFieldNameRequired": "Name is required.",
+  "@agentsFieldNameRequired": {
+    "description": "Validation error shown when the agent name is empty."
+  },
+  "agentsFieldDescription": "Description",
+  "@agentsFieldDescription": {
+    "description": "Label for the agent description field."
+  },
+  "agentsFieldDescriptionHint": "Short summary of what this agent does",
+  "@agentsFieldDescriptionHint": {
+    "description": "Hint text for the agent description field."
+  },
+  "agentsFieldTags": "Tags",
+  "@agentsFieldTags": {
+    "description": "Label for the agent tags chip editor."
+  },
+  "agentsFieldTagsHint": "Add a tag and press Enter",
+  "@agentsFieldTagsHint": {
+    "description": "Hint text for adding a new tag."
+  },
+  "agentsAddChipTooltip": "Add",
+  "@agentsAddChipTooltip": {
+    "description": "Tooltip and semantics label for the add chip button."
+  },
+  "agentsRemoveChipTooltip": "Remove {item}",
+  "@agentsRemoveChipTooltip": {
+    "description": "Semantics label for removing a chip item.",
+    "placeholders": {
+      "item": {
+        "type": "String"
+      }
+    }
+  },
+  "agentsCapabilitiesTitle": "Capabilities & tools",
+  "@agentsCapabilitiesTitle": {
+    "description": "Title of the collapsible informational metadata section in the agent editor."
+  },
+  "agentsCapabilitiesSubtitle": "Informational metadata declared in frontmatter (not enforced at runtime).",
+  "@agentsCapabilitiesSubtitle": {
+    "description": "Subtitle of the collapsible capabilities and tools section."
+  },
+  "agentsFieldRequiredSkills": "Required skills",
+  "@agentsFieldRequiredSkills": {
+    "description": "Label for required_skills chip editor."
+  },
+  "agentsFieldRequiredSkillsHint": "Add skill name",
+  "@agentsFieldRequiredSkillsHint": {
+    "description": "Hint text for required_skills input."
+  },
+  "agentsFieldRequiredTools": "Required tools",
+  "@agentsFieldRequiredTools": {
+    "description": "Label for required_tools chip editor."
+  },
+  "agentsFieldRequiredToolsHint": "Add tool name",
+  "@agentsFieldRequiredToolsHint": {
+    "description": "Hint text for required_tools input."
+  },
+  "agentsFieldAllowedTools": "Allowed tools",
+  "@agentsFieldAllowedTools": {
+    "description": "Label for allowed_tools chip editor."
+  },
+  "agentsFieldAllowedToolsHint": "Add tool name",
+  "@agentsFieldAllowedToolsHint": {
+    "description": "Hint text for allowed_tools input."
+  },
+  "agentsFieldDeniedTools": "Denied tools",
+  "@agentsFieldDeniedTools": {
+    "description": "Label for denied_tools chip editor."
+  },
+  "agentsFieldDeniedToolsHint": "Add tool name",
+  "@agentsFieldDeniedToolsHint": {
+    "description": "Hint text for denied_tools input."
+  },
+  "agentsFieldPrompt": "Prompt",
+  "@agentsFieldPrompt": {
+    "description": "Label for the Markdown prompt editor."
+  },
+  "agentsFieldPromptHint": "Write the agent's role instructions in Markdown...",
+  "@agentsFieldPromptHint": {
+    "description": "Hint text for the Markdown prompt textarea."
+  },
+  "agentsPromptModeLabel": "Prompt editor mode",
+  "@agentsPromptModeLabel": {
+    "description": "Semantics label for the Raw / Preview segmented control."
+  },
+  "agentsPromptModeRaw": "Raw",
+  "@agentsPromptModeRaw": {
+    "description": "Segment label for editing raw Markdown prompt text."
+  },
+  "agentsPromptModePreview": "Preview",
+  "@agentsPromptModePreview": {
+    "description": "Segment label for previewing rendered Markdown prompt."
+  },
+  "agentsPromptPreviewEmpty": "Nothing to preview yet.",
+  "@agentsPromptPreviewEmpty": {
+    "description": "Placeholder text in Markdown preview mode when the prompt is empty."
+  },
+  "agentsStarterTemplate": "## Responsibilities\n\nDescribe the core role and responsibilities of this agent.\n\n## Required inputs\n\n- List any context or artifacts this agent expects.\n\n## Execution guidance\n\n- Outline key constraints, style rules, or steps to follow.\n\n## Outputs and completion\n\n- Describe the expected deliverable and completion criteria.",
+  "@agentsStarterTemplate": {
+    "description": "Starter Markdown template inserted when creating a new agent."
+  },
+  "agentsSaveSuccess": "Agent saved.",
+  "@agentsSaveSuccess": {
+    "description": "Toast message shown after saving an existing agent."
+  },
+  "agentsCreateSuccess": "Agent created.",
+  "@agentsCreateSuccess": {
+    "description": "Toast message shown after creating a new agent."
+  },
+  "agentsDeleteSuccess": "Agent deleted.",
+  "@agentsDeleteSuccess": {
+    "description": "Toast message shown after deleting an agent."
+  },
+  "agentsDeleteDialogTitle": "Delete agent?",
+  "@agentsDeleteDialogTitle": {
+    "description": "Title of the destructive confirmation dialog when deleting an agent."
+  },
+  "agentsDeleteDialogMessage": "This will permanently delete {name} ({id}.md) from disk.",
+  "@agentsDeleteDialogMessage": {
+    "description": "Message in the delete agent confirmation dialog.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "agentsConflictDialogTitle": "External modification detected",
+  "@agentsConflictDialogTitle": {
+    "description": "Title of the 409 conflict confirmation dialog when saving."
+  },
+  "agentsConflictDialogMessage": "{id}.md was modified on disk since you opened it. Reload from disk or overwrite with your changes?",
+  "@agentsConflictDialogMessage": {
+    "description": "Message in the 409 conflict confirmation dialog.",
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "agentsExternalModifiedTitle": "Modified on disk",
+  "@agentsExternalModifiedTitle": {
+    "description": "Banner title when the currently open agent with unsaved edits is modified externally."
+  },
+  "agentsExternalModifiedMessage": "This agent changed outside the app while you have unsaved edits.",
+  "@agentsExternalModifiedMessage": {
+    "description": "Banner message when the currently open agent with unsaved edits is modified externally."
+  },
+  "agentsExternalDeletedTitle": "Deleted on disk",
+  "@agentsExternalDeletedTitle": {
+    "description": "Banner title when the currently open agent is deleted externally."
+  },
+  "agentsExternalDeletedMessage": "This agent was removed from disk outside the app. Save to recreate it or select another agent.",
+  "@agentsExternalDeletedMessage": {
+    "description": "Banner message when the currently open agent is deleted externally."
+  },
+  "agentsDismissTooltip": "Dismiss",
+  "@agentsDismissTooltip": {
+    "description": "Semantics label for dismissing an inline banner or toast."
   }
 }

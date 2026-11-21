@@ -75,6 +75,26 @@ final class _FakeBackendClient implements BackendClient {
   }
 
   @override
+  Future<Result<JsonMap>> getJson(String path) async {
+    if (path == '/api/v1/agents') {
+      return const Success(<String, Object?>{'agents': <Object?>[]});
+    }
+    return const FailureResult(NotFoundFailure('Not found in fake'));
+  }
+
+  @override
+  Future<Result<JsonMap>> postJson(String path, JsonMap body) async =>
+      const FailureResult(UnexpectedFailure('Unimplemented in fake'));
+
+  @override
+  Future<Result<JsonMap>> putJson(String path, JsonMap body) async =>
+      const FailureResult(UnexpectedFailure('Unimplemented in fake'));
+
+  @override
+  Future<Result<void>> delete(String path) async =>
+      const FailureResult(UnexpectedFailure('Unimplemented in fake'));
+
+  @override
   Future<void> close() async {}
 }
 

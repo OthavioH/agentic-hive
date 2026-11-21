@@ -68,6 +68,26 @@ final class _FakeBackendClient implements BackendClient {
       Success(_FakeWebSocketSession());
 
   @override
+  Future<Result<JsonMap>> getJson(String path) async {
+    if (path == '/api/v1/agents') {
+      return const Success(<String, Object?>{'agents': <Object?>[]});
+    }
+    return const FailureResult(NotFoundFailure('Not found in fake'));
+  }
+
+  @override
+  Future<Result<JsonMap>> postJson(String path, JsonMap body) async =>
+      const FailureResult(UnexpectedFailure('Unimplemented in fake'));
+
+  @override
+  Future<Result<JsonMap>> putJson(String path, JsonMap body) async =>
+      const FailureResult(UnexpectedFailure('Unimplemented in fake'));
+
+  @override
+  Future<Result<void>> delete(String path) async =>
+      const FailureResult(UnexpectedFailure('Unimplemented in fake'));
+
+  @override
   Future<void> close() async {}
 }
 
@@ -143,7 +163,7 @@ void main() {
 
           expect(find.byType(pageType), findsOneWidget);
           expect(find.byType(HivePageHeader), findsOneWidget);
-          expect(find.byType(HiveEmptyState), findsOneWidget);
+          expect(find.byType(HiveEmptyState), findsAtLeastNWidgets(1));
           expect(
             find.descendant(
               of: find.byType(HivePageHeader),
