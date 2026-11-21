@@ -84,6 +84,11 @@ final class ConnectionRegistry {
     }
   }
 
+  /// Removes all PTY subscriptions for [key] when its session ends.
+  void removePtySubscribers(PtySessionKey key) {
+    _ptySubscriptions.remove(key);
+  }
+
   /// Whether [connectionId] is currently subscribed to PTY session [key].
   bool isSubscribedToPty(String connectionId, PtySessionKey key) =>
       _ptySubscriptions[key]?.contains(connectionId) ?? false;

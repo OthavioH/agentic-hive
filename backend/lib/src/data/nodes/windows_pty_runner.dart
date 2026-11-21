@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
@@ -12,6 +13,7 @@ import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/pty_session.dart';
 import 'package:agentic_hive_backend/src/domain/runs/process_tree_killer.dart';
 import 'package:ffi/ffi.dart';
+import 'package:path/path.dart' as p;
 
 const int _procThreadAttributePseudoConsole = 0x00020016;
 const int _extendedStartupInfoPresent = 0x00080000;
@@ -239,6 +241,12 @@ typedef _TerminateProcessDart = int Function(int hProcess, int uExitCode);
 typedef _GetLastErrorNative = Uint32 Function();
 typedef _GetLastErrorDart = int Function();
 
+typedef _CancelIoExNative = Int32 Function(
+  IntPtr hFile,
+  Pointer<Void> lpOverlapped,
+);
+typedef _CancelIoExDart = int Function(int hFile, Pointer<Void> lpOverlapped);
+
 final class _Kernel32 {
   new _() {
     final lib = DynamicLibrary.open('kernel32.dll');
@@ -300,6 +308,9 @@ final class _Kernel32 {
     getLastError = lib.lookupFunction<_GetLastErrorNative, _GetLastErrorDart>(
       'GetLastError',
     );
+    cancelIoEx = lib.lookupFunction<_CancelIoExNative, _CancelIoExDart>(
+      'CancelIoEx',
+    );
   }
 
   static final _Kernel32 instance = ._();
@@ -320,9 +331,14 @@ final class _Kernel32 {
   late final _GetExitCodeProcessDart getExitCodeProcess;
   late final _TerminateProcessDart terminateProcess;
   late final _GetLastErrorDart getLastError;
+  late final _CancelIoExDart cancelIoEx;
 }
 
-int _packCoord(int cols, int rows) => (rows << 16) | (cols & 0xFFFF);
+int _packCoord(int cols, int rows) {
+  final c = cols.clamp(1, 65535);
+  final r = rows.clamp(1, 65535);
+  return (r << 16) | (c & 0xFFFF);
+}
 
 void _pipeReaderIsolate(({int handle, SendPort port}) args) {
   final k32 = _Kernel32.instance;
@@ -344,6 +360,52 @@ void _pipeReaderIsolate(({int handle, SendPort port}) args) {
       ..free(bytesRead);
     args.port.send(null);
   }
+}
+
+void _pipeWriterIsolate(({int handle, SendPort port}) args) {
+  final k32 = _Kernel32.instance;
+  final rx = ReceivePort();
+  args.port.send(rx.sendPort);
+  const chunkSize = 4096;
+  final buf = calloc<Uint8>(chunkSize);
+  final written = calloc<Uint32>();
+  void cleanup() {
+    calloc
+      ..free(buf)
+      ..free(written);
+    args.port.send(null);
+  }
+
+  rx.listen((message) {
+    if (message == null) {
+      rx.close();
+      return;
+    }
+    final bytes = message as Uint8List;
+    var offset = 0;
+    while (offset < bytes.length) {
+      final len = (bytes.length - offset) > chunkSize
+          ? chunkSize
+          : (bytes.length - offset);
+      buf.asTypedList(len).setRange(0, len, bytes, offset);
+      var chunkOffset = 0;
+      while (chunkOffset < len) {
+        final ok = k32.writeFile(
+          args.handle,
+          buf + chunkOffset,
+          len - chunkOffset,
+          written,
+          nullptr,
+        );
+        if (ok == 0 || written.value == 0) {
+          rx.close();
+          return;
+        }
+        chunkOffset += written.value;
+      }
+      offset += len;
+    }
+  }, onDone: cleanup);
 }
 
 int _waitForProcessExitIsolate(int processHandle) {
@@ -380,26 +442,45 @@ final class _WindowsPtySessionHandle implements PtySessionHandle {
   int _hProcess;
   final Future<void> Function() _onTerminate;
   bool _active = true;
+  SendPort? _writerSendPort;
+  Completer<void>? _writerDone;
 
   @override
   bool get isActive => _active;
+
+  void attachWriter(SendPort sendPort, Completer<void> done) {
+    _writerSendPort = sendPort;
+    _writerDone = done;
+  }
 
   void markClosed() {
     _active = false;
   }
 
-  void closeConPtyAndPipes(int hOutputRead) {
+  Future<void> closeConPtyAndInput() async {
     final k32 = _Kernel32.instance;
     if (_hPC != 0) {
       k32.closePseudoConsole(_hPC);
       _hPC = 0;
     }
+    final writerPort = _writerSendPort;
+    if (writerPort != null) {
+      _writerSendPort = null;
+      writerPort.send(null);
+      await _writerDone?.future.timeout(
+        const Duration(milliseconds: 500),
+        onTimeout: () {},
+      );
+    }
     if (_hInputWrite != 0 && _hInputWrite != _invalidHandleValue) {
       k32.closeHandle(_hInputWrite);
       _hInputWrite = 0;
     }
+  }
+
+  void closeOutputPipe(int hOutputRead) {
     if (hOutputRead != 0 && hOutputRead != _invalidHandleValue) {
-      k32.closeHandle(hOutputRead);
+      _Kernel32.instance.closeHandle(hOutputRead);
     }
   }
 
@@ -413,27 +494,9 @@ final class _WindowsPtySessionHandle implements PtySessionHandle {
   @override
   Future<void> writeInput(List<int> bytes) async {
     if (!_active || bytes.isEmpty || _hInputWrite == 0) return;
-    final k32 = _Kernel32.instance;
-    final buf = calloc<Uint8>(bytes.length);
-    final written = calloc<Uint32>();
-    try {
-      buf.asTypedList(bytes.length).setAll(0, bytes);
-      var offset = 0;
-      while (offset < bytes.length) {
-        final ok = k32.writeFile(
-          _hInputWrite,
-          buf + offset,
-          bytes.length - offset,
-          written,
-          nullptr,
-        );
-        if (ok == 0 || written.value == 0) break;
-        offset += written.value;
-      }
-    } finally {
-      calloc
-        ..free(buf)
-        ..free(written);
+    final writerPort = _writerSendPort;
+    if (writerPort != null) {
+      writerPort.send(Uint8List.fromList(bytes));
     }
   }
 
@@ -460,6 +523,7 @@ final class WindowsPtyRunner implements PtyRunner {
     this.sessionRegistry,
     this.maxOutputLength = defaultMaxOutputLength,
     this.drainTimeout = defaultDrainTimeout,
+    this.initialInputDelay = defaultInitialInputDelay,
   });
 
   /// Default retained stdout cap (1 MiB of characters).
@@ -467,6 +531,10 @@ final class WindowsPtyRunner implements PtyRunner {
 
   /// Default maximum time to wait for PTY output drain after exit.
   static const Duration defaultDrainTimeout = Duration(seconds: 2);
+
+  /// Default brief startup delay before writing [PtyInvocation.initialInput]
+  /// so the child console/TUI has initialized its input mode.
+  static const Duration defaultInitialInputDelay = Duration(milliseconds: 150);
 
   /// Optional tracker registering spawned processes for cancellation.
   final ProcessTreeTracker? processTracker;
@@ -482,6 +550,9 @@ final class WindowsPtyRunner implements PtyRunner {
 
   /// Maximum time to wait for reader drain after process exit.
   final Duration drainTimeout;
+
+  /// Delay before sending [PtyInvocation.initialInput] after process resume.
+  final Duration initialInputDelay;
 
   @override
   Future<Result<ProcessExecutionResult>> run(
@@ -567,16 +638,21 @@ final class WindowsPtyRunner implements PtyRunner {
       }
     }
 
+    final mergedEnv = _mergeWindowsEnvironment(invocation.environment);
+    final cmdLine = _resolveWindowsCommandLine(
+      invocation.executable,
+      invocation.arguments,
+      workingDirectory: invocation.workingDirectory,
+      env: mergedEnv,
+    );
+
     final attrSizePtr = calloc<UintPtr>();
     Pointer<Void> attrList = nullptr;
     final siEx = calloc<_StartupInfoExW>();
     final pi = calloc<_ProcessInformation>();
-    final cmdLinePtr = _buildCommandLine(
-      invocation.executable,
-      invocation.arguments,
-    ).toNativeUtf16();
+    final cmdLinePtr = cmdLine.toNativeUtf16();
     final cwdPtr = invocation.workingDirectory.toNativeUtf16();
-    final envBlockPtr = _buildEnvironmentBlock(invocation.environment);
+    final envBlockPtr = _buildEnvironmentBlockFromMerged(mergedEnv);
 
     var hProcess = 0;
     var hThread = 0;
@@ -708,11 +784,30 @@ final class WindowsPtyRunner implements PtyRunner {
     }
 
     final receivePort = ReceivePort();
+    final writerPort = ReceivePort();
     final readerDone = Completer<void>();
+    final writerReady = Completer<SendPort>();
+    final writerDone = Completer<void>();
     final stdoutBuffer = StringBuffer();
     final lineBuffer = StringBuffer();
-    const utf8Decoder = Utf8Decoder(allowMalformed: true);
     var truncated = false;
+    final utf8InputSink = const Utf8Decoder(allowMalformed: true)
+        .startChunkedConversion(
+          _CallbackStringSink((text) {
+            _emitLines(text, lineBuffer, onOutput);
+            if (!truncated && text.isNotEmpty) {
+              final remaining = maxOutputLength - stdoutBuffer.length;
+              if (remaining <= 0) {
+                truncated = true;
+              } else if (text.length <= remaining) {
+                stdoutBuffer.write(text);
+              } else {
+                stdoutBuffer.write(text.substring(0, remaining));
+                truncated = true;
+              }
+            }
+          }),
+        );
 
     receivePort.listen((message) {
       if (message == null) {
@@ -723,74 +818,124 @@ final class WindowsPtyRunner implements PtyRunner {
       if (invocation.runId != null) {
         sessionRegistry?.appendOutput(sessionKey, bytes);
       }
+      utf8InputSink.add(bytes);
+    });
 
-      final text = utf8Decoder.convert(bytes);
-      _emitLines(text, lineBuffer, onOutput);
-
-      if (!truncated && text.isNotEmpty) {
-        final remaining = maxOutputLength - stdoutBuffer.length;
-        if (remaining <= 0) {
-          truncated = true;
-        } else if (text.length <= remaining) {
-          stdoutBuffer.write(text);
-        } else {
-          stdoutBuffer.write(text.substring(0, remaining));
-          truncated = true;
-        }
+    writerPort.listen((message) {
+      if (message is SendPort && !writerReady.isCompleted) {
+        writerReady.complete(message);
+      } else if (message == null && !writerDone.isCompleted) {
+        writerDone.complete();
       }
     });
 
-    await Isolate.spawn(_pipeReaderIsolate, (
-      handle: hOutputRead,
-      port: receivePort.sendPort,
-    ), errorsAreFatal: false);
-
-    k32
-      ..resumeThread(hThread)
-      ..closeHandle(hThread);
-
-    if (invocation.initialInput case final input? when input.isNotEmpty) {
-      await handle.writeInput(utf8.encode(input));
-    }
-
-    final waitFuture = _waitForProcessExitAsync(hProcess);
+    var readerSpawned = false;
+    var resumed = false;
     var timedOut = false;
-    final int exitCode;
+    var waitTimedOutAfterKill = false;
+    Future<int>? waitFuture;
+    var exitCode = -1;
+
     try {
+      await Isolate.spawn(_pipeReaderIsolate, (
+        handle: hOutputRead,
+        port: receivePort.sendPort,
+      ), errorsAreFatal: false);
+      readerSpawned = true;
+
+      await Isolate.spawn(_pipeWriterIsolate, (
+        handle: hInputWrite,
+        port: writerPort.sendPort,
+      ), errorsAreFatal: false);
+      final writerSendPort = await writerReady.future;
+      handle.attachWriter(writerSendPort, writerDone);
+
+      k32
+        ..resumeThread(hThread)
+        ..closeHandle(hThread);
+      resumed = true;
+
+      if (invocation.initialInput case final input? when input.isNotEmpty) {
+        if (initialInputDelay > Duration.zero) {
+          await Future<void>.delayed(initialInputDelay);
+        }
+        if (handle.isActive) {
+          await handle.writeInput(utf8.encode(input));
+        }
+      }
+
+      final activeWait = _waitForProcessExitAsync(hProcess);
+      waitFuture = activeWait;
       final timeout = invocation.timeout;
       if (timeout != null) {
-        exitCode = await waitFuture.timeout(
+        exitCode = await activeWait.timeout(
           timeout,
           onTimeout: () async {
             timedOut = true;
             await terminateProcessTree();
-            await waitFuture.timeout(drainTimeout, onTimeout: () => -1);
-            return -1;
+            final drained = await activeWait
+                .then<int?>((code) => code)
+                .timeout(drainTimeout, onTimeout: () => null);
+            if (drained == null) {
+              waitTimedOutAfterKill = true;
+              return -1;
+            }
+            return drained;
           },
         );
       } else {
-        exitCode = await waitFuture;
+        exitCode = await activeWait;
       }
     } finally {
-      if (!exitCompleter.isCompleted) {
-        exitCompleter.complete(-1);
+      if (!resumed) {
+        await terminateProcessTree();
+        if (hThread != 0 && hThread != _invalidHandleValue) {
+          k32.closeHandle(hThread);
+        }
       }
-      handle
-        ..markClosed()
-        ..closeConPtyAndPipes(hOutputRead);
+      if (!exitCompleter.isCompleted) {
+        exitCompleter.complete(exitCode);
+      }
+      handle.markClosed();
+      await handle.closeConPtyAndInput();
       if (tracker != null && trackedRunId != null) {
         tracker.untrackPid(pid);
       }
-      await readerDone.future.timeout(drainTimeout, onTimeout: () {});
+      if (readerSpawned) {
+        await readerDone.future.timeout(drainTimeout, onTimeout: () {});
+        if (!readerDone.isCompleted) {
+          k32.cancelIoEx(hOutputRead, nullptr);
+          await readerDone.future.timeout(
+            const Duration(milliseconds: 200),
+            onTimeout: () {},
+          );
+        }
+      }
+      handle.closeOutputPipe(hOutputRead);
       receivePort.close();
+      writerPort.close();
+      utf8InputSink.close();
       if (invocation.runId != null) {
         await sessionRegistry?.unregisterSession(sessionKey);
       }
-      handle.closeProcessHandle();
+      if (waitTimedOutAfterKill && waitFuture != null) {
+        unawaited(waitFuture.whenComplete(handle.closeProcessHandle));
+      } else {
+        handle.closeProcessHandle();
+      }
     }
 
     if (lineBuffer.isNotEmpty) {
       onOutput?.call('stdout', lineBuffer.toString());
+    }
+
+    if (waitTimedOutAfterKill) {
+      return FailureResult(
+        NodeExecutionFailure(
+          'Process "${invocation.executable}" did not exit within '
+          '$drainTimeout after timeout and termination.',
+        ),
+      );
     }
 
     return Success(
@@ -865,10 +1010,104 @@ String _quoteWinArg(String arg) {
   return buffer.toString();
 }
 
-Pointer<Void> _buildEnvironmentBlock(Map<String, String> overrides) {
-  final merged = <String, String>{...Platform.environment, ...overrides};
+final class _CallbackStringSink implements Sink<String> {
+  const new(this._onData);
+
+  final void Function(String) _onData;
+
+  @override
+  void add(String data) => _onData(data);
+
+  @override
+  void close() {}
+}
+
+Map<String, String> _mergeWindowsEnvironment(Map<String, String> overrides) {
+  final merged = LinkedHashMap<String, String>(
+    equals: (a, b) => a.toLowerCase() == b.toLowerCase(),
+    hashCode: (key) => key.toLowerCase().hashCode,
+  );
+  for (final entry in Platform.environment.entries) {
+    merged[entry.key] = entry.value;
+  }
+  for (final entry in overrides.entries) {
+    merged
+      ..remove(entry.key)
+      ..[entry.key] = entry.value;
+  }
+  return merged;
+}
+
+String _resolveWindowsCommandLine(
+  String executable,
+  List<String> arguments, {
+  required String workingDirectory,
+  required Map<String, String> env,
+}) {
+  final resolved = resolveWindowsExecutable(
+    executable,
+    workingDirectory: workingDirectory,
+    env: env,
+  );
+  final target = resolved ?? executable;
+  final ext = p.extension(target).toLowerCase();
+  if (ext == '.cmd' || ext == '.bat') {
+    final comSpec = env['ComSpec'] ?? 'cmd.exe';
+    final inner = _buildCommandLine(target, arguments);
+    return '${_quoteWinArg(comSpec)} /d /s /c "$inner"';
+  }
+  return _buildCommandLine(target, arguments);
+}
+
+/// Resolves [executable] on Windows using `PATHEXT` and `PATH`
+/// (case-insensitively), returning `null` if no matching file exists.
+String? resolveWindowsExecutable(
+  String executable, {
+  required String workingDirectory,
+  required Map<String, String> env,
+}) {
+  final pathExtRaw = env['PATHEXT'] ?? '.COM;.EXE;.BAT;.CMD';
+  final extensions = pathExtRaw
+      .split(';')
+      .map((e) => e.trim().toLowerCase())
+      .where((e) => e.isNotEmpty)
+      .toList();
+
+  String? tryCandidate(String basePath) {
+    if (File(basePath).existsSync()) return basePath;
+    if (p.extension(basePath).isEmpty) {
+      for (final ext in extensions) {
+        final withExt = '$basePath$ext';
+        if (File(withExt).existsSync()) return withExt;
+      }
+    }
+    return null;
+  }
+
+  if (executable.contains(r'\') || executable.contains('/')) {
+    final candidate = p.isAbsolute(executable)
+        ? executable
+        : p.join(workingDirectory, executable);
+    return tryCandidate(candidate);
+  }
+
+  final inCwd = tryCandidate(p.join(workingDirectory, executable));
+  if (inCwd != null) return inCwd;
+
+  final pathVar = env['PATH'] ?? '';
+  for (final dir in pathVar.split(';')) {
+    if (dir.isEmpty) continue;
+    final found = tryCandidate(p.join(dir, executable));
+    if (found != null) return found;
+  }
+  return null;
+}
+
+Pointer<Void> _buildEnvironmentBlockFromMerged(Map<String, String> merged) {
+  final sortedEntries = merged.entries.toList()
+    ..sort((a, b) => a.key.toLowerCase().compareTo(b.key.toLowerCase()));
   final buffer = StringBuffer();
-  for (final entry in merged.entries) {
+  for (final entry in sortedEntries) {
     buffer
       ..write(entry.key)
       ..write('=')

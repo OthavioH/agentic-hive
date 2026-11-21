@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:agentic_hive_backend/agentic_hive_backend.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/pty_session.dart';
+import 'package:agentic_hive_backend/src/ws/connection_registry.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:get_it/get_it.dart';
 import 'package:test/test.dart';
@@ -179,6 +180,143 @@ void main() {
       final errPayload = WsErrorPayload.fromJson(errEnv.payload);
       expect(errPayload.code, WsErrorCode.ptySessionNotActive);
       expect(errPayload.replyTo, 'in-2');
+    });
+
+    test(
+      'subscribe inside coalesce window does not duplicate pending output',
+      () async {
+        const key = (runId: 'run-ws-dup', nodeId: 'term-1', attempt: 1);
+        final handle = _RecordingPtyHandle(key, ptyRegistry);
+        ptyRegistry
+          ..registerSession(handle)
+          ..appendOutput(key, utf8.encode('coalesced-once\r\n'));
+
+        final client = await connectClient();
+        client.sendEnvelope(
+          WsEnvelope(
+            type: WsMessageType.ptySubscribe,
+            id: 'sub-dup',
+            payload: const PtySubscribePayload(
+              runId: 'run-ws-dup',
+              nodeId: 'term-1',
+            ).toJson(),
+          ),
+        );
+
+        final snapshotEnv = await client.next();
+        expect(snapshotEnv.type, WsMessageType.ptyOutput);
+        final snapshot = PtyOutputPayload.fromJson(snapshotEnv.payload);
+        expect(snapshot.isSnapshot, isTrue);
+        expect(utf8.decode(base64Decode(snapshot.data)), 'coalesced-once\r\n');
+
+        // Send a subsequent live input and verify no duplicate coalesced chunk
+        // arrived before it.
+        client.sendEnvelope(
+          WsEnvelope(
+            type: WsMessageType.ptyInput,
+            id: 'in-after',
+            payload: PtyInputPayload(
+              runId: 'run-ws-dup',
+              nodeId: 'term-1',
+              attempt: 1,
+              data: base64Encode(utf8.encode('x')),
+            ).toJson(),
+          ),
+        );
+        final nextEnv = await client.next();
+        final nextPayload = PtyOutputPayload.fromJson(nextEnv.payload);
+        expect(nextPayload.isSnapshot, isFalse);
+        expect(utf8.decode(base64Decode(nextPayload.data)), 'echo:x');
+      },
+    );
+
+    test('subscribe to ended session returns ptySessionNotActive and oversized '
+        'pty.input is rejected', () async {
+      final client = await connectClient();
+      client.sendEnvelope(
+        WsEnvelope(
+          type: WsMessageType.ptySubscribe,
+          id: 'sub-ended',
+          payload: const PtySubscribePayload(
+            runId: 'run-ended',
+            nodeId: 'term-1',
+          ).toJson(),
+        ),
+      );
+
+      final endedErr = await client.next();
+      expect(endedErr.type, WsMessageType.error);
+      final endedPayload = WsErrorPayload.fromJson(endedErr.payload);
+      expect(endedPayload.code, WsErrorCode.ptySessionNotActive);
+      expect(endedPayload.replyTo, 'sub-ended');
+
+      const key = (runId: 'run-cap', nodeId: 'term-1', attempt: 1);
+      final handle = _RecordingPtyHandle(key, ptyRegistry);
+      ptyRegistry.registerSession(handle);
+
+      final oversized = List<int>.filled(65 * 1024, 65);
+      client.sendEnvelope(
+        WsEnvelope(
+          type: WsMessageType.ptyInput,
+          id: 'in-big',
+          payload: PtyInputPayload(
+            runId: 'run-cap',
+            nodeId: 'term-1',
+            attempt: 1,
+            data: base64Encode(oversized),
+          ).toJson(),
+        ),
+      );
+
+      final capErr = await client.next();
+      expect(capErr.type, WsMessageType.error);
+      final capPayload = WsErrorPayload.fromJson(capErr.payload);
+      expect(capPayload.code, WsErrorCode.invalidMessage);
+      expect(capPayload.replyTo, 'in-big');
+
+      client.sendEnvelope(
+        WsEnvelope(
+          type: WsMessageType.ptyResize,
+          id: 'res-clamp',
+          payload: const PtyResizePayload(
+            runId: 'run-cap',
+            nodeId: 'term-1',
+            attempt: 1,
+            cols: 5000,
+            rows: 3000,
+          ).toJson(),
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(handle.receivedResizes, [(1000, 1000)]);
+
+      // Unregistering session removes PTY subscriptions in ConnectionRegistry.
+      client.sendEnvelope(
+        WsEnvelope(
+          type: WsMessageType.ptySubscribe,
+          id: 'sub-cap',
+          payload: const PtySubscribePayload(
+            runId: 'run-cap',
+            nodeId: 'term-1',
+          ).toJson(),
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      final connRegistry = container<ConnectionRegistry>();
+      expect(
+        connRegistry.connections.any(
+          (c) => connRegistry.isSubscribedToPty(c.id, key),
+        ),
+        isTrue,
+      );
+      await ptyRegistry.unregisterSession(key);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(
+        connRegistry.connections.any(
+          (c) => connRegistry.isSubscribedToPty(c.id, key),
+        ),
+        isFalse,
+      );
     });
   });
 }

@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/data/nodes/windows_pty_runner.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_execution_context.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/pty_session.dart';
@@ -58,12 +59,13 @@ final class _FakeAgentPromptResolver implements AgentPromptResolver {
 final class _FakeProcessTreeKiller implements ProcessTreeKiller {
   final List<(String, String?)> kills = <(String, String?)>[];
   void Function(String runId, String? nodeId)? onKill;
+  Result<void> nextResult = const Success(null);
 
   @override
   Future<Result<void>> killTree({required String runId, String? nodeId}) async {
     kills.add((runId, nodeId));
     onKill?.call(runId, nodeId);
-    return const Success(null);
+    return nextResult;
   }
 }
 
@@ -395,6 +397,91 @@ void main() {
       expect(result.isFailure, isTrue);
       expect(result.failureOrNull, isA<NodeExecutionFailure>());
     });
+
+    test('sets TERM and COLORTERM defaults and allows env overrides', () async {
+      final ptyRunner = _FakePtyRunner();
+      final node = TerminalHarnessNode(
+        ptyRunner: ptyRunner,
+        defaultShellProvider: const _FakeShellProvider('/bin/sh'),
+        resultContract: _FakeResultContract(),
+        agentPromptResolver: _FakeAgentPromptResolver(),
+      );
+
+      final result = await node.execute(
+        makeContext(config: const <String, Object?>{'command': 'my-cli'}),
+      );
+      expect(result.isSuccess, isTrue);
+      expect(ptyRunner.lastInvocation!.environment['TERM'], 'xterm-256color');
+      expect(ptyRunner.lastInvocation!.environment['COLORTERM'], 'truecolor');
+    });
+
+    test('sendPromptToStdin appends CR for ConPTY Enter semantics', () async {
+      final ptyRunner = _FakePtyRunner();
+      final node = TerminalHarnessNode(
+        ptyRunner: ptyRunner,
+        defaultShellProvider: const _FakeShellProvider('/bin/sh'),
+        resultContract: _FakeResultContract(),
+        agentPromptResolver: _FakeAgentPromptResolver(),
+      );
+
+      final result = await node.execute(
+        makeContext(
+          config: const <String, Object?>{
+            'command': 'my-cli',
+            'additionalInstructions': 'Submit me',
+            'sendPromptToStdin': true,
+          },
+        ),
+      );
+      expect(result.isSuccess, isTrue);
+      expect(ptyRunner.lastInvocation!.initialInput, endsWith('\r'));
+      expect(ptyRunner.lastInvocation!.initialInput, isNot(endsWith('\n')));
+    });
+
+    test('fails when post-grace killTree is unconfirmed', () async {
+      final coordinator = ResultContractCoordinator();
+      final killer = _FakeProcessTreeKiller()
+        ..nextResult = const FailureResult(
+          NodeExecutionFailure('killTree failed'),
+        );
+      final ptyExitCompleter = Completer<Result<ProcessExecutionResult>>();
+      killer.onKill = (_, _) {
+        if (!ptyExitCompleter.isCompleted) {
+          ptyExitCompleter.complete(
+            const Success(ProcessExecutionResult(exitCode: 0)),
+          );
+        }
+      };
+
+      final ptyRunner = _FakePtyRunner(
+        onRun: (_, _) {
+          coordinator.submitMcpReport(
+            runId: 'run-1',
+            nodeId: 'term-1',
+            attempt: 1,
+            payload: const <String, Object?>{
+              'status': 'onSuccess',
+              'summary': 'Done',
+            },
+          );
+          return ptyExitCompleter.future;
+        },
+      );
+
+      final node = TerminalHarnessNode(
+        ptyRunner: ptyRunner,
+        defaultShellProvider: const _FakeShellProvider('/bin/sh'),
+        resultContract: _FakeResultContract(coordinator: coordinator),
+        agentPromptResolver: _FakeAgentPromptResolver(),
+        processTreeKiller: killer,
+        mcpGracePeriod: const Duration(milliseconds: 20),
+      );
+
+      final result = await node.execute(
+        makeContext(config: const <String, Object?>{'command': 'repl-cli'}),
+      );
+      expect(result.isFailure, isTrue);
+    });
   });
 
   group('PtyScrollbackBuffer', () {
@@ -408,6 +495,46 @@ void main() {
 
       buffer.append(<int>[11, 12, 13, 14, 15, 16, 17, 18, 19, 20]);
       expect(buffer.snapshot(), <int>[13, 14, 15, 16, 17, 18, 19, 20]);
+    });
+
+    test('trims leading orphaned UTF-8 continuation bytes after eviction', () {
+      final emoji = utf8.encode('😀'); // 4 bytes: F0 9F 98 80
+      final tail = utf8.encode('ok');
+      final buffer = PtyScrollbackBuffer(capacityBytes: 4)
+        ..append(emoji)
+        ..append(tail);
+
+      // Buffer holds last 4 bytes: [0x98, 0x80, 'o', 'k'].
+      expect(utf8.decode(buffer.snapshot()), 'ok');
+    });
+
+    test('trims partial CSI fragment after eviction', () {
+      final buffer = PtyScrollbackBuffer(capacityBytes: 8)
+        ..append(utf8.encode('\x1b[31;1mhi'));
+
+      // Buffer holds last 8 bytes: '[31;1mhi' (ESC evicted).
+      expect(utf8.decode(buffer.snapshot()), 'hi');
+    });
+  });
+
+  group('resolveWindowsExecutable', () {
+    test('resolves .cmd shim via PATHEXT and PATH', () async {
+      final binDir = Directory(
+        '${workspaceDir.path}${Platform.pathSeparator}bin',
+      );
+      await binDir.create();
+      final shim = File('${binDir.path}${Platform.pathSeparator}claude.cmd');
+      await shim.writeAsString('@echo off\r\n');
+
+      final resolved = resolveWindowsExecutable(
+        'claude',
+        workingDirectory: workspaceDir.path,
+        env: <String, String>{
+          'PATH': binDir.path,
+          'PATHEXT': '.COM;.EXE;.BAT;.CMD',
+        },
+      );
+      expect(resolved, shim.path);
     });
   });
 

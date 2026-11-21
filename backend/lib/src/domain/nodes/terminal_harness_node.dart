@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/harness_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_execution_context.dart';
@@ -73,45 +74,60 @@ final class TerminalHarnessNode extends HarnessNode {
         ? configuredCommand
         : defaultShellProvider.defaultShell;
 
-    final promptDir = await Directory.systemTemp.createTemp('hive_pty_prompt_');
-    final promptFile = File(p.join(promptDir.path, 'prompt.md'));
-    await promptFile.writeAsString(prompt);
-
-    final mergedEnv = <String, String>{
-      ...environment,
-      'HIVE_PROMPT_FILE': promptFile.path,
-      'HIVE_RESULT_PATH': ?resultFilePath,
-      'HIVE_MCP_CONFIG': ?mcpConfigPath,
-    };
-
+    Directory? promptDir;
     var terminatedAfterMcp = false;
     var finished = false;
+    Failure? killFailure;
+    Future<void>? pendingKill;
     Timer? graceTimer;
 
-    if (onMcpReportAccepted != null) {
-      unawaited(
-        onMcpReportAccepted.then((_) {
-          if (finished) return;
-          graceTimer = Timer(mcpGracePeriod, () async {
-            if (finished) return;
-            terminatedAfterMcp = true;
-            await processTreeKiller?.killTree(
-              runId: context.runId,
-              nodeId: context.nodeId,
-            );
-          });
-        }),
-      );
-    }
-
     try {
+      promptDir = await Directory.systemTemp.createTemp('hive_pty_prompt_');
+      final promptFile = File(p.join(promptDir.path, 'prompt.md'));
+      await promptFile.writeAsString(prompt);
+
+      final mergedEnv = <String, String>{
+        'TERM': 'xterm-256color',
+        'COLORTERM': 'truecolor',
+        ...environment,
+        'HIVE_PROMPT_FILE': promptFile.path,
+        'HIVE_RESULT_PATH': ?resultFilePath,
+        'HIVE_MCP_CONFIG': ?mcpConfigPath,
+      };
+
+      if (onMcpReportAccepted != null) {
+        unawaited(
+          onMcpReportAccepted.then((_) {
+            if (finished) return;
+            graceTimer = Timer(mcpGracePeriod, () {
+              if (finished) return;
+              final killer = processTreeKiller;
+              if (killer == null) return;
+              pendingKill = () async {
+                final killResult = await killer.killTree(
+                  runId: context.runId,
+                  nodeId: context.nodeId,
+                );
+                if (killResult case FailureResult<void>(:final failure)) {
+                  killFailure = failure;
+                } else {
+                  terminatedAfterMcp = true;
+                }
+              }();
+            });
+          }),
+        );
+      }
+
       final result = await ptyRunner.run(
         PtyInvocation(
           executable: executable,
           arguments: <String>[...config.args, ...config.extraArgs],
           workingDirectory: workingDirectory,
           environment: mergedEnv,
-          initialInput: config.sendPromptToStdin ? prompt : null,
+          initialInput: config.sendPromptToStdin
+              ? _formatStdinPrompt(prompt)
+              : null,
           timeout: config.timeoutSeconds != null
               ? Duration(seconds: config.timeoutSeconds!)
               : null,
@@ -123,6 +139,13 @@ final class TerminalHarnessNode extends HarnessNode {
       );
       finished = true;
       graceTimer?.cancel();
+      if (pendingKill != null) {
+        await pendingKill;
+      }
+
+      if (killFailure != null) {
+        return FailureResult(killFailure!);
+      }
 
       if (terminatedAfterMcp) {
         if (result case Success<ProcessExecutionResult>(:final value)) {
@@ -139,7 +162,7 @@ final class TerminalHarnessNode extends HarnessNode {
     } finally {
       finished = true;
       graceTimer?.cancel();
-      if (promptDir.existsSync()) {
+      if (promptDir != null && promptDir.existsSync()) {
         try {
           await promptDir.delete(recursive: true);
         } on FileSystemException {
@@ -147,6 +170,24 @@ final class TerminalHarnessNode extends HarnessNode {
         }
       }
     }
+  }
+
+  /// Formats [prompt] for PTY stdin submission.
+  ///
+  /// ConPTY (Windows) and raw-mode TUIs require `\r` (CR) rather than `\n` to
+  /// trigger Enter, so a trailing `\n`/`\r\n` is normalized to `\r` and a
+  /// missing trailing `\r` is appended.
+  static String _formatStdinPrompt(String prompt) {
+    if (prompt.endsWith('\r\n')) {
+      return '${prompt.substring(0, prompt.length - 2)}\r';
+    }
+    if (prompt.endsWith('\n')) {
+      return '${prompt.substring(0, prompt.length - 1)}\r';
+    }
+    if (prompt.endsWith('\r')) {
+      return prompt;
+    }
+    return '$prompt\r';
   }
 
   @override

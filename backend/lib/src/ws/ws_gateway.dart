@@ -40,9 +40,18 @@ final class WsGateway {
     _runEventsSubscription = runEvents?.listen(_broadcastRunEvent);
     _runOutputsSubscription = runOutputs?.listen(_broadcastRunOutput);
     _ptyOutputsSubscription = ptySessions?.outputs.listen(_broadcastPtyOutput);
+    _ptyEndedSubscription = ptySessions?.sessionEnded.listen(
+      _registry.removePtySubscribers,
+    );
   }
 
   static final _log = Logger('ws');
+
+  /// Maximum decoded byte length accepted in a single `pty.input` frame.
+  static const int maxPtyInputBytes = 64 * 1024;
+
+  /// Maximum terminal dimensions accepted in `pty.resize`.
+  static const int maxPtyDimension = 1000;
 
   final ConnectionRegistry _registry;
   final Duration _pingInterval;
@@ -54,6 +63,7 @@ final class WsGateway {
   StreamSubscription<RunEvent>? _runEventsSubscription;
   StreamSubscription<RunOutputPayload>? _runOutputsSubscription;
   StreamSubscription<PtyOutputPayload>? _ptyOutputsSubscription;
+  StreamSubscription<PtySessionKey>? _ptyEndedSubscription;
 
   /// Releases subscriptions held by the gateway.
   Future<void> close() async {
@@ -67,6 +77,8 @@ final class WsGateway {
     _runOutputsSubscription = null;
     await _ptyOutputsSubscription?.cancel();
     _ptyOutputsSubscription = null;
+    await _ptyEndedSubscription?.cancel();
+    _ptyEndedSubscription = null;
   }
 
   void _broadcastHarnessStatus(HarnessInfo harness) {
@@ -331,9 +343,22 @@ final class WsGateway {
     );
     if (key == null) return;
 
-    _registry.subscribeToPty(connection.id, key);
+    // Flush pending coalesced output and take the snapshot *before*
+    // subscribing so the new subscriber does not receive both the snapshot
+    // and the pending chunk in the same coalesce window.
     final snapshot = _ptySessions?.getScrollbackSnapshot(key);
-    if (snapshot != null && snapshot.isNotEmpty) {
+    if (snapshot == null) {
+      _sendError(
+        connection,
+        WsErrorCode.ptySessionNotActive,
+        'PTY session is not active or has already ended.',
+        replyTo: envelope.id,
+      );
+      return;
+    }
+
+    _registry.subscribeToPty(connection.id, key);
+    if (snapshot.isNotEmpty) {
       connection.send(
         WsEnvelope(
           type: WsMessageType.ptyOutput,
@@ -383,7 +408,17 @@ final class WsGateway {
     final List<int> bytes;
     try {
       payload = PtyInputPayload.fromJson(envelope.payload);
+      if (payload.data.length > (maxPtyInputBytes * 4 ~/ 3) + 4) {
+        throw const FormatException(
+          'Field "data" exceeds maximum PTY input size (64 KiB).',
+        );
+      }
       bytes = base64Decode(payload.data);
+      if (bytes.length > maxPtyInputBytes) {
+        throw const FormatException(
+          'Decoded PTY input exceeds maximum size (64 KiB).',
+        );
+      }
     } on FormatException catch (e) {
       _sendError(
         connection,
@@ -463,8 +498,8 @@ final class WsGateway {
     }
     final result = await sessions.resize(
       key,
-      cols: payload.cols,
-      rows: payload.rows,
+      cols: payload.cols.clamp(1, maxPtyDimension),
+      rows: payload.rows.clamp(1, maxPtyDimension),
     );
     if (result case FailureResult<void>(:final failure)) {
       _sendError(

@@ -25,6 +25,7 @@ final class PtyScrollbackBuffer {
   final Uint8List _buffer;
   int _start = 0;
   int _length = 0;
+  bool _evicted = false;
 
   /// Number of bytes currently stored in the buffer.
   int get length => _length;
@@ -35,6 +36,9 @@ final class PtyScrollbackBuffer {
 
     if (bytes.length >= capacityBytes) {
       final offset = bytes.length - capacityBytes;
+      if (offset > 0 || _length > 0) {
+        _evicted = true;
+      }
       _buffer.setRange(0, capacityBytes, bytes, offset);
       _start = 0;
       _length = capacityBytes;
@@ -56,12 +60,17 @@ final class PtyScrollbackBuffer {
       final overflow = newLength - capacityBytes;
       _start = (_start + overflow) % capacityBytes;
       _length = capacityBytes;
+      _evicted = true;
     } else {
       _length = newLength;
     }
   }
 
   /// Returns a contiguous copy of all currently buffered bytes in order.
+  ///
+  /// When older bytes have been evicted, leading partial UTF-8 continuation
+  /// bytes or incomplete CSI escape fragments are trimmed so replay starts at
+  /// a safe boundary.
   Uint8List snapshot() {
     if (_length == 0) return Uint8List(0);
     final result = Uint8List(_length);
@@ -72,7 +81,55 @@ final class PtyScrollbackBuffer {
     if (firstChunk < _length) {
       result.setRange(firstChunk, _length, _buffer, 0);
     }
-    return result;
+    if (!_evicted) return result;
+
+    final offset = _safeStartOffset(result);
+    if (offset <= 0) return result;
+    return Uint8List.sublistView(result, offset);
+  }
+
+  static int _safeStartOffset(Uint8List bytes) {
+    var i = 0;
+    // Skip orphaned UTF-8 continuation bytes (10xxxxxx, up to 3 bytes).
+    while (i < bytes.length && i < 3 && (bytes[i] & 0xC0) == 0x80) {
+      i++;
+    }
+    if (i >= bytes.length) return i;
+
+    // Skip a partial CSI fragment if ESC (0x1B) was evicted before `[` or
+    // params.
+    if (bytes[i] == 0x5B /* '[' */ ) {
+      var j = i + 1;
+      while (j < bytes.length &&
+          j - i <= 32 &&
+          bytes[j] >= 0x20 &&
+          bytes[j] <= 0x3F) {
+        j++;
+      }
+      if (j > i + 1 &&
+          j < bytes.length &&
+          bytes[j] >= 0x40 &&
+          bytes[j] <= 0x7E) {
+        return j + 1;
+      }
+    } else if ((bytes[i] >= 0x30 && bytes[i] <= 0x39) ||
+        bytes[i] == 0x3B /* ';' */ ) {
+      var j = i;
+      while (j < bytes.length &&
+          j - i <= 24 &&
+          ((bytes[j] >= 0x30 && bytes[j] <= 0x3B) || bytes[j] == 0x3F)) {
+        j++;
+      }
+      if (j > i &&
+          j < bytes.length &&
+          (bytes[j] == 0x6D /* 'm' */ ||
+              bytes[j] == 0x4B /* 'K' */ ||
+              bytes[j] == 0x4A /* 'J' */ ||
+              bytes[j] == 0x48 /* 'H' */ )) {
+        return j + 1;
+      }
+    }
+    return i;
   }
 }
 
@@ -132,11 +189,16 @@ final class PtySessionRegistry {
   final Map<PtySessionKey, _SessionState> _sessions =
       <PtySessionKey, _SessionState>{};
   final StreamController<PtyOutputPayload> _outputs =
-      StreamController<PtyOutputPayload>.broadcast();
+      StreamController<PtyOutputPayload>.broadcast(sync: true);
+  final StreamController<PtySessionKey> _sessionEnded =
+      StreamController<PtySessionKey>.broadcast();
   bool _disposed = false;
 
   /// Broadcast stream of coalesced `pty.output` payloads.
   Stream<PtyOutputPayload> get outputs => _outputs.stream;
+
+  /// Broadcast stream of session keys whose PTY session has ended.
+  Stream<PtySessionKey> get sessionEnded => _sessionEnded.stream;
 
   /// Registers an active PTY [handle].
   void registerSession(PtySessionHandle handle) {
@@ -172,12 +234,19 @@ final class PtySessionRegistry {
     final state = _sessions.remove(key);
     if (state == null) return;
     _flush(key, state);
+    if (!_sessionEnded.isClosed) {
+      _sessionEnded.add(key);
+    }
   }
 
-  /// Returns a snapshot of the scrollback ring buffer for [key], or `null` if
-  /// no active session exists.
-  Uint8List? getScrollbackSnapshot(PtySessionKey key) =>
-      _sessions[key]?.scrollback.snapshot();
+  /// Flushes any pending coalesced output for [key] and returns a snapshot of
+  /// the scrollback ring buffer, or `null` if no active session exists.
+  Uint8List? getScrollbackSnapshot(PtySessionKey key) {
+    final state = _sessions[key];
+    if (state == null) return null;
+    _flush(key, state);
+    return state.scrollback.snapshot();
+  }
 
   /// Whether [key] currently has an active PTY session.
   bool isActive(PtySessionKey key) => _sessions[key]?.handle.isActive ?? false;
@@ -249,5 +318,6 @@ final class PtySessionRegistry {
     }
     _sessions.clear();
     await _outputs.close();
+    await _sessionEnded.close();
   }
 }

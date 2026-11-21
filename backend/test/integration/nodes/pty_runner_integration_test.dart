@@ -144,4 +144,46 @@ void main() {
     },
     timeout: const Timeout(Duration(seconds: 30)),
   );
+
+  test('executes .cmd shim on Windows and drains short-lived output', () async {
+    if (!Platform.isWindows) return;
+    final shim = File('${tempDir.path}${Platform.pathSeparator}hello.cmd');
+    await shim.writeAsString('@echo off\r\necho SHIM_OK_%CUSTOM_VAR%\r\n');
+
+    final registry = PtySessionRegistry();
+    addTearDown(registry.dispose);
+    final managedKiller = currentProcessTreeKiller();
+    final runner = currentPtyRunner(
+      processTracker: managedKiller.tracker,
+      processTreeKiller: managedKiller.killer,
+      sessionRegistry: registry,
+    );
+
+    const key = (runId: 'run-pty-cmd', nodeId: 'term-cmd', attempt: 1);
+    addTearDown(() async {
+      await registry.terminateSession(key);
+      await managedKiller.killer.killTree(runId: key.runId, nodeId: key.nodeId);
+    });
+
+    final result = await runner
+        .run(
+          PtyInvocation(
+            executable: 'hello',
+            workingDirectory: tempDir.path,
+            environment: <String, String>{
+              'Path': '${tempDir.path};${Platform.environment['PATH'] ?? ''}',
+              'CUSTOM_VAR': 'MERGED',
+            },
+            runId: key.runId,
+            nodeId: key.nodeId,
+            attempt: key.attempt,
+            timeout: const Duration(seconds: 10),
+          ),
+        )
+        .timeout(const Duration(seconds: 15));
+
+    expect(result.isSuccess, isTrue);
+    expect(result.valueOrNull!.exitCode, 0);
+    expect(result.valueOrNull!.stdout, contains('SHIM_OK_MERGED'));
+  }, timeout: const Timeout(Duration(seconds: 30)));
 }
