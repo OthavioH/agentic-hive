@@ -2,11 +2,17 @@ import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dar
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:test/test.dart';
 
-WorkflowNode _node(String id, {String label = ''}) => WorkflowNode(
+WorkflowNode _node(
+  String id, {
+  String label = '',
+  String type = NodeTypeId.command,
+  JsonMap config = const {'command': 'echo ok'},
+}) => WorkflowNode(
   id: id,
-  type: 'placeholder',
+  type: type,
   label: label.isEmpty ? id : label,
   position: const WorkflowPosition(x: 0, y: 0),
+  config: config,
 );
 
 WorkflowEdge _edge(
@@ -297,6 +303,48 @@ void main() {
               .having((i) => i.nodeId, 'nodeId', 'n2'),
         ),
       );
+    });
+
+    test('reports error for unknown node type', () {
+      final wf = _workflow(
+        nodes: [_node('n1', type: 'unknown.type', config: const {})],
+      );
+
+      final result = validator.validate(wf);
+
+      expect(result.isValid, isFalse);
+      expect(
+        result.issues,
+        contains(
+          isA<WorkflowValidationIssue>()
+              .having(
+                (i) => i.code,
+                'code',
+                WorkflowValidationCode.unknownNodeType,
+              )
+              .having((i) => i.nodeId, 'nodeId', 'n1'),
+        ),
+      );
+    });
+
+    test('reports field-level error for invalid node config', () {
+      final wf = _workflow(
+        nodes: [
+          _node(
+            'n1',
+            config: const {'command': '  ', 'workingDirectory': '../escape'},
+          ),
+        ],
+      );
+
+      final result = validator.validate(wf);
+
+      expect(result.isValid, isFalse);
+      final configIssues = result.issues
+          .where((i) => i.code == WorkflowValidationCode.invalidNodeConfig)
+          .toList();
+      expect(configIssues, hasLength(2));
+      expect(configIssues.every((i) => i.nodeId == 'n1'), isTrue);
     });
   });
 }

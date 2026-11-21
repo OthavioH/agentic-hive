@@ -1,0 +1,313 @@
+import 'dart:io';
+
+import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/data/nodes/unconfigured_node_ports.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/command_node.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/headless_harness_nodes.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/human_approval_node.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/node_execution_context.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/node_registry.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/validator_nodes.dart';
+import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+import 'package:path/path.dart' as p;
+import 'package:test/test.dart';
+
+final class _FakeProcessRunner implements NodeProcessRunner {
+  new(this.onRun);
+
+  final ProcessExecutionResult Function(ProcessInvocation invocation) onRun;
+  ProcessInvocation? lastInvocation;
+
+  @override
+  Future<Result<ProcessExecutionResult>> run(
+    ProcessInvocation invocation, {
+    NodeOutputCallback? onOutput,
+  }) async {
+    lastInvocation = invocation;
+    return Success(onRun(invocation));
+  }
+}
+
+final class _FakeHumanApprovalPort implements HumanApprovalPort {
+  new(this.response);
+
+  HumanApprovalResponse response;
+  HumanApprovalRequest? lastRequest;
+
+  @override
+  Future<Result<HumanApprovalResponse>> requestApproval(
+    HumanApprovalRequest request,
+  ) async {
+    lastRequest = request;
+    return Success(response);
+  }
+}
+
+final class _FakeResultContract implements ResultContract {
+  new(this.report);
+
+  ResultContractReport report;
+
+  @override
+  String instructionsFor(NodeExecutionContext context) => 'Report result.';
+
+  @override
+  Future<Result<ResultContractReport?>> readReport(
+    NodeExecutionContext context,
+  ) async => Success(report);
+}
+
+void main() {
+  late Directory tempDir;
+
+  setUp(() async {
+    tempDir = await Directory.systemTemp.createTemp('hive_nodes_test_');
+  });
+
+  tearDown(() {
+    if (tempDir.existsSync()) {
+      tempDir.deleteSync(recursive: true);
+    }
+  });
+
+  NodeExecutionContext ctx(JsonMap config) => NodeExecutionContext(
+    runId: 'run-1',
+    nodeId: 'node-1',
+    workspacePath: tempDir.path,
+    config: config,
+  );
+
+  group('CommandNode', () {
+    test(
+      'returns onSuccess for exit 0 and forwards env/workingDir/timeout',
+      () async {
+        final runner = _FakeProcessRunner(
+          (_) => const ProcessExecutionResult(exitCode: 0, stdout: 'ok'),
+        );
+        final node = CommandNode(processRunner: runner);
+
+        final result = await node.execute(
+          ctx(const {
+            'command': 'dart',
+            'args': ['--version'],
+            'workingDirectory': 'sub',
+            'timeoutSeconds': 15,
+            'env': {'FOO': 'bar'},
+          }),
+        );
+
+        expect(result.isSuccess, isTrue);
+        expect(result.valueOrNull!.outputLabel, NodeOutput.onSuccess);
+        expect(
+          runner.lastInvocation!.workingDirectory,
+          p.join(tempDir.path, 'sub'),
+        );
+        expect(runner.lastInvocation!.environment, {'FOO': 'bar'});
+        expect(runner.lastInvocation!.timeout, const Duration(seconds: 15));
+      },
+    );
+
+    test('returns onFailure on non-zero exit code or timeout', () async {
+      final runner = _FakeProcessRunner(
+        (_) => const ProcessExecutionResult(exitCode: 2, stderr: 'boom'),
+      );
+      final node = CommandNode(processRunner: runner);
+
+      final nonZero = await node.execute(ctx(const {'command': 'false'}));
+      expect(nonZero.valueOrNull!.outputLabel, NodeOutput.onFailure);
+
+      final timedOutRunner = _FakeProcessRunner(
+        (_) => const ProcessExecutionResult(exitCode: -1, timedOut: true),
+      );
+      final timedOut = await CommandNode(processRunner: timedOutRunner)
+          .execute(ctx(const {'command': 'sleep', 'timeoutSeconds': 1}));
+      expect(timedOut.valueOrNull!.outputLabel, NodeOutput.onFailure);
+      expect(timedOut.valueOrNull!.data['timedOut'], isTrue);
+    });
+  });
+
+  group('TestsValidatorNode', () {
+    test('emits onSuccess on exit 0 and onFailure on non-zero', () async {
+      final passNode = TestsValidatorNode(
+        processRunner: _FakeProcessRunner(
+          (_) =>
+              const ProcessExecutionResult(exitCode: 0, stdout: 'All passed'),
+        ),
+      );
+      final pass = await passNode.execute(ctx(const {'command': 'dart test'}));
+      expect(pass.valueOrNull!.outputLabel, NodeOutput.onSuccess);
+
+      final failNode = TestsValidatorNode(
+        processRunner: _FakeProcessRunner(
+          (_) => const ProcessExecutionResult(exitCode: 1, stderr: '1 failed'),
+        ),
+      );
+      final fail = await failNode.execute(ctx(const {'command': 'dart test'}));
+      expect(fail.valueOrNull!.outputLabel, NodeOutput.onFailure);
+      expect(fail.valueOrNull!.data['exitCode'], 1);
+    });
+  });
+
+  group('ChecklistValidatorNode', () {
+    test(
+      'passes when fileExists, commandSucceeds, and outputMatchesRegex pass',
+      () async {
+        await File(p.join(tempDir.path, 'README.md')).writeAsString('# Hello');
+
+        final runner = _FakeProcessRunner((inv) {
+          if (inv.executable == 'dart' && inv.arguments.contains('analyze')) {
+            return const ProcessExecutionResult(
+              exitCode: 0,
+              stdout: 'No issues',
+            );
+          }
+          return const ProcessExecutionResult(
+            exitCode: 0,
+            stdout: 'Version 1.2.3',
+          );
+        });
+
+        final node = ChecklistValidatorNode(processRunner: runner);
+        final result = await node.execute(
+          ctx(const {
+            'rules': [
+              {
+                'label': 'Has README',
+                'kind': 'fileExists',
+                'path': 'README.md',
+              },
+              {
+                'label': 'Analyzer clean',
+                'kind': 'commandSucceeds',
+                'command': 'dart analyze',
+              },
+              {
+                'label': 'Semver output',
+                'kind': 'outputMatchesRegex',
+                'command': 'tool --version',
+                'pattern': r'Version \d+\.\d+\.\d+',
+              },
+            ],
+          }),
+        );
+
+        expect(result.isSuccess, isTrue);
+        expect(result.valueOrNull!.outputLabel, NodeOutput.onSuccess);
+        expect(result.valueOrNull!.data['failedRules'], isEmpty);
+      },
+    );
+
+    test('emits onFailure listing all failed rules', () async {
+      final runner = _FakeProcessRunner((inv) {
+        if (inv.executable == 'failing') {
+          return const ProcessExecutionResult(exitCode: 1);
+        }
+        return const ProcessExecutionResult(exitCode: 0, stdout: 'nope');
+      });
+
+      final node = ChecklistValidatorNode(processRunner: runner);
+      final result = await node.execute(
+        ctx(const {
+          'rules': [
+            {
+              'label': 'Missing file',
+              'kind': 'fileExists',
+              'path': 'missing.txt',
+            },
+            {
+              'label': 'Failing cmd',
+              'kind': 'commandSucceeds',
+              'command': 'failing',
+            },
+            {
+              'label': 'Regex mismatch',
+              'kind': 'outputMatchesRegex',
+              'command': 'echo',
+              'pattern': 'expected-token',
+            },
+          ],
+        }),
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(result.valueOrNull!.outputLabel, NodeOutput.onFailure);
+      final failed = result.valueOrNull!.data['failedRules']! as List;
+      expect(failed, hasLength(3));
+    });
+  });
+
+  group('ReviewValidatorNode', () {
+    test('delegates to registered headless harness and maps approved/changesRequested', () async {
+      final processRunner = _FakeProcessRunner(
+        (_) => const ProcessExecutionResult(exitCode: 0),
+      );
+      final contract = _FakeResultContract(
+        const ResultContractReport(status: ResultContractStatus.approved),
+      );
+      final registry = NodeRegistry()
+        ..register(
+          NodeDescriptors.claudeCode,
+          () => ClaudeCodeNode(
+            processRunner: processRunner,
+            resultContract: contract,
+            agentPromptResolver: const UnconfiguredAgentPromptResolver(),
+          ),
+        );
+
+      final reviewNode = ReviewValidatorNode(resolveNode: registry.create);
+      final approved = await reviewNode.execute(
+        ctx(const {
+          'harnessType': NodeTypeId.claudeCode,
+          'reviewCriteria': 'Check tests and types.',
+        }),
+      );
+      expect(approved.isSuccess, isTrue);
+      expect(approved.valueOrNull!.outputLabel, NodeOutput.approved);
+
+      contract.report = const ResultContractReport(
+        status: ResultContractStatus.changesRequested,
+        summary: 'Missing edge case test',
+      );
+      final changes = await reviewNode.execute(
+        ctx(const {
+          'harnessType': NodeTypeId.claudeCode,
+          'reviewCriteria': 'Check tests and types.',
+        }),
+      );
+      expect(changes.isSuccess, isTrue);
+      expect(changes.valueOrNull!.outputLabel, NodeOutput.changesRequested);
+    });
+  });
+
+  group('HumanApprovalNode', () {
+    test('maps approved and rejected decisions with feedback', () async {
+      final port = _FakeHumanApprovalPort(
+        const HumanApprovalResponse(
+          decision: HumanApprovalDecision.approved,
+          feedback: 'Looks good',
+        ),
+      );
+      final node = HumanApprovalNode(approvalPort: port);
+
+      final approved = await node.execute(
+        ctx(const {
+          'title': 'Approve release',
+          'instructions': 'Verify changelog.',
+        }),
+      );
+      expect(approved.valueOrNull!.outputLabel, NodeOutput.approved);
+      expect(approved.valueOrNull!.data['feedback'], 'Looks good');
+
+      port.response = const HumanApprovalResponse(
+        decision: HumanApprovalDecision.rejected,
+        feedback: 'Needs fixes',
+      );
+      final rejected = await node.execute(
+        ctx(const {'instructions': 'Verify changelog.'}),
+      );
+      expect(rejected.valueOrNull!.outputLabel, NodeOutput.rejected);
+      expect(rejected.valueOrNull!.data['feedback'], 'Needs fixes');
+    });
+  });
+}

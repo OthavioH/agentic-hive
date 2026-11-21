@@ -118,9 +118,10 @@ void main() {
           nodes: [
             WorkflowNode(
               id: 'n1',
-              type: 'placeholder',
+              type: NodeTypeId.command,
               label: 'Start',
               position: WorkflowPosition(x: 0, y: 0),
+              config: {'command': 'echo start'},
             ),
           ],
           entryNodeId: 'n1',

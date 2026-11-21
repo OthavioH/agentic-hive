@@ -37,7 +37,11 @@ HttpFailureMapping mapFailureToHttp(Failure failure, {String? requestId}) =>
           requestId: requestId,
         ),
       ),
-      PersistenceFailure() || UnexpectedFailure() => (
+      PersistenceFailure() ||
+      UnexpectedFailure() ||
+      HarnessAuthenticationFailure() ||
+      HarnessRateLimitFailure() ||
+      NodeExecutionFailure() => (
         statusCode: 500,
         error: ApiError(
           code: ApiErrorCode.internalError,
