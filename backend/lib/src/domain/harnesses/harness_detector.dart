@@ -12,6 +12,9 @@ abstract interface class HarnessDetector {
 
   /// Probes the local environment and returns the current [HarnessInfo].
   Future<HarnessInfo> detect();
+
+  /// Sets or clears a custom executable path override for detection.
+  void setExecutableOverride(String? path);
 }
 
 /// Template-method base for concrete CLI harness detectors.
@@ -32,6 +35,13 @@ abstract base class CliHarnessDetector implements HarnessDetector {
   final ProcessRunner _processRunner;
   final Duration _timeout;
   final DateTime Function() _now;
+  String? _executableOverride;
+
+  @override
+  void setExecutableOverride(String? path) {
+    final trimmed = path?.trim();
+    _executableOverride = (trimmed == null || trimmed.isEmpty) ? null : trimmed;
+  }
 
   /// Binary name to look up on `PATH` (for example `claude` or `agy`).
   String get executableName;
@@ -47,7 +57,8 @@ abstract base class CliHarnessDetector implements HarnessDetector {
 
   @override
   Future<HarnessInfo> detect() async {
-    final executablePath = await _executableLocator.locate(executableName);
+    final executablePath =
+        _executableOverride ?? await _executableLocator.locate(executableName);
     if (executablePath == null) {
       return HarnessInfo(
         id: id,

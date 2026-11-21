@@ -23,17 +23,36 @@ AgentRepository agentRepository(Ref ref) {
   final controller = StreamController<AgentsChangedPayload>.broadcast();
   StreamSubscription<WsEnvelope>? sessionSub;
 
+  String? lastEffectiveAgentsDir;
+
   void attachSession(BackendConnectionState conn) {
     final session = conn.sessionOrNull;
     unawaited(sessionSub?.cancel());
     sessionSub = null;
     if (session == null) return;
     sessionSub = session.messages.listen((envelope) {
-      if (envelope.type != WsMessageType.agentsChanged) return;
-      try {
-        controller.add(AgentsChangedPayload.fromJson(envelope.payload));
-      } on FormatException {
-        // Ignore malformed WebSocket event payloads.
+      if (envelope.type == WsMessageType.agentsChanged) {
+        try {
+          controller.add(AgentsChangedPayload.fromJson(envelope.payload));
+        } on FormatException {
+          // Ignore malformed WebSocket event payloads.
+        }
+      } else if (envelope.type == WsMessageType.settingsUpdated) {
+        try {
+          final payload = SettingsUpdatedPayload.fromJson(envelope.payload);
+          final nextDir = payload.settings.effectiveAgentsDir;
+          if (lastEffectiveAgentsDir != nextDir) {
+            lastEffectiveAgentsDir = nextDir;
+            controller.add(
+              const AgentsChangedPayload(
+                kind: AgentChangeKind.updated,
+                id: '*',
+              ),
+            );
+          }
+        } on FormatException {
+          // Ignore malformed WebSocket event payloads.
+        }
       }
     });
   }

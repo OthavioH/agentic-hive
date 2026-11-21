@@ -18,7 +18,7 @@ final class AgentDirectoryWatcher {
   /// Creates a watcher for [agentsDir]; does not start until [start] is
   /// called.
   new({
-    required this.agentsDir,
+    required this._agentsDir,
     required this._repository,
     required this._registry,
     this._debounceDuration = const Duration(milliseconds: 50),
@@ -28,8 +28,10 @@ final class AgentDirectoryWatcher {
 
   static final _log = Logger('agents.watcher');
 
+  String _agentsDir;
+
   /// Directory being watched for root-level `.md` files.
-  final String agentsDir;
+  String get agentsDir => _agentsDir;
 
   final AgentRepository _repository;
   final ConnectionRegistry _registry;
@@ -46,10 +48,18 @@ final class AgentDirectoryWatcher {
   /// Completes once the underlying [DirectoryWatcher] is ready to emit events.
   Future<void> get ready => _watcher?.ready ?? Future<void>.value();
 
-  /// Ensures [agentsDir] exists and begins watching for file changes.
-  Future<void> start() async {
+  /// Begins watching [agentsDir] for file changes.
+  ///
+  /// When [createDirectory] is `true`, [agentsDir] is created if missing. When
+  /// `false`, a missing directory throws a [FileSystemException] instead of
+  /// being auto-created.
+  Future<void> start({bool createDirectory = true}) async {
     if (_closed || _subscription != null) return;
-    await Directory(agentsDir).create(recursive: true);
+    if (createDirectory) {
+      await Directory(agentsDir).create(recursive: true);
+    } else if (!Directory(agentsDir).existsSync()) {
+      throw FileSystemException('Agents directory does not exist.', agentsDir);
+    }
 
     final watcher = DirectoryWatcher(agentsDir);
     _watcher = watcher;
@@ -127,6 +137,55 @@ final class AgentDirectoryWatcher {
   /// Stops watching and cancels any pending debounce timers.
   Future<void> close() async {
     _closed = true;
+    await _stopWatching();
+  }
+
+  /// Switches the watcher to [newDir] without closing the instance.
+  ///
+  /// If the watcher has already been started, it stops watching the previous
+  /// directory, starts watching [newDir], and broadcasts an `agents.changed`
+  /// event so connected clients refresh their agent list.
+  Future<void> switchDirectory(
+    String newDir, {
+    bool createDirectory = false,
+  }) async {
+    if (_closed) return;
+    if (_path.equals(_path.normalize(newDir), _path.normalize(_agentsDir))) {
+      return;
+    }
+    if (!createDirectory && !Directory(newDir).existsSync()) {
+      throw FileSystemException('Agents directory does not exist.', newDir);
+    }
+    final previousDir = _agentsDir;
+    final wasStarted = _subscription != null;
+    await _stopWatching();
+    _agentsDir = newDir;
+    if (wasStarted) {
+      try {
+        await start(createDirectory: createDirectory);
+      } on Object {
+        _agentsDir = previousDir;
+        try {
+          await start(createDirectory: false);
+        } on Object {
+          // Best-effort restore of previous watcher.
+        }
+        rethrow;
+      }
+    }
+    _registry.broadcast(
+      WsEnvelope(
+        type: WsMessageType.agentsChanged,
+        id: _generateId(),
+        payload: const AgentsChangedPayload(
+          kind: AgentChangeKind.updated,
+          id: '*',
+        ).toJson(),
+      ),
+    );
+  }
+
+  Future<void> _stopWatching() async {
     for (final timer in _pendingTimers.values) {
       timer.cancel();
     }

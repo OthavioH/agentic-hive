@@ -16,4 +16,7 @@ abstract final class WsMessageType {
 
   /// Server → client, broadcast when a harness's detected status changes.
   static const harnessStatusUpdated = 'harness.status_updated';
+
+  /// Server → client, broadcast when runtime settings are updated.
+  static const settingsUpdated = 'settings.updated';
 }

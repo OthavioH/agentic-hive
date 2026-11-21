@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:agentic_hive_frontend/core/backend/backend_connection.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/app_lifecycle_controller.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/tray_service.dart';
+import 'package:agentic_hive_frontend/core/theme/theme_preference_controller.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
 import 'package:agentic_hive_frontend/routes/app_router_provider.dart';
@@ -25,13 +26,14 @@ class HiveApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
+    final themePreference = ref.watch(themePreferenceControllerProvider);
     ref.watch(appLifecycleControllerProvider);
 
     return NodeVisualScope(
       registry: _nodeVisualRegistry,
       child: MaterialApp.router(
         onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
-        themeMode: ThemeMode.dark,
+        themeMode: themePreference.toThemeMode(),
         theme: HiveTheme.light(),
         darkTheme: HiveTheme.dark(),
         localizationsDelegates: const [

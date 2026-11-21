@@ -6,6 +6,7 @@ import 'package:agentic_hive_backend/src/config/platform_paths.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/di/dependencies.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_recovery_service.dart';
+import 'package:agentic_hive_backend/src/domain/settings/settings_service.dart';
 import 'package:agentic_hive_backend/src/server/backend_server.dart';
 import 'package:agentic_hive_backend/src/server/local_socket.dart';
 import 'package:get_it/get_it.dart';
@@ -63,6 +64,7 @@ final class Backend {
         onShutdown: backend.stop,
         consoleOut: consoleOut,
       );
+      await container<SettingsService>().applyPersistedSettings();
       final recovery = await container<RunRecoveryService>()
           .recoverOrphanedRuns();
       if (recovery case FailureResult<int>(:final failure)) {
