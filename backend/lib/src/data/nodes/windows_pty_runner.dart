@@ -17,6 +17,7 @@ const int _procThreadAttributePseudoConsole = 0x00020016;
 const int _extendedStartupInfoPresent = 0x00080000;
 const int _createUnicodeEnvironment = 0x00000400;
 const int _createSuspended = 0x00000004;
+const int _startfUseStdHandles = 0x00000100;
 const int _infinite = 0xFFFFFFFF;
 const int _invalidHandleValue = -1;
 
@@ -611,6 +612,7 @@ final class WindowsPtyRunner implements PtyRunner {
       }
 
       siEx.ref.startupInfo.cb = sizeOf<_StartupInfoExW>();
+      siEx.ref.startupInfo.dwFlags = _startfUseStdHandles;
       siEx.ref.lpAttributeList = attrList;
 
       const flags =

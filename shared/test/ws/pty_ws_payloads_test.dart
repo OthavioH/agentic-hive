@@ -14,11 +14,7 @@ void main() {
     });
 
     test('PtySubscribePayload and PtyUnsubscribePayload round-trip', () {
-      const sub = PtySubscribePayload(
-        runId: 'run-1',
-        nodeId: 'n1',
-        attempt: 2,
-      );
+      const sub = PtySubscribePayload(runId: 'run-1', nodeId: 'n1', attempt: 2);
       expect(PtySubscribePayload.fromJson(sub.toJson()), sub);
 
       const subDefault = PtySubscribePayload(runId: 'run-1', nodeId: 'n1');

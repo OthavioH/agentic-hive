@@ -36,6 +36,10 @@ void main() {
     );
 
     const key = (runId: 'run-pty-1', nodeId: 'term-1', attempt: 1);
+    addTearDown(() async {
+      await registry.terminateSession(key);
+      await managedKiller.killer.killTree(runId: key.runId, nodeId: key.nodeId);
+    });
     final shell = currentDefaultShellProvider().defaultShell;
     final outputCompleter = Completer<void>();
     final receivedText = StringBuffer();
@@ -85,7 +89,7 @@ void main() {
     expect(result.valueOrNull!.exitCode, 0);
     expect(result.valueOrNull!.stdout, contains('PTY_READY'));
     expect(registry.isActive(key), isFalse);
-  });
+  }, timeout: const Timeout(Duration(seconds: 30)));
 
   test(
     'ProcessTreeKiller terminates PTY process tree on cancellation',
@@ -100,6 +104,13 @@ void main() {
       );
 
       const key = (runId: 'run-pty-kill', nodeId: 'term-kill', attempt: 1);
+      addTearDown(() async {
+        await registry.terminateSession(key);
+        await managedKiller.killer.killTree(
+          runId: key.runId,
+          nodeId: key.nodeId,
+        );
+      });
       final args = Platform.isWindows
           ? <String>['-NoProfile', '-Command', 'Start-Sleep -Seconds 30']
           : <String>['-c', 'sleep 30'];
@@ -131,5 +142,6 @@ void main() {
       expect(execResult.valueOrNull!.timedOut, isFalse);
       expect(registry.isActive(key), isFalse);
     },
+    timeout: const Timeout(Duration(seconds: 30)),
   );
 }
