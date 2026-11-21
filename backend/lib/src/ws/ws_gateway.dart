@@ -23,6 +23,8 @@ final class WsGateway {
     required this._serverVersion,
     Stream<HarnessInfo>? harnessStatusUpdates,
     Stream<AppSettings>? settingsUpdates,
+    Stream<RunEvent>? runEvents,
+    Stream<RunOutputPayload>? runOutputs,
     this._generateId = randomId,
   }) {
     _harnessUpdatesSubscription = harnessStatusUpdates?.listen(
@@ -31,6 +33,8 @@ final class WsGateway {
     _settingsUpdatesSubscription = settingsUpdates?.listen(
       _broadcastSettingsUpdated,
     );
+    _runEventsSubscription = runEvents?.listen(_broadcastRunEvent);
+    _runOutputsSubscription = runOutputs?.listen(_broadcastRunOutput);
   }
 
   static final _log = Logger('ws');
@@ -41,6 +45,8 @@ final class WsGateway {
   final String Function() _generateId;
   StreamSubscription<HarnessInfo>? _harnessUpdatesSubscription;
   StreamSubscription<AppSettings>? _settingsUpdatesSubscription;
+  StreamSubscription<RunEvent>? _runEventsSubscription;
+  StreamSubscription<RunOutputPayload>? _runOutputsSubscription;
 
   /// Releases subscriptions held by the gateway.
   Future<void> close() async {
@@ -48,6 +54,10 @@ final class WsGateway {
     _harnessUpdatesSubscription = null;
     await _settingsUpdatesSubscription?.cancel();
     _settingsUpdatesSubscription = null;
+    await _runEventsSubscription?.cancel();
+    _runEventsSubscription = null;
+    await _runOutputsSubscription?.cancel();
+    _runOutputsSubscription = null;
   }
 
   void _broadcastHarnessStatus(HarnessInfo harness) {
@@ -66,6 +76,27 @@ final class WsGateway {
         type: WsMessageType.settingsUpdated,
         id: _generateId(),
         payload: SettingsUpdatedPayload(settings: settings).toJson(),
+      ),
+    );
+  }
+
+  void _broadcastRunEvent(RunEvent event) {
+    _registry.broadcast(
+      WsEnvelope(
+        type: WsMessageType.runEvent,
+        id: _generateId(),
+        payload: RunEventPayload(event: event).toJson(),
+      ),
+    );
+  }
+
+  void _broadcastRunOutput(RunOutputPayload output) {
+    _registry.broadcastToRun(
+      output.runId,
+      WsEnvelope(
+        type: WsMessageType.runOutput,
+        id: _generateId(),
+        payload: output.toJson(),
       ),
     );
   }
@@ -160,13 +191,57 @@ final class WsGateway {
         },
       ),
     );
-    // No client message types exist yet; each feature adds its handlers here.
-    _sendError(
-      connection,
-      WsErrorCode.unknownMessageType,
-      'Unknown message type "${envelope.type}".',
-      replyTo: envelope.id,
-    );
+    switch (envelope.type) {
+      case WsMessageType.runSubscribe:
+        _handleRunSubscribe(connection, envelope);
+      case WsMessageType.runUnsubscribe:
+        _handleRunUnsubscribe(connection, envelope);
+      default:
+        _sendError(
+          connection,
+          WsErrorCode.unknownMessageType,
+          'Unknown message type "${envelope.type}".',
+          replyTo: envelope.id,
+        );
+    }
+  }
+
+  void _handleRunSubscribe(WsConnection connection, WsEnvelope envelope) {
+    final RunSubscribePayload payload;
+    try {
+      payload = RunSubscribePayload.fromJson(envelope.payload);
+      if (payload.runId.trim().isEmpty) {
+        throw const FormatException('Field "runId" must not be blank.');
+      }
+    } on FormatException catch (e) {
+      _sendError(
+        connection,
+        WsErrorCode.invalidMessage,
+        e.message,
+        replyTo: envelope.id,
+      );
+      return;
+    }
+    _registry.subscribeToRun(connection.id, payload.runId);
+  }
+
+  void _handleRunUnsubscribe(WsConnection connection, WsEnvelope envelope) {
+    final RunUnsubscribePayload payload;
+    try {
+      payload = RunUnsubscribePayload.fromJson(envelope.payload);
+      if (payload.runId.trim().isEmpty) {
+        throw const FormatException('Field "runId" must not be blank.');
+      }
+    } on FormatException catch (e) {
+      _sendError(
+        connection,
+        WsErrorCode.invalidMessage,
+        e.message,
+        replyTo: envelope.id,
+      );
+      return;
+    }
+    _registry.unsubscribeFromRun(connection.id, payload.runId);
   }
 
   void _sendError(

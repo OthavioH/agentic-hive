@@ -63,8 +63,10 @@ final class RunRecoveryService {
   final DateTime Function() _now;
 
   /// Transitions any runs left in [RunStatus.running] from a previous backend
-  /// process into [RunStatus.interrupted] and appends a `run.interrupted`
-  /// event for each in a single transaction.
+  /// process into [RunStatus.interrupted] (appending `run.interrupted`), and
+  /// any runs left in [RunStatus.cancelling] into
+  /// [RunStatus.cancellationUncertain] (appending
+  /// `run.cancellation_uncertain`), each in a single transaction.
   ///
   /// Per-run failures are logged and skipped so one bad row does not block
   /// backend startup. Runs in [RunStatus.paused] are left untouched.
@@ -73,10 +75,13 @@ final class RunRecoveryService {
     if (runningResult case FailureResult<List<Run>>(:final failure)) {
       return FailureResult(failure);
     }
+    final cancellingResult = await _runs.listByStatus(RunStatus.cancelling);
+    if (cancellingResult case FailureResult<List<Run>>(:final failure)) {
+      return FailureResult(failure);
+    }
 
-    final orphaned = runningResult.valueOrNull!;
     var recovered = 0;
-    for (final run in orphaned) {
+    for (final run in runningResult.valueOrNull!) {
       final recoveryResult = await _runs.markInterruptedWithEvent(
         run.id,
         eventId: _generateId(),
@@ -87,6 +92,25 @@ final class RunRecoveryService {
         _log.warning(
           LogEvent(
             'runs.orphan_recovery_failed',
+            fields: {'runId': run.id, 'error': failure.message},
+          ),
+        );
+        continue;
+      }
+      recovered++;
+    }
+
+    for (final run in cancellingResult.valueOrNull!) {
+      final recoveryResult = await _runs.markCancellationUncertainWithEvent(
+        run.id,
+        eventId: _generateId(),
+        createdAt: _now().toUtc(),
+        payload: const {'reason': 'backend_restarted'},
+      );
+      if (recoveryResult case FailureResult<Run>(:final failure)) {
+        _log.warning(
+          LogEvent(
+            'runs.cancelling_recovery_failed',
             fields: {'runId': run.id, 'error': failure.message},
           ),
         );

@@ -42,10 +42,23 @@ abstract interface class RunRepository {
     JsonMap payload = const {},
   });
 
+  /// Atomically transitions [runId] from `cancelling` to
+  /// `cancellationUncertain` and appends a `run.cancellation_uncertain` event
+  /// inside a single transaction.
+  ///
+  /// Returns `NotFoundFailure` if the run does not exist or is no longer
+  /// `cancelling`.
+  Future<Result<Run>> markCancellationUncertainWithEvent(
+    String runId, {
+    required String eventId,
+    required DateTime createdAt,
+    JsonMap payload = const {},
+  });
+
   /// Atomically deletes a non-active run [id] (cascading its checkpoints and
   /// events).
   ///
-  /// Returns `ConflictFailure` when the run is `running` or `paused`, or
-  /// `NotFoundFailure` when [id] does not exist.
+  /// Returns `ConflictFailure` when the run is active (`running`, `paused`,
+  /// or `cancelling`), or `NotFoundFailure` when [id] does not exist.
   Future<Result<void>> delete(String id);
 }

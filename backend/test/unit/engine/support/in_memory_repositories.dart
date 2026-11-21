@@ -77,6 +77,14 @@ final class InMemoryRunRepository implements RunRepository {
   }) => updateStatus(runId, status: RunStatus.interrupted);
 
   @override
+  Future<Result<Run>> markCancellationUncertainWithEvent(
+    String runId, {
+    required String eventId,
+    required DateTime createdAt,
+    JsonMap payload = const {},
+  }) => updateStatus(runId, status: RunStatus.cancellationUncertain);
+
+  @override
   Future<Result<void>> delete(String id) async {
     runs.remove(id);
     return const Success(null);

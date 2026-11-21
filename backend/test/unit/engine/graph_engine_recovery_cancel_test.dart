@@ -286,7 +286,8 @@ void main() {
         await h.settle();
 
         expect(h.killer.kills, [(runId, null)]);
-        expect(h.run.status, RunStatus.running);
+        expect(h.run.status, RunStatus.cancelling);
+        expect(h.eventTypes, contains(RunEventType.runCancelling));
         expect(h.eventTypes, isNot(contains(RunEventType.runCancelled)));
 
         exit.complete();
@@ -327,36 +328,42 @@ void main() {
       expect(h.killer.confirmed, isTrue);
     });
 
-    test('a failed kill keeps the run cancellable and retryable', () async {
-      final hung = Completer<void>();
-      h.killer
-        ..failure = const NodeExecutionFailure('still alive')
-        ..onKill = (runId, nodeId) {
-          if (h.killer.failure == null && !hung.isCompleted) hung.complete();
-        };
-      h.script.on('a', [outcomeAfter(hung.future, NodeOutput.onSuccess)]);
-      await h.createRun(buildWorkflow(nodeIds: ['a'], edges: const []));
+    test(
+      'a failed kill transitions to cancellationUncertain and is retryable',
+      () async {
+        final hung = Completer<void>();
+        h.killer
+          ..failure = const NodeExecutionFailure('still alive')
+          ..onKill = (runId, nodeId) {
+            if (h.killer.failure == null && !hung.isCompleted) hung.complete();
+          };
+        h.script.on('a', [outcomeAfter(hung.future, NodeOutput.onSuccess)]);
+        await h.createRun(buildWorkflow(nodeIds: ['a'], edges: const []));
 
-      final started = h.engine.start(runId);
-      await h.settle();
-      final first = await h.engine.cancel(runId);
+        final started = h.engine.start(runId);
+        await h.settle();
+        final first = await h.engine.cancel(runId);
 
-      expect(first.failureOrNull, isA<ConflictFailure>());
-      expect(first.failureOrNull!.message, contains('cancel it again'));
-      expect(h.run.status, RunStatus.running);
-      expect(h.eventTypes, isNot(contains(RunEventType.runCancelled)));
-      // The engine still owns the run, so no orphan is left unattended.
-      expect(h.engine.isExecuting(runId), isTrue);
+        expect(first.valueOrNull?.status, RunStatus.cancellationUncertain);
+        expect(
+          (await started).valueOrNull?.status,
+          RunStatus.cancellationUncertain,
+        );
+        expect(h.run.status, RunStatus.cancellationUncertain);
+        expect(h.eventTypes, contains(RunEventType.runCancelling));
+        expect(h.eventTypes, contains(RunEventType.runCancellationUncertain));
+        expect(h.eventTypes, isNot(contains(RunEventType.runCancelled)));
+        expect(h.engine.isExecuting(runId), isFalse);
 
-      h.killer.failure = null;
-      final second = await h.engine.cancel(runId);
+        h.killer.failure = null;
+        final second = await h.engine.cancel(runId);
 
-      expect(second.valueOrNull?.status, RunStatus.cancelled);
-      expect((await started).valueOrNull?.status, RunStatus.cancelled);
-      expect(h.killer.kills, hasLength(2));
-      expect(h.engine.isExecuting(runId), isFalse);
-      expect(h.eventTypes.last, RunEventType.runCancelled);
-    });
+        expect(second.valueOrNull?.status, RunStatus.cancelled);
+        expect(h.killer.kills, hasLength(2));
+        expect(h.engine.isExecuting(runId), isFalse);
+        expect(h.eventTypes.last, RunEventType.runCancelled);
+      },
+    );
 
     test('a cancel issued during start is applied once driven', () async {
       await h.createRun(

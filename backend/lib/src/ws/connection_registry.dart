@@ -21,6 +21,7 @@ final class WsConnection {
 /// The open WebSocket connections, for broadcasting and shutdown.
 final class ConnectionRegistry {
   final _connections = <String, WsConnection>{};
+  final _runSubscriptions = <String, Set<String>>{};
 
   /// Number of open connections.
   int get count => _connections.length;
@@ -31,14 +32,51 @@ final class ConnectionRegistry {
   /// Tracks [connection] until [remove] or [closeAll].
   void add(WsConnection connection) => _connections[connection.id] = connection;
 
-  /// Stops tracking the connection with [connectionId].
-  void remove(String connectionId) => _connections.remove(connectionId);
+  /// Stops tracking the connection with [connectionId] and clears its run
+  /// subscriptions.
+  void remove(String connectionId) {
+    _connections.remove(connectionId);
+    for (final subscribers in _runSubscriptions.values) {
+      subscribers.remove(connectionId);
+    }
+    _runSubscriptions.removeWhere((_, subscribers) => subscribers.isEmpty);
+  }
+
+  /// Subscribes [connectionId] to `run.output` frames for [runId].
+  void subscribeToRun(String connectionId, String runId) {
+    if (!_connections.containsKey(connectionId)) return;
+    (_runSubscriptions[runId] ??= <String>{}).add(connectionId);
+  }
+
+  /// Unsubscribes [connectionId] from `run.output` frames for [runId].
+  void unsubscribeFromRun(String connectionId, String runId) {
+    final subscribers = _runSubscriptions[runId];
+    if (subscribers == null) return;
+    subscribers.remove(connectionId);
+    if (subscribers.isEmpty) {
+      _runSubscriptions.remove(runId);
+    }
+  }
+
+  /// Whether [connectionId] is currently subscribed to [runId].
+  bool isSubscribedToRun(String connectionId, String runId) =>
+      _runSubscriptions[runId]?.contains(connectionId) ?? false;
 
   /// Sends [envelope] to every open connection.
   void broadcast(WsEnvelope envelope) {
     final frame = envelope.encode();
     for (final connection in _connections.values) {
       connection.channel.sink.add(frame);
+    }
+  }
+
+  /// Sends [envelope] only to open connections subscribed to [runId].
+  void broadcastToRun(String runId, WsEnvelope envelope) {
+    final subscribers = _runSubscriptions[runId];
+    if (subscribers == null || subscribers.isEmpty) return;
+    final frame = envelope.encode();
+    for (final connectionId in subscribers) {
+      _connections[connectionId]?.channel.sink.add(frame);
     }
   }
 
@@ -49,6 +87,7 @@ final class ConnectionRegistry {
   Future<void> closeAll() async {
     final open = _connections.values.toList();
     _connections.clear();
+    _runSubscriptions.clear();
     await Future.wait([
       for (final connection in open)
         connection.channel.sink.close(

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:agentic_hive_backend/src/core/failure.dart';
@@ -13,6 +14,18 @@ final class DriftRunEventRepository implements RunEventRepository {
   new(this._db);
 
   final AppDatabase _db;
+  final StreamController<RunEvent> _eventController =
+      StreamController<RunEvent>.broadcast();
+
+  /// Broadcast stream of [RunEvent]s persisted through [append].
+  Stream<RunEvent> get events => _eventController.stream;
+
+  /// Closes the [events] stream.
+  Future<void> close() async {
+    if (!_eventController.isClosed) {
+      await _eventController.close();
+    }
+  }
 
   @override
   Future<Result<RunEvent>> append({
@@ -68,18 +81,20 @@ final class DriftRunEventRepository implements RunEventRepository {
               ),
             );
 
-        return Success(
-          RunEvent(
-            id: id,
-            runId: runId,
-            sequence: nextSequence,
-            type: type,
-            nodeId: nodeId,
-            edgeId: edgeId,
-            payload: payload,
-            createdAt: utcCreatedAt,
-          ),
+        final event = RunEvent(
+          id: id,
+          runId: runId,
+          sequence: nextSequence,
+          type: type,
+          nodeId: nodeId,
+          edgeId: edgeId,
+          payload: payload,
+          createdAt: utcCreatedAt,
         );
+        if (!_eventController.isClosed) {
+          _eventController.add(event);
+        }
+        return Success(event);
       });
     } on Object catch (error) {
       return FailureResult(

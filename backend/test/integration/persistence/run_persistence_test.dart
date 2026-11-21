@@ -396,7 +396,67 @@ void main() {
     // Missing run returns NotFoundFailure.
     final missing = await runsRepo.delete('does-not-exist');
     expect(missing.failureOrNull, isA<NotFoundFailure>());
+
+    // Cancelling is active (rejected); cancellationUncertain is deletable.
+    await runsRepo.create(
+      makeRun(
+        id: 'r-cancelling',
+        status: RunStatus.cancelling,
+        startedAt: DateTime.utc(2026, 11, 20, 12),
+      ),
+    );
+    expect(
+      (await runsRepo.delete('r-cancelling')).failureOrNull,
+      isA<ConflictFailure>(),
+    );
+
+    await runsRepo.create(
+      makeRun(
+        id: 'r-uncertain',
+        status: RunStatus.cancellationUncertain,
+        startedAt: DateTime.utc(2026, 11, 20, 12),
+        finishedAt: DateTime.utc(2026, 11, 20, 12, 1),
+      ),
+    );
+    expect((await runsRepo.delete('r-uncertain')).isSuccess, isTrue);
   });
+
+  test(
+    'RunRecoveryService transitions cancelling runs to cancellationUncertain',
+    () async {
+      final db = AppDatabase.open(dbFile);
+      addTearDown(db.close);
+
+      final runsRepo = DriftRunRepository(db);
+      final cpRepo = DriftCheckpointRepository(db);
+      final eventsRepo = DriftRunEventRepository(db);
+
+      await runsRepo.create(
+        makeRun(
+          id: 'r-cancelling',
+          status: RunStatus.cancelling,
+          startedAt: DateTime.utc(2026, 11, 20, 12),
+        ),
+      );
+
+      final recovery = RunRecoveryService(
+        runs: runsRepo,
+        checkpoints: cpRepo,
+        generateId: () => 'ev-cancel-uncertain',
+        now: () => DateTime.utc(2026, 11, 20, 13),
+      );
+
+      final count = (await recovery.recoverOrphanedRuns()).valueOrNull!;
+      expect(count, 1);
+
+      final recovered = (await runsRepo.getById('r-cancelling')).valueOrNull!;
+      expect(recovered.status, RunStatus.cancellationUncertain);
+
+      final events = (await eventsRepo.listForRun('r-cancelling')).valueOrNull!;
+      expect(events.items.single.type, RunEventType.runCancellationUncertain);
+      expect(events.items.single.payload, {'reason': 'backend_restarted'});
+    },
+  );
 }
 
 final class _V2SeedUser implements QueryExecutorUser {
