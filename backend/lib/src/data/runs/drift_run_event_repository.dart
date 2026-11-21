@@ -39,14 +39,16 @@ final class DriftRunEventRepository implements RunEventRepository {
     int? sequence,
   }) async {
     try {
-      return await _db.transaction(() async {
+      final result = await _db.transaction(() async {
         final runRow =
             await (_db.selectOnly(_db.runs)
                   ..addColumns([_db.runs.id])
                   ..where(_db.runs.id.equals(runId)))
                 .getSingleOrNull();
         if (runRow == null) {
-          return FailureResult(NotFoundFailure('Run "$runId" not found.'));
+          return FailureResult<RunEvent>(
+            NotFoundFailure('Run "$runId" not found.'),
+          );
         }
 
         final maxExpr = _db.runEvents.sequence.max();
@@ -57,7 +59,7 @@ final class DriftRunEventRepository implements RunEventRepository {
                 .getSingle();
         final nextSequence = (maxRow.read(maxExpr) ?? 0) + 1;
         if (sequence != null && sequence != nextSequence) {
-          return FailureResult(
+          return FailureResult<RunEvent>(
             ValidationFailure(
               'Expected event sequence $nextSequence for run "$runId", '
               'got $sequence.',
@@ -81,21 +83,25 @@ final class DriftRunEventRepository implements RunEventRepository {
               ),
             );
 
-        final event = RunEvent(
-          id: id,
-          runId: runId,
-          sequence: nextSequence,
-          type: type,
-          nodeId: nodeId,
-          edgeId: edgeId,
-          payload: payload,
-          createdAt: utcCreatedAt,
+        return Success<RunEvent>(
+          RunEvent(
+            id: id,
+            runId: runId,
+            sequence: nextSequence,
+            type: type,
+            nodeId: nodeId,
+            edgeId: edgeId,
+            payload: payload,
+            createdAt: utcCreatedAt,
+          ),
         );
-        if (!_eventController.isClosed) {
-          _eventController.add(event);
-        }
-        return Success(event);
       });
+      if (result case Success<RunEvent>(:final value)) {
+        if (!_eventController.isClosed) {
+          _eventController.add(value);
+        }
+      }
+      return result;
     } on Object catch (error) {
       return FailureResult(
         PersistenceFailure(

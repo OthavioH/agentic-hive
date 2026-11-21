@@ -138,16 +138,46 @@ Future<void> main() async {
     );
     expect(conflictRes.statusCode, 409);
 
-    // Wait for run to finish.
+    // Wait for run to finish and for the terminal run.event + run.output
+    // frames (which are emitted and delivered over the WebSocket after the
+    // run's status transaction commits in _finishTerminal) to arrive.
     final deadline = DateTime.now().add(const Duration(seconds: 15));
     var current = run;
-    while (current.status.isActive) {
+    bool hasTerminalWsEvent() => received
+        .where((e) => e.type == WsMessageType.runEvent)
+        .map((e) => RunEventPayload.fromJson(e.payload).event)
+        .any(
+          (ev) => ev.runId == run.id && ev.type == RunEventType.runSucceeded,
+        );
+    bool hasExpectedWsOutputs() {
+      final chunks = received
+          .where((e) => e.type == WsMessageType.runOutput)
+          .map((e) => RunOutputPayload.fromJson(e.payload))
+          .toList();
+      return chunks.any((o) => o.chunk.contains('hello stdout')) &&
+          chunks.any(
+            (o) =>
+                o.stream == RunOutputStream.stderr &&
+                o.chunk.contains('hello stderr'),
+          );
+    }
+
+    while (current.status.isActive ||
+        !hasTerminalWsEvent() ||
+        !hasExpectedWsOutputs()) {
       if (DateTime.now().isAfter(deadline)) {
-        fail('Timed out waiting for run to complete.');
+        fail(
+          'Timed out waiting for run to complete and deliver WS frames '
+          '(status=${current.status.name}, '
+          'terminalEvent=${hasTerminalWsEvent()}, '
+          'outputs=${hasExpectedWsOutputs()}).',
+        );
       }
       await Future<void>.delayed(const Duration(milliseconds: 50));
-      final poll = await http.get('/api/v1/runs/${run.id}');
-      current = Run.fromJson(poll.json);
+      if (current.status.isActive) {
+        final poll = await http.get('/api/v1/runs/${run.id}');
+        current = Run.fromJson(poll.json);
+      }
     }
     expect(current.status, RunStatus.succeeded);
 
