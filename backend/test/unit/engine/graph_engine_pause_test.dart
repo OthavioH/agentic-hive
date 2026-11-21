@@ -66,7 +66,11 @@ void main() {
       expect(latest.nodeOutputs.keys, ['work']);
       final paused = h.events.ofType(runId, RunEventType.runPaused).single;
       expect(paused.payload['pausedNodes'], [
-        {'nodeId': 'gate', 'kind': 'approval', 'question': 'Please review.'},
+        {
+          'nodeId': 'gate',
+          'kind': 'humanApproval',
+          'question': 'Please review.',
+        },
       ]);
       expect(h.script.runsOf('ship'), 0);
       // The checkpoint is saved before the run enters `paused`.
@@ -170,7 +174,7 @@ void main() {
         (_) async => const FailureResult(
           PauseRequestedFailure(
             'wait',
-            kind: PauseKind.approval,
+            kind: PauseKind.humanApproval,
             runId: runId,
             nodeId: 'a',
           ),

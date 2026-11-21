@@ -9,6 +9,7 @@ import 'package:agentic_hive_backend/src/domain/nodes/node_execution_context.dar
 import 'package:agentic_hive_backend/src/domain/nodes/node_outcome.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_registry.dart';
+import 'package:agentic_hive_backend/src/domain/pauses/pause_repository.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/human_pause_gateway.dart';
 import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/process_tree_killer.dart';
@@ -28,6 +29,7 @@ final class _PausedNode {
     required this.nodeId,
     required this.kind,
     this.question,
+    this.options = const <String>[],
     this.pauseId,
     this.live = false,
   });
@@ -38,6 +40,7 @@ final class _PausedNode {
       nodeId: map['nodeId']! as String,
       kind: PauseKind.values.byName(map['kind']! as String),
       question: map['question'] as String?,
+      options: (map['options'] as List<Object?>?)?.cast<String>() ?? const [],
       pauseId: map['pauseId'] as String?,
       live: map['live'] == true,
     );
@@ -46,6 +49,7 @@ final class _PausedNode {
   final String nodeId;
   final PauseKind kind;
   final String? question;
+  final List<String> options;
 
   /// Id of the pending gateway request of a live `ask_human` pause.
   final String? pauseId;
@@ -189,6 +193,7 @@ final class GraphEngine {
     required this._snapshots,
     required this._pauseGateway,
     required this._processTreeKiller,
+    this._pauses,
     this._logStore,
     this.maxConcurrency = defaultMaxConcurrency,
     this.circuitBreakerThreshold = defaultCircuitBreakerThreshold,
@@ -222,6 +227,7 @@ final class GraphEngine {
   final SnapshotService _snapshots;
   final HumanPauseGateway _pauseGateway;
   final ProcessTreeKiller _processTreeKiller;
+  final PauseRepository? _pauses;
   final RunLogStore? _logStore;
   final String Function() _generateId;
   final DateTime Function() _now;
@@ -388,6 +394,7 @@ final class GraphEngine {
       switch (run.status) {
         case RunStatus.paused || RunStatus.interrupted:
           _pauseGateway.cancelRun(runId);
+          await _pauses?.cancelPendingForRun(runId, cancelledAt: _now());
           return await _finishTerminal(
             runId,
             status: RunStatus.cancelled,
@@ -528,7 +535,7 @@ final class GraphEngine {
     }
 
     switch ((target.kind, input)) {
-      case (PauseKind.approval, ApprovalDecisionInput()):
+      case (PauseKind.humanApproval, ApprovalDecisionInput()):
         final approval = input as ApprovalDecisionInput;
         x.resolved[target.nodeId] = NodeOutcome(
           outputLabel: switch (approval.decision) {
@@ -553,7 +560,7 @@ final class GraphEngine {
         if (rollback case FailureResult<void>(:final failure)) {
           return FailureResult(failure);
         }
-      case (PauseKind.approval, _) || (PauseKind.askHuman, _):
+      case (PauseKind.humanApproval, _) || (PauseKind.askHuman, _):
         return FailureResult(
           ValidationFailure(
             'Node "${target.nodeId}" is waiting for '
@@ -565,7 +572,7 @@ final class GraphEngine {
   }
 
   String _waitingFor(PauseKind kind) => switch (kind) {
-    PauseKind.approval => 'an approval decision',
+    PauseKind.humanApproval => 'an approval decision',
     PauseKind.askHuman => 'a human answer',
   };
 
@@ -728,6 +735,7 @@ final class GraphEngine {
       if (outcome case Success<Run>(:final value)
           when value.status == RunStatus.paused) {
         _pauseGateway.cancelRun(runId);
+        await _pauses?.cancelPendingForRun(runId, cancelledAt: _now());
         outcome = await _finishTerminal(
           runId,
           status: RunStatus.cancelled,
@@ -799,6 +807,7 @@ final class GraphEngine {
           nodeId: request.nodeId,
           kind: PauseKind.askHuman,
           question: request.question,
+          options: request.options,
           pauseId: request.pauseId,
           live: true,
         );
@@ -823,6 +832,7 @@ final class GraphEngine {
       }
       x.statusPaused = true;
     }
+    await _persistPauses(x, x.livePaused.values);
     await _emit(
       x.run.id,
       RunEventType.runPaused,
@@ -1333,12 +1343,84 @@ final class GraphEngine {
     );
     if (updated case FailureResult<Run>()) return updated;
     x.statusPaused = true;
+    await _persistPauses(x, x.paused.values);
     await _emit(
       x.run.id,
       RunEventType.runPaused,
       payload: <String, Object?>{'pausedNodes': _pausedPayload(x)},
     );
     return updated;
+  }
+
+  Future<void> _persistPauses(
+    _RunExecution x,
+    Iterable<_PausedNode> nodes,
+  ) async {
+    final pausesRepo = _pauses;
+    if (pausesRepo == null) return;
+    final existingResult = await pausesRepo.listPendingForRun(x.run.id);
+    if (existingResult case FailureResult<List<Pause>>(:final failure)) {
+      _log.warning(
+        LogEvent(
+          'graph_engine.pause_list_failed',
+          fields: {'runId': x.run.id, 'error': failure.message},
+        ),
+      );
+      return;
+    }
+    final existingByNodeId = <String, Pause>{
+      for (final p in existingResult.valueOrNull!) p.nodeId: p,
+    };
+
+    for (final node in nodes) {
+      if (existingByNodeId.containsKey(node.nodeId)) continue;
+      final workflowNode = x.graph.node(node.nodeId);
+      final nodeLabel = workflowNode?.label ?? node.nodeId;
+      String? title;
+      String? instructions;
+      var allowFeedback = true;
+      if (node.kind == PauseKind.humanApproval && workflowNode != null) {
+        try {
+          final config = HumanApprovalNodeConfig.fromJson(workflowNode.config);
+          title = config.title;
+          instructions = config.instructions;
+          allowFeedback = config.allowFeedback;
+        } on FormatException {
+          instructions = node.question;
+        }
+      }
+
+      final pause = Pause(
+        id: node.pauseId ?? _generateId(),
+        runId: x.run.id,
+        nodeId: node.nodeId,
+        kind: node.kind,
+        status: PauseStatus.pending,
+        workflowName: x.run.workflowName,
+        nodeLabel: nodeLabel,
+        title: title,
+        instructions: node.kind == PauseKind.humanApproval
+            ? (instructions ?? node.question)
+            : null,
+        allowFeedback: allowFeedback,
+        question: node.kind == PauseKind.askHuman ? node.question : null,
+        options: node.options,
+        createdAt: _now(),
+      );
+      final created = await pausesRepo.create(pause);
+      if (created case FailureResult<Pause>(:final failure)) {
+        _log.warning(
+          LogEvent(
+            'graph_engine.pause_create_failed',
+            fields: {
+              'runId': x.run.id,
+              'nodeId': node.nodeId,
+              'error': failure.message,
+            },
+          ),
+        );
+      }
+    }
   }
 
   /// Fail-fast: cancels active siblings, waits for their process trees to
@@ -1361,6 +1443,7 @@ final class GraphEngine {
       x.running.clear();
     }
     _pauseGateway.cancelRun(x.run.id);
+    await _pauses?.cancelPendingForRun(x.run.id, cancelledAt: _now());
     return await _finishTerminal(
       x.run.id,
       status: RunStatus.failed,
@@ -1412,6 +1495,7 @@ final class GraphEngine {
       );
     }
     _pauseGateway.cancelRun(x.run.id);
+    await _pauses?.cancelPendingForRun(x.run.id, cancelledAt: _now());
     return await _finishTerminal(
       x.run.id,
       status: RunStatus.cancelled,
@@ -1460,6 +1544,7 @@ final class GraphEngine {
     }
 
     _pauseGateway.cancelRun(runId);
+    await _pauses?.cancelPendingForRun(runId, cancelledAt: _now());
     return await _finishTerminal(
       runId,
       status: RunStatus.cancelled,

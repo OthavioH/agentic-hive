@@ -37,7 +37,7 @@ void main() {
       await raw.runCustom('PRAGMA user_version = 2');
       await raw.close();
 
-      // Open with AppDatabase (schemaVersion 5) -> runs onUpgrade(2 -> 5).
+      // Open with AppDatabase (schemaVersion 6) -> runs onUpgrade(2 -> 6).
       final db = AppDatabase.open(dbFile);
       try {
         await db.customSelect('SELECT 1').get();

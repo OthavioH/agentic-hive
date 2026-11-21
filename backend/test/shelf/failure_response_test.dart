@@ -46,7 +46,7 @@ void main() {
       final mapped = mapFailureToHttp(
         const PauseRequestedFailure(
           'Run paused.',
-          kind: PauseKind.approval,
+          kind: PauseKind.humanApproval,
           runId: 'run-1',
           nodeId: 'gate',
         ),

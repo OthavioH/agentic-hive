@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/engine/graph_engine.dart';
+import 'package:agentic_hive_backend/src/domain/engine/resume_input.dart';
 import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_log_store.dart';
@@ -272,7 +273,21 @@ final class RunService {
   ///
   /// Returns [ConflictFailure] (`409 Conflict`) when the run is `paused`, is
   /// already being resumed, or is in any status other than `interrupted`.
-  Future<Result<Run>> resumeRun(String id) async {
+  Future<Result<Run>> resumeRun(String id) =>
+      _resumeWithStatus(id, expectedStatus: RunStatus.interrupted);
+
+  /// Resumes a `paused` run with [input] (either an [ApprovalDecisionInput]
+  /// or a post-restart [HumanAnswerInput]).
+  Future<Result<Run>> resumePausedRun(
+    String id, {
+    required ResumeInput input,
+  }) => _resumeWithStatus(id, expectedStatus: RunStatus.paused, input: input);
+
+  Future<Result<Run>> _resumeWithStatus(
+    String id, {
+    required RunStatus expectedStatus,
+    ResumeInput? input,
+  }) async {
     final engine = _engine;
     if (engine == null) {
       return const FailureResult(
@@ -296,11 +311,11 @@ final class RunService {
       }
       final run = runResult.valueOrNull!;
 
-      if (run.status != RunStatus.interrupted) {
+      if (run.status != expectedStatus) {
         return FailureResult(
           ConflictFailure(
-            'Run "$id" is ${run.status.name}; only interrupted runs can be '
-            'resumed.',
+            'Run "$id" is ${run.status.name}; only ${expectedStatus.name} '
+            'runs can be resumed.',
           ),
         );
       }
@@ -326,7 +341,7 @@ final class RunService {
       launched = true;
       _launchBackground(
         id,
-        () => engine.resume(id),
+        () => engine.resume(id, input: input),
         onSettled: () {
           _resumingRunIds.remove(id);
           if (reservedDirect && normalizedWorkspace != null) {
