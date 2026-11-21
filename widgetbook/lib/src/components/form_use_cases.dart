@@ -545,3 +545,206 @@ class _StatusFilterBarState extends State<_StatusFilterBar> {
     );
   }
 }
+
+const List<MapEntry<String, String>> _environment = <MapEntry<String, String>>[
+  MapEntry<String, String>('ANTHROPIC_MODEL', 'claude-opus-5-5'),
+  MapEntry<String, String>('LOG_LEVEL', 'debug'),
+  MapEntry<String, String>('HTTPS_PROXY', 'http://proxy.internal:3128'),
+];
+
+/// `HiveKeyValueEditor`: filled, empty, key problems, error, disabled and a
+/// live editor.
+WidgetbookComponent keyValueEditorComponent() {
+  HiveKeyValueEditor editor({
+    required List<MapEntry<String, String>> entries,
+    String? errorText,
+    bool enabled = true,
+  }) {
+    return HiveKeyValueEditor(
+      label: 'Environment variables',
+      helperText: 'Passed to the harness process.',
+      errorText: errorText,
+      keyPlaceholder: 'NAME',
+      valuePlaceholder: 'Value',
+      addButtonLabel: 'Add variable',
+      emptyText: 'No environment variables.',
+      entries: entries,
+      enabled: enabled,
+      onChanged: (_) {},
+    );
+  }
+
+  return WidgetbookComponent(
+    name: 'HiveKeyValueEditor',
+    useCases: <WidgetbookUseCase>[
+      WidgetbookUseCase(
+        name: 'Variables · Filled',
+        builder: (context) => _FieldWidth(child: editor(entries: _environment)),
+      ),
+      WidgetbookUseCase(
+        name: 'Variables · Empty',
+        builder: (context) => _FieldWidth(
+          child: editor(entries: const <MapEntry<String, String>>[]),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Variables · Duplicate and empty keys',
+        builder: (context) => _FieldWidth(
+          child: editor(
+            entries: const <MapEntry<String, String>>[
+              MapEntry<String, String>('LOG_LEVEL', 'debug'),
+              MapEntry<String, String>('LOG_LEVEL', 'info'),
+              MapEntry<String, String>('', 'claude-opus-5-5'),
+            ],
+            errorText: 'Fix the highlighted keys before saving.',
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Variables · Disabled',
+        builder: (context) =>
+            _FieldWidth(child: editor(entries: _environment, enabled: false)),
+      ),
+      WidgetbookUseCase(
+        name: 'Variables · Interactive',
+        builder: (context) => const _FieldWidth(child: _LiveKeyValueEditor()),
+      ),
+    ],
+  );
+}
+
+class _LiveKeyValueEditor extends StatefulWidget {
+  const new();
+
+  @override
+  State<_LiveKeyValueEditor> createState() => _LiveKeyValueEditorState();
+}
+
+class _LiveKeyValueEditorState extends State<_LiveKeyValueEditor> {
+  List<MapEntry<String, String>> _entries = _environment;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        HiveKeyValueEditor(
+          label: 'Environment variables',
+          helperText: 'Passed to the harness process.',
+          keyPlaceholder: 'NAME',
+          valuePlaceholder: 'Value',
+          addButtonLabel: 'Add variable',
+          emptyText: 'No environment variables.',
+          entries: _entries,
+          onChanged: (entries) => setState(() => _entries = entries),
+        ),
+        SizedBox(height: context.hiveSpacing.space2),
+        Text(
+          _entries.map((e) => '${e.key}=${e.value}').join('\n'),
+          style: context.hiveTypography.mono.copyWith(
+            color: context.hiveColors.onSurfaceMuted,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+const List<String> _extraArgs = <String>[
+  '--verbose',
+  '--output-format=stream-json',
+];
+
+/// `HiveStringListField`: filled, empty, error, disabled and a live field.
+WidgetbookComponent stringListFieldComponent() {
+  HiveStringListField field({
+    required List<String> items,
+    String? errorText,
+    bool enabled = true,
+  }) {
+    return HiveStringListField(
+      label: 'Extra arguments',
+      helperText: 'Appended to the harness command, one per item.',
+      errorText: errorText,
+      itemLabel: 'Argument',
+      itemPlaceholder: '--flag',
+      addButtonLabel: 'Add argument',
+      emptyText: 'No extra arguments.',
+      items: items,
+      enabled: enabled,
+      onChanged: (_) {},
+    );
+  }
+
+  return WidgetbookComponent(
+    name: 'HiveStringListField',
+    useCases: <WidgetbookUseCase>[
+      WidgetbookUseCase(
+        name: 'Arguments · Filled',
+        builder: (context) => _FieldWidth(child: field(items: _extraArgs)),
+      ),
+      WidgetbookUseCase(
+        name: 'Arguments · Empty',
+        builder: (context) =>
+            _FieldWidth(child: field(items: const <String>[])),
+      ),
+      WidgetbookUseCase(
+        name: 'Arguments · Error',
+        builder: (context) => _FieldWidth(
+          child: field(
+            items: const <String>['--verbose', ''],
+            errorText: 'Remove empty arguments.',
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Arguments · Disabled',
+        builder: (context) =>
+            _FieldWidth(child: field(items: _extraArgs, enabled: false)),
+      ),
+      WidgetbookUseCase(
+        name: 'Arguments · Interactive',
+        builder: (context) => const _FieldWidth(child: _LiveStringListField()),
+      ),
+    ],
+  );
+}
+
+class _LiveStringListField extends StatefulWidget {
+  const new();
+
+  @override
+  State<_LiveStringListField> createState() => _LiveStringListFieldState();
+}
+
+class _LiveStringListFieldState extends State<_LiveStringListField> {
+  List<String> _items = _extraArgs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        HiveStringListField(
+          label: 'Extra arguments',
+          helperText: 'Press Enter to add the next argument.',
+          itemLabel: 'Argument',
+          itemPlaceholder: '--flag',
+          addButtonLabel: 'Add argument',
+          emptyText: 'No extra arguments.',
+          items: _items,
+          onChanged: (items) => setState(() => _items = items),
+        ),
+        SizedBox(height: context.hiveSpacing.space2),
+        Text(
+          'claude ${_items.join(' ')}',
+          style: context.hiveTypography.mono.copyWith(
+            color: context.hiveColors.onSurfaceMuted,
+          ),
+        ),
+      ],
+    );
+  }
+}

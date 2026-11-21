@@ -44,6 +44,13 @@ const Map<String, String> _useCases = <String, String>{
   'Empty payload': 'This event has no payload.',
   'Interrupted': '',
   'Cancelled': '',
+  'Variables · Filled': 'ANTHROPIC_MODEL',
+  'Variables · Empty': 'No environment variables.',
+  'Variables · Duplicate and empty keys': 'Duplicate key',
+  'Variables · Interactive': 'Add variable',
+  'Arguments · Filled': '--verbose',
+  'Arguments · Error': 'Remove empty arguments.',
+  'Arguments · Disabled': 'Add argument',
 };
 
 void main() {

@@ -32,6 +32,12 @@ abstract final class WorkflowValidationCode {
 
   /// A node cannot be reached from `entryNodeId`.
   static const String unreachableNode = 'unreachable_node';
+
+  /// A node specifies a `type` not registered in the node catalog.
+  static const String unknownNodeType = 'unknown_node_type';
+
+  /// A node's `config` failed validation for its node type.
+  static const String invalidNodeConfig = 'invalid_node_config';
 }
 
 /// Severity of a [WorkflowValidationIssue].

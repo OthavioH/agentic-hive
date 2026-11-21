@@ -46,3 +46,35 @@ final class UnexpectedFailure extends Failure {
   /// Optional underlying cause for logging; never exposed over HTTP.
   final Object? cause;
 }
+
+/// A harness CLI failed because the user is not signed in or credentials
+/// expired (ADR 0002).
+final class HarnessAuthenticationFailure extends Failure {
+  /// Creates a harness authentication failure.
+  const new(super.message, {required this.harnessType});
+
+  /// Canonical `WorkflowNode.type` of the harness that failed authentication.
+  final String harnessType;
+}
+
+/// A harness CLI failed because a rate limit or quota was exhausted (ADR 0002).
+final class HarnessRateLimitFailure extends Failure {
+  /// Creates a harness rate-limit/quota failure.
+  const new(super.message, {required this.harnessType});
+
+  /// Canonical `WorkflowNode.type` of the harness that hit the limit.
+  final String harnessType;
+}
+
+/// A node failed due to an infrastructure error (missing report, non-zero
+/// exit, timeout, or process spawn error).
+final class NodeExecutionFailure extends Failure {
+  /// Creates a node execution failure.
+  const new(super.message, {this.exitCode, this.cause});
+
+  /// Optional process exit code.
+  final int? exitCode;
+
+  /// Optional underlying cause for logging.
+  final Object? cause;
+}

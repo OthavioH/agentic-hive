@@ -73,6 +73,11 @@ abstract final class WorkflowL10n {
       WorkflowValidationCode.unreachableNode => l10n.editorIssueUnreachableNode(
         resolveNodeLabel(issue.nodeId),
       ),
+      WorkflowValidationCode.unknownNodeType => l10n.editorIssueUnknownNodeType(
+        resolveNodeLabel(issue.nodeId),
+      ),
+      WorkflowValidationCode.invalidNodeConfig =>
+        l10n.editorIssueInvalidNodeConfig(resolveNodeLabel(issue.nodeId)),
       _ => l10n.editorIssueUnknown(issue.code),
     };
   }
