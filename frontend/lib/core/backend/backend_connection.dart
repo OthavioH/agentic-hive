@@ -149,7 +149,15 @@ class BackendConnection extends _$BackendConnection {
     if (_disposed || !ref.mounted) return;
     _graceTimer = null;
     if (state is BackendConnected) {
-      state = const BackendConnecting(isRetry: true);
+      // Supersede any in-flight silent attempt before transitioning out of the
+      // grace period so it cannot race with the scheduled backoff cycle.
+      _generation++;
+      _handleFailure(
+        const NetworkFailure(
+          'Backend reconnection timed out.',
+          code: BackendFailureCode.timeout,
+        ),
+      );
     }
   }
 

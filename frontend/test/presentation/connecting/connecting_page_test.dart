@@ -184,5 +184,43 @@ void main() {
       expect(find.text(l10n.connectingAutoRetryHalted), findsOneWidget);
       expect(fake.statusCalls, 2);
     });
+
+    testWidgets('countdown tick updates Retrying in Ns cleanly every second', (
+      tester,
+    ) async {
+      var currentNow = DateTime.utc(2026, 11, 20, 12);
+      final fake = _FakeBackendClient()
+        ..nextStatus = const FailureResult(
+          NetworkFailure('missing', code: BackendFailureCode.notRunning),
+        );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            backendClientProvider.overrideWithValue(fake),
+            backendConnectionConfigProvider.overrideWithValue(
+              BackendConnectionConfig(
+                nextRandomDouble: () => 0.5,
+                now: () => currentNow,
+                createTimer: (_, _) => _FakeTimer(),
+              ),
+            ),
+          ],
+          child: _buildTestApp(),
+        ),
+      );
+      await tester.pump();
+
+      const tickSeconds = 1;
+      const tick = Duration(seconds: tickSeconds);
+      final l10n = AppLocalizations.of(
+        tester.element(find.byType(ConnectingPage)),
+      )!;
+      expect(find.text(l10n.connectingNextRetryIn(1)), findsOneWidget);
+
+      currentNow = currentNow.add(tick);
+      await tester.pump(tick);
+      expect(find.text(l10n.connectingNextRetryIn(0)), findsOneWidget);
+    });
   });
 }

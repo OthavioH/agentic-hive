@@ -86,6 +86,17 @@ final class UnixSocketBackendClient implements BackendClient {
         );
       }
 
+      if (isDegradedCode) {
+        return FailureResult(
+          BackendFailure(
+            _tryExtractDegradedMessage(body) ??
+                'Backend is degraded (status ${response.statusCode}).',
+            code: BackendFailureCode.degraded,
+            statusCode: response.statusCode,
+          ),
+        );
+      }
+
       final decoded = jsonDecode(body);
       if (decoded is! Map<String, Object?>) {
         return const FailureResult(
@@ -93,7 +104,7 @@ final class UnixSocketBackendClient implements BackendClient {
         );
       }
       final status = StatusResponse.fromJson(decoded);
-      if (isDegradedCode || status.status == BackendStatus.degraded) {
+      if (status.status == BackendStatus.degraded) {
         return FailureResult(
           BackendFailure(
             status.database.error ??
@@ -202,6 +213,16 @@ final class UnixSocketBackendClient implements BackendClient {
   Future<void> close() async {
     _closed = true;
     _resetHttpClient();
+  }
+
+  String? _tryExtractDegradedMessage(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is! Map<String, Object?>) return null;
+      return StatusResponse.fromJson(decoded).database.error;
+    } on Object {
+      return null;
+    }
   }
 
   void _resetHttpClient() {

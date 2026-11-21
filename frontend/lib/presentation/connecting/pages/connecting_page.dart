@@ -21,9 +21,21 @@ class _ConnectingPageState extends ConsumerState<ConnectingPage> {
   static const Duration _tickInterval = Duration(seconds: _tickSeconds);
 
   Timer? _countdownTimer;
+  ProviderSubscription<BackendConnectionState>? _connectionSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _connectionSubscription = ref.listenManual(
+      backendConnectionProvider,
+      (_, next) => _syncCountdownTimer(next),
+      fireImmediately: true,
+    );
+  }
 
   @override
   void dispose() {
+    _connectionSubscription?.close();
     _countdownTimer?.cancel();
     super.dispose();
   }
@@ -47,7 +59,6 @@ class _ConnectingPageState extends ConsumerState<ConnectingPage> {
   @override
   Widget build(BuildContext context) {
     final connection = ref.watch(backendConnectionProvider);
-    _syncCountdownTimer(connection);
 
     final l10n = AppLocalizations.of(context)!;
     final spacing = context.hiveSpacing;
