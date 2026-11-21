@@ -5,6 +5,7 @@ import 'package:agentic_hive_backend/src/api/agents/agents_handler.dart';
 import 'package:agentic_hive_backend/src/data/agents/local_agent_repository.dart';
 import 'package:agentic_hive_backend/src/domain/agents/agent_service.dart';
 import 'package:agentic_hive_backend/src/http/api_handler.dart';
+import 'package:agentic_hive_backend/src/http/handlers/shutdown_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:path/path.dart' as p;
@@ -47,6 +48,7 @@ void main() {
         dataDir: tempDir.path,
         startedAt: DateTime.utc(2026, 11, 20),
       ),
+      shutdownHandler: ShutdownHandler(onShutdown: () async {}),
       webSocketHandler: (_) => Response(418),
       agentsHandler: AgentsHandler(service),
     );

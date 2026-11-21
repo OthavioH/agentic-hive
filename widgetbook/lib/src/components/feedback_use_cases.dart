@@ -225,47 +225,84 @@ WidgetbookComponent bannerComponent() {
   );
 }
 
-/// `HiveToast`: every tone inline, with action and dismiss, and a launcher.
+const Map<HiveToastTone, String> _toneMessages = <HiveToastTone, String>{
+  HiveToastTone.neutral: 'Path copied',
+  HiveToastTone.success: 'Claude Code is ready',
+  HiveToastTone.warning: 'Codex is outdated',
+  HiveToastTone.danger: 'Gemini CLI is not signed in',
+  HiveToastTone.info: 'Re-checking every harness',
+};
+
+/// `HiveToast`: every tone with its default icon and a custom icon, long
+/// text, a live trigger and a playground.
 WidgetbookComponent toastComponent() {
   return WidgetbookComponent(
     name: 'HiveToast',
     useCases: <WidgetbookUseCase>[
-      for (final tone in HiveFeedbackTone.values)
+      for (final tone in HiveToastTone.values) ...<WidgetbookUseCase>[
         WidgetbookUseCase(
-          name: tone.name,
+          name: '${tone.name} · Default icon',
           builder: (context) => UseCaseFrame(
-            child: HiveToast(tone: tone, message: _bannerCopy[tone]!.$1),
+            child: HiveToast(message: _toneMessages[tone]!, tone: tone),
           ),
         ),
+        WidgetbookUseCase(
+          name: '${tone.name} · Custom icon',
+          builder: (context) => UseCaseFrame(
+            child: HiveToast(
+              message: _toneMessages[tone]!,
+              tone: tone,
+              icon: HiveIcons.copy,
+            ),
+          ),
+        ),
+      ],
       WidgetbookUseCase(
-        name: 'With action and dismiss',
+        name: 'Long message',
         builder: (context) => const UseCaseFrame(
           child: HiveToast(
-            tone: HiveFeedbackTone.info,
-            message: 'code-reviewer changed on disk',
-            actionLabel: 'Reload',
-            onAction: _noop,
-            onDismiss: _noop,
-            dismissSemanticLabel: 'Dismiss notification',
+            message:
+                'Copied the workspace path of the release checklist run: '
+                '/home/dev/.local/share/agentic-hive/workspaces/release',
+            icon: HiveIcons.copy,
           ),
         ),
       ),
       WidgetbookUseCase(
-        name: 'Show over the page',
+        name: 'Live',
         builder: (context) => UseCaseFrame(
-          child: Builder(
-            builder: (context) => HiveButton(
-              label: 'Save agent',
-              onPressed: () => showHiveToast(
-                context,
-                tone: HiveFeedbackTone.success,
-                message: 'Agent saved',
-                dismissSemanticLabel: 'Dismiss notification',
-              ),
+          child: _ToastTrigger(
+            message: context.knobs.string(
+              label: 'Message',
+              initialValue: 'Path copied',
+            ),
+            tone: context.knobs.object.dropdown<HiveToastTone>(
+              label: 'Tone',
+              options: HiveToastTone.values,
+              labelBuilder: (v) => v.name,
             ),
           ),
         ),
       ),
     ],
   );
+}
+
+/// A button that shows a toast, so the entrance, display time, hover pause
+/// and exit can be reviewed.
+class _ToastTrigger extends StatelessWidget {
+  const new({required this.message, required this.tone});
+
+  final String message;
+  final HiveToastTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    return HiveButton(
+      label: 'Copy path',
+      icon: HiveIcons.copy,
+      variant: HiveButtonVariant.secondary,
+      onPressed: () => HiveToast.show(context, message: message, tone: tone),
+    );
+  }
 }

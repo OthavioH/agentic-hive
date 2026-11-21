@@ -6,26 +6,25 @@ part of 'status_response.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_StatusResponse _$StatusResponseFromJson(Map<String, dynamic> json) =>
-    $checkedCreate('_StatusResponse', json, ($checkedConvert) {
-      final val = _StatusResponse(
-        status: $checkedConvert(
-          'status',
-          (v) => $enumDecode(_$BackendStatusEnumMap, v),
-        ),
-        version: $checkedConvert('version', (v) => v as String),
-        uptimeSeconds: $checkedConvert(
-          'uptimeSeconds',
-          (v) => (v as num).toInt(),
-        ),
-        dataDir: $checkedConvert('dataDir', (v) => v as String),
-        database: $checkedConvert(
-          'database',
-          (v) => DatabaseStatus.fromJson(v as Map<String, dynamic>),
-        ),
-      );
-      return val;
-    });
+_StatusResponse _$StatusResponseFromJson(
+  Map<String, dynamic> json,
+) => $checkedCreate('_StatusResponse', json, ($checkedConvert) {
+  final val = _StatusResponse(
+    status: $checkedConvert(
+      'status',
+      (v) => $enumDecode(_$BackendStatusEnumMap, v),
+    ),
+    version: $checkedConvert('version', (v) => v as String),
+    uptimeSeconds: $checkedConvert('uptimeSeconds', (v) => (v as num).toInt()),
+    dataDir: $checkedConvert('dataDir', (v) => v as String),
+    database: $checkedConvert(
+      'database',
+      (v) => DatabaseStatus.fromJson(v as Map<String, dynamic>),
+    ),
+    activeRuns: $checkedConvert('activeRuns', (v) => (v as num?)?.toInt() ?? 0),
+  );
+  return val;
+});
 
 Map<String, dynamic> _$StatusResponseToJson(_StatusResponse instance) =>
     <String, dynamic>{
@@ -34,6 +33,7 @@ Map<String, dynamic> _$StatusResponseToJson(_StatusResponse instance) =>
       'uptimeSeconds': instance.uptimeSeconds,
       'dataDir': instance.dataDir,
       'database': instance.database.toJson(),
+      'activeRuns': instance.activeRuns,
     };
 
 const _$BackendStatusEnumMap = {

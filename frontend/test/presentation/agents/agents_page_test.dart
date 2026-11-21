@@ -224,7 +224,8 @@ void main() {
 
       expect(find.text('Agent created.'), findsOneWidget);
       expect(find.text('Release Manager'), findsAtLeastNWidgets(1));
-      await tester.pump(HiveToast.defaultDisplayDuration);
+      await tester.pump(HiveToast.displayDuration);
+      await tester.pumpAndSettle();
     });
 
     testWidgets('inspects parseError and deletes after confirmation dialog', (
@@ -254,7 +255,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Agent deleted.'), findsOneWidget);
       expect(find.text('No agents configured'), findsOneWidget);
-      await tester.pump(HiveToast.defaultDisplayDuration);
+      await tester.pump(HiveToast.displayDuration);
+      await tester.pumpAndSettle();
     });
 
     testWidgets('shows 409 conflict dialog and overwrites on confirm', (
@@ -287,7 +289,8 @@ void main() {
       await tester.tap(find.text('Overwrite'));
       await tester.pumpAndSettle();
       expect(find.text('Agent saved.'), findsOneWidget);
-      await tester.pump(HiveToast.defaultDisplayDuration);
+      await tester.pump(HiveToast.displayDuration);
+      await tester.pumpAndSettle();
     });
   });
 }

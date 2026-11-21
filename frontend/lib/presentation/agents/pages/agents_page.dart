@@ -26,13 +26,12 @@ class AgentsPage extends ConsumerWidget {
       if (!context.mounted) return;
       switch (outcome) {
         case SaveAgentSuccess(:final created):
-          showHiveToast(
+          HiveToast.show(
             context,
-            tone: HiveFeedbackTone.success,
+            tone: HiveToastTone.success,
             message: created
                 ? l10n.agentsCreateSuccess
                 : l10n.agentsSaveSuccess,
-            dismissSemanticLabel: l10n.agentsDismissTooltip,
           );
         case SaveAgentConflict():
           final agentId = state.draft?.id ?? '';
@@ -54,11 +53,10 @@ class AgentsPage extends ConsumerWidget {
               final overwriteOutcome = await controller.forceOverwrite();
               if (!context.mounted) return;
               if (overwriteOutcome is SaveAgentSuccess) {
-                showHiveToast(
+                HiveToast.show(
                   context,
-                  tone: HiveFeedbackTone.success,
+                  tone: HiveToastTone.success,
                   message: l10n.agentsSaveSuccess,
-                  dismissSemanticLabel: l10n.agentsDismissTooltip,
                 );
               }
             case HiveConfirmChoice.cancel:
@@ -86,11 +84,10 @@ class AgentsPage extends ConsumerWidget {
       final result = await controller.deleteSelected();
       if (!context.mounted) return;
       if (result is Success<void>) {
-        showHiveToast(
+        HiveToast.show(
           context,
-          tone: HiveFeedbackTone.success,
+          tone: HiveToastTone.success,
           message: l10n.agentsDeleteSuccess,
-          dismissSemanticLabel: l10n.agentsDismissTooltip,
         );
       }
     }

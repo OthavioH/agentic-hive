@@ -27,7 +27,7 @@ final class AgentsRemoteDataSource {
 
   /// Creates an agent (`POST /api/v1/agents`).
   Future<Result<AgentDetail>> createAgent(CreateAgentRequest request) async {
-    final result = await _client.postJson(_basePath, request.toJson());
+    final result = await _client.postJson(_basePath, body: request.toJson());
     return result.flatMap(_decodeDetail);
   }
 

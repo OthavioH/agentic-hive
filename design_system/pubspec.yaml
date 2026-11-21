@@ -25,6 +25,7 @@ dev_dependencies:
 flutter:
   assets:
     - assets/svg/
+    - assets/tray/
   fonts:
     - family: BricolageGrotesque
       fonts:

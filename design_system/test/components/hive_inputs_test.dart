@@ -7,18 +7,20 @@ import 'package:material_ui/material_ui.dart';
 
 import '../helpers/hive_test_harness.dart';
 
-Color _borderColor(WidgetTester tester) {
+ShapeDecoration _wellDecoration(WidgetTester tester) {
   final container = tester.widget<AnimatedContainer>(
     find
         .descendant(
-          of: find.byType(HiveTextInput),
+          of: find.byType(HiveTextField),
           matching: find.byType(AnimatedContainer),
         )
         .first,
   );
-  final decoration = container.decoration! as ShapeDecoration;
-  return (decoration.shape as OutlinedBorder).side.color;
+  return container.decoration! as ShapeDecoration;
 }
+
+Color _borderColor(WidgetTester tester) =>
+    (_wellDecoration(tester).shape as OutlinedBorder).side.color;
 
 bool _hasFocusRing(WidgetTester tester, Finder of) {
   return tester
@@ -93,11 +95,11 @@ void main() {
       expect(_hasFocusRing(tester, find.byType(HiveTextField)), isTrue);
     });
 
-    testWidgets('changes the border on hover', (tester) async {
+    testWidgets('changes the fill on hover', (tester) async {
       await tester.pumpWidget(
         hiveTestApp(child: const HiveTextField(label: 'Name')),
       );
-      final resting = _borderColor(tester);
+      final resting = _wellDecoration(tester).color;
 
       final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await gesture.addPointer(location: Offset.zero);
@@ -105,8 +107,7 @@ void main() {
       await gesture.moveTo(tester.getCenter(find.byType(TextField)));
       await tester.pumpAndSettle();
 
-      expect(_borderColor(tester), isNot(resting));
-      expect(_borderColor(tester), HiveColors.dark.onSurfaceMuted);
+      expect(_wellDecoration(tester).color, isNot(resting));
     });
 
     testWidgets('error state shows the message and a danger border', (

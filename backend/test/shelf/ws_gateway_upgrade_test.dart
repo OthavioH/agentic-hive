@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:agentic_hive_backend/src/http/api_handler.dart';
+import 'package:agentic_hive_backend/src/http/handlers/shutdown_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
 import 'package:agentic_hive_backend/src/http/request_context.dart';
 import 'package:agentic_hive_backend/src/ws/connection_registry.dart';
@@ -166,6 +167,7 @@ void main() {
           dataDir: '/data',
           startedAt: DateTime.utc(2026),
         ),
+        shutdownHandler: ShutdownHandler(onShutdown: () async {}),
         webSocketHandler: gateway,
       );
     });

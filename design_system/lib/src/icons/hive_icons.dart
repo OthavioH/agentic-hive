@@ -153,7 +153,8 @@ abstract final class HiveIcons {
     HugeIcons.strokeRoundedCheckmarkCircle02,
   );
 
-  /// Disclosure chevron (collapsible sections); rotate for the other state.
+  /// Open a dropdown or expand a section (collapsible sections); rotate for the
+  /// other state.
   static const HiveIconData chevronDown = _HugeGlyph(
     HugeIcons.strokeRoundedArrowDown01,
   );

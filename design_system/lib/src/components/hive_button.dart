@@ -18,8 +18,9 @@ enum HiveButtonVariant {
   /// Low-emphasis actions: transparent with `onSurface`.
   ghost(_transparent, _onSurface, null),
 
-  /// Confirming a destructive action (delete, overwrite): `danger` with
-  /// `onDanger`. Only inside a confirmation, never as a screen's main action.
+  /// Confirming a destructive action (delete, discard, overwrite): `danger`
+  /// with `onDanger`. Only inside a confirmation, never as a screen's main
+  /// action.
   danger(_danger, _onDanger, null);
 
   new(this.background, this.foreground, this.border);

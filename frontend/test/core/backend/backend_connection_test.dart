@@ -112,20 +112,34 @@ final class _FakeBackendClient implements BackendClient {
   }
 
   @override
-  Future<Result<JsonMap>> getJson(String path) async =>
-      const Success(<String, Object?>{'agents': <Object?>[]});
+  Future<Result<ShutdownResponse>> shutdown({required bool force}) async =>
+      const Success(ShutdownResponse());
 
   @override
-  Future<Result<JsonMap>> postJson(String path, JsonMap body) async =>
-      const FailureResult(UnexpectedFailure('Unimplemented in fake'));
+  Future<Result<JsonMap>> getJson(String path, {Duration? timeout}) async =>
+      const FailureResult(NetworkFailure('unused'));
+
+  @override
+  Future<Result<JsonMap>> postJson(
+    String path, {
+    JsonMap? body,
+    Duration? timeout,
+  }) async => const FailureResult(NetworkFailure('unused'));
 
   @override
   Future<Result<JsonMap>> putJson(String path, JsonMap body) async =>
-      const FailureResult(UnexpectedFailure('Unimplemented in fake'));
+      const FailureResult(NetworkFailure('unused'));
 
   @override
   Future<Result<void>> delete(String path) async =>
-      const FailureResult(UnexpectedFailure('Unimplemented in fake'));
+      const FailureResult(NetworkFailure('unused'));
+
+  @override
+  Future<Result<JsonMap>> sendJsonRequest(
+    String method,
+    String path, {
+    JsonMap? body,
+  }) async => const Success(<String, Object?>{});
 
   @override
   Future<void> close() async {

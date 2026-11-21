@@ -39,7 +39,7 @@ void main() {
       expect(status.dataDir, dataDir);
       expect(status.uptimeSeconds, greaterThanOrEqualTo(0));
       expect(status.database.ok, isTrue);
-      expect(status.database.schemaVersion, 1);
+      expect(status.database.schemaVersion, 2);
       expect(status.database.error, isNull);
     });
   });

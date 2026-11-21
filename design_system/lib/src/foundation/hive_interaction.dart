@@ -28,6 +28,9 @@ class HiveInteraction extends StatefulWidget {
     this.autofocus = false,
     this.selected,
     this.expanded,
+    this.toggled,
+    this.semanticValue,
+    this.semanticHint,
     this.busy = false,
     super.key,
   });
@@ -56,6 +59,17 @@ class HiveInteraction extends StatefulWidget {
   /// Expansion state for semantics (disclosure headers), or null when the
   /// component does not expand.
   final bool? expanded;
+
+  /// On/off state for semantics (switches), or null when not a toggle.
+  ///
+  /// When set, the node is announced as a toggle instead of a button.
+  final bool? toggled;
+
+  /// Current value announced after the label (a select's chosen option).
+  final String? semanticValue;
+
+  /// Extra description announced after the value (helper or error text).
+  final String? semanticHint;
 
   /// Whether the component is busy (loading); it then ignores activation.
   final bool busy;
@@ -113,11 +127,14 @@ class _HiveInteractionState extends State<HiveInteraction> {
   Widget build(BuildContext context) {
     final interactive = _enabled && !widget.busy;
     return Semantics(
-      button: true,
+      button: widget.toggled == null,
       enabled: _enabled,
       selected: widget.selected,
       expanded: widget.expanded,
+      toggled: widget.toggled,
       label: widget.semanticLabel,
+      value: widget.semanticValue,
+      hint: widget.semanticHint,
       onTap: interactive ? _activate : null,
       child: ExcludeSemantics(
         child: FocusableActionDetector(
@@ -209,13 +226,16 @@ class HiveFocusRing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!focused) return child;
+    // Always wrap in the same widget so toggling focus never remounts
+    // [child] (a remount would drop a text field's input connection).
     return CustomPaint(
-      foregroundPainter: _FocusRingPainter(
-        shape: shape,
-        color: context.hiveColors.focusRing,
-        width: context.hiveElevation.focusRingWidth,
-      ),
+      foregroundPainter: focused
+          ? _FocusRingPainter(
+              shape: shape,
+              color: context.hiveColors.focusRing,
+              width: context.hiveElevation.focusRingWidth,
+            )
+          : null,
       child: child,
     );
   }

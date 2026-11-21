@@ -109,12 +109,13 @@ WidgetbookComponent buttonComponent() {
   );
 }
 
-/// `HiveIconButton`: every variant in every state, plus sizes.
+/// `HiveIconButton`: every variant in every state, loading, sizes and
+/// playground.
 WidgetbookComponent iconButtonComponent() {
   return WidgetbookComponent(
     name: 'HiveIconButton',
     useCases: <WidgetbookUseCase>[
-      for (final variant in HiveButtonVariant.values)
+      for (final variant in HiveButtonVariant.values) ...<WidgetbookUseCase>[
         for (final state in PreviewState.values)
           WidgetbookUseCase(
             name: '${_variantName(variant)} · ${state.label}',
@@ -131,6 +132,19 @@ WidgetbookComponent iconButtonComponent() {
               ),
             ),
           ),
+        WidgetbookUseCase(
+          name: '${_variantName(variant)} · Loading',
+          builder: (context) => UseCaseFrame(
+            child: HiveIconButton(
+              icon: HiveIcons.refresh,
+              semanticLabel: 'Re-checking Claude Code',
+              variant: variant,
+              loading: true,
+              onPressed: _noop,
+            ),
+          ),
+        ),
+      ],
       WidgetbookUseCase(
         name: 'Sizes',
         builder: (context) => UseCaseFrame(
@@ -152,8 +166,99 @@ WidgetbookComponent iconButtonComponent() {
           ),
         ),
       ),
+      WidgetbookUseCase(
+        name: 'Loading sizes',
+        builder: (context) => UseCaseFrame(
+          child: ShowcaseSection(
+            title: 'Loading sizes',
+            children: <Widget>[
+              for (final size in HiveButtonSize.values)
+                Labeled(
+                  label: size.name,
+                  child: HiveIconButton(
+                    icon: HiveIcons.refresh,
+                    semanticLabel: 'Re-checking Codex',
+                    variant: HiveButtonVariant.secondary,
+                    size: size,
+                    loading: true,
+                    onPressed: _noop,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Re-check flow',
+        builder: (context) => const UseCaseFrame(child: _RecheckDemo()),
+      ),
+      WidgetbookUseCase(
+        name: 'Playground',
+        builder: (context) => UseCaseFrame(
+          child: HiveIconButton(
+            icon: HiveIcons.refresh,
+            semanticLabel: context.knobs.string(
+              label: 'Semantic label',
+              initialValue: 'Re-check Gemini CLI',
+            ),
+            variant: context.knobs.object.dropdown<HiveButtonVariant>(
+              label: 'Variant',
+              options: HiveButtonVariant.values,
+              initialOption: HiveButtonVariant.secondary,
+              labelBuilder: (v) => v.name,
+            ),
+            size: context.knobs.object.dropdown<HiveButtonSize>(
+              label: 'Size',
+              options: HiveButtonSize.values,
+              initialOption: HiveButtonSize.medium,
+              labelBuilder: (v) => v.name,
+            ),
+            loading: context.knobs.boolean(label: 'Loading'),
+            onPressed:
+                context.knobs.boolean(label: 'Enabled', initialValue: true)
+                ? _noop
+                : null,
+          ),
+        ),
+      ),
     ],
   );
+}
+
+/// A harness card's re-check button: loads for two `long` periods, then
+/// confirms with a toast.
+class _RecheckDemo extends StatefulWidget {
+  const new();
+
+  @override
+  State<_RecheckDemo> createState() => _RecheckDemoState();
+}
+
+class _RecheckDemoState extends State<_RecheckDemo> {
+  bool _loading = false;
+
+  Future<void> _recheck() async {
+    setState(() => _loading = true);
+    await Future<void>.delayed(context.hiveMotion.long * 2);
+    if (!mounted) return;
+    setState(() => _loading = false);
+    HiveToast.show(
+      context,
+      message: 'Claude Code is ready',
+      tone: HiveToastTone.success,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return HiveIconButton(
+      icon: HiveIcons.refresh,
+      semanticLabel: 'Re-check Claude Code',
+      variant: HiveButtonVariant.secondary,
+      loading: _loading,
+      onPressed: _recheck,
+    );
+  }
 }
 
 /// `HiveCard`: surfaces, interactive states and realistic content.

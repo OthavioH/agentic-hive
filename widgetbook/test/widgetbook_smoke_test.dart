@@ -18,10 +18,25 @@ const Map<String, String> _useCases = <String, String>{
   'Text only': 'With errors',
   'Conflict · Changed on disk': 'Reload from disk',
   'Parse error detail': 'This agent could not be read',
-  'With action and dismiss': 'Reload',
   'Agent prompt': 'Execution guidance',
   'Agent editor composition': 'Capabilities & tools',
   'Narrow · Master': 'Release manager',
+  'Tray icons': 'Asset keys',
+  'Stop backend confirmation': 'Stop backend and quit?',
+  'Interactive (modal route)': 'No choice yet',
+  'Loading sizes': 'Loading sizes',
+  'success · Default icon': 'Claude Code is ready',
+  'Long message': '',
+  'Danger · Default': 'Run workflow',
+  'Single-line · Focused': 'Workflow name',
+  'Single-line · Error': 'Name is required.',
+  'Multi-line · Default': 'Description',
+  'Select · Hovered': 'Source output',
+  'Select · Error': 'An edge needs a source output.',
+  'On · Focused': '',
+  'With label': 'Entry node',
+  'Delete confirmation': 'Delete "Release checklist"?',
+  'With content': 'Release checklist (copy)',
 };
 
 void main() {
@@ -105,5 +120,82 @@ void main() {
     final top = tester.getTopLeft(title).dy;
     expect(tester.getTopLeft(avatar).dy, top);
     expect(tester.getTopLeft(badge).dy, top);
+  });
+
+  testWidgets('interactive dialog use case opens and confirms', (tester) async {
+    await tester.pumpWidget(const HiveWidgetbook());
+    await tester.pump();
+
+    final node = find.text('Interactive (modal route)').first;
+    await tester.ensureVisible(node);
+    await tester.pump();
+    await tester.tap(node);
+    await tester.pump(const Duration(milliseconds: 500));
+
+    await tester.tap(find.text('Stop Backend & Quit'));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(HiveDialog), findsOneWidget);
+
+    await tester.tap(find.text('Stop backend'));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(HiveDialog), findsNothing);
+    expect(find.text('Confirmed: stop backend'), findsOneWidget);
+  });
+
+  testWidgets('live toast use case shows and dismisses a toast', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const HiveWidgetbook());
+    await tester.pump();
+
+    final node = find.text('Live').last;
+    await tester.ensureVisible(node);
+    await tester.pump();
+    await tester.tap(node);
+    await tester.pump(const Duration(milliseconds: 500));
+
+    await tester.tap(find.text('Copy path'));
+    await tester.pump();
+    expect(find.byType(HiveToast), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.pump(HiveMotionTokens.standard.medium);
+    await tester.pump(HiveToast.displayDuration);
+    await tester.pump();
+    await tester.pump(HiveMotionTokens.standard.short);
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(find.byType(HiveToast), findsNothing);
+  });
+
+  testWidgets('re-check flow loads, then confirms with a toast', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const HiveWidgetbook());
+    await tester.pump();
+
+    final node = find.text('Re-check flow').first;
+    await tester.ensureVisible(node);
+    await tester.pump();
+    await tester.tap(node);
+    await tester.pump(const Duration(milliseconds: 500));
+
+    await tester.tap(find.byType(HiveIconButton));
+    await tester.pump();
+    expect(find.byType(HiveIcon), findsNothing);
+
+    await tester.pump(HiveMotionTokens.standard.long * 2);
+    await tester.pump();
+    expect(find.text('Claude Code is ready'), findsOneWidget);
+
+    await tester.pump(HiveMotionTokens.standard.medium);
+    await tester.pump(HiveToast.displayDuration);
+    await tester.pump();
+    await tester.pump(HiveMotionTokens.standard.short);
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
   });
 }

@@ -13,4 +13,7 @@ abstract final class WsMessageType {
 
   /// Server → client, broadcast when an agent `.md` file changes on disk.
   static const agentsChanged = 'agents.changed';
+
+  /// Server → client, broadcast when a harness's detected status changes.
+  static const harnessStatusUpdated = 'harness.status_updated';
 }

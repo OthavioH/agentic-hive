@@ -1,114 +1,166 @@
 import 'dart:async';
 
-import 'package:design_system/src/components/hive_button.dart';
-import 'package:design_system/src/components/hive_icon_button.dart';
-import 'package:design_system/src/foundation/hive_feedback_tone.dart';
 import 'package:design_system/src/icons/hive_icons.dart';
+import 'package:design_system/src/tokens/hive_colors.dart';
 import 'package:design_system/src/tokens/hive_tokens_context.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// Transient feedback that floats over the page (agent saved, agent changed
-/// on disk). Show it with [showHiveToast]; the widget itself only draws.
+/// The color pair and default icon of a [HiveToast].
+enum HiveToastTone {
+  /// `surface3` with `onSurface` and a hairline; no default icon.
+  neutral(_surface3, _onSurface, _borderSubtle, null),
+
+  /// `success` with `onSuccess`; a check icon.
+  success(_success, _onSuccess, null, HiveIcons.check),
+
+  /// `warning` with `onWarning`; an alert icon.
+  warning(_warning, _onWarning, null, HiveIcons.alert),
+
+  /// `danger` with `onDanger`; an alert icon.
+  danger(_danger, _onDanger, null, HiveIcons.alert),
+
+  /// `info` with `onInfo`; an information icon.
+  info(_info, _onInfo, null, HiveIcons.info);
+
+  new(this.background, this.foreground, this.border, this.icon);
+
+  /// Background role.
+  final HiveColorRole background;
+
+  /// Message and icon role.
+  final HiveColorRole foreground;
+
+  /// Hairline border role, or null for none.
+  final HiveColorRole? border;
+
+  /// Icon shown when the toast does not set one, or null for none.
+  final HiveIconData? icon;
+}
+
+Color _surface3(HiveColors c) => c.surface3;
+Color _onSurface(HiveColors c) => c.onSurface;
+Color _borderSubtle(HiveColors c) => c.borderSubtle;
+Color _success(HiveColors c) => c.success;
+Color _onSuccess(HiveColors c) => c.onSuccess;
+Color _warning(HiveColors c) => c.warning;
+Color _onWarning(HiveColors c) => c.onWarning;
+Color _danger(HiveColors c) => c.danger;
+Color _onDanger(HiveColors c) => c.onDanger;
+Color _info(HiveColors c) => c.info;
+Color _onInfo(HiveColors c) => c.onInfo;
+
+/// A brief, non-blocking confirmation such as "Path copied".
 ///
-/// A `radiusCard` `surface3` card with a tone-colored hairline, the small
-/// `shadowMedium`, the tone icon, a message, an optional action and an
-/// optional dismiss button. It is a live region, so screen readers announce
-/// it when it appears.
+/// Show one with [HiveToast.show]: it slides in at the bottom center of the
+/// root overlay, stays for [HiveToast.displayDuration] (paused while the
+/// pointer is over it) and fades out. A new toast replaces the visible one.
+/// Screen readers announce the message through a live region.
+///
+/// The widget itself is the static pill, for previews and custom hosts.
 class HiveToast extends StatelessWidget {
-  /// Creates a toast.
+  /// Creates the toast pill.
   const new({
-    required this.tone,
     required this.message,
-    this.actionLabel,
-    this.onAction,
-    this.onDismiss,
-    this.dismissSemanticLabel,
+    this.tone = HiveToastTone.neutral,
+    this.icon,
     super.key,
-  }) : assert(
-         (actionLabel == null) == (onAction == null),
-         'actionLabel and onAction go together.',
-       ),
-       assert(
-         onDismiss == null || dismissSemanticLabel != null,
-         'A dismissible toast needs a dismissSemanticLabel.',
-       );
+  });
 
-  /// How long [showHiveToast] keeps a toast by default.
-  static const Duration defaultDisplayDuration = Duration(seconds: 5);
+  /// How long a shown toast stays before it leaves: four seconds.
+  static const Duration displayDuration = Duration(seconds: 4);
 
-  /// Color role pair and icon.
-  final HiveFeedbackTone tone;
-
-  /// The message.
+  /// The visible message, also announced to screen readers.
   final String message;
 
-  /// Optional action label, for example "Reload".
-  final String? actionLabel;
+  /// Color pair and default icon.
+  final HiveToastTone tone;
 
-  /// Called when the action is activated.
-  final VoidCallback? onAction;
+  /// Leading icon; defaults to the [tone]'s icon.
+  final HiveIconData? icon;
 
-  /// Shows a dismiss button when set.
-  final VoidCallback? onDismiss;
+  /// Shows a toast with [message] in the root overlay of [context] and
+  /// replaces any toast already visible there.
+  ///
+  /// Returns a handle that dismisses the toast early.
+  static HiveToastHandle show(
+    BuildContext context, {
+    required String message,
+    HiveToastTone tone = HiveToastTone.neutral,
+    HiveIconData? icon,
+    Duration duration = displayDuration,
+  }) {
+    final overlay = Overlay.of(context, rootOverlay: true);
+    _visible[overlay]?._removeNow();
+    final handle = HiveToastHandle._(overlay);
+    _visible[overlay] = handle;
+    handle._entry = OverlayEntry(
+      builder: (context) => _HiveToastHost(
+        key: handle._hostKey,
+        duration: duration,
+        onGone: handle._removeNow,
+        child: HiveToast(message: message, tone: tone, icon: icon),
+      ),
+    );
+    overlay.insert(handle._entry!);
+    return handle;
+  }
 
-  /// Semantics label of the dismiss button.
-  final String? dismissSemanticLabel;
+  static final Expando<HiveToastHandle> _visible = Expando<HiveToastHandle>(
+    'HiveToast visible toast',
+  );
 
   @override
   Widget build(BuildContext context) {
     final colors = context.hiveColors;
     final spacing = context.hiveSpacing;
-    final label = actionLabel;
-    final dismiss = onDismiss;
-    final dismissLabel = dismissSemanticLabel;
+    final elevation = context.hiveElevation;
+    final foreground = tone.foreground(colors);
+    final borderRole = tone.border;
+    final leading = icon ?? tone.icon;
     return Semantics(
       container: true,
       liveRegion: true,
-      explicitChildNodes: true,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: spacing.space8 * 7),
-        child: Container(
-          padding: EdgeInsets.all(spacing.space1),
-          decoration: BoxDecoration(
-            color: colors.surface3,
-            borderRadius: context.hiveRadii.card,
-            border: Border.all(
-              color: tone.color(colors),
-              width: context.hiveElevation.hairline,
+      label: message,
+      child: ExcludeSemantics(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: spacing.space8 * 8),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: tone.background(colors),
+              borderRadius: context.hiveRadii.pill,
+              border: borderRole == null
+                  ? null
+                  : Border.all(
+                      color: borderRole(colors),
+                      width: elevation.hairline,
+                    ),
+              boxShadow: elevation.shadowSmall,
             ),
-            boxShadow: context.hiveElevation.shadowMedium,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              HiveToneBadge(tone: tone, diameter: spacing.space4),
-              SizedBox(width: spacing.space2),
-              Flexible(
-                child: Text(
-                  message,
-                  style: context.hiveTypography.body.copyWith(
-                    color: colors.onSurface,
-                  ),
-                ),
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: spacing.space3,
+                vertical: spacing.space1,
               ),
-              if (label != null) ...<Widget>[
-                SizedBox(width: spacing.space2),
-                HiveButton(
-                  label: label,
-                  variant: HiveButtonVariant.secondary,
-                  size: HiveButtonSize.small,
-                  onPressed: onAction,
-                ),
-              ],
-              SizedBox(width: spacing.space1),
-              if (dismiss != null && dismissLabel != null)
-                HiveIconButton(
-                  icon: HiveIcons.close,
-                  semanticLabel: dismissLabel,
-                  size: HiveButtonSize.small,
-                  onPressed: dismiss,
-                ),
-            ],
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  if (leading != null) ...<Widget>[
+                    HiveIcon(leading, size: spacing.space2, color: foreground),
+                    SizedBox(width: spacing.space1),
+                  ],
+                  Flexible(
+                    child: Text(
+                      message,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.hiveTypography.body.copyWith(
+                        color: foreground,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -116,116 +168,139 @@ class HiveToast extends StatelessWidget {
   }
 }
 
-/// A shown toast; [dismiss] removes it early.
+/// A toast shown by [HiveToast.show].
 class HiveToastHandle {
-  new _(this._remove);
+  new _(this._overlay);
 
-  final VoidCallback _remove;
-  bool _dismissed = false;
+  final OverlayState _overlay;
+  final GlobalKey<_HiveToastHostState> _hostKey =
+      GlobalKey<_HiveToastHostState>();
+  OverlayEntry? _entry;
 
-  /// Whether the toast is gone.
-  bool get isDismissed => _dismissed;
+  /// Whether the toast is still in the overlay.
+  bool get isVisible => _entry != null;
 
-  /// Removes the toast if it is still shown.
+  /// Plays the exit motion and removes the toast. Does nothing once gone.
   void dismiss() {
-    if (_dismissed) return;
-    _dismissed = true;
-    _remove();
+    final host = _hostKey.currentState;
+    if (host == null) {
+      _removeNow();
+    } else {
+      host.leave();
+    }
+  }
+
+  void _removeNow() {
+    final entry = _entry;
+    if (entry == null) return;
+    _entry = null;
+    if (identical(HiveToast._visible[_overlay], this)) {
+      HiveToast._visible[_overlay] = null;
+    }
+    entry
+      ..remove()
+      ..dispose();
   }
 }
 
-HiveToastHandle? _current;
-
-/// Shows a [HiveToast] at the bottom end of the root [Overlay].
-///
-/// One toast shows at a time; a new one replaces the previous. It leaves
-/// after [duration] (pass null to keep it until dismissed). The entrance uses
-/// the motion tokens and respects `MediaQuery.disableAnimations`. The action
-/// and the dismiss button also remove the toast.
-HiveToastHandle showHiveToast(
-  BuildContext context, {
-  required HiveFeedbackTone tone,
-  required String message,
-  String? actionLabel,
-  VoidCallback? onAction,
-  String? dismissSemanticLabel,
-  Duration? duration = HiveToast.defaultDisplayDuration,
-}) {
-  _current?.dismiss();
-  final overlay = Overlay.of(context, rootOverlay: true);
-  OverlayEntry? entry;
-  Timer? timer;
-  HiveToastHandle? handle;
-  final created = HiveToastHandle._(() {
-    timer?.cancel();
-    entry?.remove();
-    if (identical(_current, handle)) _current = null;
+/// Positions, animates and times one toast.
+class _HiveToastHost extends StatefulWidget {
+  const new({
+    required this.duration,
+    required this.onGone,
+    required this.child,
+    super.key,
   });
-  handle = created;
-  final action = onAction;
-  entry = OverlayEntry(
-    builder: (context) {
-      final spacing = context.hiveSpacing;
-      return PositionedDirectional(
-        end: spacing.space4,
-        bottom: spacing.space4,
-        child: _ToastEntrance(
-          child: HiveToast(
-            tone: tone,
-            message: message,
-            actionLabel: actionLabel,
-            onAction: action == null
-                ? null
-                : () {
-                    created.dismiss();
-                    action();
-                  },
-            onDismiss: dismissSemanticLabel == null ? null : created.dismiss,
-            dismissSemanticLabel: dismissSemanticLabel,
-          ),
-        ),
-      );
-    },
-  );
-  overlay.insert(entry);
-  _current = created;
-  if (duration != null) timer = Timer(duration, created.dismiss);
-  return created;
-}
 
-class _ToastEntrance extends StatefulWidget {
-  const new({required this.child});
-
+  final Duration duration;
+  final VoidCallback onGone;
   final Widget child;
 
   @override
-  State<_ToastEntrance> createState() => _ToastEntranceState();
+  State<_HiveToastHost> createState() => _HiveToastHostState();
 }
 
-class _ToastEntranceState extends State<_ToastEntrance> {
-  bool _shown = false;
+class _HiveToastHostState extends State<_HiveToastHost>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(vsync: this);
+  CurvedAnimation? _curved;
+  Timer? _timer;
+  bool _leaving = false;
+  bool _started = false;
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => _shown = true);
-    });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final motion = context.hiveMotion;
+    _controller
+      ..duration = motion.resolve(context, motion.medium)
+      ..reverseDuration = motion.resolve(context, motion.short);
+    _curved?.dispose();
+    _curved = CurvedAnimation(
+      parent: _controller,
+      curve: motion.emphasizedCurve,
+      reverseCurve: motion.exitCurve,
+    );
+    if (!_started) {
+      _started = true;
+      _controller.forward();
+      _startTimer();
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _curved?.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    _timer = Timer(widget.duration, leave);
+  }
+
+  void _pauseTimer() => _timer?.cancel();
+
+  void leave() {
+    if (_leaving) return;
+    _leaving = true;
+    _timer?.cancel();
+    unawaited(
+      _controller.reverse().whenComplete(() {
+        if (mounted) widget.onGone();
+      }),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final motion = context.hiveMotion;
-    final duration = motion.resolve(context, motion.medium);
-    return AnimatedOpacity(
-      opacity: _shown ? 1 : 0,
-      duration: duration,
-      curve: motion.emphasizedCurve,
-      child: AnimatedSlide(
-        offset: _shown ? Offset.zero : const Offset(0, 0.25),
-        duration: duration,
-        curve: motion.emphasizedCurve,
-        child: widget.child,
+    final spacing = context.hiveSpacing;
+    final curved = _curved!;
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: Padding(
+          padding: EdgeInsets.all(spacing.space4),
+          child: MouseRegion(
+            onEnter: (_) => _pauseTimer(),
+            onExit: (_) {
+              if (!_leaving) _startTimer();
+            },
+            child: AnimatedBuilder(
+              animation: curved,
+              builder: (context, child) => Opacity(
+                opacity: curved.value.clamp(0.0, 1.0),
+                child: Transform.translate(
+                  offset: Offset(0, spacing.space2 * (1 - curved.value)),
+                  child: child,
+                ),
+              ),
+              child: widget.child,
+            ),
+          ),
+        ),
       ),
     );
   }
