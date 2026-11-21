@@ -1,3 +1,4 @@
+import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/health_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/shutdown_handler.dart';
@@ -21,6 +22,7 @@ Handler buildApiHandler({
   required StatusHandler statusHandler,
   required ShutdownHandler shutdownHandler,
   required Handler webSocketHandler,
+  HarnessesHandler? harnessesHandler,
   WorkflowHandler? workflowHandler,
 }) {
   final router = Router(notFoundHandler: _notFound)
@@ -30,6 +32,13 @@ Handler buildApiHandler({
     ..get('/ws', webSocketHandler);
   if (workflowHandler != null) {
     router.mount('/api/v1/workflows', workflowHandler.call);
+  }
+
+  if (harnessesHandler != null) {
+    router
+      ..get('/api/v1/harnesses', harnessesHandler.list)
+      ..post('/api/v1/harnesses/refresh', harnessesHandler.refreshAll)
+      ..post('/api/v1/harnesses/<id>/refresh', harnessesHandler.refreshOne);
   }
 
   return const Pipeline()

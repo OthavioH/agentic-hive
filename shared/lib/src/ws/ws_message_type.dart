@@ -10,4 +10,7 @@ abstract final class WsMessageType {
 
   /// Server → client, answers a message the server could not handle.
   static const error = 'error';
+
+  /// Server → client, broadcast when a harness's detected status changes.
+  static const harnessStatusUpdated = 'harness.status_updated';
 }
