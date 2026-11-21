@@ -1,4 +1,5 @@
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
+import 'package:agentic_hive_frontend/presentation/runs/utils/run_l10n.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/workflow_graph_painter.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
@@ -254,13 +255,15 @@ class _RunNodeCard extends StatelessWidget {
             HiveNodeStatus.cancelled => colors.borderSubtle,
           };
 
+    final statusLabel = RunL10n.localizeNodeStatus(l10n, status);
+
     return SizedBox(
       width: WorkflowCanvasGeometry.nodeWidth,
       height: WorkflowCanvasGeometry.nodeHeight,
       child: GestureDetector(
         onTap: onTap,
         child: Semantics(
-          label: '${node.label} (${status.name})',
+          label: '${node.label} ($statusLabel)',
           selected: isSelected,
           button: true,
           child: AnimatedContainer(
@@ -304,7 +307,7 @@ class _RunNodeCard extends StatelessWidget {
                     HiveStatusDot(
                       key: Key('run_graph_node_status_${node.id}'),
                       status: status,
-                      semanticLabel: status.name,
+                      semanticLabel: statusLabel,
                       size: spacing.space2,
                     ),
                   ],

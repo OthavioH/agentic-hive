@@ -142,29 +142,65 @@ final class RunDetailState {
   }
 }
 
+/// Owns the [HiveLogStreamController] for a single run's live log viewer so
+/// its disposal is tied to the provider lifecycle and happens exactly once.
+@riverpod
+HiveLogStreamController runLogStreamController(Ref ref, String runId) {
+  final controller = HiveLogStreamController(
+    maxLines: RunDetailController.maxLogLines,
+  );
+  ref.onDispose(controller.dispose);
+  return controller;
+}
+
 /// Manages loading, WebSocket live updates, node log streaming, and
 /// cancel/resume actions for a single run (`runId`).
 @riverpod
 class RunDetailController extends _$RunDetailController {
+  /// Maximum number of lines retained in [logController].
+  static const int maxLogLines = 5000;
+
   /// Stream controller feeding the `HiveLogStreamViewer` in the Output tab.
-  final HiveLogStreamController logController = HiveLogStreamController();
+  late final HiveLogStreamController logController = ref.read(
+    runLogStreamControllerProvider(runId),
+  );
 
   int _logsRequestToken = 0;
+  bool _logsLoadInFlight = false;
+  final List<RunOutputPayload> _pendingWsOutput = <RunOutputPayload>[];
+  int _lastLoadedLogOffset = 0;
+  bool _initialLoadCompleted = false;
+  String? _runningNodeId;
+  String? _lastTouchedNodeId;
   BackendWebSocketSession? _subscribedSession;
 
   @override
   Future<RunDetailState> build(String runId) {
+    // Keep the log stream controller alive across retries/rebuilds of this
+    // controller until the run detail provider itself is disposed.
+    ref.watch(runLogStreamControllerProvider(runId));
+    _initialLoadCompleted = false;
+    _logsLoadInFlight = false;
+    _pendingWsOutput.clear();
+    _lastLoadedLogOffset = 0;
+    _runningNodeId = null;
+    _lastTouchedNodeId = null;
+
     ref.onDispose(() {
       _sendUnsubscribe(runId);
-      logController.dispose();
     });
 
     ref.listen<BackendWebSocketSession?>(backendWebSocketSessionProvider, (
       previous,
       next,
     ) {
-      if (next != null && !identical(previous, next)) {
+      if (next != null &&
+          !next.isClosed &&
+          !identical(_subscribedSession, next)) {
         _sendSubscribe(runId, next);
+        if (_initialLoadCompleted) {
+          unawaited(_resyncAfterReconnect());
+        }
       }
     });
 
@@ -419,6 +455,55 @@ class RunDetailController extends _$RunDetailController {
     }
   }
 
+  void _clearLogController() {
+    if (!ref.mounted) return;
+    logController.clear();
+  }
+
+  void _appendLogChunk(String chunk, {required RunOutputStream stream}) {
+    if (!ref.mounted) return;
+    logController.append(
+      chunk,
+      stream: stream == RunOutputStream.stderr
+          ? HiveLogStream.stderr
+          : HiveLogStream.stdout,
+    );
+  }
+
+  void _appendLogPayload(RunOutputPayload payload) {
+    if (payload.offset > 0 && payload.offset <= _lastLoadedLogOffset) {
+      return;
+    }
+    _appendLogChunk(payload.chunk, stream: payload.stream);
+    if (payload.offset > _lastLoadedLogOffset) {
+      _lastLoadedLogOffset = payload.offset;
+    }
+  }
+
+  static int _maxEntryOffset(RunNodeLogsResponse response) {
+    var maxOffset = response.offset;
+    for (final entry in response.entries) {
+      if (entry.offset > maxOffset) maxOffset = entry.offset;
+    }
+    return maxOffset;
+  }
+
+  static List<RunOutputPayload> _sortedPendingOutput(
+    List<RunOutputPayload> pending,
+  ) {
+    if (pending.length <= 1) return List<RunOutputPayload>.of(pending);
+    final indexed = pending.indexed.toList()
+      ..sort((a, b) {
+        final oa = a.$2.offset;
+        final ob = b.$2.offset;
+        if (oa > 0 && ob > 0 && oa != ob) {
+          return oa.compareTo(ob);
+        }
+        return a.$1.compareTo(b.$1);
+      });
+    return <RunOutputPayload>[for (final item in indexed) item.$2];
+  }
+
   void _onRunEvent(RunEvent event) {
     if (event.runId != runId) return;
     final current = state.asData?.value;
@@ -426,8 +511,13 @@ class RunDetailController extends _$RunDetailController {
 
     if (current.events.any((e) => e.id == event.id)) return;
 
-    final updatedEvents = <RunEvent>[...current.events, event]
-      ..sort((a, b) => a.sequence.compareTo(b.sequence));
+    final inOrder =
+        current.events.isEmpty ||
+        event.sequence >= current.events.last.sequence;
+    final updatedEvents = <RunEvent>[...current.events, event];
+    if (!inOrder) {
+      updatedEvents.sort((a, b) => a.sequence.compareTo(b.sequence));
+    }
 
     final updatedStatus = _statusFromEvent(event.type, current.run.status);
     final updatedRun = current.run.copyWith(
@@ -437,7 +527,34 @@ class RunDetailController extends _$RunDetailController {
           : null,
     );
 
-    final derived = _deriveGraphState(updatedRun, updatedEvents);
+    final ({Map<String, HiveNodeStatus> nodeStatuses, String? activeNodeId})
+    derived;
+    if (inOrder) {
+      final mutableStatuses = Map<String, HiveNodeStatus>.of(
+        current.nodeStatuses,
+      );
+      final nextGraph = _applyEventToGraphState(
+        mutableStatuses,
+        event,
+        runningNodeId: _runningNodeId,
+        lastTouchedNodeId: _lastTouchedNodeId,
+      );
+      _runningNodeId = nextGraph.runningNodeId;
+      _lastTouchedNodeId = nextGraph.lastTouchedNodeId;
+      derived = (
+        nodeStatuses: Map<String, HiveNodeStatus>.unmodifiable(mutableStatuses),
+        activeNodeId: _runningNodeId ?? _lastTouchedNodeId,
+      );
+    } else {
+      final full = _deriveGraphState(updatedRun, updatedEvents);
+      _runningNodeId = full.runningNodeId;
+      _lastTouchedNodeId = full.lastTouchedNodeId;
+      derived = (
+        nodeStatuses: full.nodeStatuses,
+        activeNodeId: full.activeNodeId,
+      );
+    }
+
     final previousInspected = current.inspectedNodeId;
     final nextInspected = current.followActiveNode
         ? (derived.activeNodeId ?? previousInspected)
@@ -473,6 +590,11 @@ class RunDetailController extends _$RunDetailController {
 
   void _onRunOutput(RunOutputPayload payload) {
     if (payload.runId != runId) return;
+    if (_logsLoadInFlight) {
+      _pendingWsOutput.add(payload);
+      return;
+    }
+
     final current = state.asData?.value;
     if (current == null) return;
 
@@ -483,16 +605,33 @@ class RunDetailController extends _$RunDetailController {
       nextAttempts = <int>[...nextAttempts, payload.attempt]..sort();
     }
 
-    final targetAttempt = current.selectedAttempt ?? payload.attempt;
+    final currentAttempt = current.selectedAttempt;
+    if (currentAttempt != null &&
+        payload.attempt > currentAttempt &&
+        current.followActiveNode) {
+      _lastLoadedLogOffset = 0;
+      _clearLogController();
+      state = AsyncData(
+        current.copyWith(
+          availableAttempts: nextAttempts,
+          selectedAttempt: () => payload.attempt,
+          logsTruncated: false,
+        ),
+      );
+      _appendLogPayload(payload);
+      return;
+    }
+
+    final targetAttempt = currentAttempt ?? payload.attempt;
     if (targetAttempt != payload.attempt) {
-      if (nextAttempts != current.availableAttempts) {
+      if (!identical(nextAttempts, current.availableAttempts)) {
         state = AsyncData(current.copyWith(availableAttempts: nextAttempts));
       }
       return;
     }
 
     if (current.selectedAttempt == null ||
-        nextAttempts != current.availableAttempts) {
+        !identical(nextAttempts, current.availableAttempts)) {
       state = AsyncData(
         current.copyWith(
           availableAttempts: nextAttempts,
@@ -501,12 +640,7 @@ class RunDetailController extends _$RunDetailController {
       );
     }
 
-    logController.append(
-      payload.chunk,
-      stream: payload.stream == RunOutputStream.stderr
-          ? HiveLogStream.stderr
-          : HiveLogStream.stdout,
-    );
+    _appendLogPayload(payload);
   }
 
   Future<void> _refreshCheckpointsOnly() async {
@@ -519,9 +653,105 @@ class RunDetailController extends _$RunDetailController {
     }
   }
 
+  Future<void> _resyncAfterReconnect() async {
+    final current = state.asData?.value;
+    if (current == null || !ref.mounted) return;
+
+    final afterSequence = current.events.isEmpty
+        ? null
+        : current.events.last.sequence;
+    final inspectedNodeId = current.inspectedNodeId;
+    final selectedAttempt = current.selectedAttempt;
+
+    final runFuture = ref.read(getRunProvider).call(runId);
+    final eventsFuture = ref
+        .read(getRunEventsProvider)
+        .call(runId, afterSequence: afterSequence);
+    final logsFuture = inspectedNodeId != null
+        ? ref
+              .read(getNodeLogsProvider)
+              .call(runId, inspectedNodeId, attempt: selectedAttempt)
+        : null;
+
+    final runResult = await runFuture;
+    final eventsResult = await eventsFuture;
+    final logsResult = logsFuture != null ? await logsFuture : null;
+    if (!ref.mounted) return;
+
+    final latest = state.asData?.value;
+    if (latest == null) return;
+
+    final updatedRun = switch (runResult) {
+      Success<Run>(:final value) => value,
+      FailureResult<Run>() => latest.run,
+    };
+
+    var updatedEvents = latest.events;
+    if (eventsResult case Success<RunEventsResponse>(:final value)) {
+      if (value.items.isNotEmpty) {
+        final seenIds = <String>{for (final e in latest.events) e.id};
+        final additions = <RunEvent>[
+          for (final e in value.items)
+            if (seenIds.add(e.id)) e,
+        ];
+        if (additions.isNotEmpty) {
+          updatedEvents = <RunEvent>[...latest.events, ...additions]
+            ..sort((a, b) => a.sequence.compareTo(b.sequence));
+        }
+      }
+    }
+
+    final derived = _deriveGraphState(updatedRun, updatedEvents);
+    _runningNodeId = derived.runningNodeId;
+    _lastTouchedNodeId = derived.lastTouchedNodeId;
+
+    var nextAvailableAttempts = latest.availableAttempts;
+    var nextSelectedAttempt = latest.selectedAttempt;
+    var nextLogsTruncated = latest.logsTruncated;
+
+    if (logsResult case Success<RunNodeLogsResponse>(:final value)
+        when inspectedNodeId != null &&
+            latest.inspectedNodeId == inspectedNodeId &&
+            (latest.selectedAttempt == null ||
+                latest.selectedAttempt == value.attempt)) {
+      nextAvailableAttempts = value.availableAttempts;
+      nextSelectedAttempt = value.attempt;
+      nextLogsTruncated = value.truncated;
+
+      for (final entry in value.entries) {
+        if (entry.offset > 0) {
+          if (entry.offset <= _lastLoadedLogOffset) continue;
+          _appendLogChunk(entry.chunk, stream: entry.stream);
+          _lastLoadedLogOffset = entry.offset;
+        } else if (_lastLoadedLogOffset == 0 && logController.isEmpty) {
+          _appendLogChunk(entry.chunk, stream: entry.stream);
+        }
+      }
+      final maxOffset = _maxEntryOffset(value);
+      if (maxOffset > _lastLoadedLogOffset) {
+        _lastLoadedLogOffset = maxOffset;
+      }
+    }
+
+    state = AsyncData(
+      latest.copyWith(
+        run: updatedRun,
+        events: updatedEvents,
+        nodeStatuses: derived.nodeStatuses,
+        activeNodeId: () => derived.activeNodeId,
+        availableAttempts: nextAvailableAttempts,
+        selectedAttempt: () => nextSelectedAttempt,
+        logsTruncated: nextLogsTruncated,
+      ),
+    );
+  }
+
   Future<void> _loadNodeLogs(String nodeId, {int? attempt}) async {
     final token = ++_logsRequestToken;
-    logController.clear();
+    _logsLoadInFlight = true;
+    _pendingWsOutput.clear();
+    _lastLoadedLogOffset = 0;
+    _clearLogController();
 
     final current = state.asData?.value;
     if (current != null) {
@@ -534,18 +764,15 @@ class RunDetailController extends _$RunDetailController {
         .read(getNodeLogsProvider)
         .call(runId, nodeId, attempt: attempt);
     if (!ref.mounted || token != _logsRequestToken) return;
+    _logsLoadInFlight = false;
 
     final latest = state.asData?.value;
     switch (result) {
       case Success<RunNodeLogsResponse>(:final value):
         for (final entry in value.entries) {
-          logController.append(
-            entry.chunk,
-            stream: entry.stream == RunOutputStream.stderr
-                ? HiveLogStream.stderr
-                : HiveLogStream.stdout,
-          );
+          _appendLogChunk(entry.chunk, stream: entry.stream);
         }
+        _lastLoadedLogOffset = _maxEntryOffset(value);
         if (latest != null && latest.inspectedNodeId == nodeId) {
           state = AsyncData(
             latest.copyWith(
@@ -556,7 +783,11 @@ class RunDetailController extends _$RunDetailController {
             ),
           );
         }
+        final pending = _sortedPendingOutput(_pendingWsOutput);
+        _pendingWsOutput.clear();
+        pending.forEach(_onRunOutput);
       case FailureResult<RunNodeLogsResponse>(:final failure):
+        _pendingWsOutput.clear();
         if (latest != null && latest.inspectedNodeId == nodeId) {
           state = AsyncData(
             latest.copyWith(
@@ -576,6 +807,10 @@ class RunDetailController extends _$RunDetailController {
     String? preferredInspectedNodeId,
     int? preferredAttempt,
   }) async {
+    _logsLoadInFlight = true;
+    _pendingWsOutput.clear();
+    _lastLoadedLogOffset = 0;
+
     final runFuture = ref.read(getRunProvider).call(id);
     final eventsFuture = ref.read(getRunEventsProvider).call(id);
     final checkpointsFuture = ref.read(getRunCheckpointsProvider).call(id);
@@ -615,6 +850,9 @@ class RunDetailController extends _$RunDetailController {
     }
 
     final derived = _deriveGraphState(run, events);
+    _runningNodeId = derived.runningNodeId;
+    _lastTouchedNodeId = derived.lastTouchedNodeId;
+
     final inspectedNodeId = followActiveNode
         ? derived.activeNodeId
         : (preferredInspectedNodeId ?? derived.activeNodeId);
@@ -623,25 +861,87 @@ class RunDetailController extends _$RunDetailController {
     var selectedAttempt = preferredAttempt;
     var logsTruncated = false;
 
-    logController.clear();
+    if (!ref.mounted) {
+      _logsLoadInFlight = false;
+      _pendingWsOutput.clear();
+      return RunDetailState(
+        run: run,
+        events: events,
+        checkpoints: checkpoints,
+        nodeStatuses: derived.nodeStatuses,
+        activeNodeId: derived.activeNodeId,
+        inspectedNodeId: inspectedNodeId,
+        followActiveNode: followActiveNode,
+        availableAttempts: availableAttempts,
+        selectedAttempt: selectedAttempt,
+        logsTruncated: logsTruncated,
+        selectedCheckpointId: selectedId,
+        expandedEventIds: expandedEventIds,
+      );
+    }
+
+    _clearLogController();
     if (inspectedNodeId != null) {
       final logsResult = await ref
           .read(getNodeLogsProvider)
           .call(id, inspectedNodeId, attempt: preferredAttempt);
+      if (!ref.mounted) {
+        _logsLoadInFlight = false;
+        _pendingWsOutput.clear();
+        return RunDetailState(
+          run: run,
+          events: events,
+          checkpoints: checkpoints,
+          nodeStatuses: derived.nodeStatuses,
+          activeNodeId: derived.activeNodeId,
+          inspectedNodeId: inspectedNodeId,
+          followActiveNode: followActiveNode,
+          availableAttempts: availableAttempts,
+          selectedAttempt: selectedAttempt,
+          logsTruncated: logsTruncated,
+          selectedCheckpointId: selectedId,
+          expandedEventIds: expandedEventIds,
+        );
+      }
       if (logsResult case Success<RunNodeLogsResponse>(:final value)) {
-        availableAttempts = value.availableAttempts;
+        availableAttempts = List<int>.of(value.availableAttempts);
         selectedAttempt = value.attempt;
         logsTruncated = value.truncated;
         for (final entry in value.entries) {
-          logController.append(
-            entry.chunk,
-            stream: entry.stream == RunOutputStream.stderr
-                ? HiveLogStream.stderr
-                : HiveLogStream.stdout,
-          );
+          _appendLogChunk(entry.chunk, stream: entry.stream);
+        }
+        _lastLoadedLogOffset = _maxEntryOffset(value);
+      }
+    }
+
+    _logsLoadInFlight = false;
+    final pending = _sortedPendingOutput(_pendingWsOutput);
+    _pendingWsOutput.clear();
+    if (inspectedNodeId != null && pending.isNotEmpty) {
+      for (final payload in pending) {
+        if (payload.nodeId != inspectedNodeId) continue;
+        if (!availableAttempts.contains(payload.attempt)) {
+          availableAttempts = <int>[...availableAttempts, payload.attempt]
+            ..sort();
+        }
+        if (selectedAttempt != null &&
+            payload.attempt > selectedAttempt &&
+            followActiveNode) {
+          selectedAttempt = payload.attempt;
+          logsTruncated = false;
+          _lastLoadedLogOffset = 0;
+          _clearLogController();
+          _appendLogPayload(payload);
+          continue;
+        }
+        selectedAttempt ??= payload.attempt;
+        if (payload.attempt == selectedAttempt) {
+          _appendLogPayload(payload);
         }
       }
     }
+
+    _initialLoadCompleted = true;
 
     return RunDetailState(
       run: run,
@@ -682,7 +982,12 @@ class RunDetailController extends _$RunDetailController {
 
   static bool _isTerminalOrInterrupted(RunStatus status) => !status.isActive;
 
-  static ({Map<String, HiveNodeStatus> nodeStatuses, String? activeNodeId})
+  static ({
+    Map<String, HiveNodeStatus> nodeStatuses,
+    String? activeNodeId,
+    String? runningNodeId,
+    String? lastTouchedNodeId,
+  })
   _deriveGraphState(Run run, List<RunEvent> events) {
     final statuses = <String, HiveNodeStatus>{
       for (final node in run.workflowDefinition.nodes)
@@ -692,90 +997,116 @@ class RunDetailController extends _$RunDetailController {
     String? lastTouchedNodeId;
 
     for (final event in events) {
-      final nodeId = event.nodeId;
-      switch (event.type) {
-        case RunEventType.nodeStarted:
-          if (nodeId != null) {
-            statuses[nodeId] = HiveNodeStatus.running;
-            runningNodeId = nodeId;
-            lastTouchedNodeId = nodeId;
-          }
-        case RunEventType.nodeCompleted:
-          if (nodeId != null) {
-            statuses[nodeId] = HiveNodeStatus.succeeded;
-            if (runningNodeId == nodeId) runningNodeId = null;
-            lastTouchedNodeId = nodeId;
-          }
-        case RunEventType.nodeFailed:
-          if (nodeId != null) {
-            statuses[nodeId] = HiveNodeStatus.failed;
-            if (runningNodeId == nodeId) runningNodeId = null;
-            lastTouchedNodeId = nodeId;
-          }
-        case RunEventType.nodeRetried:
-          if (nodeId != null) {
-            statuses[nodeId] = HiveNodeStatus.idle;
-            if (runningNodeId == nodeId) runningNodeId = null;
-            lastTouchedNodeId = nodeId;
-          }
-        case RunEventType.runPaused:
-          final target = nodeId ?? runningNodeId;
-          if (target != null) {
-            statuses[target] = HiveNodeStatus.paused;
-            runningNodeId = target;
-            lastTouchedNodeId = target;
-          }
-        case RunEventType.runResumed:
-          if (runningNodeId != null) {
-            statuses[runningNodeId] = HiveNodeStatus.running;
-          }
-        case RunEventType.runCancelling:
-          for (final entry in statuses.entries.toList()) {
-            if (entry.value == HiveNodeStatus.running ||
-                entry.value == HiveNodeStatus.paused) {
-              statuses[entry.key] = HiveNodeStatus.cancelling;
-            }
-          }
-        case RunEventType.runCancellationUncertain:
-          for (final entry in statuses.entries.toList()) {
-            if (entry.value == HiveNodeStatus.running ||
-                entry.value == HiveNodeStatus.paused ||
-                entry.value == HiveNodeStatus.cancelling) {
-              statuses[entry.key] = HiveNodeStatus.cancellationUncertain;
-            }
-          }
-        case RunEventType.runCancelled:
-          for (final entry in statuses.entries.toList()) {
-            if (entry.value == HiveNodeStatus.running ||
-                entry.value == HiveNodeStatus.paused ||
-                entry.value == HiveNodeStatus.cancelling) {
-              statuses[entry.key] = HiveNodeStatus.cancelled;
-            }
-          }
-          runningNodeId = null;
-        case RunEventType.runInterrupted:
-          for (final entry in statuses.entries.toList()) {
-            if (entry.value == HiveNodeStatus.running ||
-                entry.value == HiveNodeStatus.paused ||
-                entry.value == HiveNodeStatus.cancelling) {
-              statuses[entry.key] = HiveNodeStatus.interrupted;
-            }
-          }
-          runningNodeId = null;
-        case RunEventType.runStarted:
-        case RunEventType.runSucceeded:
-        case RunEventType.runFailed:
-        case RunEventType.checkpointSaved:
-        case RunEventType.snapshotCaptured:
-        case RunEventType.snapshotRestored:
-        case RunEventType.snapshotWarning:
-          break;
-      }
+      final next = _applyEventToGraphState(
+        statuses,
+        event,
+        runningNodeId: runningNodeId,
+        lastTouchedNodeId: lastTouchedNodeId,
+      );
+      runningNodeId = next.runningNodeId;
+      lastTouchedNodeId = next.lastTouchedNodeId;
     }
 
     return (
       nodeStatuses: Map<String, HiveNodeStatus>.unmodifiable(statuses),
       activeNodeId: runningNodeId ?? lastTouchedNodeId,
+      runningNodeId: runningNodeId,
+      lastTouchedNodeId: lastTouchedNodeId,
     );
+  }
+
+  static ({String? runningNodeId, String? lastTouchedNodeId})
+  _applyEventToGraphState(
+    Map<String, HiveNodeStatus> statuses,
+    RunEvent event, {
+    required String? runningNodeId,
+    required String? lastTouchedNodeId,
+  }) {
+    var nextRunning = runningNodeId;
+    var nextLastTouched = lastTouchedNodeId;
+    final nodeId = event.nodeId;
+    switch (event.type) {
+      case RunEventType.nodeStarted:
+        if (nodeId != null) {
+          statuses[nodeId] = HiveNodeStatus.running;
+          nextRunning = nodeId;
+          nextLastTouched = nodeId;
+        }
+      case RunEventType.nodeCompleted:
+        if (nodeId != null) {
+          statuses[nodeId] = HiveNodeStatus.succeeded;
+          if (nextRunning == nodeId) nextRunning = null;
+          nextLastTouched = nodeId;
+        }
+      case RunEventType.nodeFailed:
+        if (nodeId != null) {
+          statuses[nodeId] = HiveNodeStatus.failed;
+          if (nextRunning == nodeId) nextRunning = null;
+          nextLastTouched = nodeId;
+        }
+      case RunEventType.nodeRetried:
+        if (nodeId != null) {
+          statuses[nodeId] = HiveNodeStatus.idle;
+          if (nextRunning == nodeId) nextRunning = null;
+          nextLastTouched = nodeId;
+        }
+      case RunEventType.runPaused:
+        final target = nodeId ?? nextRunning;
+        if (target != null) {
+          statuses[target] = HiveNodeStatus.paused;
+          nextRunning = target;
+          nextLastTouched = target;
+        }
+      case RunEventType.runResumed:
+        if (nextRunning != null) {
+          statuses[nextRunning] = HiveNodeStatus.running;
+        }
+      case RunEventType.runCancelling:
+        for (final entry in statuses.entries.toList()) {
+          if (entry.value == HiveNodeStatus.running ||
+              entry.value == HiveNodeStatus.paused ||
+              entry.value == HiveNodeStatus.cancellationUncertain) {
+            statuses[entry.key] = HiveNodeStatus.cancelling;
+          }
+        }
+      case RunEventType.runCancellationUncertain:
+        for (final entry in statuses.entries.toList()) {
+          if (entry.value == HiveNodeStatus.running ||
+              entry.value == HiveNodeStatus.paused ||
+              entry.value == HiveNodeStatus.cancelling) {
+            statuses[entry.key] = HiveNodeStatus.cancellationUncertain;
+          }
+        }
+      case RunEventType.runCancelled:
+        for (final entry in statuses.entries.toList()) {
+          if (entry.value == HiveNodeStatus.running ||
+              entry.value == HiveNodeStatus.paused ||
+              entry.value == HiveNodeStatus.cancelling ||
+              entry.value == HiveNodeStatus.cancellationUncertain) {
+            statuses[entry.key] = HiveNodeStatus.cancelled;
+          }
+        }
+        nextRunning = null;
+      case RunEventType.runInterrupted:
+        for (final entry in statuses.entries.toList()) {
+          if (entry.value == HiveNodeStatus.running ||
+              entry.value == HiveNodeStatus.paused ||
+              entry.value == HiveNodeStatus.cancelling ||
+              entry.value == HiveNodeStatus.cancellationUncertain) {
+            statuses[entry.key] = HiveNodeStatus.interrupted;
+          }
+        }
+        nextRunning = null;
+      case RunEventType.runStarted:
+      case RunEventType.runSucceeded:
+      case RunEventType.runFailed:
+      case RunEventType.checkpointSaved:
+      case RunEventType.snapshotCaptured:
+      case RunEventType.snapshotRestored:
+      case RunEventType.snapshotWarning:
+        break;
+    }
+
+    return (runningNodeId: nextRunning, lastTouchedNodeId: nextLastTouched);
   }
 }

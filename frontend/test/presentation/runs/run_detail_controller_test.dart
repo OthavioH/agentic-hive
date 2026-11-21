@@ -378,6 +378,282 @@ void main() {
       );
       expect(repo.now, now);
     });
+
+    test('buffers WS chunks during REST log load, deduplicates by offset, '
+        'and switches attempt when followActiveNode is true', () async {
+      final now = DateTime.utc(2026, 11, 21, 4, 30);
+      final ws = _FakeWsSession();
+      addTearDown(ws.close);
+
+      final logsGate = Completer<RunNodeLogsResponse>();
+      final customRepo = _LiveFakeRunRepository(now: now)
+        ..onGetNodeLogs = (id, nodeId, {attempt, tail}) =>
+            logsGate.future.then(Success<RunNodeLogsResponse>.new);
+
+      final container = ProviderContainer.test(
+        overrides: [
+          runRepositoryProvider.overrideWithValue(customRepo),
+          backendWebSocketSessionProvider.overrideWithValue(ws),
+          backendWsMessagesProvider.overrideWith((ref) => ws.messages),
+        ],
+      );
+      final sub = container.listen(
+        runDetailControllerProvider('run-race'),
+        (_, _) {},
+      );
+      addTearDown(sub.close);
+
+      // Wait until _load reaches getNodeLogs, then emit WS chunks while
+      // the initial REST load is still in flight.
+      await Future<void>.delayed(Duration.zero);
+      ws
+        ..emit(
+          WsEnvelope(
+            id: 'ws-dup-1',
+            type: WsMessageType.runOutput,
+            payload: RunOutputPayload(
+              runId: 'run-race',
+              nodeId: 'node-1',
+              attempt: 1,
+              stream: RunOutputStream.stdout,
+              chunk: 'line-1\n',
+              timestamp: now,
+              offset: 1,
+            ).toJson(),
+          ),
+        )
+        ..emit(
+          WsEnvelope(
+            id: 'ws-new-3',
+            type: WsMessageType.runOutput,
+            payload: RunOutputPayload(
+              runId: 'run-race',
+              nodeId: 'node-1',
+              attempt: 1,
+              stream: RunOutputStream.stdout,
+              chunk: 'line-3\n',
+              timestamp: now,
+              offset: 3,
+            ).toJson(),
+          ),
+        );
+      await Future<void>.delayed(Duration.zero);
+
+      logsGate.complete(
+        RunNodeLogsResponse(
+          runId: 'run-race',
+          nodeId: 'node-1',
+          attempt: 1,
+          availableAttempts: const <int>[1],
+          offset: 2,
+          entries: <RunLogEntry>[
+            RunLogEntry(
+              stream: RunOutputStream.stdout,
+              chunk: 'line-1\n',
+              timestamp: now,
+              offset: 1,
+            ),
+            RunLogEntry(
+              stream: RunOutputStream.stdout,
+              chunk: 'line-2\n',
+              timestamp: now,
+              offset: 2,
+            ),
+          ],
+        ),
+      );
+
+      final state = await container.read(
+        runDetailControllerProvider('run-race').future,
+      );
+      expect(state.selectedAttempt, 1);
+
+      final notifier = container.read(
+        runDetailControllerProvider('run-race').notifier,
+      );
+      expect(notifier.logController.maxLines, RunDetailController.maxLogLines);
+      expect(notifier.logController.lines.map((l) => l.text).toList(), <String>[
+        'line-1',
+        'line-2',
+        'line-3',
+      ]);
+
+      // Newer attempt arrives while followActiveNode is true -> switches to
+      // attempt 2, clears previous attempt lines, and appends new chunk.
+      ws.emit(
+        WsEnvelope(
+          id: 'ws-attempt-2',
+          type: WsMessageType.runOutput,
+          payload: RunOutputPayload(
+            runId: 'run-race',
+            nodeId: 'node-1',
+            attempt: 2,
+            stream: RunOutputStream.stdout,
+            chunk: 'retry-line-1\n',
+            timestamp: now,
+            offset: 1,
+          ).toJson(),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final afterRetry = container
+          .read(runDetailControllerProvider('run-race'))
+          .requireValue;
+      expect(afterRetry.selectedAttempt, 2);
+      expect(afterRetry.availableAttempts, <int>[1, 2]);
+      expect(notifier.logController.lines.map((l) => l.text).toList(), <String>[
+        'retry-line-1',
+      ]);
+    });
+
+    test('resyncs events and logs on WS reconnect and converts '
+        'cancellationUncertain to cancelling on retry cancel', () async {
+      final now = DateTime.utc(2026, 11, 21, 4, 30);
+      final ws1 = _FakeWsSession();
+      final ws2 = _FakeWsSession();
+      addTearDown(ws1.close);
+      addTearDown(ws2.close);
+
+      var eventsCalls = 0;
+      var logsCalls = 0;
+      final customRepo = _LiveFakeRunRepository(now: now)
+        ..onGetRunEvents = (id, {afterSequence, limit}) async {
+          eventsCalls++;
+          if (eventsCalls == 1) {
+            return Success(
+              RunEventsResponse(
+                items: <RunEvent>[
+                  RunEvent(
+                    id: 'evt-1',
+                    runId: id,
+                    sequence: 1,
+                    type: RunEventType.nodeStarted,
+                    nodeId: 'node-1',
+                    createdAt: now,
+                  ),
+                  RunEvent(
+                    id: 'evt-2',
+                    runId: id,
+                    sequence: 2,
+                    type: RunEventType.runCancellationUncertain,
+                    createdAt: now,
+                  ),
+                ],
+                lastSequence: 2,
+              ),
+            );
+          }
+          return Success(
+            RunEventsResponse(
+              items: <RunEvent>[
+                RunEvent(
+                  id: 'evt-3',
+                  runId: id,
+                  sequence: 3,
+                  type: RunEventType.runCancelling,
+                  createdAt: now,
+                ),
+              ],
+              lastSequence: 3,
+            ),
+          );
+        }
+        ..onGetNodeLogs = (id, nodeId, {attempt, tail}) async {
+          logsCalls++;
+          if (logsCalls == 1) {
+            return Success(
+              RunNodeLogsResponse(
+                runId: id,
+                nodeId: nodeId,
+                attempt: 1,
+                availableAttempts: const <int>[1],
+                offset: 1,
+                entries: <RunLogEntry>[
+                  RunLogEntry(
+                    stream: RunOutputStream.stdout,
+                    chunk: 'initial\n',
+                    timestamp: now,
+                    offset: 1,
+                  ),
+                ],
+              ),
+            );
+          }
+          return Success(
+            RunNodeLogsResponse(
+              runId: id,
+              nodeId: nodeId,
+              attempt: 1,
+              availableAttempts: const <int>[1],
+              offset: 2,
+              entries: <RunLogEntry>[
+                RunLogEntry(
+                  stream: RunOutputStream.stdout,
+                  chunk: 'initial\n',
+                  timestamp: now,
+                  offset: 1,
+                ),
+                RunLogEntry(
+                  stream: RunOutputStream.stdout,
+                  chunk: 'missed-while-offline\n',
+                  timestamp: now,
+                  offset: 2,
+                ),
+              ],
+            ),
+          );
+        };
+
+      final container = ProviderContainer.test(
+        overrides: [
+          runRepositoryProvider.overrideWithValue(customRepo),
+          backendWebSocketSessionProvider.overrideWithValue(ws1),
+          backendWsMessagesProvider.overrideWith((ref) => ws1.messages),
+        ],
+      );
+      final sub = container.listen(
+        runDetailControllerProvider('run-reconn'),
+        (_, _) {},
+      );
+      addTearDown(sub.close);
+
+      final initial = await container.read(
+        runDetailControllerProvider('run-reconn').future,
+      );
+      expect(
+        initial.nodeStatuses['node-1'],
+        HiveNodeStatus.cancellationUncertain,
+      );
+
+      // Simulate WS reconnect by updating provider override to ws2.
+      container.updateOverrides([
+        runRepositoryProvider.overrideWithValue(customRepo),
+        backendWebSocketSessionProvider.overrideWithValue(ws2),
+        backendWsMessagesProvider.overrideWith((ref) => ws2.messages),
+      ]);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(ws2.sent.any((e) => e.type == WsMessageType.runSubscribe), isTrue);
+      final reconnected = container
+          .read(runDetailControllerProvider('run-reconn'))
+          .requireValue;
+      expect(reconnected.events.map((e) => e.id), <String>[
+        'evt-1',
+        'evt-2',
+        'evt-3',
+      ]);
+      expect(reconnected.nodeStatuses['node-1'], HiveNodeStatus.cancelling);
+
+      final notifier = container.read(
+        runDetailControllerProvider('run-reconn').notifier,
+      );
+      expect(notifier.logController.lines.map((l) => l.text).toList(), <String>[
+        'initial',
+        'missed-while-offline',
+      ]);
+    });
   });
 }
 
@@ -386,6 +662,19 @@ final class _LiveFakeRunRepository extends _FakeRunRepository {
 
   final DateTime _createdAt;
   int? lastLogsAttempt;
+  Future<Result<RunNodeLogsResponse>> Function(
+    String id,
+    String nodeId, {
+    int? attempt,
+    int? tail,
+  })?
+  onGetNodeLogs;
+  Future<Result<RunEventsResponse>> Function(
+    String id, {
+    int? afterSequence,
+    int? limit,
+  })?
+  onGetRunEvents;
 
   @override
   Future<Result<Run>> getRun(String id) async => Success(
@@ -425,21 +714,29 @@ final class _LiveFakeRunRepository extends _FakeRunRepository {
     String id, {
     int? afterSequence,
     int? limit,
-  }) async => Success(
-    RunEventsResponse(
-      items: <RunEvent>[
-        RunEvent(
-          id: 'evt-1',
-          runId: id,
-          sequence: 1,
-          type: RunEventType.nodeStarted,
-          nodeId: 'node-1',
-          createdAt: _createdAt,
+  }) {
+    final handler = onGetRunEvents;
+    if (handler != null) {
+      return handler(id, afterSequence: afterSequence, limit: limit);
+    }
+    return Future<Result<RunEventsResponse>>.value(
+      Success(
+        RunEventsResponse(
+          items: <RunEvent>[
+            RunEvent(
+              id: 'evt-1',
+              runId: id,
+              sequence: 1,
+              type: RunEventType.nodeStarted,
+              nodeId: 'node-1',
+              createdAt: _createdAt,
+            ),
+          ],
+          lastSequence: 1,
         ),
-      ],
-      lastSequence: 1,
-    ),
-  );
+      ),
+    );
+  }
 
   @override
   Future<Result<RunNodeLogsResponse>> getNodeLogs(
@@ -447,14 +744,20 @@ final class _LiveFakeRunRepository extends _FakeRunRepository {
     String nodeId, {
     int? attempt,
     int? tail,
-  }) async {
+  }) {
     lastLogsAttempt = attempt;
-    return Success(
-      RunNodeLogsResponse(
-        runId: id,
-        nodeId: nodeId,
-        attempt: attempt ?? 1,
-        availableAttempts: const <int>[1, 2],
+    final handler = onGetNodeLogs;
+    if (handler != null) {
+      return handler(id, nodeId, attempt: attempt, tail: tail);
+    }
+    return Future<Result<RunNodeLogsResponse>>.value(
+      Success(
+        RunNodeLogsResponse(
+          runId: id,
+          nodeId: nodeId,
+          attempt: attempt ?? 1,
+          availableAttempts: const <int>[1, 2],
+        ),
       ),
     );
   }

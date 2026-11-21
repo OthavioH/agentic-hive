@@ -1920,6 +1920,10 @@
   "@runsStatusCancellationUncertain": {
     "description": "Display label for RunStatus.cancellationUncertain."
   },
+  "runsStatusIdle": "Idle",
+  "@runsStatusIdle": {
+    "description": "Display label for HiveNodeStatus.idle."
+  },
   "runsNewAction": "New run",
   "@runsNewAction": {
     "description": "Primary button label to start a new run from the Runs page."

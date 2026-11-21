@@ -52,6 +52,25 @@ abstract final class RunL10n {
     };
   }
 
+  /// Returns the localized label for a [HiveNodeStatus].
+  static String localizeNodeStatus(
+    AppLocalizations l10n,
+    HiveNodeStatus status,
+  ) {
+    return switch (status) {
+      HiveNodeStatus.idle => l10n.runsStatusIdle,
+      HiveNodeStatus.running => l10n.runsStatusRunning,
+      HiveNodeStatus.paused => l10n.runsStatusPaused,
+      HiveNodeStatus.cancelling => l10n.runsStatusCancelling,
+      HiveNodeStatus.cancellationUncertain =>
+        l10n.runsStatusCancellationUncertain,
+      HiveNodeStatus.interrupted => l10n.runsStatusInterrupted,
+      HiveNodeStatus.succeeded => l10n.runsStatusSucceeded,
+      HiveNodeStatus.failed => l10n.runsStatusFailed,
+      HiveNodeStatus.cancelled => l10n.runsStatusCancelled,
+    };
+  }
+
   /// Maps a [RunStatus] to its [HiveNodeStatus] visual shape and color.
   static HiveNodeStatus nodeStatusFor(RunStatus status) {
     return switch (status) {

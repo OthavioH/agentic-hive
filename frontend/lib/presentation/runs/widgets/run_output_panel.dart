@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/runs/controllers/run_detail_controller.dart';
+import 'package:agentic_hive_frontend/presentation/runs/utils/run_l10n.dart';
 import 'package:design_system/design_system.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -49,7 +50,7 @@ class RunOutputPanel extends ConsumerWidget {
               if (nodeStatus != null) ...<Widget>[
                 HiveStatusDot(
                   status: nodeStatus,
-                  semanticLabel: nodeStatus.name,
+                  semanticLabel: RunL10n.localizeNodeStatus(l10n, nodeStatus),
                   size: spacing.space2,
                 ),
                 SizedBox(width: spacing.space1),

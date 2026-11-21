@@ -317,6 +317,22 @@ void main() {
       find.byKey(const Key('run_detail_retry_cancel_button')),
       findsOneWidget,
     );
+    final nodeSemantics = tester
+        .widget<Semantics>(
+          find
+              .descendant(
+                of: find.byKey(const Key('run_graph_node_node-1')),
+                matching: find.byType(Semantics),
+              )
+              .first,
+        )
+        .properties
+        .label;
+    expect(nodeSemantics, 'Build step (Cancellation uncertain)');
+    final statusDot = tester.widget<HiveStatusDot>(
+      find.byKey(const Key('run_graph_node_status_node-1')),
+    );
+    expect(statusDot.semanticLabel, 'Cancellation uncertain');
 
     // Emit runInterrupted -> shows Resume
     ws.emit(
