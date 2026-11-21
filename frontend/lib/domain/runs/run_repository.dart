@@ -27,6 +27,23 @@ abstract interface class RunRepository {
   /// Fetches all checkpoints recorded for run [id].
   Future<Result<List<Checkpoint>>> getRunCheckpoints(String id);
 
+  /// Starts a new run from [request].
+  Future<Result<Run>> startRun(StartRunRequest request);
+
+  /// Requests cancellation of an active or `cancellationUncertain` run [id].
+  Future<Result<Run>> cancelRun(String id);
+
+  /// Resumes an interrupted run [id] from its latest checkpoint.
+  Future<Result<Run>> resumeRun(String id);
+
+  /// Fetches captured `stdout`/`stderr` logs for [nodeId] in run [id].
+  Future<Result<RunNodeLogsResponse>> getNodeLogs(
+    String id,
+    String nodeId, {
+    int? attempt,
+    int? tail,
+  });
+
   /// Deletes a non-active run identified by [id].
   Future<Result<void>> deleteRun(String id);
 }

@@ -25,6 +25,24 @@ abstract interface class RunsRemoteDataSource {
   /// Fetches checkpoints for run [id] (`GET /api/v1/runs/:id/checkpoints`).
   Future<Result<List<Checkpoint>>> getRunCheckpoints(String id);
 
+  /// Starts a new run (`POST /api/v1/runs`).
+  Future<Result<Run>> startRun(StartRunRequest request);
+
+  /// Requests cancellation of run [id] (`POST /api/v1/runs/:id/cancel`).
+  Future<Result<Run>> cancelRun(String id);
+
+  /// Resumes an interrupted run [id] (`POST /api/v1/runs/:id/resume`).
+  Future<Result<Run>> resumeRun(String id);
+
+  /// Fetches logs for [nodeId] in run [id]
+  /// (`GET /api/v1/runs/:id/nodes/:nodeId/logs`).
+  Future<Result<RunNodeLogsResponse>> getNodeLogs(
+    String id,
+    String nodeId, {
+    int? attempt,
+    int? tail,
+  });
+
   /// Deletes run [id] (`DELETE /api/v1/runs/:id`).
   Future<Result<void>> deleteRun(String id);
 }
@@ -99,6 +117,57 @@ final class HttpRunsRemoteDataSource implements RunsRemoteDataSource {
       result,
       (json) => RunCheckpointsResponse.fromJson(json).items,
     );
+  }
+
+  @override
+  Future<Result<Run>> startRun(StartRunRequest request) async {
+    final result = await _client.sendJsonRequest(
+      'POST',
+      _basePath,
+      body: request.toJson(),
+    );
+    return _decode(result, Run.fromJson);
+  }
+
+  @override
+  Future<Result<Run>> cancelRun(String id) async {
+    final encodedId = Uri.encodeComponent(id);
+    final result = await _client.sendJsonRequest(
+      'POST',
+      '$_basePath/$encodedId/cancel',
+    );
+    return _decode(result, Run.fromJson);
+  }
+
+  @override
+  Future<Result<Run>> resumeRun(String id) async {
+    final encodedId = Uri.encodeComponent(id);
+    final result = await _client.sendJsonRequest(
+      'POST',
+      '$_basePath/$encodedId/resume',
+    );
+    return _decode(result, Run.fromJson);
+  }
+
+  @override
+  Future<Result<RunNodeLogsResponse>> getNodeLogs(
+    String id,
+    String nodeId, {
+    int? attempt,
+    int? tail,
+  }) async {
+    final encodedId = Uri.encodeComponent(id);
+    final encodedNodeId = Uri.encodeComponent(nodeId);
+    final queryParameters = <String, String>{
+      if (attempt != null) 'attempt': '$attempt',
+      if (tail != null) 'tail': '$tail',
+    };
+    final path = Uri(
+      path: '$_basePath/$encodedId/nodes/$encodedNodeId/logs',
+      queryParameters: queryParameters.isEmpty ? null : queryParameters,
+    ).toString();
+    final result = await _client.sendJsonRequest('GET', path);
+    return _decode(result, RunNodeLogsResponse.fromJson);
   }
 
   @override
