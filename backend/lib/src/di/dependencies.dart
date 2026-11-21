@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:agentic_hive_backend/src/api/agents/agents_handler.dart';
 import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
+import 'package:agentic_hive_backend/src/api/overview/overview_handler.dart';
 import 'package:agentic_hive_backend/src/api/pauses/pauses_handler.dart';
 import 'package:agentic_hive_backend/src/api/result_contract/result_contract_handler.dart';
 import 'package:agentic_hive_backend/src/api/runs/runs_handler.dart';
@@ -18,6 +19,7 @@ import 'package:agentic_hive_backend/src/data/nodes/dart_process_runner.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_process_platform.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_shell_provider.dart';
 import 'package:agentic_hive_backend/src/data/nodes/unconfigured_node_ports.dart';
+import 'package:agentic_hive_backend/src/data/overview/repository_overview_repository.dart';
 import 'package:agentic_hive_backend/src/data/pauses/drift_pause_repository.dart';
 import 'package:agentic_hive_backend/src/data/result_contract/hive_result_contract.dart';
 import 'package:agentic_hive_backend/src/data/runs/drift_checkpoint_repository.dart';
@@ -42,6 +44,8 @@ import 'package:agentic_hive_backend/src/domain/harnesses/harness_service.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_registry.dart';
+import 'package:agentic_hive_backend/src/domain/overview/overview_repository.dart';
+import 'package:agentic_hive_backend/src/domain/overview/overview_service.dart';
 import 'package:agentic_hive_backend/src/domain/pauses/pause_repository.dart';
 import 'package:agentic_hive_backend/src/domain/pauses/pause_service.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/human_pause_gateway.dart';
@@ -380,6 +384,23 @@ Future<void> registerDependencies(
       () => PausesHandler(service: di<PauseService>()),
       dependsOn: [PauseService],
     )
+    ..registerSingletonWithDependencies<OverviewRepository>(
+      () => RepositoryOverviewRepository(
+        runs: di<RunRepository>(),
+        events: di<RunEventRepository>(),
+        pauses: di<PauseRepository>(),
+        agents: di<AgentRepository>(),
+      ),
+      dependsOn: [RunRepository, RunEventRepository, PauseRepository],
+    )
+    ..registerSingletonWithDependencies<OverviewService>(
+      () => OverviewService(di<OverviewRepository>()),
+      dependsOn: [OverviewRepository],
+    )
+    ..registerSingletonWithDependencies<OverviewHandler>(
+      () => OverviewHandler(service: di<OverviewService>()),
+      dependsOn: [OverviewService],
+    )
     ..registerSingleton<ConnectionRegistry>(ConnectionRegistry())
     ..registerSingleton<LocalAgentRepository>(
       LocalAgentRepository(
@@ -465,6 +486,7 @@ Future<void> registerDependencies(
           resultContractHandler: di<ResultContractHandler>(),
           runsHandler: di<RunsHandler>(),
           pausesHandler: di<PausesHandler>(),
+          overviewHandler: di<OverviewHandler>(),
           workspaceHandler: di<WorkspaceHandler>(),
           settingsHandler: di<SettingsHandler>(),
         ),
@@ -482,6 +504,7 @@ Future<void> registerDependencies(
         WorkflowHandler,
         RunsHandler,
         PausesHandler,
+        OverviewHandler,
         WorkspaceHandler,
         SettingsHandler,
         WsGateway,
