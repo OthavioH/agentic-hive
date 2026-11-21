@@ -352,10 +352,12 @@ final class GraphEngine {
 
   /// Cancels [runId].
   ///
-  /// A run executing in this process aborts its active nodes and reports
-  /// `run.cancelled` only after the [ProcessTreeKiller] confirmed that every
-  /// process tree exited. When the exit cannot be confirmed the call returns a
-  /// [ConflictFailure], the run stays `running` and driven by the engine, and
+  /// A run executing in this process transitions to [RunStatus.cancelling]
+  /// (`run.cancelling`), aborts its active nodes, and reports `run.cancelled`
+  /// only after the [ProcessTreeKiller] confirms that every process tree has
+  /// exited and all active node futures have settled within
+  /// [cancelGracePeriod]. When exit cannot be confirmed, the run transitions
+  /// to [RunStatus.cancellationUncertain] (`run.cancellation_uncertain`) and
   /// `cancel` can be called again to retry the kill.
   ///
   /// A `cancel` that arrives while `start` or `resume` is still preparing the
@@ -1379,6 +1381,7 @@ final class GraphEngine {
       status: RunStatus.cancelling,
     );
     if (cancelling case FailureResult<Run>()) return cancelling;
+    x.run = cancelling.valueOrNull!;
     await _emit(
       x.run.id,
       RunEventType.runCancelling,
@@ -1421,6 +1424,8 @@ final class GraphEngine {
     final cancelling = await _runs.updateStatus(
       runId,
       status: RunStatus.cancelling,
+      clearFinishedAt: true,
+      clearErrorMessage: true,
     );
     if (cancelling case FailureResult<Run>()) return cancelling;
     await _emit(
@@ -1467,7 +1472,9 @@ final class GraphEngine {
   }
 
   /// Kills the process trees of every running node, waits for the kill to be
-  /// confirmed, then lets the abandoned node futures settle.
+  /// confirmed, then requires all active node futures to settle within
+  /// [cancelGracePeriod]. If node futures do not settle in time, treats the
+  /// termination as unconfirmed so the run enters `cancellationUncertain`.
   Future<Result<void>> _stopRunningNodes(_RunExecution x) async {
     if (x.running.isEmpty) return const Success(null);
     final futures = x.running.values
@@ -1475,13 +1482,27 @@ final class GraphEngine {
         .toList(growable: false);
 
     final killed = await _processTreeKiller.killTree(runId: x.run.id);
-    if (killed.isSuccess) {
-      await Future.wait(
-        futures,
-      ).timeout(cancelGracePeriod, onTimeout: () => const <_NodeCompletion>[]);
-      x.running.clear();
-      x.livePaused.clear();
+    if (killed.isFailure) return killed;
+
+    var timedOut = false;
+    await Future.wait(futures).timeout(
+      cancelGracePeriod,
+      onTimeout: () {
+        timedOut = true;
+        return const <_NodeCompletion>[];
+      },
+    );
+    if (timedOut) {
+      return FailureResult(
+        NodeExecutionFailure(
+          'Timed out after ${cancelGracePeriod.inSeconds}s waiting for '
+          'active node execution of run "${x.run.id}" to settle after kill.',
+        ),
+      );
     }
+
+    x.running.clear();
+    x.livePaused.clear();
     return killed;
   }
 }

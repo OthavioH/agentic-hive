@@ -23,11 +23,17 @@ abstract interface class RunRepository {
 
   /// Updates the [status] (and optional [finishedAt] and [errorMessage]) of
   /// run [id].
+  ///
+  /// Set [clearFinishedAt] or [clearErrorMessage] to `true` to reset those
+  /// columns to `null` (for example when retrying cancellation on a
+  /// `cancellationUncertain` run).
   Future<Result<Run>> updateStatus(
     String id, {
     required RunStatus status,
     DateTime? finishedAt,
     String? errorMessage,
+    bool clearFinishedAt = false,
+    bool clearErrorMessage = false,
   });
 
   /// Atomically transitions [runId] from `running` to `interrupted` and

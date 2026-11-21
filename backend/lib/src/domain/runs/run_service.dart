@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
@@ -11,8 +12,10 @@ import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.da
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/shadow_snapshot_service.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_preparation_service.dart';
+import 'package:agentic_hive_backend/src/logging/log_event.dart';
 import 'package:agentic_hive_backend/src/util/ids.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 
 /// Domain service / coordinator for starting, querying, resuming, cancelling,
@@ -42,6 +45,8 @@ final class RunService {
   /// Maximum page size allowed when querying run events.
   static const int maxEventsLimit = 1000;
 
+  static final _log = Logger('run_service');
+
   static DateTime _utcNow() => DateTime.now().toUtc();
 
   final RunRepository _runs;
@@ -58,6 +63,14 @@ final class RunService {
   final DateTime Function() _now;
 
   final Map<String, Future<void>> _activeExecutions = <String, Future<void>>{};
+
+  /// Synchronously reserved canonical workspace paths for in-flight `direct`
+  /// run starts/resumes before the database status is persisted.
+  final Set<String> _reservedDirectWorkspaces = <String>{};
+
+  /// Synchronously claimed run IDs currently entering [resumeRun] so concurrent
+  /// duplicate resume requests receive `409 Conflict`.
+  final Set<String> _resumingRunIds = <String>{};
 
   /// Waits for any in-flight background run executions launched by [startRun]
   /// or [resumeRun] to settle.
@@ -93,88 +106,137 @@ final class RunService {
       );
     }
 
-    final workflowResult = await workflows.getById(workflowId);
-    if (workflowResult case FailureResult<Workflow>(:final failure)) {
-      return FailureResult(failure);
-    }
-    final workflow = workflowResult.valueOrNull!;
-
-    if (_workflowValidator != null) {
-      final validation = _workflowValidator.validate(workflow);
-      if (!validation.isValid) {
-        final message = validation.issues
-            .where((i) => i.severity == WorkflowValidationSeverity.error)
-            .map((i) => i.message)
-            .join('; ');
-        return FailureResult(
-          ValidationFailure('Workflow "${workflow.name}" is invalid: $message'),
-        );
-      }
-    }
-
     final requestedMode =
         request.workspaceIsolationMode ?? WorkspaceIsolationMode.worktree;
-    final normalizedWorkspace = _pathContext.canonicalize(workspacePath);
+    final normalizedWorkspace = _canonicalizeWorkspace(workspacePath);
+    var reservedDirect = false;
     if (requestedMode == WorkspaceIsolationMode.direct) {
-      final conflict = await _checkDirectWorkspaceConflict(normalizedWorkspace);
-      if (conflict != null) return FailureResult(conflict);
-    }
-
-    final runId = _generateId();
-    final preparedResult = await workspacePreparation.prepare(
-      runId: runId,
-      workspacePath: workspacePath,
-      requestedMode: requestedMode,
-    );
-    if (preparedResult case FailureResult<PreparedWorkspace>(:final failure)) {
-      return FailureResult(failure);
-    }
-    final prepared = preparedResult.valueOrNull!;
-
-    if (prepared.isolationMode == WorkspaceIsolationMode.direct &&
-        requestedMode != WorkspaceIsolationMode.direct) {
-      final conflict = await _checkDirectWorkspaceConflict(normalizedWorkspace);
-      if (conflict != null) return FailureResult(conflict);
-    }
-
-    final run = Run(
-      id: runId,
-      workflowId: workflow.id,
-      workflowName: workflow.name,
-      workflowDefinition: workflow,
-      workspacePath: workspacePath,
-      status: RunStatus.running,
-      startedAt: _now().toUtc(),
-      isolationMode: prepared.isolationMode,
-      worktreePath: prepared.worktreePath,
-      worktreeBranch: prepared.worktreeBranch,
-    );
-
-    final createResult = await _runs.create(run);
-    if (createResult case FailureResult<Run>(:final failure)) {
-      if (prepared.isolationMode == WorkspaceIsolationMode.worktree &&
-          prepared.worktreePath != null) {
-        await workspacePreparation.cleanupWorktree(
-          workspacePath: workspacePath,
-          worktreePath: prepared.worktreePath!,
-          branchName: prepared.worktreeBranch,
+      if (!_reservedDirectWorkspaces.add(normalizedWorkspace)) {
+        return FailureResult(
+          ConflictFailure(
+            'An active direct-mode run is already starting or executing on '
+            'workspace "$normalizedWorkspace".',
+          ),
         );
       }
-      return FailureResult(failure);
+      reservedDirect = true;
     }
 
-    if (prepared.warningMessage != null) {
-      await _events.append(
-        id: _generateId(),
+    var createdInDb = false;
+    try {
+      final workflowResult = await workflows.getById(workflowId);
+      if (workflowResult case FailureResult<Workflow>(:final failure)) {
+        return FailureResult(failure);
+      }
+      final workflow = workflowResult.valueOrNull!;
+
+      if (_workflowValidator != null) {
+        final validation = _workflowValidator.validate(workflow);
+        if (!validation.isValid) {
+          final message = validation.issues
+              .where((i) => i.severity == WorkflowValidationSeverity.error)
+              .map((i) => i.message)
+              .join('; ');
+          return FailureResult(
+            ValidationFailure(
+              'Workflow "${workflow.name}" is invalid: $message',
+            ),
+          );
+        }
+      }
+
+      if (requestedMode == WorkspaceIsolationMode.direct) {
+        final conflict = await _checkDirectWorkspaceConflict(
+          normalizedWorkspace,
+        );
+        if (conflict != null) return FailureResult(conflict);
+      }
+
+      final runId = _generateId();
+      final preparedResult = await workspacePreparation.prepare(
         runId: runId,
-        type: RunEventType.snapshotWarning,
-        payload: <String, Object?>{'message': prepared.warningMessage},
-        createdAt: _now().toUtc(),
+        workspacePath: workspacePath,
+        requestedMode: requestedMode,
       );
-    }
+      if (preparedResult case FailureResult<PreparedWorkspace>(
+        :final failure,
+      )) {
+        return FailureResult(failure);
+      }
+      final prepared = preparedResult.valueOrNull!;
 
-    _launchBackground(runId, () => engine.start(runId));
-    return Success(run);
+      if (prepared.isolationMode == WorkspaceIsolationMode.direct &&
+          !reservedDirect) {
+        if (!_reservedDirectWorkspaces.add(normalizedWorkspace)) {
+          return FailureResult(
+            ConflictFailure(
+              'An active direct-mode run is already starting or executing on '
+              'workspace "$normalizedWorkspace".',
+            ),
+          );
+        }
+        reservedDirect = true;
+        final conflict = await _checkDirectWorkspaceConflict(
+          normalizedWorkspace,
+        );
+        if (conflict != null) return FailureResult(conflict);
+      }
+
+      final ignorePatterns = request.ignorePatterns;
+      if (ignorePatterns != null && ignorePatterns.isNotEmpty) {
+        _snapshots?.configureRunExclusions(runId, ignorePatterns);
+      }
+
+      final run = Run(
+        id: runId,
+        workflowId: workflow.id,
+        workflowName: workflow.name,
+        workflowDefinition: workflow,
+        workspacePath: workspacePath,
+        status: RunStatus.running,
+        startedAt: _now().toUtc(),
+        isolationMode: prepared.isolationMode,
+        worktreePath: prepared.worktreePath,
+        worktreeBranch: prepared.worktreeBranch,
+      );
+
+      final createResult = await _runs.create(run);
+      if (createResult case FailureResult<Run>(:final failure)) {
+        _snapshots?.configureRunExclusions(runId, const []);
+        if (prepared.isolationMode == WorkspaceIsolationMode.worktree &&
+            prepared.worktreePath != null) {
+          await workspacePreparation.cleanupWorktree(
+            workspacePath: workspacePath,
+            worktreePath: prepared.worktreePath!,
+            branchName: prepared.worktreeBranch,
+          );
+        }
+        return FailureResult(failure);
+      }
+      createdInDb = true;
+
+      if (prepared.warningMessage != null) {
+        await _events.append(
+          id: _generateId(),
+          runId: runId,
+          type: RunEventType.snapshotWarning,
+          payload: <String, Object?>{'message': prepared.warningMessage},
+          createdAt: _now().toUtc(),
+        );
+      }
+
+      _launchBackground(runId, () => engine.start(runId));
+      return Success(run);
+    } finally {
+      if (reservedDirect) {
+        // Once the run row is persisted as `running` (or if setup failed),
+        // the DB status check owns the guard after this point.
+        _reservedDirectWorkspaces.remove(normalizedWorkspace);
+      }
+      if (!createdInDb) {
+        // Nothing persisted.
+      }
+    }
   }
 
   /// Initiates cancellation for an active run or retries cancellation for a
@@ -191,8 +253,8 @@ final class RunService {
 
   /// Resumes an `interrupted` run from its latest checkpoint.
   ///
-  /// Returns [ConflictFailure] (`409 Conflict`) when the run is `paused` or
-  /// in any status other than `interrupted`.
+  /// Returns [ConflictFailure] (`409 Conflict`) when the run is `paused`, is
+  /// already being resumed, or is in any status other than `interrupted`.
   Future<Result<Run>> resumeRun(String id) async {
     final engine = _engine;
     if (engine == null) {
@@ -201,31 +263,69 @@ final class RunService {
       );
     }
 
-    final runResult = await _runs.getById(id);
-    if (runResult case FailureResult<Run>(:final failure)) {
-      return FailureResult(failure);
-    }
-    final run = runResult.valueOrNull!;
-
-    if (run.status != RunStatus.interrupted) {
+    if (!_resumingRunIds.add(id) || engine.isExecuting(id)) {
       return FailureResult(
-        ConflictFailure(
-          'Run "$id" is ${run.status.name}; only interrupted runs can be '
-          'resumed.',
-        ),
+        ConflictFailure('Run "$id" is already being resumed or executed.'),
       );
     }
 
-    if (run.isolationMode == WorkspaceIsolationMode.direct) {
-      final conflict = await _checkDirectWorkspaceConflict(
-        _pathContext.canonicalize(run.workspacePath),
-        excludeRunId: id,
-      );
-      if (conflict != null) return FailureResult(conflict);
-    }
+    var reservedDirect = false;
+    String? normalizedWorkspace;
+    var launched = false;
+    try {
+      final runResult = await _runs.getById(id);
+      if (runResult case FailureResult<Run>(:final failure)) {
+        return FailureResult(failure);
+      }
+      final run = runResult.valueOrNull!;
 
-    _launchBackground(id, () => engine.resume(id));
-    return Success(run);
+      if (run.status != RunStatus.interrupted) {
+        return FailureResult(
+          ConflictFailure(
+            'Run "$id" is ${run.status.name}; only interrupted runs can be '
+            'resumed.',
+          ),
+        );
+      }
+
+      if (run.isolationMode == WorkspaceIsolationMode.direct) {
+        normalizedWorkspace = _canonicalizeWorkspace(run.workspacePath);
+        if (!_reservedDirectWorkspaces.add(normalizedWorkspace)) {
+          return FailureResult(
+            ConflictFailure(
+              'An active direct-mode run is already starting or executing on '
+              'workspace "$normalizedWorkspace".',
+            ),
+          );
+        }
+        reservedDirect = true;
+        final conflict = await _checkDirectWorkspaceConflict(
+          normalizedWorkspace,
+          excludeRunId: id,
+        );
+        if (conflict != null) return FailureResult(conflict);
+      }
+
+      launched = true;
+      _launchBackground(
+        id,
+        () => engine.resume(id),
+        onSettled: () {
+          _resumingRunIds.remove(id);
+          if (reservedDirect && normalizedWorkspace != null) {
+            _reservedDirectWorkspaces.remove(normalizedWorkspace);
+          }
+        },
+      );
+      return Success(run);
+    } finally {
+      if (!launched) {
+        _resumingRunIds.remove(id);
+        if (reservedDirect && normalizedWorkspace != null) {
+          _reservedDirectWorkspaces.remove(normalizedWorkspace);
+        }
+      }
+    }
   }
 
   /// Returns stored `stdout`/`stderr` logs for `(runId, nodeId)` for [attempt]
@@ -260,22 +360,81 @@ final class RunService {
     );
   }
 
-  void _launchBackground(String runId, Future<Result<Run>> Function() task) {
+  void _launchBackground(
+    String runId,
+    Future<Result<Run>> Function() task, {
+    void Function()? onSettled,
+  }) {
     final future = () async {
       try {
-        await task();
-      } on Object {
-        // Engine logs its own failures.
+        final result = await task();
+        if (result case FailureResult<Run>(:final failure)) {
+          await _handleBackgroundFailure(runId, failure.message);
+        }
+      } on Object catch (error, stackTrace) {
+        _log.severe(
+          LogEvent(
+            'runs.background_execution_crashed',
+            fields: {'runId': runId, 'error': '$error'},
+          ),
+          error,
+          stackTrace,
+        );
+        await _handleBackgroundFailure(
+          runId,
+          'Background run execution crashed: $error',
+        );
       }
     }();
     _activeExecutions[runId] = future;
     unawaited(
       future.whenComplete(() {
+        onSettled?.call();
         if (identical(_activeExecutions[runId], future)) {
           unawaited(_activeExecutions.remove(runId));
         }
       }),
     );
+  }
+
+  Future<void> _handleBackgroundFailure(String runId, String message) async {
+    _log.warning(
+      LogEvent(
+        'runs.background_execution_failed',
+        fields: {'runId': runId, 'error': message},
+      ),
+    );
+    final currentResult = await _runs.getById(runId);
+    if (currentResult case Success<Run>(:final value)
+        when value.status == RunStatus.running ||
+            value.status == RunStatus.interrupted) {
+      final now = _now().toUtc();
+      await _runs.updateStatus(
+        runId,
+        status: RunStatus.failed,
+        finishedAt: now,
+        errorMessage: message,
+      );
+      await _events.append(
+        id: _generateId(),
+        runId: runId,
+        type: RunEventType.runFailed,
+        createdAt: now,
+        payload: <String, Object?>{'reason': message},
+      );
+    }
+  }
+
+  String _canonicalizeWorkspace(String workspacePath) {
+    try {
+      final dir = Directory(workspacePath);
+      if (dir.existsSync()) {
+        return _pathContext.canonicalize(dir.resolveSymbolicLinksSync());
+      }
+    } on FileSystemException {
+      // Fall back to path canonicalization below.
+    }
+    return _pathContext.canonicalize(workspacePath);
   }
 
   Future<ConflictFailure?> _checkDirectWorkspaceConflict(
@@ -292,7 +451,7 @@ final class RunService {
       for (final active in listResult.valueOrNull!) {
         if (active.id == excludeRunId) continue;
         if (active.isolationMode != WorkspaceIsolationMode.direct) continue;
-        if (_pathContext.canonicalize(active.workspacePath) ==
+        if (_canonicalizeWorkspace(active.workspacePath) ==
             normalizedWorkspace) {
           return ConflictFailure(
             'An active direct-mode run ("${active.id}") is already executing '
@@ -398,10 +557,11 @@ final class RunService {
   }
 
   /// Atomically deletes a non-active run [id] (cascading its checkpoints,
-  /// events, and snapshots) and cleans up its shadow repository and any
-  /// associated worktree.
+  /// events, and snapshots) and cleans up its shadow repository, log files,
+  /// and any associated worktree.
   ///
-  /// Returns [ConflictFailure] when the run is `running` or `paused`.
+  /// Returns [ConflictFailure] when the run is active (`running`, `paused`,
+  /// or `cancelling`).
   Future<Result<void>> deleteRun(String id) async {
     final existingResult = await _runs.getById(id);
     final existing = switch (existingResult) {
@@ -415,6 +575,7 @@ final class RunService {
     }
 
     if (_snapshots != null) {
+      _snapshots.configureRunExclusions(id, const []);
       await _snapshots.deleteShadowRepository(id);
     }
     if (_logStore != null) {

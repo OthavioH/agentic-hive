@@ -126,6 +126,8 @@ final class _FakeRunRepository implements RunRepository {
     required RunStatus status,
     DateTime? finishedAt,
     String? errorMessage,
+    bool clearFinishedAt = false,
+    bool clearErrorMessage = false,
   }) async {
     final existing = store[id];
     if (existing == null) {
@@ -133,8 +135,10 @@ final class _FakeRunRepository implements RunRepository {
     }
     final updated = existing.copyWith(
       status: status,
-      finishedAt: finishedAt,
-      errorMessage: errorMessage,
+      finishedAt: clearFinishedAt ? null : (finishedAt ?? existing.finishedAt),
+      errorMessage: clearErrorMessage
+          ? null
+          : (errorMessage ?? existing.errorMessage),
     );
     store[id] = updated;
     return Success(updated);

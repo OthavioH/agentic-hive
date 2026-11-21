@@ -44,6 +44,19 @@ final class DartProcessRunner implements NodeProcessRunner {
     NodeOutputCallback? onOutput,
   }) async {
     final effectivePlatform = platform ?? currentProcessPlatform();
+    final tracker = processTracker;
+    final trackedRunId = invocation.runId;
+    if (tracker != null &&
+        trackedRunId != null &&
+        tracker.isRunCancelling(trackedRunId)) {
+      return FailureResult(
+        NodeExecutionFailure(
+          'Refusing to start "${invocation.executable}": run "$trackedRunId" '
+          'is cancelling.',
+        ),
+      );
+    }
+
     final Process process;
     try {
       process = await effectivePlatform.start(
@@ -63,14 +76,15 @@ final class DartProcessRunner implements NodeProcessRunner {
       );
     }
 
-    final tracker = processTracker;
-    final trackedRunId = invocation.runId;
     if (tracker != null && trackedRunId != null) {
       tracker.track(
         runId: trackedRunId,
         nodeId: invocation.nodeId ?? '',
         process: process,
       );
+      if (tracker.isRunCancelling(trackedRunId)) {
+        await effectivePlatform.terminateTree(process);
+      }
     }
 
     final stdoutBuffer = StringBuffer();

@@ -52,6 +52,8 @@ final class InMemoryRunRepository implements RunRepository {
     required RunStatus status,
     DateTime? finishedAt,
     String? errorMessage,
+    bool clearFinishedAt = false,
+    bool clearErrorMessage = false,
   }) async {
     final run = runs[id];
     if (run == null) return FailureResult(NotFoundFailure('Run "$id".'));
@@ -62,8 +64,10 @@ final class InMemoryRunRepository implements RunRepository {
     return Success(
       runs[id] = run.copyWith(
         status: status,
-        finishedAt: finishedAt,
-        errorMessage: errorMessage,
+        finishedAt: clearFinishedAt ? null : (finishedAt ?? run.finishedAt),
+        errorMessage: clearErrorMessage
+            ? null
+            : (errorMessage ?? run.errorMessage),
       ),
     );
   }

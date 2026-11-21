@@ -26,4 +26,9 @@ abstract interface class ProcessTreeTracker {
 
   /// Unregisters [process] after it exits normally.
   void untrack(Process process);
+
+  /// Whether cancellation has been requested for [runId], in which case new
+  /// child processes for [runId] must not be started (or must be terminated
+  /// immediately if already spawned).
+  bool isRunCancelling(String runId);
 }

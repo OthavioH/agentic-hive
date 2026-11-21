@@ -7,7 +7,9 @@ import 'dart:io';
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/data/nodes/dart_process_runner.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_process_platform.dart';
+import 'package:agentic_hive_backend/src/data/runs/posix_process_tree_killer.dart';
 import 'package:agentic_hive_backend/src/data/runs/process_tree_killer_factory.dart';
+import 'package:agentic_hive_backend/src/data/runs/windows_process_tree_killer.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -79,7 +81,6 @@ Future<void> main(List<String> args) async {
       ),
     );
 
-    // Wait until the grandchild has written its PID file.
     final deadline = DateTime.now().add(const Duration(seconds: 10));
     while (!childPidFile.existsSync() ||
         childPidFile.readAsStringSync().trim().isEmpty) {
@@ -93,15 +94,14 @@ Future<void> main(List<String> args) async {
 
     final killResult = await managed.killer.killTree(runId: 'run-tree-1');
     expect(killResult.isSuccess, isTrue);
-
-    // Give the OS a tiny moment if needed, though killTree already confirmed.
     expect(_isProcessAlive(childPid), isFalse);
 
     final execResult = await runFuture;
     expect(execResult.isSuccess, isTrue);
   });
 
-  test('returns FailureResult when exit confirmation times out', () async {
+  test('deterministically returns NodeExecutionFailure when confirmation times '
+      'out and blocks new spawns while cancelling', () async {
     final tempDir = await Directory.systemTemp.createTemp('hive_tree_to_');
     addTearDown(() async {
       if (tempDir.existsSync()) {
@@ -122,23 +122,91 @@ Future<void> main() => Future<void>.delayed(const Duration(seconds: 30));
       process.kill(ProcessSignal.sigkill);
     });
 
-    final managed = currentProcessTreeKiller();
-    // Track with a 0ms confirmation timeout to verify unconfirmed handling
-    // deterministically without leaving processes behind.
+    final ManagedProcessTreeKiller unconfirmedManaged;
     if (Platform.isWindows) {
-      // On Windows, TerminateJobObject is synchronous/fast, so test the
-      // confirmation timeout with a killer configured with 0ms timeout.
-      // Either it exits before 0ms or times out cleanly with a Failure.
-      managed.tracker.track(runId: 'run-to', nodeId: 'n1', process: process);
-      final res = await managed.killer.killTree(runId: 'run-to');
-      expect(
-        res.isSuccess || res.failureOrNull is NodeExecutionFailure,
-        isTrue,
+      final killer = WindowsProcessTreeKiller(
+        confirmationTimeout: Duration.zero,
+        skipTerminateForTesting: true,
       );
+      unconfirmedManaged = (killer: killer, tracker: killer);
     } else {
-      managed.tracker.track(runId: 'run-to', nodeId: 'n1', process: process);
-      final res = await managed.killer.killTree(runId: 'run-to');
-      expect(res.isSuccess, isTrue);
+      final killer = PosixProcessTreeKiller(
+        gracePeriod: Duration.zero,
+        confirmationTimeout: Duration.zero,
+        skipTerminateForTesting: true,
+      );
+      unconfirmedManaged = (killer: killer, tracker: killer);
     }
+
+    unconfirmedManaged.tracker.track(
+      runId: 'run-to',
+      nodeId: 'n1',
+      process: process,
+    );
+
+    final res = await unconfirmedManaged.killer.killTree(runId: 'run-to');
+    expect(res.failureOrNull, isA<NodeExecutionFailure>());
+    expect(unconfirmedManaged.tracker.isRunCancelling('run-to'), isTrue);
+
+    // DartProcessRunner refuses to start a new process for a cancelling run.
+    final runner = DartProcessRunner(
+      platform: currentProcessPlatform(),
+      processTracker: unconfirmedManaged.tracker,
+    );
+    final refused = await runner.run(
+      ProcessInvocation(
+        executable: Platform.resolvedExecutable,
+        arguments: <String>[script.path],
+        workingDirectory: tempDir.path,
+        runId: 'run-to',
+        nodeId: 'n2',
+      ),
+    );
+    expect(refused.failureOrNull, isA<NodeExecutionFailure>());
+
+    // Once the process exits, retrying killTree confirms exit and succeeds.
+    process.kill(ProcessSignal.sigkill);
+    await process.exitCode;
+    final retryRes = await unconfirmedManaged.killer.killTree(runId: 'run-to');
+    expect(retryRes.isSuccess, isTrue);
+    expect(unconfirmedManaged.tracker.isRunCancelling('run-to'), isFalse);
   });
+
+  test(
+    'PosixProcessPlatform spawns child as leader of its own process group '
+    '(pgid == pid)',
+    skip: Platform.isWindows
+        ? 'POSIX process group ownership applies to Linux and macOS only.'
+        : null,
+    () async {
+      final tempDir = await Directory.systemTemp.createTemp('hive_pgid_');
+      addTearDown(() async {
+        if (tempDir.existsSync()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final script = File(p.join(tempDir.path, 'sleep.dart'));
+      await script.writeAsString('''
+import 'dart:async';
+Future<void> main() => Future<void>.delayed(const Duration(seconds: 30));
+''');
+
+      final platform = currentProcessPlatform();
+      final child = await platform.start(Platform.resolvedExecutable, <String>[
+        script.path,
+      ], workingDirectory: tempDir.path);
+      addTearDown(() => platform.terminateTree(child));
+
+      final ps = await Process.run('ps', <String>[
+        '-o',
+        'pgid=',
+        '-p',
+        '${child.pid}',
+      ]);
+      expect(ps.exitCode, 0);
+      final childPgid = int.parse((ps.stdout as String).trim());
+      expect(childPgid, child.pid);
+    },
+  );
 }

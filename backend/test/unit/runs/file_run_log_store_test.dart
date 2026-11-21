@@ -22,7 +22,8 @@ void main() {
   });
 
   test(
-    'appends per-attempt logs, streams outputs, tails, and deletes',
+    'appends per-attempt logs with monotonic offsets, streams outputs, tails '
+    'from end, and deletes',
     () async {
       final streamed = <RunOutputPayload>[];
       final sub = store.outputs.listen(streamed.add);
@@ -63,7 +64,11 @@ void main() {
       );
 
       expect(streamed, hasLength(4));
+      expect(streamed[0].offset, 1);
+      expect(streamed[1].offset, 1);
+      expect(streamed[2].offset, 2);
       expect(streamed[2].stream, RunOutputStream.stderr);
+      expect(streamed[3].offset, 3);
 
       // Defaults to latest attempt (2).
       final latest = (await store.readLogs(
@@ -77,6 +82,8 @@ void main() {
         'line 2',
         'line 3',
       ]);
+      expect(latest.entries.map((e) => e.offset), [1, 2, 3]);
+      expect(latest.offset, 3);
       expect(latest.truncated, isFalse);
 
       // Specific attempt (1).
@@ -87,8 +94,10 @@ void main() {
       )).valueOrNull!;
       expect(first.attempt, 1);
       expect(first.entries.single.chunk, 'attempt 1 out');
+      expect(first.entries.single.offset, 1);
+      expect(first.offset, 1);
 
-      // Tail lines sets truncated.
+      // Tail lines reads from end and sets truncated + latest offset.
       final tailed = (await store.readLogs(
         runId: 'run-1',
         nodeId: 'node/a',
@@ -96,10 +105,48 @@ void main() {
       )).valueOrNull!;
       expect(tailed.truncated, isTrue);
       expect(tailed.entries.map((e) => e.chunk), ['line 2', 'line 3']);
+      expect(tailed.entries.map((e) => e.offset), [2, 3]);
+      expect(tailed.offset, 3);
 
-      // Delete removes <runsDir>/<runId>.
+      // Delete closes open sinks and removes <runsDir>/<runId>.
       await store.deleteRunLogs('run-1');
       expect(Directory(p.join(tempDir.path, 'run-1')).existsSync(), isFalse);
     },
   );
+
+  test('enforces per-file size cap with truncation marker and keeps offsets '
+      'monotonic', () async {
+    final cappedStore = FileRunLogStore(
+      runsDir: tempDir.path,
+      maxLogFileBytes: 180,
+    );
+    addTearDown(cappedStore.close);
+
+    final streamed = <RunOutputPayload>[];
+    final sub = cappedStore.outputs.listen(streamed.add);
+    addTearDown(sub.cancel);
+
+    final t0 = DateTime.utc(2026, 11, 20, 12);
+    for (var i = 1; i <= 4; i++) {
+      await cappedStore.appendOutput(
+        runId: 'run-cap',
+        nodeId: 'n1',
+        attempt: 1,
+        stream: RunOutputStream.stdout,
+        chunk: 'line-$i-payload-content',
+        timestamp: t0.add(Duration(seconds: i)),
+      );
+    }
+
+    expect(streamed.map((e) => e.offset), [1, 2, 3, 4]);
+    final logs = (await cappedStore.readLogs(
+      runId: 'run-cap',
+      nodeId: 'n1',
+    )).valueOrNull!;
+    expect(logs.truncated, isTrue);
+    expect(
+      logs.entries.any((e) => e.chunk == FileRunLogStore.truncationMarkerChunk),
+      isTrue,
+    );
+  });
 }

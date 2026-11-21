@@ -189,6 +189,11 @@ Future<void> main() async {
     final logs = RunNodeLogsResponse.fromJson(logsRes.json);
     expect(logs.attempt, 1);
     expect(logs.availableAttempts, [1]);
+    expect(logs.offset, greaterThanOrEqualTo(2));
+    expect(
+      logs.entries.every((e) => e.offset >= 1 && e.offset <= logs.offset),
+      isTrue,
+    );
     expect(logs.entries.any((e) => e.chunk.contains('hello stdout')), isTrue);
 
     // DELETE cleans up log directory too.
@@ -196,6 +201,38 @@ Future<void> main() async {
     expect(delRes.statusCode, 204);
     expect(Directory(p.join(dataDir, 'runs', run.id)).existsSync(), isFalse);
   });
+
+  test(
+    'two simultaneous POST /runs in direct mode on the same workspace return '
+    'one 201 and one 409',
+    () async {
+      final script = File(p.join(workspaceDir.path, 'concurrent.dart'));
+      await script.writeAsString('''
+import 'dart:async';
+Future<void> main() => Future<void>.delayed(const Duration(milliseconds: 300));
+''');
+      final workflow = await createCommandWorkflow(script.path);
+      final body = jsonEncode(
+        StartRunRequest(
+          workflowId: workflow.id,
+          workspacePath: workspaceDir.path,
+          workspaceIsolationMode: WorkspaceIsolationMode.direct,
+        ).toJson(),
+      );
+
+      final responses = await Future.wait([
+        http.post('/api/v1/runs', body: body),
+        http.post('/api/v1/runs', body: body),
+      ]);
+      final codes = responses.map((r) => r.statusCode).toList()..sort();
+      expect(codes, [201, 409]);
+
+      final createdRun = Run.fromJson(
+        responses.firstWhere((r) => r.statusCode == 201).json,
+      );
+      await http.post('/api/v1/runs/${createdRun.id}/cancel');
+    },
+  );
 
   test('POST /runs/:id/cancel terminates a running command node', () async {
     final script = File(p.join(workspaceDir.path, 'long_wait.dart'));
@@ -284,9 +321,14 @@ Future<void> main() => Future<void>.delayed(const Duration(seconds: 60));
       final pausedRes = await http.post('/api/v1/runs/run-paused/resume');
       expect(pausedRes.statusCode, 409);
 
-      // Interrupted -> 200 OK and runs to completion.
-      final resumeRes = await http.post('/api/v1/runs/run-interrupted/resume');
-      expect(resumeRes.statusCode, 200);
+      // Simultaneous duplicate Resume on interrupted -> one 200 OK, one 409.
+      final resumeResponses = await Future.wait([
+        http.post('/api/v1/runs/run-interrupted/resume'),
+        http.post('/api/v1/runs/run-interrupted/resume'),
+      ]);
+      final resumeCodes = resumeResponses.map((r) => r.statusCode).toList()
+        ..sort();
+      expect(resumeCodes, [200, 409]);
 
       final deadline = DateTime.now().add(const Duration(seconds: 15));
       var status = RunStatus.running;

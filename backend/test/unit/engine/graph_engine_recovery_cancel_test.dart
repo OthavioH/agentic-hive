@@ -350,18 +350,56 @@ void main() {
           RunStatus.cancellationUncertain,
         );
         expect(h.run.status, RunStatus.cancellationUncertain);
+        expect(h.run.finishedAt, isNotNull);
+        expect(h.run.errorMessage, isNotNull);
         expect(h.eventTypes, contains(RunEventType.runCancelling));
         expect(h.eventTypes, contains(RunEventType.runCancellationUncertain));
         expect(h.eventTypes, isNot(contains(RunEventType.runCancelled)));
         expect(h.engine.isExecuting(runId), isFalse);
 
+        Run? cancellingSnapshot;
+        h.events.onAppend = (event) {
+          if (event.type == RunEventType.runCancelling &&
+              event.payload['retry'] == true) {
+            cancellingSnapshot = h.run;
+          }
+        };
+
         h.killer.failure = null;
         final second = await h.engine.cancel(runId);
 
+        expect(cancellingSnapshot?.status, RunStatus.cancelling);
+        expect(cancellingSnapshot?.finishedAt, isNull);
+        expect(cancellingSnapshot?.errorMessage, isNull);
         expect(second.valueOrNull?.status, RunStatus.cancelled);
         expect(h.killer.kills, hasLength(2));
         expect(h.engine.isExecuting(runId), isFalse);
         expect(h.eventTypes.last, RunEventType.runCancelled);
+      },
+    );
+
+    test(
+      'a node future that does not settle within cancelGracePeriod transitions '
+      'to cancellationUncertain',
+      () async {
+        h = EngineHarness(cancelGracePeriod: const Duration(milliseconds: 50));
+        final neverCompletes = Completer<void>();
+        h.script.on('a', [
+          outcomeAfter(neverCompletes.future, NodeOutput.onSuccess),
+        ]);
+        await h.createRun(buildWorkflow(nodeIds: ['a'], edges: const []));
+
+        final started = h.engine.start(runId);
+        await h.settle();
+        final cancelRes = await h.engine.cancel(runId);
+
+        expect(cancelRes.valueOrNull?.status, RunStatus.cancellationUncertain);
+        expect(
+          (await started).valueOrNull?.status,
+          RunStatus.cancellationUncertain,
+        );
+        expect(h.run.status, RunStatus.cancellationUncertain);
+        expect(h.eventTypes.last, RunEventType.runCancellationUncertain);
       },
     );
 

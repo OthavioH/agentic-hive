@@ -8,6 +8,7 @@ import 'package:agentic_hive_backend/src/domain/runs/process_tree_killer.dart';
 
 const int _sigTerm = 15;
 const int _sigKill = 9;
+const int _esrch = 3;
 
 typedef _KillNative = Int32 Function(Int32 pid, Int32 sig);
 typedef _KillDart = int Function(int pid, int sig);
@@ -17,6 +18,8 @@ typedef _SetPgidNative = Int32 Function(Int32 pid, Int32 pgid);
 typedef _SetPgidDart = int Function(int pid, int pgid);
 typedef _GetPidNative = Int32 Function();
 typedef _GetPidDart = int Function();
+typedef _ErrnoPtrNative = Pointer<Int32> Function();
+typedef _ErrnoPtrDart = Pointer<Int32> Function();
 
 final class _PosixLibc {
   new _() {
@@ -25,6 +28,15 @@ final class _PosixLibc {
     getpgid = lib.lookupFunction<_GetPgidNative, _GetPgidDart>('getpgid');
     setpgid = lib.lookupFunction<_SetPgidNative, _SetPgidDart>('setpgid');
     getpid = lib.lookupFunction<_GetPidNative, _GetPidDart>('getpid');
+    if (Platform.isMacOS) {
+      _errnoLocation = lib.lookupFunction<_ErrnoPtrNative, _ErrnoPtrDart>(
+        '__error',
+      );
+    } else {
+      _errnoLocation = lib.lookupFunction<_ErrnoPtrNative, _ErrnoPtrDart>(
+        '__errno_location',
+      );
+    }
   }
 
   static final _PosixLibc instance = ._();
@@ -33,6 +45,9 @@ final class _PosixLibc {
   late final _GetPgidDart getpgid;
   late final _SetPgidDart setpgid;
   late final _GetPidDart getpid;
+  late final _ErrnoPtrDart _errnoLocation;
+
+  int get errno => _errnoLocation().value;
 }
 
 final class _TrackedPosixProcess {
@@ -55,8 +70,10 @@ final class _TrackedPosixProcess {
   final Process process;
   final int pgid;
   final bool hasOwnProcessGroup;
+  final Set<int> knownPids = <int>{};
   bool exited = false;
   bool killing = false;
+  bool cancelAttempted = false;
 }
 
 /// POSIX (Linux and macOS) [ProcessTreeKiller] and [ProcessTreeTracker]
@@ -69,6 +86,7 @@ final class PosixProcessTreeKiller
     this.gracePeriod = const Duration(seconds: 3),
     this.confirmationTimeout = const Duration(seconds: 5),
     this.pollInterval = const Duration(milliseconds: 25),
+    this.skipTerminateForTesting = false,
   });
 
   /// Grace period between `SIGTERM` and `SIGKILL`.
@@ -80,7 +98,15 @@ final class PosixProcessTreeKiller
   /// Interval between exit-confirmation polls.
   final Duration pollInterval;
 
+  /// Test-only hook that skips sending `SIGTERM`/`SIGKILL` so timeout and
+  /// `cancellationUncertain` handling can be tested deterministically.
+  final bool skipTerminateForTesting;
+
   final List<_TrackedPosixProcess> _tracked = <_TrackedPosixProcess>[];
+  final Set<String> _cancellingRuns = <String>{};
+
+  @override
+  bool isRunCancelling(String runId) => _cancellingRuns.contains(runId);
 
   @override
   void track({
@@ -108,7 +134,7 @@ final class PosixProcessTreeKiller
         process: process,
         pgid: pgid,
         hasOwnProcessGroup: hasOwnGroup,
-      ),
+      )..knownPids.add(pid),
     );
   }
 
@@ -116,7 +142,11 @@ final class PosixProcessTreeKiller
   void untrack(Process process) {
     for (var i = _tracked.length - 1; i >= 0; i--) {
       final entry = _tracked[i];
-      if (entry.process.pid == process.pid && !entry.killing) {
+      if (entry.process.pid != process.pid || entry.killing) continue;
+      entry.exited = true;
+      // Keep tracking the process group if surviving members remain or if a
+      // previous cancel attempt was unconfirmed.
+      if (!entry.cancelAttempted && _isConfirmedExited(entry)) {
         _tracked.removeAt(i);
       }
     }
@@ -124,6 +154,10 @@ final class PosixProcessTreeKiller
 
   @override
   Future<Result<void>> killTree({required String runId, String? nodeId}) async {
+    if (nodeId == null) {
+      _cancellingRuns.add(runId);
+    }
+
     final targets = _tracked
         .where(
           (entry) =>
@@ -132,44 +166,49 @@ final class PosixProcessTreeKiller
         )
         .toList(growable: false);
 
-    if (targets.isEmpty) return const Success(null);
-
-    final fallbackPids = <int, Set<int>>{};
-    for (final entry in targets) {
-      entry.killing = true;
-      if (entry.hasOwnProcessGroup) {
-        _PosixLibc.instance.kill(-entry.pgid, _sigTerm);
-      } else {
-        final tree = await _collectTreePids(entry.process.pid);
-        fallbackPids[entry.process.pid] = tree;
-        for (final pid in tree) {
-          _PosixLibc.instance.kill(pid, _sigTerm);
-        }
-      }
-    }
-
-    if (await _waitUntilConfirmed(targets, fallbackPids, gracePeriod)) {
-      _removeTargets(targets);
+    if (targets.isEmpty) {
+      _cancellingRuns.remove(runId);
       return const Success(null);
     }
 
     for (final entry in targets) {
-      if (entry.hasOwnProcessGroup) {
-        _PosixLibc.instance.kill(-entry.pgid, _sigKill);
-      } else {
-        final tree = <int>{
-          ...?fallbackPids[entry.process.pid],
-          ...await _collectTreePids(entry.process.pid),
-        };
-        fallbackPids[entry.process.pid] = tree;
-        for (final pid in tree) {
-          _PosixLibc.instance.kill(pid, _sigKill);
+      entry
+        ..killing = true
+        ..cancelAttempted = true;
+      if (!entry.hasOwnProcessGroup) {
+        entry.knownPids.addAll(await _collectTreePids(entry.process.pid));
+      }
+      if (!skipTerminateForTesting) {
+        if (entry.hasOwnProcessGroup) {
+          _PosixLibc.instance.kill(-entry.pgid, _sigTerm);
+        } else {
+          for (final pid in entry.knownPids) {
+            _PosixLibc.instance.kill(pid, _sigTerm);
+          }
         }
       }
     }
 
-    if (await _waitUntilConfirmed(targets, fallbackPids, confirmationTimeout)) {
-      _removeTargets(targets);
+    if (await _waitUntilConfirmed(targets, gracePeriod)) {
+      _removeTargets(runId, targets);
+      return const Success(null);
+    }
+
+    if (!skipTerminateForTesting) {
+      for (final entry in targets) {
+        if (entry.hasOwnProcessGroup) {
+          _PosixLibc.instance.kill(-entry.pgid, _sigKill);
+        } else {
+          entry.knownPids.addAll(await _collectTreePids(entry.process.pid));
+          for (final pid in entry.knownPids) {
+            _PosixLibc.instance.kill(pid, _sigKill);
+          }
+        }
+      }
+    }
+
+    if (await _waitUntilConfirmed(targets, confirmationTimeout)) {
+      _removeTargets(runId, targets);
       return const Success(null);
     }
 
@@ -184,20 +223,22 @@ final class PosixProcessTreeKiller
     );
   }
 
-  void _removeTargets(List<_TrackedPosixProcess> targets) {
+  void _removeTargets(String runId, List<_TrackedPosixProcess> targets) {
     targets.forEach(_tracked.remove);
+    if (!_tracked.any((e) => e.runId == runId)) {
+      _cancellingRuns.remove(runId);
+    }
   }
 
   Future<bool> _waitUntilConfirmed(
     List<_TrackedPosixProcess> targets,
-    Map<int, Set<int>> fallbackPids,
     Duration timeout,
   ) async {
     final deadline = DateTime.now().add(timeout);
     while (true) {
       var allConfirmed = true;
       for (final entry in targets) {
-        if (!_isConfirmedExited(entry, fallbackPids[entry.process.pid])) {
+        if (!_isConfirmedExited(entry)) {
           allConfirmed = false;
           break;
         }
@@ -208,17 +249,23 @@ final class PosixProcessTreeKiller
     }
   }
 
-  bool _isConfirmedExited(_TrackedPosixProcess entry, Set<int>? pids) {
+  bool _isConfirmedExited(_TrackedPosixProcess entry) {
     if (!entry.exited) return false;
-    final libc = _PosixLibc.instance;
     if (entry.hasOwnProcessGroup) {
-      return libc.kill(-entry.pgid, 0) != 0;
+      return _isTargetGone(-entry.pgid);
     }
-    if (pids == null) return libc.kill(entry.process.pid, 0) != 0;
-    for (final pid in pids) {
-      if (libc.kill(pid, 0) == 0) return false;
+    for (final pid in entry.knownPids) {
+      if (!_isTargetGone(pid)) return false;
     }
     return true;
+  }
+
+  /// Returns `true` only when `kill(target, 0)` fails with `ESRCH` (`3`).
+  /// `EPERM` (`1`) or `0` means at least one matching process still exists.
+  bool _isTargetGone(int target) {
+    final libc = _PosixLibc.instance;
+    if (libc.kill(target, 0) == 0) return false;
+    return libc.errno == _esrch;
   }
 
   Future<Set<int>> _collectTreePids(int rootPid) async {

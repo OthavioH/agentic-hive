@@ -164,6 +164,8 @@ final class DriftRunRepository implements RunRepository {
     required RunStatus status,
     DateTime? finishedAt,
     String? errorMessage,
+    bool clearFinishedAt = false,
+    bool clearErrorMessage = false,
   }) async {
     try {
       return await _db.transaction(() async {
@@ -173,12 +175,16 @@ final class DriftRunRepository implements RunRepository {
             )..where((row) => row.id.equals(id))).write(
               RunsCompanion(
                 status: Value(status.name),
-                finishedAt: finishedAt == null
-                    ? const Value.absent()
-                    : Value(finishedAt.toUtc().toIso8601String()),
-                errorMessage: errorMessage == null
-                    ? const Value.absent()
-                    : Value(errorMessage),
+                finishedAt: clearFinishedAt
+                    ? const Value(null)
+                    : (finishedAt == null
+                          ? const Value.absent()
+                          : Value(finishedAt.toUtc().toIso8601String())),
+                errorMessage: clearErrorMessage
+                    ? const Value(null)
+                    : (errorMessage == null
+                          ? const Value.absent()
+                          : Value(errorMessage)),
               ),
             );
         if (updated == 0) {
