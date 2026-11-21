@@ -2,35 +2,8 @@ import 'dart:collection';
 
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
-/// Machine-readable codes for [WorkflowValidationIssue].
-abstract final class WorkflowValidationCode {
-  /// Workflow name is blank.
-  static const blankName = 'blank_name';
-
-  /// Workflow has no nodes.
-  static const emptyNodes = 'empty_nodes';
-
-  /// `entryNodeId` is missing or does not reference an existing node.
-  static const missingEntryNode = 'missing_entry_node';
-
-  /// An edge has a blank `sourceOutput`.
-  static const emptySourceOutput = 'empty_source_output';
-
-  /// An edge references a missing source or target node.
-  static const orphanEdge = 'orphan_edge';
-
-  /// Multiple edges share `(sourceNodeId, sourceOutput, targetNodeId)`.
-  static const duplicateEdge = 'duplicate_edge';
-
-  /// An edge specifies `maxRetries <= 0`.
-  static const invalidMaxRetries = 'invalid_max_retries';
-
-  /// A directed cycle contains no edge with `maxRetries > 0`.
-  static const unboundedCycle = 'unbounded_cycle';
-
-  /// A node cannot be reached from `entryNodeId`.
-  static const unreachableNode = 'unreachable_node';
-}
+export 'package:agentic_hive_shared/agentic_hive_shared.dart'
+    show WorkflowValidationCode;
 
 enum _VisitState { unvisited, visiting, visited }
 

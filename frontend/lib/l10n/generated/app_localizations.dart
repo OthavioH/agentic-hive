@@ -789,6 +789,100 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Warning'**
   String get editorIssueWarningLabel;
+
+  /// Localized validation message when the workflow name is blank.
+  ///
+  /// In en, this message translates to:
+  /// **'Workflow name must not be blank.'**
+  String get editorIssueBlankName;
+
+  /// Localized validation message when the workflow contains no nodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Workflow must contain at least one node.'**
+  String get editorIssueEmptyNodes;
+
+  /// Localized validation message when entryNodeId is missing or invalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a valid entry node for this workflow.'**
+  String get editorIssueMissingEntryNode;
+
+  /// Localized validation message when an edge has an empty sourceOutput.
+  ///
+  /// In en, this message translates to:
+  /// **'Edge \"{edgeId}\" must specify a non-empty source output.'**
+  String editorIssueEmptySourceOutput(String edgeId);
+
+  /// Localized validation message when an edge references a missing node.
+  ///
+  /// In en, this message translates to:
+  /// **'Edge \"{edgeId}\" references a missing source or target node.'**
+  String editorIssueOrphanEdge(String edgeId);
+
+  /// Localized validation message when two edges share source, output, and target.
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate edge from \"{sourceLabel}\" ({sourceOutput}) to \"{targetLabel}\".'**
+  String editorIssueDuplicateEdge(
+    String sourceLabel,
+    String sourceOutput,
+    String targetLabel,
+  );
+
+  /// Localized validation message when an edge has maxRetries <= 0.
+  ///
+  /// In en, this message translates to:
+  /// **'Edge \"{edgeId}\" max retries must be greater than 0.'**
+  String editorIssueInvalidMaxRetries(String edgeId);
+
+  /// Localized validation message when a directed cycle has no positive maxRetries edge.
+  ///
+  /// In en, this message translates to:
+  /// **'Cycle involving \"{sourceLabel}\" -> \"{targetLabel}\" requires at least one edge with max retries greater than 0.'**
+  String editorIssueUnboundedCycle(String sourceLabel, String targetLabel);
+
+  /// Localized validation message when a node cannot be reached from entryNodeId.
+  ///
+  /// In en, this message translates to:
+  /// **'Node \"{nodeLabel}\" is not reachable from the entry node.'**
+  String editorIssueUnreachableNode(String nodeLabel);
+
+  /// Fallback localized validation message for an unrecognized validation issue code.
+  ///
+  /// In en, this message translates to:
+  /// **'Workflow graph has a validation issue ({code}).'**
+  String editorIssueUnknown(String code);
+
+  /// Localized error message when a workflow operation fails with a NetworkFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not reach the local backend. Check the connection and try again.'**
+  String get workflowsFailureNetwork;
+
+  /// Localized error message when a workflow operation fails with a NotFoundFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'The requested workflow could not be found.'**
+  String get workflowsFailureNotFound;
+
+  /// Localized error message when a workflow operation fails with a ValidationFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'The workflow request was invalid. Check your inputs and try again.'**
+  String get workflowsFailureValidation;
+
+  /// Localized error message when a workflow operation fails with a BackendFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'The local backend rejected the workflow request.'**
+  String get workflowsFailureBackend;
+
+  /// Localized error message when a workflow operation fails with an UnexpectedFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'An unexpected error occurred while processing the workflow.'**
+  String get workflowsFailureUnexpected;
 }
 
 class _AppLocalizationsDelegate

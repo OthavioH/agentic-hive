@@ -56,7 +56,7 @@ final class WorkflowEditorControllerProvider
 }
 
 String _$workflowEditorControllerHash() =>
-    r'c4f1d04fa6ca93eb09510c9dbba9598d92de592b';
+    r'9bf7ec435357121bdd92f9c518a8b3a813482125';
 
 /// Manages editing, selection, validation, and saving of a single workflow.
 

@@ -2,9 +2,13 @@ import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflow_editor_controller.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/pages/workflow_editor_page.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/widgets/workflow_graph_painter.dart';
+import 'package:agentic_hive_frontend/routes/app_routes.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -28,8 +32,8 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
     issues: <WorkflowValidationIssue>[
       WorkflowValidationIssue(
         severity: WorkflowValidationSeverity.error,
-        code: 'empty_nodes',
-        message: 'Workflow must contain at least one node.',
+        code: WorkflowValidationCode.emptyNodes,
+        message: 'Backend message ignored by localized UI.',
       ),
     ],
   );
@@ -60,10 +64,26 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   Future<Result<WorkflowValidationResult>> validateWorkflow(
     Workflow workflow,
   ) async {
-    if (workflow.nodes.isNotEmpty) {
-      return const Success(WorkflowValidationResult(isValid: true));
+    if (workflow.nodes.isEmpty) {
+      return Success(validation);
     }
-    return Success(validation);
+    if (workflow.nodes.length > 1 && workflow.edges.isEmpty) {
+      final unreachable = workflow.nodes.last;
+      return Success(
+        WorkflowValidationResult(
+          isValid: true,
+          issues: <WorkflowValidationIssue>[
+            WorkflowValidationIssue(
+              severity: WorkflowValidationSeverity.warning,
+              code: WorkflowValidationCode.unreachableNode,
+              message: 'raw unreachable',
+              nodeId: unreachable.id,
+            ),
+          ],
+        ),
+      );
+    }
+    return const Success(WorkflowValidationResult(isValid: true));
   }
 
   @override
@@ -89,20 +109,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
 Widget _buildEditorHost() {
   final router = GoRouter(
     initialLocation: '/workflows/wf-1',
-    routes: <RouteBase>[
-      GoRoute(
-        path: '/workflows',
-        builder: (_, _) => const Scaffold(body: Text('WorkflowsList')),
-        routes: <RouteBase>[
-          GoRoute(
-            path: ':id',
-            builder: (_, state) => Scaffold(
-              body: WorkflowEditorPage(workflowId: state.pathParameters['id']!),
-            ),
-          ),
-        ],
-      ),
-    ],
+    routes: $appRoutes,
   );
 
   return NodeVisualScope(
@@ -139,10 +146,7 @@ void main() {
 
     expect(find.text('Editable Flow'), findsWidgets);
     expect(find.text(l10n.editorSavedBadge), findsOneWidget);
-    expect(
-      find.text('Workflow must contain at least one node.'),
-      findsOneWidget,
-    );
+    expect(find.text(l10n.editorIssueEmptyNodes), findsOneWidget);
 
     // Add node -> becomes dirty, selects node, shows node inspector.
     await tester.tap(find.byKey(const Key('editor_add_node_button')));
@@ -169,9 +173,8 @@ void main() {
     expect(find.text(l10n.editorValidationValid), findsOneWidget);
   });
 
-  testWidgets('WorkflowEditorPage prompts before discarding unsaved changes', (
-    tester,
-  ) async {
+  testWidgets('Backspace in inspector edits text without deleting node; '
+      'Delete on canvas deletes node', (tester) async {
     tester.view.physicalSize = const Size(1440, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -185,23 +188,232 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final l10n = AppLocalizations.of(
-      tester.element(find.byType(WorkflowEditorPage)),
-    )!;
-
+    // Add a node (automatically selected).
     await tester.tap(find.byKey(const Key('editor_add_node_button')));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('canvas_node_node_1')), findsOneWidget);
 
-    // Tap back button while dirty -> HiveDialog appears.
-    await tester.tap(find.byKey(const Key('editor_back_button')));
+    // Focus the inspector node label field.
+    final labelField = find.byKey(const Key('inspector_node_label'));
+    await tester.tap(labelField);
     await tester.pumpAndSettle();
 
-    expect(find.byType(HiveDialog), findsOneWidget);
-    expect(find.text(l10n.editorUnsavedDialogTitle), findsOneWidget);
-
-    await tester.tap(find.text(l10n.editorDiscardAction));
+    // Press Backspace and Delete while EditableText has focus ->
+    // node must remain!
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
     await tester.pumpAndSettle();
 
-    expect(find.text('WorkflowsList'), findsOneWidget);
+    expect(find.byKey(const Key('canvas_node_node_1')), findsOneWidget);
+
+    // Tap the selected node on the canvas so focus leaves EditableText
+    // and returns to the canvas editor, then press Delete.
+    await tester.tap(find.byKey(const Key('canvas_node_node_1')));
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('canvas_node_node_1')), findsNothing);
   });
+
+  testWidgets(
+    'Edge creation by port drag, edge selection, and edge inspector edits',
+    (tester) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final repo = _FakeWorkflowRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+          child: _buildEditorHost(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Add two nodes: node_1 at (120, 120) and node_2 at (380, 120).
+      await tester.tap(find.byKey(const Key('editor_add_node_button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('editor_add_node_button')));
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(WorkflowEditorPage)),
+      );
+      final provider = workflowEditorControllerProvider('wf-1');
+
+      // Drag from node_1 output port to node_2 card center.
+      // While an edge is selected, _edgeFlowController repeats continuously,
+      // so use pump() with HiveMotionTokens instead of pumpAndSettle().
+      final portFinder = find.byKey(const Key('output_port_node_1'));
+      final targetNodeFinder = find.byKey(const Key('canvas_node_node_2'));
+      final dragDelta =
+          tester.getCenter(targetNodeFinder) - tester.getCenter(portFinder);
+      await tester.timedDrag(
+        portFinder,
+        dragDelta,
+        HiveMotionTokens.standard.medium,
+      );
+      await tester.pump();
+      await tester.pump(HiveMotionTokens.standard.short);
+
+      var state = container.read(provider).requireValue;
+      expect(state.workflow.edges, hasLength(1));
+      expect(state.selectedEdgeId, 'edge_3');
+      expect(
+        find.byKey(const Key('inspector_edge_max_retries')),
+        findsOneWidget,
+      );
+
+      // Edit maxRetries in edge inspector.
+      await tester.enterText(
+        find.byKey(const Key('inspector_edge_max_retries')),
+        '3',
+      );
+      await tester.pump();
+      state = container.read(provider).requireValue;
+      expect(state.workflow.edges.first.maxRetries, 3);
+
+      // Select custom sourceOutput in HiveSelect and enter custom label.
+      final l10n = AppLocalizations.of(
+        tester.element(find.byType(WorkflowEditorPage)),
+      )!;
+      await tester.tap(
+        find.byKey(const Key('inspector_edge_source_output_select')),
+      );
+      await tester.pump();
+      await tester.pump(HiveMotionTokens.standard.medium);
+      await tester.tap(find.text(l10n.editorEdgeSourceOutputCustomOption).last);
+      await tester.pump();
+      await tester.pump(HiveMotionTokens.standard.medium);
+
+      await tester.enterText(
+        find.byKey(const Key('inspector_edge_source_output_custom')),
+        'approved',
+      );
+      await tester.pump();
+
+      state = container.read(provider).requireValue;
+      expect(state.workflow.edges.first.sourceOutput, 'approved');
+
+      // Clear selection by tapping node_1 (stops _edgeFlowController),
+      // then re-select the edge by tapping its midpoint on the canvas.
+      await tester.tap(find.byKey(const Key('canvas_node_node_1')));
+      await tester.pumpAndSettle();
+      expect(container.read(provider).requireValue.selectedNodeId, 'node_1');
+
+      final edgeMidpoint = WorkflowCanvasGeometry.buildEdgePath(
+        state.workflow.nodes[0],
+        state.workflow.nodes[1],
+      ).midpoint;
+      final canvasTopLeft =
+          tester.getTopLeft(find.byKey(const Key('canvas_node_node_1'))) -
+          Offset(
+            state.workflow.nodes[0].position.x,
+            state.workflow.nodes[0].position.y,
+          );
+      await tester.tapAt(canvasTopLeft + edgeMidpoint);
+      await tester.pump();
+
+      expect(container.read(provider).requireValue.selectedEdgeId, 'edge_3');
+    },
+  );
+
+  testWidgets(
+    'Clicking validation issue in inspector selects and focuses target node',
+    (tester) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final repo = _FakeWorkflowRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+          child: _buildEditorHost(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Add 2 nodes without connecting them -> node_2 is unreachable warning.
+      await tester.tap(find.byKey(const Key('editor_add_node_button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('editor_add_node_button')));
+      await tester.pumpAndSettle();
+
+      // Select node_1 first so node_2 is not selected.
+      await tester.tap(find.byKey(const Key('canvas_node_node_1')));
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(WorkflowEditorPage)),
+      );
+      final provider = workflowEditorControllerProvider('wf-1');
+      expect(container.read(provider).requireValue.selectedNodeId, 'node_1');
+
+      final issueCard = find.byKey(
+        const Key('validation_issue_${WorkflowValidationCode.unreachableNode}'),
+      );
+      expect(issueCard, findsOneWidget);
+
+      await tester.tap(issueCard);
+      await tester.pumpAndSettle();
+
+      final afterFocus = container.read(provider).requireValue;
+      expect(afterFocus.selectedNodeId, 'node_2');
+      expect(afterFocus.focusRequest, isNotNull);
+    },
+  );
+
+  testWidgets(
+    'WorkflowEditorPage prompts before discarding unsaved changes via back '
+    'button or side rail',
+    (tester) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final repo = _FakeWorkflowRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+          child: _buildEditorHost(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final l10n = AppLocalizations.of(
+        tester.element(find.byType(WorkflowEditorPage)),
+      )!;
+
+      await tester.tap(find.byKey(const Key('editor_add_node_button')));
+      await tester.pumpAndSettle();
+
+      // 1. Tap Overview in side rail while dirty -> HiveDialog appears;
+      // cancel keeps user in editor.
+      await tester.tap(find.bySemanticsLabel(l10n.navOverview));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HiveDialog), findsOneWidget);
+      expect(find.text(l10n.editorUnsavedDialogTitle), findsOneWidget);
+
+      await tester.tap(find.text(l10n.editorKeepEditingAction));
+      await tester.pumpAndSettle();
+      expect(find.byType(WorkflowEditorPage), findsOneWidget);
+
+      // 2. Tap back button while dirty -> HiveDialog appears;
+      // confirm discards and navigates away.
+      await tester.tap(find.byKey(const Key('editor_back_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HiveDialog), findsOneWidget);
+      await tester.tap(find.text(l10n.editorDiscardAction));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(WorkflowEditorPage), findsNothing);
+    },
+  );
 }

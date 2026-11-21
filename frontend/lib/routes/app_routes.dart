@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/agents/pages/agents_page.dart';
 import 'package:agentic_hive_frontend/presentation/connecting/pages/connecting_page.dart';
 import 'package:agentic_hive_frontend/presentation/harnesses/pages/harnesses_page.dart';
@@ -6,8 +9,11 @@ import 'package:agentic_hive_frontend/presentation/pauses/pages/pauses_page.dart
 import 'package:agentic_hive_frontend/presentation/runs/pages/runs_page.dart';
 import 'package:agentic_hive_frontend/presentation/settings/pages/settings_page.dart';
 import 'package:agentic_hive_frontend/presentation/shell/widgets/app_shell.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflow_editor_controller.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/pages/workflow_editor_page.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/pages/workflows_page.dart';
+import 'package:design_system/design_system.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -80,6 +86,27 @@ class WorkflowEditorRoute extends GoRouteData with $WorkflowEditorRoute {
   @override
   Widget build(BuildContext context, GoRouterState state) =>
       WorkflowEditorPage(workflowId: id);
+
+  @override
+  FutureOr<bool> onExit(BuildContext context, GoRouterState state) {
+    final container = ProviderScope.containerOf(context, listen: false);
+    final editorState = container
+        .read(workflowEditorControllerProvider(id))
+        .asData
+        ?.value;
+    if (editorState == null || !editorState.isDirty) {
+      return true;
+    }
+    final l10n = AppLocalizations.of(context)!;
+    return HiveDialog.confirm(
+      context: context,
+      title: l10n.editorUnsavedDialogTitle,
+      message: l10n.editorUnsavedDialogMessage,
+      confirmLabel: l10n.editorDiscardAction,
+      cancelLabel: l10n.editorKeepEditingAction,
+      destructive: true,
+    );
+  }
 }
 
 /// Typed route for `/runs`.

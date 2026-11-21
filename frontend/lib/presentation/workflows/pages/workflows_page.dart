@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflows_list_controller.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/utils/workflow_l10n.dart';
 import 'package:agentic_hive_frontend/routes/app_routes.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
@@ -100,11 +101,16 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
             ),
             Expanded(
               child: stateAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
+                loading: () => Center(
+                  child: HiveSpinner(
+                    size: spacing.space4,
+                    color: colors.accent,
+                  ),
+                ),
                 error: (error, _) => HiveEmptyState(
                   icon: HiveIcons.alert,
                   title: l10n.workflowsLoadErrorTitle,
-                  message: error.toString(),
+                  message: WorkflowL10n.localizeError(l10n, error),
                   action: HiveButton(
                     label: l10n.workflowsRetryAction,
                     icon: HiveIcons.refresh,
@@ -145,10 +151,13 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
                             .read(workflowsListControllerProvider.notifier)
                             .setSearchQuery(value),
                       ),
-                      if (listState.actionError != null) ...<Widget>[
+                      if (listState.actionFailure != null) ...<Widget>[
                         SizedBox(height: spacing.space2),
                         HiveBadge(
-                          label: listState.actionError!,
+                          label: WorkflowL10n.localizeFailure(
+                            l10n,
+                            listState.actionFailure!,
+                          ),
                           tone: HiveBadgeTone.danger,
                           icon: HiveIcons.alert,
                         ),
@@ -391,7 +400,7 @@ class _CreateWorkflowDialogState extends State<_CreateWorkflowDialog> {
       onSuccess: (workflow) => Navigator.of(context).pop(workflow),
       onFailure: (failure) {
         setState(() {
-          _nameError = failure.message;
+          _nameError = WorkflowL10n.localizeFailure(l10n, failure);
           _isSubmitting = false;
         });
       },

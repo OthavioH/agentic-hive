@@ -4,6 +4,36 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'workflow_validation.freezed.dart';
 part 'workflow_validation.g.dart';
 
+/// Machine-readable codes for [WorkflowValidationIssue].
+abstract final class WorkflowValidationCode {
+  /// Workflow name is blank.
+  static const String blankName = 'blank_name';
+
+  /// Workflow has no nodes.
+  static const String emptyNodes = 'empty_nodes';
+
+  /// `entryNodeId` is missing or does not reference an existing node.
+  static const String missingEntryNode = 'missing_entry_node';
+
+  /// An edge has a blank `sourceOutput`.
+  static const String emptySourceOutput = 'empty_source_output';
+
+  /// An edge references a missing source or target node.
+  static const String orphanEdge = 'orphan_edge';
+
+  /// Multiple edges share `(sourceNodeId, sourceOutput, targetNodeId)`.
+  static const String duplicateEdge = 'duplicate_edge';
+
+  /// An edge specifies `maxRetries <= 0`.
+  static const String invalidMaxRetries = 'invalid_max_retries';
+
+  /// A directed cycle contains no edge with `maxRetries > 0`.
+  static const String unboundedCycle = 'unbounded_cycle';
+
+  /// A node cannot be reached from `entryNodeId`.
+  static const String unreachableNode = 'unreachable_node';
+}
+
 /// Severity of a [WorkflowValidationIssue].
 enum WorkflowValidationSeverity {
   /// Blocks execution of the workflow, though drafts may still be saved.

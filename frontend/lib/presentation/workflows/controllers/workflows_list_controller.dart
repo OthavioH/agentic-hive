@@ -14,7 +14,7 @@ final class WorkflowsListState {
     required this.workflows,
     this.searchQuery = '',
     this.busyWorkflowId,
-    this.actionError,
+    this.actionFailure,
   });
 
   /// All loaded workflow summaries.
@@ -26,8 +26,8 @@ final class WorkflowsListState {
   /// ID of the workflow currently undergoing duplicate or delete.
   final String? busyWorkflowId;
 
-  /// Transient error message from a list action (create, duplicate, delete).
-  final String? actionError;
+  /// Transient failure from a list action (create, duplicate, delete).
+  final Failure? actionFailure;
 
   /// Workflows matching [searchQuery].
   List<WorkflowSummary> get filteredWorkflows {
@@ -46,7 +46,7 @@ final class WorkflowsListState {
     List<WorkflowSummary>? workflows,
     String? searchQuery,
     String? Function()? busyWorkflowId,
-    String? Function()? actionError,
+    Failure? Function()? actionFailure,
   }) {
     return WorkflowsListState(
       workflows: workflows ?? this.workflows,
@@ -54,7 +54,9 @@ final class WorkflowsListState {
       busyWorkflowId: busyWorkflowId != null
           ? busyWorkflowId()
           : this.busyWorkflowId,
-      actionError: actionError != null ? actionError() : this.actionError,
+      actionFailure: actionFailure != null
+          ? actionFailure()
+          : this.actionFailure,
     );
   }
 }
@@ -123,7 +125,7 @@ class WorkflowsListController extends _$WorkflowsListController {
         await _reloadSilently();
         return Success<Workflow>(value.workflow);
       case FailureResult<WorkflowResponse>(:final failure):
-        _setActionError(failure.message);
+        _setActionFailure(failure);
         return FailureResult<Workflow>(failure);
     }
   }
@@ -139,7 +141,7 @@ class WorkflowsListController extends _$WorkflowsListController {
         await _reloadSilently();
         return Success<Workflow>(value.workflow);
       case FailureResult<WorkflowResponse>(:final failure):
-        _setBusy(null, actionError: failure.message);
+        _setBusy(null, actionFailure: failure);
         return FailureResult<Workflow>(failure);
     }
   }
@@ -160,13 +162,13 @@ class WorkflowsListController extends _$WorkflowsListController {
                   .where((workflow) => workflow.id != id)
                   .toList(),
               busyWorkflowId: () => null,
-              actionError: () => null,
+              actionFailure: () => null,
             ),
           );
         }
         return const Success<void>(null);
       case FailureResult<void>(:final failure):
-        _setBusy(null, actionError: failure.message);
+        _setBusy(null, actionFailure: failure);
         return FailureResult<void>(failure);
     }
   }
@@ -184,24 +186,24 @@ class WorkflowsListController extends _$WorkflowsListController {
           ),
         );
       case FailureResult<List<WorkflowSummary>>(:final failure):
-        _setBusy(null, actionError: failure.message);
+        _setBusy(null, actionFailure: failure);
     }
   }
 
-  void _setBusy(String? id, {String? actionError}) {
+  void _setBusy(String? id, {Failure? actionFailure}) {
     final current = state.asData?.value;
     if (current == null) return;
     state = AsyncData(
       current.copyWith(
         busyWorkflowId: () => id,
-        actionError: () => actionError,
+        actionFailure: () => actionFailure,
       ),
     );
   }
 
-  void _setActionError(String message) {
+  void _setActionFailure(Failure failure) {
     final current = state.asData?.value;
     if (current == null) return;
-    state = AsyncData(current.copyWith(actionError: () => message));
+    state = AsyncData(current.copyWith(actionFailure: () => failure));
   }
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflow_editor_controller.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/utils/workflow_l10n.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/workflow_graph_painter.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/workflow_inspector_panel.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/workflow_node_card.dart';
@@ -11,6 +12,36 @@ import 'package:design_system/design_system.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
+
+final class _DeleteSelectedIntent extends Intent {
+  const new();
+}
+
+final class _SaveWorkflowIntent extends Intent {
+  const new();
+}
+
+final class _DeleteSelectedAction extends Action<_DeleteSelectedIntent> {
+  new(this._onDelete);
+
+  final VoidCallback _onDelete;
+
+  static bool _isFocusedInEditableText() {
+    final focusContext = FocusManager.instance.primaryFocus?.context;
+    if (focusContext == null) return false;
+    if (focusContext.widget is EditableText) return true;
+    return focusContext.findAncestorWidgetOfExactType<EditableText>() != null;
+  }
+
+  @override
+  bool isEnabled(_DeleteSelectedIntent intent) => !_isFocusedInEditableText();
+
+  @override
+  Object? invoke(_DeleteSelectedIntent intent) {
+    _onDelete();
+    return null;
+  }
+}
 
 /// Interactive 2D graph editor page for a single workflow (`/workflows/:id`).
 class WorkflowEditorPage extends ConsumerStatefulWidget {
@@ -38,6 +69,8 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
   Offset? _draftEdgeStart;
   Offset? _draftEdgeEnd;
   int _lastHandledFocusSeq = 0;
+  final FocusNode _editorFocusNode = FocusNode(debugLabel: 'WorkflowEditor');
+  ProviderSubscription<AsyncValue<WorkflowEditorState>>? _editorSubscription;
 
   @override
   void initState() {
@@ -52,7 +85,47 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
     )..addListener(_onPanTick);
   }
 
-  void _syncEdgeFlowAnimation({required bool hasSelectedEdge}) {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _bindEditorSubscription();
+    _syncEdgeFlowAnimation();
+  }
+
+  @override
+  void didUpdateWidget(covariant WorkflowEditorPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.workflowId != widget.workflowId) {
+      _bindEditorSubscription();
+      _syncEdgeFlowAnimation();
+    }
+  }
+
+  void _bindEditorSubscription() {
+    _editorSubscription?.close();
+    final provider = workflowEditorControllerProvider(widget.workflowId);
+    _editorSubscription = ref.listenManual<AsyncValue<WorkflowEditorState>>(
+      provider,
+      (_, next) {
+        if (!mounted) return;
+        _syncEdgeFlowAnimation();
+        final focus = next.asData?.value.focusRequest;
+        if (focus != null && focus.sequence != _lastHandledFocusSeq) {
+          _lastHandledFocusSeq = focus.sequence;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _animateToCanvasPoint(focus.x, focus.y);
+          });
+        }
+      },
+    );
+  }
+
+  void _syncEdgeFlowAnimation() {
+    final editorState = ref
+        .read(workflowEditorControllerProvider(widget.workflowId))
+        .asData
+        ?.value;
+    final hasSelectedEdge = editorState?.selectedEdgeId != null;
     final disableAnimations = MediaQuery.disableAnimationsOf(context);
     if (disableAnimations || !hasSelectedEdge) {
       if (_edgeFlowController.isAnimating) _edgeFlowController.stop();
@@ -63,6 +136,8 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
 
   @override
   void dispose() {
+    _editorSubscription?.close();
+    _editorFocusNode.dispose();
     _panAnimationController
       ..removeListener(_onPanTick)
       ..dispose();
@@ -123,25 +198,6 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
     _transformationController.value = Matrix4.identity();
   }
 
-  Future<void> _handleBackNavigation(BuildContext context, bool isDirty) async {
-    if (!isDirty) {
-      const WorkflowsRoute().go(context);
-      return;
-    }
-    final l10n = AppLocalizations.of(context)!;
-    final discard = await HiveDialog.confirm(
-      context: context,
-      title: l10n.editorUnsavedDialogTitle,
-      message: l10n.editorUnsavedDialogMessage,
-      confirmLabel: l10n.editorDiscardAction,
-      cancelLabel: l10n.editorKeepEditingAction,
-      destructive: true,
-    );
-    if (discard && context.mounted) {
-      const WorkflowsRoute().go(context);
-    }
-  }
-
   String? _findNodeAtPoint(Offset canvasPoint, List<WorkflowNode> nodes) {
     for (final node in nodes.reversed) {
       final rect = Rect.fromLTWH(
@@ -171,7 +227,9 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
           color: colors.surface1,
           borderRadius: context.hiveRadii.panel,
         ),
-        child: const Center(child: CircularProgressIndicator()),
+        child: Center(
+          child: HiveSpinner(size: spacing.space4, color: colors.accent),
+        ),
       ),
       error: (error, _) => DecoratedBox(
         decoration: BoxDecoration(
@@ -181,7 +239,7 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
         child: HiveEmptyState(
           icon: HiveIcons.alert,
           title: l10n.editorLoadErrorTitle,
-          message: error.toString(),
+          message: WorkflowL10n.localizeError(l10n, error),
           action: HiveButton(
             label: l10n.editorBackToWorkflowsAction,
             icon: HiveIcons.collapseRail,
@@ -190,17 +248,6 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
         ),
       ),
       data: (editorState) {
-        _syncEdgeFlowAnimation(
-          hasSelectedEdge: editorState.selectedEdgeId != null,
-        );
-        final focus = editorState.focusRequest;
-        if (focus != null && focus.sequence != _lastHandledFocusSeq) {
-          _lastHandledFocusSeq = focus.sequence;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _animateToCanvasPoint(focus.x, focus.y);
-          });
-        }
-
         final controller = ref.read(editorProvider.notifier);
         final errorCount = editorState.validation.issues
             .where((i) => i.severity == WorkflowValidationSeverity.error)
@@ -234,26 +281,28 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
               issue.edgeId!,
         };
 
-        return PopScope(
-          canPop: !editorState.isDirty,
-          onPopInvokedWithResult: (didPop, _) {
-            if (!didPop) {
-              unawaited(_handleBackNavigation(context, editorState.isDirty));
-            }
+        return Shortcuts(
+          shortcuts: const <ShortcutActivator, Intent>{
+            SingleActivator(LogicalKeyboardKey.delete): _DeleteSelectedIntent(),
+            SingleActivator(LogicalKeyboardKey.backspace):
+                _DeleteSelectedIntent(),
+            SingleActivator(LogicalKeyboardKey.keyS, control: true):
+                _SaveWorkflowIntent(),
           },
-          child: CallbackShortcuts(
-            bindings: <ShortcutActivator, VoidCallback>{
-              const SingleActivator(LogicalKeyboardKey.delete):
-                  controller.deleteSelected,
-              const SingleActivator(LogicalKeyboardKey.backspace):
-                  controller.deleteSelected,
-              const SingleActivator(
-                LogicalKeyboardKey.keyS,
-                control: true,
-              ): () =>
-                  unawaited(controller.save()),
+          child: Actions(
+            actions: <Type, Action<Intent>>{
+              _DeleteSelectedIntent: _DeleteSelectedAction(
+                controller.deleteSelected,
+              ),
+              _SaveWorkflowIntent: CallbackAction<_SaveWorkflowIntent>(
+                onInvoke: (_) {
+                  unawaited(controller.save());
+                  return null;
+                },
+              ),
             },
             child: Focus(
+              focusNode: _editorFocusNode,
               autofocus: true,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -346,9 +395,7 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
               key: const Key('editor_back_button'),
               icon: HiveIcons.collapseRail,
               semanticLabel: l10n.editorBackAction,
-              onPressed: () => unawaited(
-                _handleBackNavigation(context, editorState.isDirty),
-              ),
+              onPressed: () => const WorkflowsRoute().go(context),
             ),
             SizedBox(width: spacing.space2),
             Expanded(
@@ -359,9 +406,12 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
                 style: typography.titleSmall.copyWith(color: colors.onSurface),
               ),
             ),
-            if (editorState.saveError != null) ...<Widget>[
+            if (editorState.saveFailure != null) ...<Widget>[
               HiveBadge(
-                label: editorState.saveError!,
+                label: WorkflowL10n.localizeFailure(
+                  l10n,
+                  editorState.saveFailure!,
+                ),
                 tone: HiveBadgeTone.danger,
                 icon: HiveIcons.alert,
               ),
@@ -464,6 +514,7 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTapUp: (details) {
+                  _editorFocusNode.requestFocus();
                   final hitEdgeId = WorkflowCanvasGeometry.hitTestEdge(
                     point: details.localPosition,
                     nodes: nodes,
@@ -521,7 +572,10 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
                                 editorState.workflow.entryNodeId == node.id,
                             hasError: errorNodeIds.contains(node.id),
                             hasWarning: warningNodeIds.contains(node.id),
-                            onTap: () => controller.selectNode(node.id),
+                            onTap: () {
+                              _editorFocusNode.requestFocus();
+                              controller.selectNode(node.id);
+                            },
                             onDragDelta: (delta) => controller.moveNode(
                               node.id,
                               delta.dx,

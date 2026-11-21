@@ -37,7 +37,7 @@ final class WorkflowEditorState {
     this.selectedEdgeId,
     this.isSaving = false,
     this.isValidating = false,
-    this.saveError,
+    this.saveFailure,
     this.focusRequest,
   });
 
@@ -62,8 +62,8 @@ final class WorkflowEditorState {
   /// Whether a validation request is currently in flight.
   final bool isValidating;
 
-  /// Error message from the most recent failed save attempt.
-  final String? saveError;
+  /// Failure from the most recent failed save attempt.
+  final Failure? saveFailure;
 
   /// Latest pan/focus target requested by clicking a validation issue.
   final EditorFocusRequest? focusRequest;
@@ -106,7 +106,7 @@ final class WorkflowEditorState {
     String? Function()? selectedEdgeId,
     bool? isSaving,
     bool? isValidating,
-    String? Function()? saveError,
+    Failure? Function()? saveFailure,
     EditorFocusRequest? Function()? focusRequest,
   }) {
     return WorkflowEditorState(
@@ -121,7 +121,7 @@ final class WorkflowEditorState {
           : this.selectedEdgeId,
       isSaving: isSaving ?? this.isSaving,
       isValidating: isValidating ?? this.isValidating,
-      saveError: saveError != null ? saveError() : this.saveError,
+      saveFailure: saveFailure != null ? saveFailure() : this.saveFailure,
       focusRequest: focusRequest != null ? focusRequest() : this.focusRequest,
     );
   }
@@ -457,7 +457,9 @@ class WorkflowEditorController extends _$WorkflowEditorController {
       );
     }
 
-    state = AsyncData(current.copyWith(isSaving: true, saveError: () => null));
+    state = AsyncData(
+      current.copyWith(isSaving: true, saveFailure: () => null),
+    );
 
     final draft = current.workflow;
     final trimmedDescription = draft.description?.trim();
@@ -490,13 +492,13 @@ class WorkflowEditorController extends _$WorkflowEditorController {
             savedWorkflow: value.workflow,
             validation: value.validation,
             isSaving: false,
-            saveError: () => null,
+            saveFailure: () => null,
           ),
         );
         return Success<WorkflowResponse>(value);
       case FailureResult<WorkflowResponse>(:final failure):
         state = AsyncData(
-          latest.copyWith(isSaving: false, saveError: () => failure.message),
+          latest.copyWith(isSaving: false, saveFailure: () => failure),
         );
         return FailureResult<WorkflowResponse>(failure);
     }
@@ -515,7 +517,7 @@ class WorkflowEditorController extends _$WorkflowEditorController {
         selectedNodeId: selectedNodeId,
         selectedEdgeId: selectedEdgeId,
         isValidating: revalidate,
-        saveError: () => null,
+        saveFailure: () => null,
       ),
     );
     if (revalidate) {

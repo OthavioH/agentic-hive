@@ -193,6 +193,7 @@ class WorkflowNodeCard extends StatelessWidget {
                   label: l10n.editorOutputPortTooltip,
                   button: true,
                   child: GestureDetector(
+                    key: Key('output_port_${node.id}'),
                     behavior: HitTestBehavior.opaque,
                     onPanStart: onPortDragStart,
                     onPanUpdate: onPortDragUpdate,

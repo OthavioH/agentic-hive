@@ -38,7 +38,7 @@ final class WorkflowsListControllerProvider
 }
 
 String _$workflowsListControllerHash() =>
-    r'42d0667e5d7b2288d6a0021eaa7bcd51c404eb28';
+    r'bdff465babe4253c3c51e8ea3e65f6c0148dd909';
 
 /// Manages the saved workflows list, search filter, and CRUD actions.
 

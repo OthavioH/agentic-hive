@@ -423,4 +423,74 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get editorIssueWarningLabel => 'Warning';
+
+  @override
+  String get editorIssueBlankName => 'Workflow name must not be blank.';
+
+  @override
+  String get editorIssueEmptyNodes =>
+      'Workflow must contain at least one node.';
+
+  @override
+  String get editorIssueMissingEntryNode =>
+      'Select a valid entry node for this workflow.';
+
+  @override
+  String editorIssueEmptySourceOutput(String edgeId) {
+    return 'Edge \"$edgeId\" must specify a non-empty source output.';
+  }
+
+  @override
+  String editorIssueOrphanEdge(String edgeId) {
+    return 'Edge \"$edgeId\" references a missing source or target node.';
+  }
+
+  @override
+  String editorIssueDuplicateEdge(
+    String sourceLabel,
+    String sourceOutput,
+    String targetLabel,
+  ) {
+    return 'Duplicate edge from \"$sourceLabel\" ($sourceOutput) to \"$targetLabel\".';
+  }
+
+  @override
+  String editorIssueInvalidMaxRetries(String edgeId) {
+    return 'Edge \"$edgeId\" max retries must be greater than 0.';
+  }
+
+  @override
+  String editorIssueUnboundedCycle(String sourceLabel, String targetLabel) {
+    return 'Cycle involving \"$sourceLabel\" -> \"$targetLabel\" requires at least one edge with max retries greater than 0.';
+  }
+
+  @override
+  String editorIssueUnreachableNode(String nodeLabel) {
+    return 'Node \"$nodeLabel\" is not reachable from the entry node.';
+  }
+
+  @override
+  String editorIssueUnknown(String code) {
+    return 'Workflow graph has a validation issue ($code).';
+  }
+
+  @override
+  String get workflowsFailureNetwork =>
+      'Could not reach the local backend. Check the connection and try again.';
+
+  @override
+  String get workflowsFailureNotFound =>
+      'The requested workflow could not be found.';
+
+  @override
+  String get workflowsFailureValidation =>
+      'The workflow request was invalid. Check your inputs and try again.';
+
+  @override
+  String get workflowsFailureBackend =>
+      'The local backend rejected the workflow request.';
+
+  @override
+  String get workflowsFailureUnexpected =>
+      'An unexpected error occurred while processing the workflow.';
 }

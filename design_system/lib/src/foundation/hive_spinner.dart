@@ -5,9 +5,7 @@ import 'package:material_ui/material_ui.dart';
 
 /// A small rotating arc used by loading and connecting states.
 ///
-/// Shows a still arc when `MediaQuery.disableAnimations` is set. Internal to
-/// the catalog; features show loading through `HiveButton.loading` and
-/// `HiveConnectionIndicator`.
+/// Shows a still arc when `MediaQuery.disableAnimations` is set.
 class HiveSpinner extends StatefulWidget {
   /// Creates a spinner of [size] in [color].
   const new({required this.size, required this.color, super.key});

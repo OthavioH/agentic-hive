@@ -513,5 +513,109 @@
   "editorIssueWarningLabel": "Warning",
   "@editorIssueWarningLabel": {
     "description": "Severity label for a validation warning item."
+  },
+  "editorIssueBlankName": "Workflow name must not be blank.",
+  "@editorIssueBlankName": {
+    "description": "Localized validation message when the workflow name is blank."
+  },
+  "editorIssueEmptyNodes": "Workflow must contain at least one node.",
+  "@editorIssueEmptyNodes": {
+    "description": "Localized validation message when the workflow contains no nodes."
+  },
+  "editorIssueMissingEntryNode": "Select a valid entry node for this workflow.",
+  "@editorIssueMissingEntryNode": {
+    "description": "Localized validation message when entryNodeId is missing or invalid."
+  },
+  "editorIssueEmptySourceOutput": "Edge \"{edgeId}\" must specify a non-empty source output.",
+  "@editorIssueEmptySourceOutput": {
+    "description": "Localized validation message when an edge has an empty sourceOutput.",
+    "placeholders": {
+      "edgeId": {
+        "type": "String"
+      }
+    }
+  },
+  "editorIssueOrphanEdge": "Edge \"{edgeId}\" references a missing source or target node.",
+  "@editorIssueOrphanEdge": {
+    "description": "Localized validation message when an edge references a missing node.",
+    "placeholders": {
+      "edgeId": {
+        "type": "String"
+      }
+    }
+  },
+  "editorIssueDuplicateEdge": "Duplicate edge from \"{sourceLabel}\" ({sourceOutput}) to \"{targetLabel}\".",
+  "@editorIssueDuplicateEdge": {
+    "description": "Localized validation message when two edges share source, output, and target.",
+    "placeholders": {
+      "sourceLabel": {
+        "type": "String"
+      },
+      "sourceOutput": {
+        "type": "String"
+      },
+      "targetLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "editorIssueInvalidMaxRetries": "Edge \"{edgeId}\" max retries must be greater than 0.",
+  "@editorIssueInvalidMaxRetries": {
+    "description": "Localized validation message when an edge has maxRetries <= 0.",
+    "placeholders": {
+      "edgeId": {
+        "type": "String"
+      }
+    }
+  },
+  "editorIssueUnboundedCycle": "Cycle involving \"{sourceLabel}\" -> \"{targetLabel}\" requires at least one edge with max retries greater than 0.",
+  "@editorIssueUnboundedCycle": {
+    "description": "Localized validation message when a directed cycle has no positive maxRetries edge.",
+    "placeholders": {
+      "sourceLabel": {
+        "type": "String"
+      },
+      "targetLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "editorIssueUnreachableNode": "Node \"{nodeLabel}\" is not reachable from the entry node.",
+  "@editorIssueUnreachableNode": {
+    "description": "Localized validation message when a node cannot be reached from entryNodeId.",
+    "placeholders": {
+      "nodeLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "editorIssueUnknown": "Workflow graph has a validation issue ({code}).",
+  "@editorIssueUnknown": {
+    "description": "Fallback localized validation message for an unrecognized validation issue code.",
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "workflowsFailureNetwork": "Could not reach the local backend. Check the connection and try again.",
+  "@workflowsFailureNetwork": {
+    "description": "Localized error message when a workflow operation fails with a NetworkFailure."
+  },
+  "workflowsFailureNotFound": "The requested workflow could not be found.",
+  "@workflowsFailureNotFound": {
+    "description": "Localized error message when a workflow operation fails with a NotFoundFailure."
+  },
+  "workflowsFailureValidation": "The workflow request was invalid. Check your inputs and try again.",
+  "@workflowsFailureValidation": {
+    "description": "Localized error message when a workflow operation fails with a ValidationFailure."
+  },
+  "workflowsFailureBackend": "The local backend rejected the workflow request.",
+  "@workflowsFailureBackend": {
+    "description": "Localized error message when a workflow operation fails with a BackendFailure."
+  },
+  "workflowsFailureUnexpected": "An unexpected error occurred while processing the workflow.",
+  "@workflowsFailureUnexpected": {
+    "description": "Localized error message when a workflow operation fails with an UnexpectedFailure."
   }
 }

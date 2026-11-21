@@ -23,7 +23,7 @@ RouteBase get $appShellRoute => ShellRouteData.$route(
       routes: [
         GoRouteData.$route(
           path: ':id',
-          hasOverriddenOnExit: false,
+          hasOverriddenOnExit: true,
           factory: $WorkflowEditorRoute._fromState,
         ),
       ],

@@ -1,5 +1,6 @@
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflow_editor_controller.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/utils/workflow_l10n.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
 import 'package:material_ui/material_ui.dart';
@@ -384,6 +385,7 @@ class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
           for (var i = 0; i < issues.length; i++) ...<Widget>[
             _ValidationIssueTile(
               issue: issues[i],
+              workflow: widget.state.workflow,
               onTap: () => widget.onFocusIssue(issues[i]),
             ),
             if (i < issues.length - 1) SizedBox(height: spacing.space1),
@@ -394,9 +396,10 @@ class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
 }
 
 class _ValidationIssueTile extends StatelessWidget {
-  const new({required this.issue, required this.onTap});
+  const new({required this.issue, required this.workflow, required this.onTap});
 
   final WorkflowValidationIssue issue;
+  final Workflow workflow;
   final VoidCallback onTap;
 
   @override
@@ -406,10 +409,16 @@ class _ValidationIssueTile extends StatelessWidget {
     final spacing = context.hiveSpacing;
     final colors = context.hiveColors;
     final typography = context.hiveTypography;
+    final localizedMessage = WorkflowL10n.localizeValidationIssue(
+      l10n,
+      issue,
+      workflow,
+    );
 
     return HiveCard(
+      key: Key('validation_issue_${issue.code}'),
       surface: HiveCardSurface.surface2,
-      semanticLabel: issue.message,
+      semanticLabel: localizedMessage,
       onPressed: onTap,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -424,7 +433,7 @@ class _ValidationIssueTile extends StatelessWidget {
           SizedBox(width: spacing.space1),
           Expanded(
             child: Text(
-              issue.message,
+              localizedMessage,
               style: typography.bodySmall.copyWith(color: colors.onSurface),
             ),
           ),
