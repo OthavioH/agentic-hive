@@ -265,6 +265,58 @@ class AppLocalizationsEn extends AppLocalizations {
   String get routeErrorAction => 'Back to Overview';
 
   @override
+  String get trayTooltip => 'Agentic Hive';
+
+  @override
+  String get trayStatusConnected => 'Agentic Hive — Connected';
+
+  @override
+  String get trayStatusStarting => 'Agentic Hive — Starting…';
+
+  @override
+  String get trayStatusDisconnected => 'Agentic Hive — Disconnected';
+
+  @override
+  String get trayActionOpen => 'Open Agentic Hive';
+
+  @override
+  String get trayActionQuit => 'Quit';
+
+  @override
+  String get trayActionStopBackendAndQuit => 'Stop Backend & Quit';
+
+  @override
+  String get stopBackendDialogTitle => 'Stop backend and quit?';
+
+  @override
+  String stopBackendDialogMessage(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'There are $count active runs in progress. Stopping the backend will abort them.',
+      one: 'There is 1 active run in progress. Stopping the backend will abort it.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get stopBackendDialogCancel => 'Cancel';
+
+  @override
+  String get stopBackendDialogConfirm => 'Stop Backend & Quit';
+
+  @override
+  String get dialogDismissLabel => 'Dismiss';
+
+  @override
+  String get connectingReasonLaunchFailedTitle => 'Failed to start backend';
+
+  @override
+  String get connectingReasonLaunchFailedMessage =>
+      'The local Agentic Hive backend could not be launched. Check that the backend executable is available, then retry.';
+
+  @override
   String get workflowsPageSubtitle =>
       'Create, inspect, and manage workflow graphs.';
 

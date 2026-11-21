@@ -23,6 +23,7 @@ export 'src/foundation/hive_field_frame.dart';
 export 'src/foundation/hive_interaction.dart';
 export 'src/foundation/hive_spinner.dart';
 export 'src/icons/hive_icons.dart';
+export 'src/icons/hive_tray_assets.dart';
 export 'src/motion/hive_motion.dart';
 export 'src/theme/hive_theme.dart';
 export 'src/tokens/hive_colors.dart';

@@ -328,6 +328,67 @@
   "@routeErrorAction": {
     "description": "Button label on the router error page to return to Overview."
   },
+  "trayTooltip": "Agentic Hive",
+  "@trayTooltip": {
+    "description": "Tooltip shown when hovering over the system tray icon."
+  },
+  "trayStatusConnected": "Agentic Hive — Connected",
+  "@trayStatusConnected": {
+    "description": "Disabled tray menu header when the backend is connected."
+  },
+  "trayStatusStarting": "Agentic Hive — Starting…",
+  "@trayStatusStarting": {
+    "description": "Disabled tray menu header when the app is connecting or starting the backend."
+  },
+  "trayStatusDisconnected": "Agentic Hive — Disconnected",
+  "@trayStatusDisconnected": {
+    "description": "Disabled tray menu header when the backend is disconnected."
+  },
+  "trayActionOpen": "Open Agentic Hive",
+  "@trayActionOpen": {
+    "description": "Tray menu item that restores and focuses the main window."
+  },
+  "trayActionQuit": "Quit",
+  "@trayActionQuit": {
+    "description": "Tray menu item that quits the UI and stops an idle backend."
+  },
+  "trayActionStopBackendAndQuit": "Stop Backend & Quit",
+  "@trayActionStopBackendAndQuit": {
+    "description": "Tray menu item that stops the backend and exits the app."
+  },
+  "stopBackendDialogTitle": "Stop backend and quit?",
+  "@stopBackendDialogTitle": {
+    "description": "Confirmation dialog title when stopping the backend while runs are active."
+  },
+  "stopBackendDialogMessage": "{count, plural, =1{There is 1 active run in progress. Stopping the backend will abort it.} other{There are {count} active runs in progress. Stopping the backend will abort them.}}",
+  "@stopBackendDialogMessage": {
+    "description": "Confirmation dialog body when stopping the backend with active runs.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "stopBackendDialogCancel": "Cancel",
+  "@stopBackendDialogCancel": {
+    "description": "Safe cancel button label on the stop backend confirmation dialog."
+  },
+  "stopBackendDialogConfirm": "Stop Backend & Quit",
+  "@stopBackendDialogConfirm": {
+    "description": "Confirming destructive button label on the stop backend confirmation dialog."
+  },
+  "dialogDismissLabel": "Dismiss",
+  "@dialogDismissLabel": {
+    "description": "Accessibility label for modal dialog scrim dismissal."
+  },
+  "connectingReasonLaunchFailedTitle": "Failed to start backend",
+  "@connectingReasonLaunchFailedTitle": {
+    "description": "Title on connecting page when launching the local backend process fails."
+  },
+  "connectingReasonLaunchFailedMessage": "The local Agentic Hive backend could not be launched. Check that the backend executable is available, then retry.",
+  "@connectingReasonLaunchFailedMessage": {
+    "description": "Message on connecting page when launching the local backend process fails."
+  },
   "workflowsPageSubtitle": "Create, inspect, and manage workflow graphs.",
   "@workflowsPageSubtitle": {
     "description": "Subtitle on the Workflows list page header."

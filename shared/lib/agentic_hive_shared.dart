@@ -7,6 +7,8 @@ export 'src/harnesses/harness_status.dart';
 export 'src/http/api_error.dart';
 export 'src/http/harness_list_response.dart';
 export 'src/http/health_response.dart';
+export 'src/http/shutdown_request.dart';
+export 'src/http/shutdown_response.dart';
 export 'src/http/status_response.dart';
 export 'src/json_fields.dart' show JsonMap;
 export 'src/workflows/workflow.dart';

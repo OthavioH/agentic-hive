@@ -11,7 +11,13 @@ Request buildRequest(
   String path, {
   String method = 'GET',
   Map<String, String> headers = const {},
-}) => Request(method, Uri.parse('http://localhost$path'), headers: headers);
+  Object? body,
+}) => Request(
+  method,
+  Uri.parse('http://localhost$path'),
+  headers: headers,
+  body: body,
+);
 
 /// Decodes the JSON object in the body of [response].
 Future<JsonMap> readJson(Response response) async =>

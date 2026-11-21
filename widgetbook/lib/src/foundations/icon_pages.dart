@@ -195,3 +195,84 @@ class FacesPage extends StatelessWidget {
     );
   }
 }
+
+/// The system tray icons from `HiveTrayAssets`, at their real pixel sizes
+/// and enlarged, on both surface brightnesses.
+class TrayIconsPage extends StatelessWidget {
+  /// Creates the page.
+  const new({super.key});
+
+  static const Map<String, String> _pngs = <String, String>{
+    'linux · 32': HiveTrayAssets.linux,
+    'linux@2x · 64': HiveTrayAssets.linux2x,
+    'macosTemplate · 22': HiveTrayAssets.macosTemplate,
+    'macosTemplate@2x · 44': HiveTrayAssets.macosTemplate2x,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.hiveColors;
+    final spacing = context.hiveSpacing;
+    return ShowcasePage(
+      title: 'Tray icons',
+      subtitle:
+          'Static tray assets drawn from the Hive hexagon mark. The Windows '
+          '.ico (16 to 64 px) uses the same artwork as the Linux PNGs; the '
+          'macOS template is black with alpha and is tinted by the menu bar.',
+      children: <Widget>[
+        ShowcaseSection(
+          title: 'Actual size',
+          children: <Widget>[
+            for (final entry in _pngs.entries)
+              Labeled(
+                label: entry.key,
+                child: Image.asset(
+                  entry.value,
+                  filterQuality: FilterQuality.none,
+                ),
+              ),
+          ],
+        ),
+        ShowcaseSection(
+          title: 'Enlarged',
+          description: 'Pixel grid at 4x, on a surface3 tile.',
+          children: <Widget>[
+            for (final entry in _pngs.entries)
+              Labeled(
+                label: entry.key,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colors.surface3,
+                    borderRadius: context.hiveRadii.card,
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.all(spacing.space2),
+                    child: SizedBox.square(
+                      dimension: spacing.space8 * 2,
+                      child: Image.asset(
+                        entry.value,
+                        filterQuality: FilterQuality.none,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        ShowcaseSection(
+          title: 'Asset keys',
+          children: <Widget>[
+            for (final key in HiveTrayAssets.all)
+              Text(
+                key,
+                style: context.hiveTypography.mono.copyWith(
+                  color: colors.onSurface,
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}

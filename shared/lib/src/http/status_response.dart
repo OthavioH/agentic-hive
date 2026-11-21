@@ -23,6 +23,7 @@ sealed class StatusResponse with _$StatusResponse {
     required int uptimeSeconds,
     required String dataDir,
     required DatabaseStatus database,
+    @Default(0) int activeRuns,
   }) = _StatusResponse;
 
   /// Decodes a status body; throws a [FormatException] on a bad shape.

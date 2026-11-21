@@ -5,7 +5,8 @@
 import 'package:hive_widgetbook/src/components/action_use_cases.dart';
 import 'package:hive_widgetbook/src/components/display_use_cases.dart';
 import 'package:hive_widgetbook/src/components/feedback_use_cases.dart';
-import 'package:hive_widgetbook/src/components/form_use_cases.dart';
+import 'package:hive_widgetbook/src/components/form_use_cases.dart' as forms;
+import 'package:hive_widgetbook/src/components/overlay_use_cases.dart';
 import 'package:hive_widgetbook/src/foundations/icon_pages.dart';
 import 'package:hive_widgetbook/src/foundations/motion_page.dart';
 import 'package:hive_widgetbook/src/foundations/token_pages.dart';
@@ -44,6 +45,7 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
       ),
       _page('Icons', (context) => const IconsPage()),
       _page('Robot and harness logos', (context) => const FacesPage()),
+      _page('Tray icons', (context) => const TrayIconsPage()),
     ],
   ),
   WidgetbookCategory(
@@ -64,14 +66,22 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
       WidgetbookFolder(
         name: 'Forms',
         children: <WidgetbookNode>[
-          textFieldComponent(),
-          selectComponent(),
-          switchComponent(),
+          forms.textFieldComponent(),
+          forms.selectComponent(),
+          forms.switchComponent(),
         ],
       ),
       WidgetbookFolder(
         name: 'Overlays',
-        children: <WidgetbookNode>[dialogComponent()],
+        children: <WidgetbookNode>[
+          WidgetbookComponent(
+            name: 'HiveDialog',
+            useCases: <WidgetbookUseCase>[
+              ...dialogComponent().useCases,
+              ...forms.dialogComponent().useCases,
+            ],
+          ),
+        ],
       ),
       WidgetbookFolder(
         name: 'Layout',

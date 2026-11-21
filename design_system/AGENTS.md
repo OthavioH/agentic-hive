@@ -67,7 +67,9 @@ Sizes and line heights follow the 4/8 rhythm. Confirm SIL OFL licenses before bu
 
 ## Initial Catalog & Desktop Profile
 
-Initial components: `HiveSideRail` (floating pill, collapsed by default, expandable with labels, Hive hexagon mark on top, active item as filled circle, the only subtle green→black vertical gradient in the app on its background), `HiveRailItem`, `HivePageHeader`, `HiveEmptyState`, `HiveButton` (primary/accent, secondary, ghost; sizes; hover, focus, pressed, disabled, loading), `HiveIconButton` (circular), `HiveCard`, `HiveBadge`, `HiveStatusDot` (shape per status, not only color), `HiveAgentAvatar`, `HiveConnectionIndicator`, `HiveHexMark`.
+Initial components: `HiveSideRail` (floating pill, collapsed by default, expandable with labels, Hive hexagon mark on top, active item as filled circle, the only subtle green→black vertical gradient in the app on its background), `HiveRailItem`, `HivePageHeader`, `HiveEmptyState`, `HiveButton` (primary/accent, secondary, ghost; sizes; hover, focus, pressed, disabled, loading), `HiveIconButton` (circular), `HiveCard`, `HiveBadge`, `HiveStatusDot` (shape per status, not only color), `HiveAgentAvatar`, `HiveConnectionIndicator`, `HiveHexMark`, `HiveDialog` (modal panel on `surface2` with `radiusPanel`, shown with `showHiveDialog` over a `background` scrim at `scrimOpacity`).
+
+**Tray icons:** `HiveTrayAssets` exposes the static system tray icons in `assets/tray/` (Windows `.ico`, Linux `.png`, macOS template `.png`), all derived from the Hive hexagon mark. Regenerate them with `tool/generate_tray_icons.py` (Pillow) instead of editing the files by hand.
 
 **Desktop platform profile:** Windows, Linux, and macOS; mouse + keyboard first. Every interactive component must have a hover state, a visible keyboard focus indicator, and a semantics label. Support desktop density (sidebar, multi-column, master-detail).
 

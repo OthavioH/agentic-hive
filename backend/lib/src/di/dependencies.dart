@@ -18,6 +18,7 @@ import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.da
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
 import 'package:agentic_hive_backend/src/http/api_handler.dart';
+import 'package:agentic_hive_backend/src/http/handlers/shutdown_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
 import 'package:agentic_hive_backend/src/logging/log_formatter.dart';
 import 'package:agentic_hive_backend/src/logging/log_sink.dart';
@@ -30,6 +31,8 @@ import 'package:agentic_hive_backend/src/version.dart';
 import 'package:agentic_hive_backend/src/ws/connection_registry.dart';
 import 'package:agentic_hive_backend/src/ws/ws_gateway.dart';
 import 'package:get_it/get_it.dart';
+
+Future<void> _noOpShutdown() async {}
 
 /// Registers every backend dependency in [di].
 ///
@@ -45,6 +48,7 @@ Future<void> registerDependencies(
   required AppConfig config,
   required PlatformPaths platformPaths,
   required DateTime startedAt,
+  Future<void> Function()? onShutdown,
   IOSink? consoleOut,
 }) async {
   di
@@ -143,10 +147,14 @@ Future<void> registerDependencies(
       ),
       dependsOn: [DatabaseHealthCheck],
     )
+    ..registerSingleton<ShutdownHandler>(
+      ShutdownHandler(onShutdown: onShutdown ?? _noOpShutdown),
+    )
     ..registerSingletonWithDependencies<BackendServer>(
       () => BackendServer(
         handler: buildApiHandler(
           statusHandler: di<StatusHandler>(),
+          shutdownHandler: di<ShutdownHandler>(),
           webSocketHandler: di<WsGateway>().handler,
           harnessesHandler: di<HarnessesHandler>(),
           workflowHandler: di<WorkflowHandler>(),

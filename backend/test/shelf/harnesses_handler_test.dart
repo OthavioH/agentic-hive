@@ -4,6 +4,7 @@ import 'package:agentic_hive_backend/src/domain/harnesses/harness_detector.dart'
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_service.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
 import 'package:agentic_hive_backend/src/http/api_handler.dart';
+import 'package:agentic_hive_backend/src/http/handlers/shutdown_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
 import 'package:agentic_hive_backend/src/http/request_context.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
@@ -93,6 +94,7 @@ void main() {
         startedAt: startedAt,
       ),
       webSocketHandler: (_) => Response(418),
+      shutdownHandler: ShutdownHandler(onShutdown: () async {}),
       harnessesHandler: HarnessesHandler(harnessService: harnessService),
     );
   });

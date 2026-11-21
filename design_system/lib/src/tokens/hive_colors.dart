@@ -151,7 +151,7 @@ class HiveColors extends ThemeExtension<HiveColors> {
     hoverOpacity: 0.08,
     pressedOpacity: 0.14,
     disabledOpacity: 0.38,
-    scrimOpacity: 0.64,
+    scrimOpacity: 0.72,
   );
 
   /// Light palette.
@@ -194,7 +194,7 @@ class HiveColors extends ThemeExtension<HiveColors> {
     hoverOpacity: 0.08,
     pressedOpacity: 0.14,
     disabledOpacity: 0.38,
-    scrimOpacity: 0.64,
+    scrimOpacity: 0.48,
   );
 
   /// Whether this palette is the light or the dark one.

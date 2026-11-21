@@ -22,6 +22,9 @@ abstract interface class BackendClient {
   /// `server.hello` handshake.
   Future<Result<BackendWebSocketSession>> connectWebSocket();
 
+  /// Requests graceful backend shutdown via `POST /api/v1/shutdown`.
+  Future<Result<ShutdownResponse>> shutdown({required bool force});
+
   /// Sends an HTTP request with an optional JSON [body] to [path] and decodes
   /// the JSON object response.
   Future<Result<JsonMap>> sendJsonRequest(
