@@ -334,6 +334,115 @@ final class UnixSocketBackendClient implements BackendClient {
   }
 
   @override
+  Future<Result<JsonMap>> putJson(String path, JsonMap body) =>
+      sendJsonRequest('PUT', path, body: body);
+
+  @override
+  Future<Result<void>> delete(String path) async {
+    final result = await sendJsonRequest('DELETE', path);
+    return result.map((_) {});
+  }
+
+  @override
+  Future<Result<ShutdownResponse>> shutdown({required bool force}) async {
+    if (_closed) {
+      return const FailureResult(
+        NetworkFailure('Backend client has been closed.'),
+      );
+    }
+
+    final clientResult = await _ensureHttpClient();
+    if (clientResult case FailureResult<HttpClient>(:final failure)) {
+      return FailureResult(failure);
+    }
+    final client = (clientResult as Success<HttpClient>).value;
+
+    try {
+      final payload = jsonEncode(ShutdownRequest(force: force).toJson());
+      final response = await () async {
+        final request = await client.postUrl(
+          Uri.parse('http://localhost/api/v1/shutdown'),
+        );
+        request.headers.contentType = ContentType.json;
+        request.write(payload);
+        return await request.close();
+      }().timeout(connectTimeout);
+
+      final body = await response
+          .transform(utf8.decoder)
+          .join()
+          .timeout(connectTimeout);
+
+      if (response.statusCode == HttpStatus.conflict) {
+        return FailureResult(
+          BackendFailure(
+            _tryExtractApiErrorMessage(body) ??
+                'Backend has active runs; force shutdown required.',
+            code: ApiErrorCode.conflict,
+            statusCode: response.statusCode,
+          ),
+        );
+      }
+
+      if (response.statusCode != HttpStatus.accepted &&
+          response.statusCode != HttpStatus.ok) {
+        return FailureResult(
+          BackendFailure(
+            'Shutdown request failed with status ${response.statusCode}.',
+            statusCode: response.statusCode,
+          ),
+        );
+      }
+
+      if (body.trim().isEmpty) {
+        return const Success(ShutdownResponse());
+      }
+      final decoded = jsonDecode(body);
+      if (decoded is! Map<String, Object?>) {
+        return const FailureResult(
+          BackendFailure('Invalid shutdown response payload.'),
+        );
+      }
+      return Success(ShutdownResponse.fromJson(decoded));
+    } on TimeoutException catch (error) {
+      _resetHttpClient();
+      return FailureResult(
+        NetworkFailure(
+          'Timed out waiting for backend shutdown.',
+          cause: error,
+          code: BackendFailureCode.timeout,
+        ),
+      );
+    } on SocketException catch (error) {
+      _resetHttpClient();
+      return FailureResult(
+        NetworkFailure(
+          'Unable to reach backend socket.',
+          cause: error,
+          code: BackendFailureCode.connectionRefused,
+        ),
+      );
+    } on HttpException catch (error) {
+      _resetHttpClient();
+      return FailureResult(
+        NetworkFailure('HTTP transport error.', cause: error),
+      );
+    } on FormatException catch (error) {
+      return FailureResult(
+        BackendFailure('Malformed JSON from backend: ${error.message}'),
+      );
+    } on Object catch (error) {
+      _resetHttpClient();
+      return FailureResult(
+        UnexpectedFailure(
+          'Unexpected error requesting shutdown.',
+          cause: error,
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Result<JsonMap>> sendJsonRequest(
     String method,
     String path, {
@@ -389,6 +498,9 @@ final class UnixSocketBackendClient implements BackendClient {
       if (response.statusCode == HttpStatus.notFound) {
         return FailureResult(NotFoundFailure(message));
       }
+      if (response.statusCode == HttpStatus.badRequest) {
+        return FailureResult(ValidationFailure(message));
+      }
       return FailureResult(
         BackendFailure(
           message,
@@ -435,6 +547,16 @@ final class UnixSocketBackendClient implements BackendClient {
   Future<void> close() async {
     _closed = true;
     _resetHttpClient();
+  }
+
+  String? _tryExtractApiErrorMessage(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is! Map<String, Object?>) return null;
+      return ApiError.fromJson(decoded).message;
+    } on Object {
+      return null;
+    }
   }
 
   ApiError? _tryParseApiError(JsonMap json) {

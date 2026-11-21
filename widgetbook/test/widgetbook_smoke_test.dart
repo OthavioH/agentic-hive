@@ -11,6 +11,19 @@ const Map<String, String> _useCases = <String, String>{
   'Primary · Default': 'Run workflow',
   'Collapsed (default)': '',
   'Interactive shell': 'Nothing in Overview yet',
+  'Search input': 'Search by id, name, description or tag',
+  'Mono prompt (filled)': 'Prompt',
+  'Tag editor': 'design-system',
+  'Tag filter row': 'backend',
+  'Text only': 'With errors',
+  'Conflict · Changed on disk': 'Reload from disk',
+  'Parse error detail': 'This agent could not be read',
+  'Agent prompt': 'Execution guidance',
+  'Agent editor composition': 'Capabilities & tools',
+  'Narrow · Master': 'Release manager',
+  'Tray icons': 'Asset keys',
+  'Stop backend confirmation': 'Stop backend and quit?',
+  'Interactive (modal route)': 'No choice yet',
   'Loading sizes': 'Loading sizes',
   'success · Default icon': 'Claude Code is ready',
   'Long message': '',
@@ -114,6 +127,28 @@ void main() {
     final top = tester.getTopLeft(title).dy;
     expect(tester.getTopLeft(avatar).dy, top);
     expect(tester.getTopLeft(badge).dy, top);
+  });
+
+  testWidgets('interactive dialog use case opens and confirms', (tester) async {
+    await tester.pumpWidget(const HiveWidgetbook());
+    await tester.pump();
+
+    final node = find.text('Interactive (modal route)').first;
+    await tester.ensureVisible(node);
+    await tester.pump();
+    await tester.tap(node);
+    await tester.pump(const Duration(milliseconds: 500));
+
+    await tester.tap(find.text('Stop Backend & Quit'));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(HiveDialog), findsOneWidget);
+
+    await tester.tap(find.text('Stop backend'));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(HiveDialog), findsNothing);
+    expect(find.text('Confirmed: stop backend'), findsOneWidget);
   });
 
   testWidgets('live toast use case shows and dismisses a toast', (

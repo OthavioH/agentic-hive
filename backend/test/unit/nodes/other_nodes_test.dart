@@ -102,7 +102,7 @@ void main() {
         expect(result.valueOrNull!.outputLabel, NodeOutput.onSuccess);
         expect(
           runner.lastInvocation!.workingDirectory,
-          p.join(tempDir.path, 'sub'),
+          p.join(tempDir.resolveSymbolicLinksSync(), 'sub'),
         );
         expect(runner.lastInvocation!.environment, {'FOO': 'bar'});
         expect(runner.lastInvocation!.timeout, const Duration(seconds: 15));

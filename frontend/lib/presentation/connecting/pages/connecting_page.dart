@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:agentic_hive_frontend/core/backend/backend_connection.dart';
+import 'package:agentic_hive_frontend/core/lifecycle/app_lifecycle_controller.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:design_system/design_system.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -59,10 +60,16 @@ class _ConnectingPageState extends ConsumerState<ConnectingPage> {
   @override
   Widget build(BuildContext context) {
     final connection = ref.watch(backendConnectionProvider);
+    final lifecycle = ref.watch(appLifecycleControllerProvider);
 
     final l10n = AppLocalizations.of(context)!;
     final spacing = context.hiveSpacing;
     final config = ref.watch(backendConnectionConfigProvider);
+
+    final hasLaunchFailure =
+        !connection.isConnected &&
+        !lifecycle.isLaunchingBackend &&
+        lifecycle.launchFailure != null;
 
     final indicatorState = switch (connection) {
       BackendConnected() => HiveConnectionState.connected,
@@ -76,16 +83,22 @@ class _ConnectingPageState extends ConsumerState<ConnectingPage> {
       BackendDisconnected() => l10n.connectingStatusDisconnected,
     };
 
-    final (title, message, icon) = switch (connection) {
-      BackendConnected() || BackendConnecting() => (
-        l10n.connectingTitle,
-        l10n.connectingSubtitle,
-        HiveIcons.connected,
-      ),
-      BackendDisconnected(:final reason) => _reasonCopy(reason, l10n),
-    };
+    final (title, message, icon) = hasLaunchFailure
+        ? (
+            l10n.connectingReasonLaunchFailedTitle,
+            l10n.connectingReasonLaunchFailedMessage,
+            HiveIcons.alert,
+          )
+        : switch (connection) {
+            BackendConnected() || BackendConnecting() => (
+              l10n.connectingTitle,
+              l10n.connectingSubtitle,
+              HiveIcons.connected,
+            ),
+            BackendDisconnected(:final reason) => _reasonCopy(reason, l10n),
+          };
 
-    final isConnecting = connection.isConnecting;
+    final isBusy = connection.isConnecting || lifecycle.isLaunchingBackend;
 
     return Scaffold(
       body: SafeArea(
@@ -115,12 +128,14 @@ class _ConnectingPageState extends ConsumerState<ConnectingPage> {
                           action: HiveButton(
                             label: l10n.connectingRetryAction,
                             icon: HiveIcons.refresh,
-                            loading: isConnecting,
-                            onPressed: isConnecting
+                            loading: isBusy,
+                            onPressed: isBusy
                                 ? null
                                 : () => ref
-                                      .read(backendConnectionProvider.notifier)
-                                      .reconnect(),
+                                      .read(
+                                        appLifecycleControllerProvider.notifier,
+                                      )
+                                      .retryLaunchAndReconnect(),
                           ),
                         ),
                         if (connection case BackendDisconnected())

@@ -14,6 +14,7 @@ dependencies:
   flutter_flux_motion: ^0.1.0
   flutter_svg: ^2.5.0
   hugeicons: ^4.4.0
+  markdown: ^7.3.1
   material_ui: ^1.11.1
 
 dev_dependencies:
@@ -24,6 +25,7 @@ dev_dependencies:
 flutter:
   assets:
     - assets/svg/
+    - assets/tray/
   fonts:
     - family: BricolageGrotesque
       fonts:

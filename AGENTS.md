@@ -47,6 +47,7 @@ Each family of behavior has an abstract base, and each variation is an implement
 - **Always the latest stable version.** Before adding or updating a dependency (Dart, Flutter, packages), check the current version on pub.dev and the current documentation (Context7). Never write a version or an API from memory.
 - **Multi-platform:** Windows and Linux now, macOS designed in (ADR 0012). OS-specific behavior lives behind an abstraction with one implementation per OS; never branch on the platform inline. Handle paths with `package:path`.
 - **Zero tolerance on code quality** (ADR 0014): `very_good_analysis` with no disabled rules. Work is done only when `dart analyze --fatal-infos`, `dart format --output=none --set-exit-if-changed .` and `dart fix --dry-run` all report nothing.
+- **Generated files:** Generated files (`**/*.g.dart`, `**/*.freezed.dart`, `frontend/lib/l10n/generated/`) are gitignored and never committed. **Before starting any work** in a fresh clone or worktree (before running `dart analyze`, `dart test`, or editing code), agents MUST run `dart run tool/codegen.dart` (which runs `flutter pub get`, `build_runner` in `shared/`, `backend/`, and `frontend/`, and `flutter gen-l10n` in `frontend/`).
 - Code, identifiers, commit messages and all documentation (README, `AGENTS.md`, ADRs, glossary, agent definitions) are written in English.
 
 ## Agent skills
