@@ -20,6 +20,13 @@ RouteBase get $appShellRoute => ShellRouteData.$route(
       path: '/workflows',
       hasOverriddenOnExit: false,
       factory: $WorkflowsRoute._fromState,
+      routes: [
+        GoRouteData.$route(
+          path: ':id',
+          hasOverriddenOnExit: false,
+          factory: $WorkflowEditorRoute._fromState,
+        ),
+      ],
     ),
     GoRouteData.$route(
       path: '/runs',
@@ -79,6 +86,30 @@ mixin $WorkflowsRoute on GoRouteData {
 
   @override
   String get location => GoRouteData.$location('/workflows');
+
+  @override
+  void go(BuildContext context) => context.go(location);
+
+  @override
+  Future<T?> push<T>(BuildContext context) => context.push<T>(location);
+
+  @override
+  void pushReplacement(BuildContext context) =>
+      context.pushReplacement(location);
+
+  @override
+  void replace(BuildContext context) => context.replace(location);
+}
+
+mixin $WorkflowEditorRoute on GoRouteData {
+  static WorkflowEditorRoute _fromState(GoRouterState state) =>
+      WorkflowEditorRoute(id: state.pathParameters['id']!);
+
+  WorkflowEditorRoute get _self => this as WorkflowEditorRoute;
+
+  @override
+  String get location =>
+      GoRouteData.$location('/workflows/${Uri.encodeComponent(_self.id)}');
 
   @override
   void go(BuildContext context) => context.go(location);

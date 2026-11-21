@@ -6,6 +6,7 @@ import 'package:agentic_hive_frontend/presentation/pauses/pages/pauses_page.dart
 import 'package:agentic_hive_frontend/presentation/runs/pages/runs_page.dart';
 import 'package:agentic_hive_frontend/presentation/settings/pages/settings_page.dart';
 import 'package:agentic_hive_frontend/presentation/shell/widgets/app_shell.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/pages/workflow_editor_page.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/pages/workflows_page.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -16,7 +17,12 @@ part 'app_routes.g.dart';
 @TypedShellRoute<AppShellRoute>(
   routes: <TypedRoute<RouteData>>[
     TypedGoRoute<OverviewRoute>(path: OverviewRoute.path),
-    TypedGoRoute<WorkflowsRoute>(path: WorkflowsRoute.path),
+    TypedGoRoute<WorkflowsRoute>(
+      path: WorkflowsRoute.path,
+      routes: <TypedRoute<RouteData>>[
+        TypedGoRoute<WorkflowEditorRoute>(path: WorkflowEditorRoute.subPath),
+      ],
+    ),
     TypedGoRoute<RunsRoute>(path: RunsRoute.path),
     TypedGoRoute<PausesRoute>(path: PausesRoute.path),
     TypedGoRoute<AgentsRoute>(path: AgentsRoute.path),
@@ -58,6 +64,22 @@ class WorkflowsRoute extends GoRouteData with $WorkflowsRoute {
   @override
   Widget build(BuildContext context, GoRouterState state) =>
       const WorkflowsPage();
+}
+
+/// Typed route for `/workflows/:id`.
+class WorkflowEditorRoute extends GoRouteData with $WorkflowEditorRoute {
+  /// Creates a [WorkflowEditorRoute].
+  const new({required this.id});
+
+  /// Sub-path relative to [WorkflowsRoute].
+  static const String subPath = ':id';
+
+  /// Workflow identifier.
+  final String id;
+
+  @override
+  Widget build(BuildContext context, GoRouterState state) =>
+      WorkflowEditorPage(workflowId: id);
 }
 
 /// Typed route for `/runs`.
