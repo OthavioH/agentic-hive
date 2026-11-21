@@ -116,6 +116,28 @@ final class SocketHttpClient {
     return SocketResponse(response.statusCode, response.headers, body);
   }
 
+  /// Sends `POST` to [pathAndQuery] with optional [headers] and [body].
+  Future<SocketResponse> post(
+    String pathAndQuery, {
+    Map<String, String> headers = const {},
+    String? body,
+  }) async {
+    final request = await _client
+        .postUrl(Uri.parse('http://localhost$pathAndQuery'))
+        .timeout(ioTimeout);
+    headers.forEach(request.headers.set);
+    if (body != null) {
+      request.headers.contentType = ContentType.json;
+      request.write(body);
+    }
+    final response = await request.close().timeout(ioTimeout);
+    final responseBody = await response
+        .transform(utf8.decoder)
+        .join()
+        .timeout(ioTimeout);
+    return SocketResponse(response.statusCode, response.headers, responseBody);
+  }
+
   /// Closes the client and its idle connections.
   void close() => _client.close(force: true);
 }

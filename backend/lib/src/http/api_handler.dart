@@ -1,4 +1,5 @@
 import 'package:agentic_hive_backend/src/http/handlers/health_handler.dart';
+import 'package:agentic_hive_backend/src/http/handlers/shutdown_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
 import 'package:agentic_hive_backend/src/http/json_response.dart';
 import 'package:agentic_hive_backend/src/http/middleware/error_middleware.dart';
@@ -17,11 +18,13 @@ import 'package:shelf_router/shelf_router.dart';
 /// status.
 Handler buildApiHandler({
   required StatusHandler statusHandler,
+  required ShutdownHandler shutdownHandler,
   required Handler webSocketHandler,
 }) {
   final router = Router(notFoundHandler: _notFound)
     ..get('/health', healthHandler)
     ..get('/api/v1/status', statusHandler.call)
+    ..post('/api/v1/shutdown', shutdownHandler.call)
     ..get('/ws', webSocketHandler);
 
   return const Pipeline()

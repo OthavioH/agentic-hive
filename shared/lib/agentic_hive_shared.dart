@@ -3,6 +3,8 @@ library;
 
 export 'src/http/api_error.dart';
 export 'src/http/health_response.dart';
+export 'src/http/shutdown_request.dart';
+export 'src/http/shutdown_response.dart';
 export 'src/http/status_response.dart';
 export 'src/json_fields.dart' show JsonMap;
 export 'src/ws/server_hello_payload.dart';

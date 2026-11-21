@@ -76,6 +76,36 @@ void main() {
         throwsA(isA<io.SocketException>()),
       );
     });
+
+    test(
+      'POST /api/v1/shutdown answers 202 and removes server.json and socket',
+      () async {
+        final backend = await startBackend(dataDir, stopOnTearDown: false);
+        final socketPath = backend.socketPath;
+        final client = openClient(socketPath);
+
+        final response = await client.post(
+          '/api/v1/shutdown',
+          body: jsonEncode(const ShutdownRequest()),
+        );
+
+        expect(response.statusCode, 202);
+        expect(
+          ShutdownResponse.fromJson(response.json).status,
+          'shutting_down',
+        );
+
+        await backend.done.timeout(ioTimeout);
+        expect(entityExists(socketPath), isFalse);
+        expect(entityExists(serverInfoPathIn(dataDir)), isFalse);
+
+        final fresh = openClient(socketPathIn(dataDir));
+        await expectLater(
+          fresh.get('/health'),
+          throwsA(isA<io.SocketException>()),
+        );
+      },
+    );
   });
 
   group('single backend per data folder', () {

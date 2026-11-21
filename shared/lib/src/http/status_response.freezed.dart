@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$StatusResponse {
 
- BackendStatus get status; String get version; int get uptimeSeconds; String get dataDir; DatabaseStatus get database;
+ BackendStatus get status; String get version; int get uptimeSeconds; String get dataDir; DatabaseStatus get database; int get activeRuns;
 /// Create a copy of StatusResponse
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,20 +30,20 @@ $StatusResponseCopyWith<StatusResponse> get copyWith => _$StatusResponseCopyWith
 @override
 bool operator ==(Object other) {
   final _this = this as StatusResponse;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is StatusResponse&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.version, _this.version) || other.version == _this.version)&&(identical(other.uptimeSeconds, _this.uptimeSeconds) || other.uptimeSeconds == _this.uptimeSeconds)&&(identical(other.dataDir, _this.dataDir) || other.dataDir == _this.dataDir)&&(identical(other.database, _this.database) || other.database == _this.database));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is StatusResponse&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.version, _this.version) || other.version == _this.version)&&(identical(other.uptimeSeconds, _this.uptimeSeconds) || other.uptimeSeconds == _this.uptimeSeconds)&&(identical(other.dataDir, _this.dataDir) || other.dataDir == _this.dataDir)&&(identical(other.database, _this.database) || other.database == _this.database)&&(identical(other.activeRuns, _this.activeRuns) || other.activeRuns == _this.activeRuns));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as StatusResponse;
-  return Object.hash(runtimeType,_this.status,_this.version,_this.uptimeSeconds,_this.dataDir,_this.database);
+  return Object.hash(runtimeType,_this.status,_this.version,_this.uptimeSeconds,_this.dataDir,_this.database,_this.activeRuns);
 }
 
 @override
 String toString() {
   final _this = this as StatusResponse;
-  return 'StatusResponse(status: ${_this.status}, version: ${_this.version}, uptimeSeconds: ${_this.uptimeSeconds}, dataDir: ${_this.dataDir}, database: ${_this.database})';
+  return 'StatusResponse(status: ${_this.status}, version: ${_this.version}, uptimeSeconds: ${_this.uptimeSeconds}, dataDir: ${_this.dataDir}, database: ${_this.database}, activeRuns: ${_this.activeRuns})';
 }
 
 
@@ -54,7 +54,7 @@ abstract mixin class $StatusResponseCopyWith<$Res>  {
   factory $StatusResponseCopyWith(StatusResponse value, $Res Function(StatusResponse) _then) = _$StatusResponseCopyWithImpl;
 @useResult
 $Res call({
- BackendStatus status, String version, int uptimeSeconds, String dataDir, DatabaseStatus database
+ BackendStatus status, String version, int uptimeSeconds, String dataDir, DatabaseStatus database, int activeRuns
 });
 
 
@@ -71,14 +71,15 @@ class _$StatusResponseCopyWithImpl<$Res>
 
 /// Create a copy of StatusResponse
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? status = null,Object? version = null,Object? uptimeSeconds = null,Object? dataDir = null,Object? database = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? status = null,Object? version = null,Object? uptimeSeconds = null,Object? dataDir = null,Object? database = null,Object? activeRuns = null,}) {
   return _then(StatusResponse(
 status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as BackendStatus,version: null == version ? _self.version : version // ignore: cast_nullable_to_non_nullable
 as String,uptimeSeconds: null == uptimeSeconds ? _self.uptimeSeconds : uptimeSeconds // ignore: cast_nullable_to_non_nullable
 as int,dataDir: null == dataDir ? _self.dataDir : dataDir // ignore: cast_nullable_to_non_nullable
 as String,database: null == database ? _self.database : database // ignore: cast_nullable_to_non_nullable
-as DatabaseStatus,
+as DatabaseStatus,activeRuns: null == activeRuns ? _self.activeRuns : activeRuns // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 /// Create a copy of StatusResponse
@@ -169,10 +170,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( BackendStatus status,  String version,  int uptimeSeconds,  String dataDir,  DatabaseStatus database)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( BackendStatus status,  String version,  int uptimeSeconds,  String dataDir,  DatabaseStatus database,  int activeRuns)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _StatusResponse() when $default != null:
-return $default(_that.status,_that.version,_that.uptimeSeconds,_that.dataDir,_that.database);case _:
+return $default(_that.status,_that.version,_that.uptimeSeconds,_that.dataDir,_that.database,_that.activeRuns);case _:
   return orElse();
 
 }
@@ -190,10 +191,10 @@ return $default(_that.status,_that.version,_that.uptimeSeconds,_that.dataDir,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( BackendStatus status,  String version,  int uptimeSeconds,  String dataDir,  DatabaseStatus database)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( BackendStatus status,  String version,  int uptimeSeconds,  String dataDir,  DatabaseStatus database,  int activeRuns)  $default,) {final _that = this;
 switch (_that) {
 case _StatusResponse():
-return $default(_that.status,_that.version,_that.uptimeSeconds,_that.dataDir,_that.database);}
+return $default(_that.status,_that.version,_that.uptimeSeconds,_that.dataDir,_that.database,_that.activeRuns);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -207,10 +208,10 @@ return $default(_that.status,_that.version,_that.uptimeSeconds,_that.dataDir,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( BackendStatus status,  String version,  int uptimeSeconds,  String dataDir,  DatabaseStatus database)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( BackendStatus status,  String version,  int uptimeSeconds,  String dataDir,  DatabaseStatus database,  int activeRuns)?  $default,) {final _that = this;
 switch (_that) {
 case _StatusResponse() when $default != null:
-return $default(_that.status,_that.version,_that.uptimeSeconds,_that.dataDir,_that.database);case _:
+return $default(_that.status,_that.version,_that.uptimeSeconds,_that.dataDir,_that.database,_that.activeRuns);case _:
   return null;
 
 }
@@ -222,7 +223,7 @@ return $default(_that.status,_that.version,_that.uptimeSeconds,_that.dataDir,_th
 @JsonSerializable()
 
 class _StatusResponse implements StatusResponse {
-  const _StatusResponse({required this.status, required this.version, required this.uptimeSeconds, required this.dataDir, required this.database});
+  const _StatusResponse({required this.status, required this.version, required this.uptimeSeconds, required this.dataDir, required this.database, this.activeRuns = 0});
   factory _StatusResponse.fromJson(Map<String, dynamic> json) => _$StatusResponseFromJson(json);
 
 @override final  BackendStatus status;
@@ -230,6 +231,7 @@ class _StatusResponse implements StatusResponse {
 @override final  int uptimeSeconds;
 @override final  String dataDir;
 @override final  DatabaseStatus database;
+@override@JsonKey() final  int activeRuns;
 
 /// Create a copy of StatusResponse
 /// with the given fields replaced by the non-null parameter values.
@@ -244,18 +246,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _StatusResponse&&(identical(other.status, status) || other.status == status)&&(identical(other.version, version) || other.version == version)&&(identical(other.uptimeSeconds, uptimeSeconds) || other.uptimeSeconds == uptimeSeconds)&&(identical(other.dataDir, dataDir) || other.dataDir == dataDir)&&(identical(other.database, database) || other.database == database));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _StatusResponse&&(identical(other.status, status) || other.status == status)&&(identical(other.version, version) || other.version == version)&&(identical(other.uptimeSeconds, uptimeSeconds) || other.uptimeSeconds == uptimeSeconds)&&(identical(other.dataDir, dataDir) || other.dataDir == dataDir)&&(identical(other.database, database) || other.database == database)&&(identical(other.activeRuns, activeRuns) || other.activeRuns == activeRuns));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,status,version,uptimeSeconds,dataDir,database);
+    return Object.hash(runtimeType,status,version,uptimeSeconds,dataDir,database,activeRuns);
 }
 
 @override
 String toString() {
-    return 'StatusResponse(status: $status, version: $version, uptimeSeconds: $uptimeSeconds, dataDir: $dataDir, database: $database)';
+    return 'StatusResponse(status: $status, version: $version, uptimeSeconds: $uptimeSeconds, dataDir: $dataDir, database: $database, activeRuns: $activeRuns)';
 }
 
 
@@ -266,7 +268,7 @@ abstract mixin class _$StatusResponseCopyWith<$Res> implements $StatusResponseCo
   factory _$StatusResponseCopyWith(_StatusResponse value, $Res Function(_StatusResponse) _then) = __$StatusResponseCopyWithImpl;
 @override @useResult
 $Res call({
- BackendStatus status, String version, int uptimeSeconds, String dataDir, DatabaseStatus database
+ BackendStatus status, String version, int uptimeSeconds, String dataDir, DatabaseStatus database, int activeRuns
 });
 
 
@@ -283,14 +285,15 @@ class __$StatusResponseCopyWithImpl<$Res>
 
 /// Create a copy of StatusResponse
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? status = null,Object? version = null,Object? uptimeSeconds = null,Object? dataDir = null,Object? database = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? status = null,Object? version = null,Object? uptimeSeconds = null,Object? dataDir = null,Object? database = null,Object? activeRuns = null,}) {
   return _then(_StatusResponse(
 status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as BackendStatus,version: null == version ? _self.version : version // ignore: cast_nullable_to_non_nullable
 as String,uptimeSeconds: null == uptimeSeconds ? _self.uptimeSeconds : uptimeSeconds // ignore: cast_nullable_to_non_nullable
 as int,dataDir: null == dataDir ? _self.dataDir : dataDir // ignore: cast_nullable_to_non_nullable
 as String,database: null == database ? _self.database : database // ignore: cast_nullable_to_non_nullable
-as DatabaseStatus,
+as DatabaseStatus,activeRuns: null == activeRuns ? _self.activeRuns : activeRuns // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 
