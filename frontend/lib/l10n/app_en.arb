@@ -1071,6 +1071,259 @@
   "@workflowsFailureUnexpected": {
     "description": "Localized error message when a workflow operation fails with an UnexpectedFailure."
   },
+  "runsPageSubtitle": "Monitor workflow executions, event logs, and node checkpoints.",
+  "@runsPageSubtitle": {
+    "description": "Subtitle on the Runs list page header."
+  },
+  "runsRefreshAction": "Refresh",
+  "@runsRefreshAction": {
+    "description": "Button label to refresh the runs list or run details."
+  },
+  "runsLoadErrorTitle": "Failed to load runs",
+  "@runsLoadErrorTitle": {
+    "description": "Title shown when loading the runs list fails."
+  },
+  "runsRetryAction": "Retry",
+  "@runsRetryAction": {
+    "description": "Button label to retry loading runs."
+  },
+  "runsFilterAll": "All",
+  "@runsFilterAll": {
+    "description": "Filter chip label to show runs of all statuses."
+  },
+  "runsFilterWorkflowLabel": "Workflow",
+  "@runsFilterWorkflowLabel": {
+    "description": "Label for the workflow filter dropdown on the Runs page."
+  },
+  "runsFilterWorkflowAll": "All workflows",
+  "@runsFilterWorkflowAll": {
+    "description": "Option label to include runs from all workflows."
+  },
+  "runsFilterEmptyTitle": "No matching runs",
+  "@runsFilterEmptyTitle": {
+    "description": "Title shown when no runs match the active status or workflow filters."
+  },
+  "runsFilterEmptyDescription": "No runs match the selected status or workflow filter.",
+  "@runsFilterEmptyDescription": {
+    "description": "Description shown when no runs match the active filters."
+  },
+  "runsClearFiltersAction": "Clear filters",
+  "@runsClearFiltersAction": {
+    "description": "Button label to clear active status and workflow filters."
+  },
+  "runsStatusRunning": "Running",
+  "@runsStatusRunning": {
+    "description": "Display label for RunStatus.running."
+  },
+  "runsStatusPaused": "Paused",
+  "@runsStatusPaused": {
+    "description": "Display label for RunStatus.paused."
+  },
+  "runsStatusInterrupted": "Interrupted",
+  "@runsStatusInterrupted": {
+    "description": "Display label for RunStatus.interrupted."
+  },
+  "runsStatusSucceeded": "Succeeded",
+  "@runsStatusSucceeded": {
+    "description": "Display label for RunStatus.succeeded."
+  },
+  "runsStatusFailed": "Failed",
+  "@runsStatusFailed": {
+    "description": "Display label for RunStatus.failed."
+  },
+  "runsStatusCancelled": "Cancelled",
+  "@runsStatusCancelled": {
+    "description": "Display label for RunStatus.cancelled."
+  },
+  "runsCheckpointCount": "{count, plural, =1{1 checkpoint} other{{count} checkpoints}}",
+  "@runsCheckpointCount": {
+    "description": "Checkpoint count label shown on a run summary card.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "runsDurationInProgress": "In progress",
+  "@runsDurationInProgress": {
+    "description": "Duration label shown when an active run has not finished yet."
+  },
+  "runsDurationUnavailable": "—",
+  "@runsDurationUnavailable": {
+    "description": "Duration placeholder shown when a non-active run has no finish timestamp."
+  },
+  "runsLoadMoreAction": "Load more",
+  "@runsLoadMoreAction": {
+    "description": "Button label to load the next page of runs."
+  },
+  "runsDeleteTooltip": "Delete run",
+  "@runsDeleteTooltip": {
+    "description": "Tooltip and semantic label for the delete run button."
+  },
+  "runsDeleteTitle": "Delete run",
+  "@runsDeleteTitle": {
+    "description": "Title of the delete run confirmation dialog."
+  },
+  "runsDeleteMessage": "Delete this run of \"{workflowName}\"? Its event log and checkpoints will be permanently removed.",
+  "@runsDeleteMessage": {
+    "description": "Confirmation message when deleting a non-active run.",
+    "placeholders": {
+      "workflowName": {
+        "type": "String"
+      }
+    }
+  },
+  "runsDeleteConfirm": "Delete",
+  "@runsDeleteConfirm": {
+    "description": "Confirm button label in the delete run dialog."
+  },
+  "runsCancelAction": "Cancel",
+  "@runsCancelAction": {
+    "description": "Cancel button label in the delete run dialog."
+  },
+  "runsFailureNetwork": "Could not reach the local backend. Check the connection and try again.",
+  "@runsFailureNetwork": {
+    "description": "Localized error message when a run operation fails with a NetworkFailure."
+  },
+  "runsFailureNotFound": "The requested run could not be found.",
+  "@runsFailureNotFound": {
+    "description": "Localized error message when a run operation fails with a NotFoundFailure."
+  },
+  "runsFailureValidation": "The run request was invalid.",
+  "@runsFailureValidation": {
+    "description": "Localized error message when a run operation fails with a ValidationFailure."
+  },
+  "runsFailureConflict": "Active runs cannot be deleted.",
+  "@runsFailureConflict": {
+    "description": "Localized error message when attempting to delete an active run."
+  },
+  "runsFailureBackend": "The local backend rejected the run request.",
+  "@runsFailureBackend": {
+    "description": "Localized error message when a run operation fails with a BackendFailure."
+  },
+  "runsFailureUnexpected": "An unexpected error occurred while loading runs.",
+  "@runsFailureUnexpected": {
+    "description": "Localized error message when a run operation fails with an UnexpectedFailure."
+  },
+  "runDetailBackTooltip": "Back to runs",
+  "@runDetailBackTooltip": {
+    "description": "Tooltip and semantic label for navigating back to the Runs list."
+  },
+  "runDetailLoadErrorTitle": "Failed to load run details",
+  "@runDetailLoadErrorTitle": {
+    "description": "Title shown when loading a run detail page fails."
+  },
+  "runDetailWorkspaceLabel": "Workspace",
+  "@runDetailWorkspaceLabel": {
+    "description": "Metadata label for the run workspace path."
+  },
+  "runDetailStartedLabel": "Started",
+  "@runDetailStartedLabel": {
+    "description": "Metadata label for the run start timestamp."
+  },
+  "runDetailFinishedLabel": "Finished",
+  "@runDetailFinishedLabel": {
+    "description": "Metadata label for the run finish timestamp."
+  },
+  "runDetailDurationLabel": "Duration",
+  "@runDetailDurationLabel": {
+    "description": "Metadata label for the run duration."
+  },
+  "runDetailErrorLabel": "Error",
+  "@runDetailErrorLabel": {
+    "description": "Label for the run error banner when a run failed."
+  },
+  "runDetailEventsTitle": "Event log",
+  "@runDetailEventsTitle": {
+    "description": "Section heading for the chronological run event log."
+  },
+  "runDetailEventsEmpty": "No events recorded for this run.",
+  "@runDetailEventsEmpty": {
+    "description": "Empty state text when a run has no events."
+  },
+  "runDetailEventPayloadTitle": "payload",
+  "@runDetailEventPayloadTitle": {
+    "description": "Code block header title for an event payload."
+  },
+  "runDetailEventPayloadEmpty": "No payload",
+  "@runDetailEventPayloadEmpty": {
+    "description": "Empty label for an event with an empty payload."
+  },
+  "runDetailCopyLabel": "Copy",
+  "@runDetailCopyLabel": {
+    "description": "Copy button label inside HiveCodeBlock."
+  },
+  "runDetailExpandPayloadTooltip": "Show payload",
+  "@runDetailExpandPayloadTooltip": {
+    "description": "Semantic label for expanding an event JSON payload."
+  },
+  "runDetailCollapsePayloadTooltip": "Hide payload",
+  "@runDetailCollapsePayloadTooltip": {
+    "description": "Semantic label for collapsing an event JSON payload."
+  },
+  "runDetailNodeLabel": "Node: {nodeId}",
+  "@runDetailNodeLabel": {
+    "description": "Target node badge or label on an event item.",
+    "placeholders": {
+      "nodeId": {
+        "type": "String"
+      }
+    }
+  },
+  "runDetailEdgeLabel": "Edge: {edgeId}",
+  "@runDetailEdgeLabel": {
+    "description": "Target edge badge or label on an event item.",
+    "placeholders": {
+      "edgeId": {
+        "type": "String"
+      }
+    }
+  },
+  "runDetailCheckpointsTitle": "Checkpoints",
+  "@runDetailCheckpointsTitle": {
+    "description": "Section heading for the run checkpoints inspector."
+  },
+  "runDetailCheckpointsEmpty": "No checkpoints saved for this run.",
+  "@runDetailCheckpointsEmpty": {
+    "description": "Empty state text when a run has no checkpoints."
+  },
+  "runDetailCheckpointSequence": "Checkpoint #{sequence}",
+  "@runDetailCheckpointSequence": {
+    "description": "Label for a checkpoint entry in the checkpoint selector list.",
+    "placeholders": {
+      "sequence": {
+        "type": "int"
+      }
+    }
+  },
+  "runDetailCompletedNodeLabel": "Completed node",
+  "@runDetailCompletedNodeLabel": {
+    "description": "Label for the completedNodeId field in the checkpoint inspector."
+  },
+  "runDetailPendingNodesLabel": "Pending nodes",
+  "@runDetailPendingNodesLabel": {
+    "description": "Label for the pendingNodeIds field in the checkpoint inspector."
+  },
+  "runDetailAttemptsLabel": "Attempts by edge",
+  "@runDetailAttemptsLabel": {
+    "description": "Label for the attemptsByEdge field in the checkpoint inspector."
+  },
+  "runDetailCircuitBreakerLabel": "Circuit breaker count",
+  "@runDetailCircuitBreakerLabel": {
+    "description": "Label for the circuitBreakerCount field in the checkpoint inspector."
+  },
+  "runDetailNodeOutputsLabel": "node_outputs.json",
+  "@runDetailNodeOutputsLabel": {
+    "description": "Code block header title for checkpoint nodeOutputs."
+  },
+  "runDetailNoOutputs": "No node outputs",
+  "@runDetailNoOutputs": {
+    "description": "Empty label for a checkpoint with no node outputs."
+  },
+  "runDetailNone": "None",
+  "@runDetailNone": {
+    "description": "Fallback label when a checkpoint field has no value."
+  },
   "editorIssueUnknownNodeType": "Node \"{nodeLabel}\" has an unknown node type.",
   "@editorIssueUnknownNodeType": {
     "description": "Localized validation message when a node uses an unregistered type.",

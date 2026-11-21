@@ -179,7 +179,7 @@ void main() {
         expect(find.text('Parse error'), findsOneWidget);
 
         // Filter by tag chip 'qa'.
-        await tester.tap(find.widgetWithText(HiveFilterChip, 'qa'));
+        await tester.tap(find.widgetWithText(HiveChipFilter, 'qa'));
         await tester.pumpAndSettle();
         expect(find.text('Code Reviewer'), findsOneWidget);
         expect(find.text('broken-agent'), findsNothing);

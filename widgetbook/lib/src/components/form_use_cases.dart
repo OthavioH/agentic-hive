@@ -434,6 +434,118 @@ class _LiveDialogState extends State<_LiveDialog> {
   }
 }
 
+/// `HiveFilterChip`: selected and unselected in every state, with status
+/// dot and count, label only, long label, and an interactive filter bar.
+WidgetbookComponent filterChipComponent() {
+  return WidgetbookComponent(
+    name: 'HiveFilterChip',
+    useCases: <WidgetbookUseCase>[
+      for (final selected in <bool>[false, true])
+        for (final state in PreviewState.values)
+          WidgetbookUseCase(
+            name: '${selected ? 'Selected' : 'Unselected'} · ${state.label}',
+            builder: (context) => UseCaseFrame(
+              child: StatesPreview(
+                states: state.states,
+                builder: (controller) => HiveFilterChip(
+                  label: 'Failed',
+                  selected: selected,
+                  count: 3,
+                  leading: const HiveStatusDot(
+                    status: HiveNodeStatus.failed,
+                    semanticLabel: 'Failed',
+                  ),
+                  statesController: controller,
+                  onSelected: state.isDisabled ? null : (_) {},
+                ),
+              ),
+            ),
+          ),
+      WidgetbookUseCase(
+        name: 'Label only',
+        builder: (context) => UseCaseFrame(
+          child: HiveFilterChip(
+            label: 'All events',
+            selected: true,
+            onSelected: (_) {},
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Long label',
+        builder: (context) => UseCaseFrame(
+          child: SizedBox(
+            width: context.hiveSpacing.space8 * 2,
+            child: HiveFilterChip(
+              label: 'Waiting for approval from the release owner',
+              selected: false,
+              count: 128,
+              onSelected: (_) {},
+            ),
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Status filter bar',
+        builder: (context) => const UseCaseFrame(child: _StatusFilterBar()),
+      ),
+    ],
+  );
+}
+
+class _StatusFilterBar extends StatefulWidget {
+  const new();
+
+  @override
+  State<_StatusFilterBar> createState() => _StatusFilterBarState();
+}
+
+class _StatusFilterBarState extends State<_StatusFilterBar> {
+  static const Map<HiveNodeStatus, (String, int)> _filters =
+      <HiveNodeStatus, (String, int)>{
+        HiveNodeStatus.running: ('Running', 2),
+        HiveNodeStatus.paused: ('Paused', 1),
+        HiveNodeStatus.failed: ('Failed', 3),
+        HiveNodeStatus.succeeded: ('Succeeded', 24),
+        HiveNodeStatus.interrupted: ('Interrupted', 1),
+        HiveNodeStatus.cancelled: ('Cancelled', 0),
+      };
+
+  final Set<HiveNodeStatus> _selected = <HiveNodeStatus>{HiveNodeStatus.failed};
+
+  void _toggle(HiveNodeStatus status, {required bool value}) {
+    setState(() {
+      if (value) {
+        _selected.add(status);
+      } else {
+        _selected.remove(status);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = context.hiveSpacing;
+    return Wrap(
+      spacing: spacing.space1,
+      runSpacing: spacing.space1,
+      children: <Widget>[
+        for (final entry in _filters.entries)
+          HiveFilterChip(
+            label: entry.value.$1,
+            count: entry.value.$2,
+            selected: _selected.contains(entry.key),
+            leading: HiveStatusDot(
+              status: entry.key,
+              semanticLabel: entry.value.$1,
+            ),
+            onSelected: (value) => _toggle(entry.key, value: value),
+          ),
+      ],
+    );
+  }
+}
+
 const List<MapEntry<String, String>> _environment = <MapEntry<String, String>>[
   MapEntry<String, String>('ANTHROPIC_MODEL', 'claude-opus-5-5'),
   MapEntry<String, String>('LOG_LEVEL', 'debug'),

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:agentic_hive_backend/src/api/agents/agents_handler.dart';
 import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
 import 'package:agentic_hive_backend/src/api/result_contract/result_contract_handler.dart';
+import 'package:agentic_hive_backend/src/api/runs/runs_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/config/app_config.dart';
 import 'package:agentic_hive_backend/src/config/platform_paths.dart';
@@ -15,6 +16,9 @@ import 'package:agentic_hive_backend/src/data/nodes/os_process_platform.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_shell_provider.dart';
 import 'package:agentic_hive_backend/src/data/nodes/unconfigured_node_ports.dart';
 import 'package:agentic_hive_backend/src/data/result_contract/hive_result_contract.dart';
+import 'package:agentic_hive_backend/src/data/runs/drift_checkpoint_repository.dart';
+import 'package:agentic_hive_backend/src/data/runs/drift_run_event_repository.dart';
+import 'package:agentic_hive_backend/src/data/runs/drift_run_repository.dart';
 import 'package:agentic_hive_backend/src/data/workflows/drift_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/db/app_database.dart';
 import 'package:agentic_hive_backend/src/db/database_health_check.dart';
@@ -30,6 +34,11 @@ import 'package:agentic_hive_backend/src/domain/nodes/node_registry.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/human_pause_gateway.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_coordinator.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_validator.dart';
+import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_recovery_service.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
@@ -203,6 +212,37 @@ Future<void> registerDependencies(
       () => WorkflowHandler(service: di<WorkflowService>()),
       dependsOn: [WorkflowService],
     )
+    ..registerSingletonWithDependencies<RunRepository>(
+      () => DriftRunRepository(di<AppDatabase>()),
+      dependsOn: [AppDatabase],
+    )
+    ..registerSingletonWithDependencies<CheckpointRepository>(
+      () => DriftCheckpointRepository(di<AppDatabase>()),
+      dependsOn: [AppDatabase],
+    )
+    ..registerSingletonWithDependencies<RunEventRepository>(
+      () => DriftRunEventRepository(di<AppDatabase>()),
+      dependsOn: [AppDatabase],
+    )
+    ..registerSingletonWithDependencies<RunRecoveryService>(
+      () => RunRecoveryService(
+        runs: di<RunRepository>(),
+        checkpoints: di<CheckpointRepository>(),
+      ),
+      dependsOn: [RunRepository, CheckpointRepository],
+    )
+    ..registerSingletonWithDependencies<RunService>(
+      () => RunService(
+        runs: di<RunRepository>(),
+        checkpoints: di<CheckpointRepository>(),
+        events: di<RunEventRepository>(),
+      ),
+      dependsOn: [RunRepository, CheckpointRepository, RunEventRepository],
+    )
+    ..registerSingletonWithDependencies<RunsHandler>(
+      () => RunsHandler(service: di<RunService>()),
+      dependsOn: [RunService],
+    )
     ..registerSingleton<ConnectionRegistry>(ConnectionRegistry())
     ..registerSingleton<WsGateway>(
       WsGateway(
@@ -253,6 +293,7 @@ Future<void> registerDependencies(
           harnessesHandler: di<HarnessesHandler>(),
           workflowHandler: di<WorkflowHandler>(),
           resultContractHandler: di<ResultContractHandler>(),
+          runsHandler: di<RunsHandler>(),
         ),
         socket: LocalSocket(
           config.socketPath,
@@ -262,7 +303,12 @@ Future<void> registerDependencies(
         connections: di<ConnectionRegistry>(),
         version: backendVersion,
       ),
-      dependsOn: [StatusHandler, AgentDirectoryWatcher, WorkflowHandler],
+      dependsOn: [
+        StatusHandler,
+        AgentDirectoryWatcher,
+        WorkflowHandler,
+        RunsHandler,
+      ],
       dispose: (server) => server.stop(),
     );
 
