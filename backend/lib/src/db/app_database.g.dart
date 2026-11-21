@@ -915,7 +915,7 @@ class RunRow extends DataClass implements Insertable<RunRow> {
   /// Path to the workspace folder used by this run.
   final String workspacePath;
 
-  /// Current [RunStatus] name.
+  /// Current run status name.
   final String status;
 
   /// UTC ISO-8601 start timestamp.

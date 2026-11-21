@@ -25,10 +25,36 @@ final class _FakeRunRepository implements RunRepository {
 
   @override
   Future<Result<void>> delete(String id) async {
-    if (store.remove(id) == null) {
+    final existing = store[id];
+    if (existing == null) {
       return FailureResult(NotFoundFailure('Run "$id" not found.'));
     }
+    if (existing.status.isActive) {
+      return FailureResult(
+        ConflictFailure(
+          'Cannot delete active run "$id" with status '
+          '"${existing.status.name}".',
+        ),
+      );
+    }
+    store.remove(id);
     return const Success<void>(null);
+  }
+
+  @override
+  Future<Result<Run>> markInterruptedWithEvent(
+    String runId, {
+    required String eventId,
+    required DateTime createdAt,
+    JsonMap payload = const {},
+  }) async {
+    final existing = store[runId];
+    if (existing == null || existing.status != RunStatus.running) {
+      return FailureResult(NotFoundFailure('Running run "$runId" not found.'));
+    }
+    final updated = existing.copyWith(status: RunStatus.interrupted);
+    store[runId] = updated;
+    return Success(updated);
   }
 
   @override

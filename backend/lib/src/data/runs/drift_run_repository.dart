@@ -167,8 +167,12 @@ final class DriftRunRepository implements RunRepository {
             )..where((row) => row.id.equals(id))).write(
               RunsCompanion(
                 status: Value(status.name),
-                finishedAt: Value(finishedAt?.toUtc().toIso8601String()),
-                errorMessage: Value(errorMessage),
+                finishedAt: finishedAt == null
+                    ? const Value.absent()
+                    : Value(finishedAt.toUtc().toIso8601String()),
+                errorMessage: errorMessage == null
+                    ? const Value.absent()
+                    : Value(errorMessage),
               ),
             );
         if (updated == 0) {
@@ -187,15 +191,96 @@ final class DriftRunRepository implements RunRepository {
   }
 
   @override
+  Future<Result<Run>> markInterruptedWithEvent(
+    String runId, {
+    required String eventId,
+    required DateTime createdAt,
+    JsonMap payload = const {},
+  }) async {
+    try {
+      return await _db.transaction(() async {
+        final updated =
+            await (_db.update(_db.runs)..where(
+                  (row) =>
+                      row.id.equals(runId) &
+                      row.status.equals(RunStatus.running.name),
+                ))
+                .write(
+                  RunsCompanion(status: Value(RunStatus.interrupted.name)),
+                );
+        if (updated == 0) {
+          return FailureResult(
+            NotFoundFailure('Running run "$runId" not found.'),
+          );
+        }
+
+        final maxExpr = _db.runEvents.sequence.max();
+        final maxRow =
+            await (_db.selectOnly(_db.runEvents)
+                  ..addColumns([maxExpr])
+                  ..where(_db.runEvents.runId.equals(runId)))
+                .getSingle();
+        final nextSequence = (maxRow.read(maxExpr) ?? 0) + 1;
+        final utcCreatedAt = createdAt.toUtc();
+
+        await _db
+            .into(_db.runEvents)
+            .insert(
+              RunEventsCompanion.insert(
+                id: eventId,
+                runId: runId,
+                sequence: nextSequence,
+                type: RunEventType.runInterrupted.wireName,
+                payloadJson: jsonEncode(payload),
+                createdAt: utcCreatedAt.toIso8601String(),
+              ),
+            );
+
+        final row = await (_db.select(
+          _db.runs,
+        )..where((r) => r.id.equals(runId))).getSingle();
+        return Success(_fromRow(row));
+      });
+    } on Object catch (error) {
+      return FailureResult(
+        PersistenceFailure(
+          'Failed to mark run "$runId" interrupted.',
+          cause: error,
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Result<void>> delete(String id) async {
     try {
-      final deleted = await (_db.delete(
-        _db.runs,
-      )..where((row) => row.id.equals(id))).go();
-      if (deleted == 0) {
-        return FailureResult(NotFoundFailure('Run "$id" not found.'));
-      }
-      return const Success<void>(null);
+      return await _db.transaction(() async {
+        final deleted =
+            await (_db.delete(_db.runs)..where(
+                  (row) =>
+                      row.id.equals(id) &
+                      row.status.isNotIn([
+                        RunStatus.running.name,
+                        RunStatus.paused.name,
+                      ]),
+                ))
+                .go();
+        if (deleted > 0) {
+          return const Success<void>(null);
+        }
+
+        final existing = await (_db.select(
+          _db.runs,
+        )..where((row) => row.id.equals(id))).getSingleOrNull();
+        if (existing == null) {
+          return FailureResult(NotFoundFailure('Run "$id" not found.'));
+        }
+        return FailureResult(
+          ConflictFailure(
+            'Cannot delete active run "$id" with status "${existing.status}".',
+          ),
+        );
+      });
     } on Object catch (error) {
       return FailureResult(
         PersistenceFailure('Failed to delete run "$id".', cause: error),

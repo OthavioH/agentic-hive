@@ -91,6 +91,9 @@ final class DriftRunEventRepository implements RunEventRepository {
     }
   }
 
+  static const int _defaultLimit = 200;
+  static const int _maxLimit = 1000;
+
   @override
   Future<Result<({List<RunEvent> items, int lastSequence})>> listForRun(
     String runId, {
@@ -98,6 +101,7 @@ final class DriftRunEventRepository implements RunEventRepository {
     int? limit,
   }) async {
     try {
+      final effectiveLimit = (limit ?? _defaultLimit).clamp(1, _maxLimit);
       final query = _db.select(_db.runEvents)
         ..where((row) {
           final matchRun = row.runId.equals(runId);
@@ -106,10 +110,8 @@ final class DriftRunEventRepository implements RunEventRepository {
           }
           return matchRun;
         })
-        ..orderBy([(row) => OrderingTerm.asc(row.sequence)]);
-      if (limit != null) {
-        query.limit(limit);
-      }
+        ..orderBy([(row) => OrderingTerm.asc(row.sequence)])
+        ..limit(effectiveLimit);
       final rows = await query.get();
       final items = rows.map(_fromRow).toList();
       final lastSequence = items.isNotEmpty

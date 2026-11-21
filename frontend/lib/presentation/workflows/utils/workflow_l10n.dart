@@ -19,6 +19,7 @@ abstract final class WorkflowL10n {
       NetworkFailure() => l10n.workflowsFailureNetwork,
       NotFoundFailure() => l10n.workflowsFailureNotFound,
       ValidationFailure() => l10n.workflowsFailureValidation,
+      ConflictFailure() => l10n.workflowsFailureBackend,
       BackendFailure() => l10n.workflowsFailureBackend,
       UnexpectedFailure() => l10n.workflowsFailureUnexpected,
     };

@@ -1,6 +1,5 @@
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart';
-import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
 import 'package:agentic_hive_backend/src/logging/log_event.dart';
 import 'package:agentic_hive_backend/src/util/ids.dart';
@@ -49,7 +48,6 @@ final class RunRecoveryService {
   new({
     required this._runs,
     required this._checkpoints,
-    required this._events,
     String Function()? generateId,
     DateTime Function()? now,
   }) : _generateId = generateId ?? randomId,
@@ -61,15 +59,15 @@ final class RunRecoveryService {
 
   final RunRepository _runs;
   final CheckpointRepository _checkpoints;
-  final RunEventRepository _events;
   final String Function() _generateId;
   final DateTime Function() _now;
 
   /// Transitions any runs left in [RunStatus.running] from a previous backend
   /// process into [RunStatus.interrupted] and appends a `run.interrupted`
-  /// event for each.
+  /// event for each in a single transaction.
   ///
-  /// Runs in [RunStatus.paused] are left untouched.
+  /// Per-run failures are logged and skipped so one bad row does not block
+  /// backend startup. Runs in [RunStatus.paused] are left untouched.
   Future<Result<int>> recoverOrphanedRuns() async {
     final runningResult = await _runs.listByStatus(RunStatus.running);
     if (runningResult case FailureResult<List<Run>>(:final failure)) {
@@ -79,23 +77,20 @@ final class RunRecoveryService {
     final orphaned = runningResult.valueOrNull!;
     var recovered = 0;
     for (final run in orphaned) {
-      final updateResult = await _runs.updateStatus(
+      final recoveryResult = await _runs.markInterruptedWithEvent(
         run.id,
-        status: RunStatus.interrupted,
-      );
-      if (updateResult case FailureResult<Run>(:final failure)) {
-        return FailureResult(failure);
-      }
-
-      final eventResult = await _events.append(
-        id: _generateId(),
-        runId: run.id,
-        type: RunEventType.runInterrupted,
-        payload: const {'reason': 'backend_restarted'},
+        eventId: _generateId(),
         createdAt: _now().toUtc(),
+        payload: const {'reason': 'backend_restarted'},
       );
-      if (eventResult case FailureResult<RunEvent>(:final failure)) {
-        return FailureResult(failure);
+      if (recoveryResult case FailureResult<Run>(:final failure)) {
+        _log.warning(
+          LogEvent(
+            'runs.orphan_recovery_failed',
+            fields: {'runId': run.id, 'error': failure.message},
+          ),
+        );
+        continue;
       }
       recovered++;
     }

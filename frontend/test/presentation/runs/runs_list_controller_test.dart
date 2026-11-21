@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/data/runs/run_providers.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
@@ -15,6 +17,8 @@ final class _FakeRunRepository implements RunRepository {
   Result<void> deleteOverride = const Success<void>(null);
   RunStatus? lastStatusFilter;
   String? lastWorkflowFilter;
+  int? lastLimit;
+  int? lastOffset;
   final List<String> deletedIds = <String>[];
 
   void seedDefaults() {
@@ -50,13 +54,19 @@ final class _FakeRunRepository implements RunRepository {
   }) async {
     lastStatusFilter = status;
     lastWorkflowFilter = workflowId;
+    lastLimit = limit;
+    lastOffset = offset;
     if (listOverride != null) return listOverride!;
     final filtered = items.where((run) {
       if (status != null && run.status != status) return false;
       if (workflowId != null && run.workflowId != workflowId) return false;
       return true;
     }).toList();
-    return Success(RunsListResponse(items: filtered, total: filtered.length));
+    final start = offset ?? 0;
+    final page = limit == null
+        ? filtered.skip(start).toList()
+        : filtered.skip(start).take(limit).toList();
+    return Success(RunsListResponse(items: page, total: filtered.length));
   }
 
   @override
@@ -243,5 +253,137 @@ void main() {
       );
       expect(sub.read().hasError, isTrue);
     });
+
+    test(
+      'loadMore appends next page using offset and updates hasMore',
+      () async {
+        final runRepo = _FakeRunRepository();
+        for (var i = 0; i < 60; i++) {
+          runRepo.items.add(
+            RunSummary(
+              id: 'run-$i',
+              workflowId: 'wf-1',
+              workflowName: 'PR Review',
+              status: RunStatus.succeeded,
+              startedAt: runRepo.now,
+              finishedAt: DateTime.utc(2026, 11, 21, 4, 30, 5),
+              checkpointCount: 1,
+            ),
+          );
+        }
+
+        final container = ProviderContainer.test(
+          retry: (_, _) => null,
+          overrides: [
+            runRepositoryProvider.overrideWithValue(runRepo),
+            workflowRepositoryProvider.overrideWithValue(
+              _FakeWorkflowRepository(),
+            ),
+          ],
+        );
+
+        final initial = await container.read(runsListControllerProvider.future);
+        expect(initial.runs, hasLength(50));
+        expect(initial.total, 60);
+        expect(initial.hasMore, isTrue);
+        expect(runRepo.lastLimit, 50);
+        expect(runRepo.lastOffset, 0);
+
+        await container.read(runsListControllerProvider.notifier).loadMore();
+        final afterMore = container
+            .read(runsListControllerProvider)
+            .requireValue;
+        expect(afterMore.runs, hasLength(60));
+        expect(afterMore.hasMore, isFalse);
+        expect(runRepo.lastOffset, 50);
+      },
+    );
+
+    test(
+      'ignores out-of-order filter response when a newer filter wins',
+      () async {
+        final slowRepo = _OutOfOrderFakeRunRepository();
+        final container = ProviderContainer.test(
+          retry: (_, _) => null,
+          overrides: [
+            runRepositoryProvider.overrideWithValue(slowRepo),
+            workflowRepositoryProvider.overrideWithValue(
+              _FakeWorkflowRepository(),
+            ),
+          ],
+        );
+
+        await container.read(runsListControllerProvider.future);
+        final notifier = container.read(runsListControllerProvider.notifier);
+
+        final first = notifier.setStatusFilter(RunStatus.failed);
+        final second = notifier.setStatusFilter(RunStatus.succeeded);
+
+        // Complete the newer request first, then the stale one.
+        slowRepo.completers[RunStatus.succeeded]!.complete(
+          Success(
+            RunsListResponse(
+              items: [
+                RunSummary(
+                  id: 'new-run',
+                  workflowName: 'PR Review',
+                  status: RunStatus.succeeded,
+                  startedAt: slowRepo.now,
+                  checkpointCount: 0,
+                ),
+              ],
+              total: 1,
+            ),
+          ),
+        );
+        await second;
+
+        slowRepo.completers[RunStatus.failed]!.complete(
+          Success(
+            RunsListResponse(
+              items: [
+                RunSummary(
+                  id: 'stale-run',
+                  workflowName: 'PR Review',
+                  status: RunStatus.failed,
+                  startedAt: slowRepo.now,
+                  checkpointCount: 0,
+                ),
+              ],
+              total: 1,
+            ),
+          ),
+        );
+        await first;
+
+        final current = container.read(runsListControllerProvider).requireValue;
+        expect(current.statusFilter, RunStatus.succeeded);
+        expect(current.runs.single.id, 'new-run');
+      },
+    );
   });
+}
+
+final class _OutOfOrderFakeRunRepository extends _FakeRunRepository {
+  final Map<RunStatus?, Completer<Result<RunsListResponse>>> completers = {};
+
+  @override
+  Future<Result<RunsListResponse>> listRuns({
+    RunStatus? status,
+    String? workflowId,
+    int? limit,
+    int? offset,
+  }) {
+    if (status == null && workflowId == null) {
+      return super.listRuns(
+        status: status,
+        workflowId: workflowId,
+        limit: limit,
+        offset: offset,
+      );
+    }
+    final completer = Completer<Result<RunsListResponse>>();
+    completers[status] = completer;
+    return completer.future;
+  }
 }

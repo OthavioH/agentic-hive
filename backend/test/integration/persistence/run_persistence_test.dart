@@ -312,7 +312,6 @@ void main() {
     final recovery = RunRecoveryService(
       runs: runsRepo,
       checkpoints: cpRepo,
-      events: eventsRepo,
       generateId: () => 'rec-ev-${++idCounter}',
       now: () => DateTime.utc(2026, 11, 20, 13),
     );
@@ -355,6 +354,48 @@ void main() {
     expect(resumeNoCp.attemptsByEdge, isEmpty);
     expect(resumeNoCp.circuitBreakerCount, 0);
     expect(resumeNoCp.nodeOutputs, isEmpty);
+  });
+
+  test('updateStatus preserves finishedAt/errorMessage and delete enforces active check', () async {
+    final db = AppDatabase.open(dbFile);
+    addTearDown(db.close);
+
+    final runsRepo = DriftRunRepository(db);
+    final finishedAt = DateTime.utc(2026, 11, 20, 12, 30);
+    await runsRepo.create(
+      makeRun(
+        id: 'r-failed',
+        status: RunStatus.failed,
+        startedAt: DateTime.utc(2026, 11, 20, 12),
+        finishedAt: finishedAt,
+        errorMessage: 'boom',
+      ),
+    );
+    await runsRepo.create(
+      makeRun(
+        id: 'r-running',
+        status: RunStatus.running,
+        startedAt: DateTime.utc(2026, 11, 20, 12),
+      ),
+    );
+
+    // Status-only update preserves existing finishedAt and errorMessage.
+    final updated = (await runsRepo.updateStatus(
+      'r-failed',
+      status: RunStatus.interrupted,
+    )).valueOrNull!;
+    expect(updated.status, RunStatus.interrupted);
+    expect(updated.finishedAt, finishedAt);
+    expect(updated.errorMessage, 'boom');
+
+    // Atomic delete rejects active runs with ConflictFailure.
+    final conflict = await runsRepo.delete('r-running');
+    expect(conflict.failureOrNull, isA<ConflictFailure>());
+    expect((await runsRepo.getById('r-running')).isSuccess, isTrue);
+
+    // Missing run returns NotFoundFailure.
+    final missing = await runsRepo.delete('does-not-exist');
+    expect(missing.failureOrNull, isA<NotFoundFailure>());
   });
 }
 

@@ -25,6 +25,8 @@ abstract final class RunL10n {
       NetworkFailure() => l10n.runsFailureNetwork,
       NotFoundFailure() => l10n.runsFailureNotFound,
       ValidationFailure() => l10n.runsFailureValidation,
+      ConflictFailure() ||
+      BackendFailure(statusCode: 409) => l10n.runsFailureConflict,
       BackendFailure() => l10n.runsFailureBackend,
       UnexpectedFailure() => l10n.runsFailureUnexpected,
     };
@@ -87,13 +89,19 @@ abstract final class RunL10n {
   static String formatTimestamp(DateTime timestamp) =>
       _timestampFormat.format(timestamp.toLocal());
 
-  /// Formats the elapsed duration between [startedAt] and [finishedAt].
+  /// Formats the elapsed duration between [startedAt] and [finishedAt] for a
+  /// run in [status].
   static String formatDuration(
     AppLocalizations l10n,
+    RunStatus status,
     DateTime startedAt,
     DateTime? finishedAt,
   ) {
-    if (finishedAt == null) return l10n.runsDurationInProgress;
+    if (finishedAt == null) {
+      if (status.isActive) return l10n.runsDurationInProgress;
+      if (status == RunStatus.interrupted) return l10n.runsStatusInterrupted;
+      return l10n.runsDurationUnavailable;
+    }
     final duration = finishedAt.difference(startedAt);
     if (duration.isNegative) return '0s';
     final hours = duration.inHours;

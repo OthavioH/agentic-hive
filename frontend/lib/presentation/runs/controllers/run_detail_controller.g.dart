@@ -54,7 +54,7 @@ final class RunDetailControllerProvider
 }
 
 String _$runDetailControllerHash() =>
-    r'e089dca7509531ed01f65b812a98f0de294a11a1';
+    r'4006b9881ef133e516e7141568524d6889e24535';
 
 /// Manages loading and interactive inspection for a single run (`runId`).
 

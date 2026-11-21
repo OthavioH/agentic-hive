@@ -236,6 +236,7 @@ class BackendConnection extends _$BackendConnection {
         },
         NotFoundFailure() ||
         ValidationFailure() ||
+        ConflictFailure() ||
         UnexpectedFailure() => ConnectionFailureReason.unexpected,
       };
 }

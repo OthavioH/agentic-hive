@@ -16,6 +16,7 @@ final class RunDetailState {
     required this.checkpoints,
     this.selectedCheckpointId,
     this.expandedEventIds = const <String>{},
+    this.isRefreshing = false,
   });
 
   /// Loaded run metadata and workflow definition.
@@ -32,6 +33,9 @@ final class RunDetailState {
 
   /// Event IDs whose JSON payload is currently expanded.
   final Set<String> expandedEventIds;
+
+  /// Whether a background refresh is in progress while keeping existing data.
+  final bool isRefreshing;
 
   /// The currently selected [Checkpoint], or `null` if [checkpoints] is empty.
   Checkpoint? get selectedCheckpoint {
@@ -52,6 +56,7 @@ final class RunDetailState {
     List<Checkpoint>? checkpoints,
     String? Function()? selectedCheckpointId,
     Set<String>? expandedEventIds,
+    bool? isRefreshing,
   }) {
     return RunDetailState(
       run: run ?? this.run,
@@ -61,6 +66,7 @@ final class RunDetailState {
           ? selectedCheckpointId()
           : this.selectedCheckpointId,
       expandedEventIds: expandedEventIds ?? this.expandedEventIds,
+      isRefreshing: isRefreshing ?? this.isRefreshing,
     );
   }
 }
@@ -73,10 +79,15 @@ class RunDetailController extends _$RunDetailController {
     return _load(runId);
   }
 
-  /// Reloads run details, events, and checkpoints from the backend.
+  /// Reloads run details, events, and checkpoints from the backend while
+  /// preserving existing data during refresh.
   Future<void> refresh() async {
     final previous = state.asData?.value;
-    state = const AsyncLoading<RunDetailState>();
+    if (previous != null) {
+      state = AsyncData(previous.copyWith(isRefreshing: true));
+    } else {
+      state = const AsyncLoading<RunDetailState>();
+    }
     try {
       final loaded = await _load(
         runId,

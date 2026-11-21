@@ -17,6 +17,8 @@ final class RunsListState {
     this.statusFilter,
     this.workflowFilter,
     this.busyRunId,
+    this.isRefreshing = false,
+    this.isLoadingMore = false,
     this.actionFailure,
   });
 
@@ -38,11 +40,20 @@ final class RunsListState {
   /// ID of the run currently undergoing deletion.
   final String? busyRunId;
 
-  /// Transient failure from a list action such as delete.
+  /// Whether a background refresh is in progress while keeping existing data.
+  final bool isRefreshing;
+
+  /// Whether the next page of runs is currently being loaded.
+  final bool isLoadingMore;
+
+  /// Transient failure from a list action such as delete or load more.
   final Failure? actionFailure;
 
   /// Whether any status or workflow filter is active.
   bool get hasActiveFilters => statusFilter != null || workflowFilter != null;
+
+  /// Whether more runs are available to fetch from the backend.
+  bool get hasMore => runs.length < total;
 
   /// Returns a copy with updated fields.
   RunsListState copyWith({
@@ -52,6 +63,8 @@ final class RunsListState {
     RunStatus? Function()? statusFilter,
     String? Function()? workflowFilter,
     String? Function()? busyRunId,
+    bool? isRefreshing,
+    bool? isLoadingMore,
     Failure? Function()? actionFailure,
   }) {
     return RunsListState(
@@ -63,6 +76,8 @@ final class RunsListState {
           ? workflowFilter()
           : this.workflowFilter,
       busyRunId: busyRunId != null ? busyRunId() : this.busyRunId,
+      isRefreshing: isRefreshing ?? this.isRefreshing,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       actionFailure: actionFailure != null
           ? actionFailure()
           : this.actionFailure,
@@ -70,30 +85,92 @@ final class RunsListState {
   }
 }
 
-/// Manages the runs list, status/workflow filters, and deletion.
+/// Manages the runs list, status/workflow filters, pagination, and deletion.
 @riverpod
 class RunsListController extends _$RunsListController {
+  /// Default number of runs fetched per page.
+  static const int pageSize = 50;
+
+  int _requestToken = 0;
+
   @override
   Future<RunsListState> build() {
     return _load(statusFilter: null, workflowFilter: null);
   }
 
-  /// Reloads runs and workflows preserving the current filters.
+  /// Reloads runs and workflows preserving the current filters and existing
+  /// data while refreshing.
   Future<void> refresh() async {
+    final token = ++_requestToken;
     final current = state.asData?.value;
     final statusFilter = current?.statusFilter;
     final workflowFilter = current?.workflowFilter;
-    state = const AsyncLoading<RunsListState>();
+    if (current != null) {
+      state = AsyncData(
+        current.copyWith(isRefreshing: true, actionFailure: () => null),
+      );
+    } else {
+      state = const AsyncLoading<RunsListState>();
+    }
     try {
       final loaded = await _load(
         statusFilter: statusFilter,
         workflowFilter: workflowFilter,
       );
-      if (!ref.mounted) return;
+      if (!ref.mounted || token != _requestToken) return;
       state = AsyncData(loaded);
     } on Failure catch (failure, stackTrace) {
-      if (!ref.mounted) return;
-      state = AsyncError(failure, stackTrace);
+      if (!ref.mounted || token != _requestToken) return;
+      if (current != null) {
+        state = AsyncData(
+          current.copyWith(isRefreshing: false, actionFailure: () => failure),
+        );
+      } else {
+        state = AsyncError(failure, stackTrace);
+      }
+    }
+  }
+
+  /// Loads the next page of runs when [RunsListState.hasMore] is true.
+  Future<void> loadMore() async {
+    final current = state.asData?.value;
+    if (current == null ||
+        !current.hasMore ||
+        current.isLoadingMore ||
+        current.isRefreshing) {
+      return;
+    }
+
+    final token = _requestToken;
+    state = AsyncData(
+      current.copyWith(isLoadingMore: true, actionFailure: () => null),
+    );
+
+    final result = await ref
+        .read(listRunsProvider)
+        .call(
+          status: current.statusFilter,
+          workflowId: current.workflowFilter,
+          limit: pageSize,
+          offset: current.runs.length,
+        );
+    if (!ref.mounted || token != _requestToken) return;
+
+    final latest = state.asData?.value ?? current;
+    switch (result) {
+      case Success<RunsListResponse>(:final value):
+        state = AsyncData(
+          latest.copyWith(
+            runs: <RunSummary>[...latest.runs, ...value.items],
+            total: value.total,
+            isLoadingMore: false,
+            actionFailure: () => null,
+          ),
+        );
+      case FailureResult<RunsListResponse>(:final failure):
+        state = AsyncData(
+          latest.copyWith(isLoadingMore: false, actionFailure: () => failure),
+        );
     }
   }
 
@@ -158,10 +235,16 @@ class RunsListController extends _$RunsListController {
     required RunStatus? statusFilter,
     required String? workflowFilter,
   }) async {
+    final token = ++_requestToken;
     final runsResult = await ref
         .read(listRunsProvider)
-        .call(status: statusFilter, workflowId: workflowFilter);
-    if (!ref.mounted) return;
+        .call(
+          status: statusFilter,
+          workflowId: workflowFilter,
+          limit: pageSize,
+          offset: 0,
+        );
+    if (!ref.mounted || token != _requestToken) return;
 
     switch (runsResult) {
       case Success<RunsListResponse>(:final value):
@@ -171,6 +254,7 @@ class RunsListController extends _$RunsListController {
             total: value.total,
             statusFilter: () => statusFilter,
             workflowFilter: () => workflowFilter,
+            isLoadingMore: false,
             actionFailure: () => null,
           ),
         );
@@ -185,7 +269,12 @@ class RunsListController extends _$RunsListController {
   }) async {
     final runsFuture = ref
         .read(listRunsProvider)
-        .call(status: statusFilter, workflowId: workflowFilter);
+        .call(
+          status: statusFilter,
+          workflowId: workflowFilter,
+          limit: pageSize,
+          offset: 0,
+        );
     final workflowsFuture = ref.read(listWorkflowsProvider).call();
 
     final runsResult = await runsFuture;

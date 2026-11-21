@@ -47,6 +47,12 @@ final class ValidationFailure extends Failure {
   const new(super.message);
 }
 
+/// The operation conflicts with the current state of a resource.
+final class ConflictFailure extends Failure {
+  /// Creates a conflict failure.
+  const new(super.message);
+}
+
 /// An unexpected internal failure.
 final class UnexpectedFailure extends Failure {
   /// Creates an unexpected failure.

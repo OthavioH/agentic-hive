@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:agentic_hive_backend/src/http/json_response.dart';
 import 'package:agentic_hive_backend/src/logging/log_event.dart';
 import 'package:agentic_hive_backend/src/util/ids.dart';
@@ -19,8 +21,13 @@ final class WsGateway {
     required this._registry,
     required this._pingInterval,
     required this._serverVersion,
+    Stream<HarnessInfo>? harnessStatusUpdates,
     this._generateId = randomId,
-  });
+  }) {
+    _harnessUpdatesSubscription = harnessStatusUpdates?.listen(
+      _broadcastHarnessStatus,
+    );
+  }
 
   static final _log = Logger('ws');
 
@@ -28,6 +35,23 @@ final class WsGateway {
   final Duration _pingInterval;
   final String _serverVersion;
   final String Function() _generateId;
+  StreamSubscription<HarnessInfo>? _harnessUpdatesSubscription;
+
+  /// Releases subscriptions held by the gateway.
+  Future<void> close() async {
+    await _harnessUpdatesSubscription?.cancel();
+    _harnessUpdatesSubscription = null;
+  }
+
+  void _broadcastHarnessStatus(HarnessInfo harness) {
+    _registry.broadcast(
+      WsEnvelope(
+        type: WsMessageType.harnessStatusUpdated,
+        id: _generateId(),
+        payload: HarnessStatusUpdatedPayload(harness: harness).toJson(),
+      ),
+    );
+  }
 
   /// The shelf handler that upgrades `GET /ws`.
   ///

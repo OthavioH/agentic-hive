@@ -11,6 +11,12 @@ final class RunService {
   /// Creates a run service.
   new({required this._runs, required this._checkpoints, required this._events});
 
+  /// Default page size when querying run events without an explicit limit.
+  static const int defaultEventsLimit = 200;
+
+  /// Maximum page size allowed when querying run events.
+  static const int maxEventsLimit = 1000;
+
   final RunRepository _runs;
   final CheckpointRepository _checkpoints;
   final RunEventRepository _events;
@@ -69,10 +75,14 @@ final class RunService {
       return FailureResult(failure);
     }
 
+    final effectiveLimit = (limit ?? defaultEventsLimit).clamp(
+      1,
+      maxEventsLimit,
+    );
     final eventsResult = await _events.listForRun(
       runId,
       afterSequence: afterSequence,
-      limit: limit,
+      limit: effectiveLimit,
     );
     return eventsResult.map(
       (page) =>
@@ -104,24 +114,9 @@ final class RunService {
     return listResult.map((items) => RunCheckpointsResponse(items: items));
   }
 
-  /// Deletes a non-active run [id] (cascading its checkpoints and events).
+  /// Atomically deletes a non-active run [id] (cascading its checkpoints and
+  /// events).
   ///
   /// Returns [ConflictFailure] when the run is `running` or `paused`.
-  Future<Result<void>> deleteRun(String id) async {
-    final runResult = await _runs.getById(id);
-    if (runResult case FailureResult<Run>(:final failure)) {
-      return FailureResult(failure);
-    }
-
-    final run = runResult.valueOrNull!;
-    if (run.status.isActive) {
-      return FailureResult(
-        ConflictFailure(
-          'Cannot delete active run "$id" with status "${run.status.name}".',
-        ),
-      );
-    }
-
-    return await _runs.delete(id);
-  }
+  Future<Result<void>> deleteRun(String id) => _runs.delete(id);
 }

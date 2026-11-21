@@ -63,6 +63,7 @@ class RunsPage extends ConsumerWidget {
                   label: l10n.runsRefreshAction,
                   icon: HiveIcons.refresh,
                   variant: HiveButtonVariant.secondary,
+                  loading: stateAsync.asData?.value.isRefreshing ?? false,
                   onPressed: () => unawaited(
                     ref.read(runsListControllerProvider.notifier).refresh(),
                   ),
@@ -136,10 +137,37 @@ class RunsPage extends ConsumerWidget {
                                 ),
                               )
                             : ListView.separated(
-                                itemCount: listState.runs.length,
+                                itemCount:
+                                    listState.runs.length +
+                                    (listState.hasMore ? 1 : 0),
                                 separatorBuilder: (_, _) =>
                                     SizedBox(height: spacing.space2),
                                 itemBuilder: (context, index) {
+                                  if (index == listState.runs.length) {
+                                    final notifier = ref.read(
+                                      runsListControllerProvider.notifier,
+                                    );
+                                    return Center(
+                                      child: Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: spacing.space2,
+                                        ),
+                                        child: HiveButton(
+                                          key: const Key(
+                                            'runs_load_more_button',
+                                          ),
+                                          label: l10n.runsLoadMoreAction,
+                                          variant: HiveButtonVariant.secondary,
+                                          loading: listState.isLoadingMore,
+                                          onPressed: listState.isLoadingMore
+                                              ? null
+                                              : () => unawaited(
+                                                  notifier.loadMore(),
+                                                ),
+                                        ),
+                                      ),
+                                    );
+                                  }
                                   final run = listState.runs[index];
                                   final isBusy = listState.busyRunId == run.id;
                                   final nodeStatus = RunL10n.nodeStatusFor(
@@ -216,6 +244,7 @@ class RunsPage extends ConsumerWidget {
                                                   Text(
                                                     RunL10n.formatDuration(
                                                       l10n,
+                                                      run.status,
                                                       run.startedAt,
                                                       run.finishedAt,
                                                     ),

@@ -195,6 +195,7 @@ class _RunDetailBody extends ConsumerWidget {
                 label: l10n.runDetailDurationLabel,
                 value: RunL10n.formatDuration(
                   l10n,
+                  run.status,
                   run.startedAt,
                   run.finishedAt,
                 ),
@@ -242,27 +243,57 @@ class _RunDetailBody extends ConsumerWidget {
         ],
         SizedBox(height: spacing.space3),
         Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Expanded(
-                flex: 3,
-                child: _EventTimelineColumn(
-                  runId: runId,
-                  events: detailState.events,
-                  expandedEventIds: detailState.expandedEventIds,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth >= 840) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Expanded(
+                      flex: 3,
+                      child: _EventTimelineColumn(
+                        runId: runId,
+                        events: detailState.events,
+                        expandedEventIds: detailState.expandedEventIds,
+                      ),
+                    ),
+                    SizedBox(width: spacing.space3),
+                    Expanded(
+                      flex: 2,
+                      child: _CheckpointInspectorColumn(
+                        runId: runId,
+                        checkpoints: detailState.checkpoints,
+                        selectedCheckpoint: detailState.selectedCheckpoint,
+                      ),
+                    ),
+                  ],
+                );
+              }
+              return SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    SizedBox(
+                      height: spacing.space8 * 6,
+                      child: _EventTimelineColumn(
+                        runId: runId,
+                        events: detailState.events,
+                        expandedEventIds: detailState.expandedEventIds,
+                      ),
+                    ),
+                    SizedBox(height: spacing.space3),
+                    SizedBox(
+                      height: spacing.space8 * 6,
+                      child: _CheckpointInspectorColumn(
+                        runId: runId,
+                        checkpoints: detailState.checkpoints,
+                        selectedCheckpoint: detailState.selectedCheckpoint,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              SizedBox(width: spacing.space3),
-              Expanded(
-                flex: 2,
-                child: _CheckpointInspectorColumn(
-                  runId: runId,
-                  checkpoints: detailState.checkpoints,
-                  selectedCheckpoint: detailState.selectedCheckpoint,
-                ),
-              ),
-            ],
+              );
+            },
           ),
         ),
       ],

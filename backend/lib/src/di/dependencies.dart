@@ -1,9 +1,12 @@
 import 'dart:io';
 
+import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
 import 'package:agentic_hive_backend/src/api/runs/runs_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/config/app_config.dart';
 import 'package:agentic_hive_backend/src/config/platform_paths.dart';
+import 'package:agentic_hive_backend/src/data/harnesses/io_process_runner.dart';
+import 'package:agentic_hive_backend/src/data/harnesses/os_executable_locator.dart';
 import 'package:agentic_hive_backend/src/data/runs/drift_checkpoint_repository.dart';
 import 'package:agentic_hive_backend/src/data/runs/drift_run_event_repository.dart';
 import 'package:agentic_hive_backend/src/data/runs/drift_run_repository.dart';
@@ -11,6 +14,10 @@ import 'package:agentic_hive_backend/src/data/workflows/drift_workflow_repositor
 import 'package:agentic_hive_backend/src/db/app_database.dart';
 import 'package:agentic_hive_backend/src/db/database_health_check.dart';
 import 'package:agentic_hive_backend/src/db/metadata_repository.dart';
+import 'package:agentic_hive_backend/src/domain/harnesses/executable_locator.dart';
+import 'package:agentic_hive_backend/src/domain/harnesses/harness_detector.dart';
+import 'package:agentic_hive_backend/src/domain/harnesses/harness_service.dart';
+import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
 import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_recovery_service.dart';
@@ -81,6 +88,35 @@ Future<void> registerDependencies(
       () => DriftDatabaseHealthCheck(di<AppDatabase>()),
       dependsOn: [AppDatabase],
     )
+    ..registerSingleton<ProcessRunner>(const IoProcessRunner())
+    ..registerSingleton<ExecutableLocator>(
+      currentExecutableLocator(di<ProcessRunner>()),
+    )
+    ..registerSingleton<List<HarnessDetector>>([
+      ClaudeCodeDetector(
+        executableLocator: di<ExecutableLocator>(),
+        processRunner: di<ProcessRunner>(),
+      ),
+      CodexDetector(
+        executableLocator: di<ExecutableLocator>(),
+        processRunner: di<ProcessRunner>(),
+      ),
+      GeminiCliDetector(
+        executableLocator: di<ExecutableLocator>(),
+        processRunner: di<ProcessRunner>(),
+      ),
+      AntigravityDetector(
+        executableLocator: di<ExecutableLocator>(),
+        processRunner: di<ProcessRunner>(),
+      ),
+    ])
+    ..registerSingleton<HarnessService>(
+      DefaultHarnessService(detectors: di<List<HarnessDetector>>()),
+      dispose: (service) => service.dispose(),
+    )
+    ..registerSingleton<HarnessesHandler>(
+      HarnessesHandler(harnessService: di<HarnessService>()),
+    )
     ..registerSingletonWithDependencies<WorkflowRepository>(
       () => DriftWorkflowRepository(di<AppDatabase>()),
       dependsOn: [AppDatabase],
@@ -113,9 +149,8 @@ Future<void> registerDependencies(
       () => RunRecoveryService(
         runs: di<RunRepository>(),
         checkpoints: di<CheckpointRepository>(),
-        events: di<RunEventRepository>(),
       ),
-      dependsOn: [RunRepository, CheckpointRepository, RunEventRepository],
+      dependsOn: [RunRepository, CheckpointRepository],
     )
     ..registerSingletonWithDependencies<RunService>(
       () => RunService(
@@ -135,7 +170,9 @@ Future<void> registerDependencies(
         registry: di<ConnectionRegistry>(),
         pingInterval: config.webSocketPingInterval,
         serverVersion: backendVersion,
+        harnessStatusUpdates: di<HarnessService>().statusUpdates,
       ),
+      dispose: (gateway) => gateway.close(),
     )
     ..registerSingletonWithDependencies<StatusHandler>(
       () => StatusHandler(
@@ -151,6 +188,7 @@ Future<void> registerDependencies(
         handler: buildApiHandler(
           statusHandler: di<StatusHandler>(),
           webSocketHandler: di<WsGateway>().handler,
+          harnessesHandler: di<HarnessesHandler>(),
           workflowHandler: di<WorkflowHandler>(),
           runsHandler: di<RunsHandler>(),
         ),

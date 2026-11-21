@@ -53,7 +53,11 @@ final class _FakeRunRepository implements RunRepository {
       if (workflowId != null && run.workflowId != workflowId) return false;
       return true;
     }).toList();
-    return Success(RunsListResponse(items: filtered, total: filtered.length));
+    final start = offset ?? 0;
+    final page = limit == null
+        ? filtered.skip(start).toList()
+        : filtered.skip(start).take(limit).toList();
+    return Success(RunsListResponse(items: page, total: filtered.length));
   }
 
   @override
@@ -257,6 +261,94 @@ void main() {
       expect(repo.deletedIds, <String>['run-done']);
       expect(find.text('Completed Pipeline'), findsNothing);
       expect(find.text('Active Pipeline'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'shows Load more button when hasMore is true and appends next page',
+    (tester) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final repo = _FakeRunRepository();
+      for (var i = 0; i < 55; i++) {
+        repo.items.add(
+          RunSummary(
+            id: 'run-$i',
+            workflowId: 'wf-1',
+            workflowName: 'Pipeline $i',
+            status: RunStatus.succeeded,
+            startedAt: repo.now,
+            finishedAt: DateTime.utc(2026, 11, 21, 4, 30, 5),
+            checkpointCount: 1,
+          ),
+        );
+      }
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            runRepositoryProvider.overrideWithValue(repo),
+            workflowRepositoryProvider.overrideWithValue(
+              _FakeWorkflowRepository(),
+            ),
+          ],
+          child: _buildRouterHost(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('runs_load_more_button')),
+        500,
+      );
+      expect(find.byKey(const Key('runs_load_more_button')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('runs_load_more_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('runs_load_more_button')), findsNothing);
+      await tester.scrollUntilVisible(find.text('Pipeline 54'), 500);
+      expect(find.text('Pipeline 54'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'interrupted run with null finishedAt does not display In progress',
+    (tester) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final repo = _FakeRunRepository()
+        ..items.add(
+          RunSummary(
+            id: 'run-int',
+            workflowId: 'wf-1',
+            workflowName: 'Interrupted Flow',
+            status: RunStatus.interrupted,
+            startedAt: DateTime.utc(2026, 11, 21, 4, 30),
+            checkpointCount: 1,
+          ),
+        );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            runRepositoryProvider.overrideWithValue(repo),
+            workflowRepositoryProvider.overrideWithValue(
+              _FakeWorkflowRepository(),
+            ),
+          ],
+          child: _buildRouterHost(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final l10n = AppLocalizations.of(tester.element(find.byType(RunsPage)))!;
+      expect(find.text(l10n.runsDurationInProgress), findsNothing);
+      expect(find.text(l10n.runsStatusInterrupted), findsAtLeastNWidgets(1));
     },
   );
 }

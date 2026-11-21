@@ -37,7 +37,7 @@ final class RunsListControllerProvider
 }
 
 String _$runsListControllerHash() =>
-    r'afc5be6468378bd8cb02258ba1d5b3f5327fd4b0';
+    r'fdb6e34e0fccd0d484e962e2d7591a53938028e9';
 
 /// Manages the runs list, status/workflow filters, and deletion.
 

@@ -20,6 +20,7 @@ export 'src/components/hive_side_rail.dart';
 export 'src/components/hive_status_dot.dart';
 export 'src/components/hive_switch.dart';
 export 'src/components/hive_text_field.dart';
+export 'src/components/hive_toast.dart';
 export 'src/foundation/hive_field_frame.dart';
 export 'src/foundation/hive_interaction.dart';
 export 'src/foundation/hive_spinner.dart';

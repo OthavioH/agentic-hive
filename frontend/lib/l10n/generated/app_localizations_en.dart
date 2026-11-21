@@ -82,6 +82,100 @@ class AppLocalizationsEn extends AppLocalizations {
       'Connected CLI harnesses and their availability status will appear here.';
 
   @override
+  String get harnessesPageSubtitle =>
+      'Detected local AI agent CLIs, versions, and sign-in readiness.';
+
+  @override
+  String get harnessesRefreshAll => 'Refresh';
+
+  @override
+  String get harnessesRetry => 'Retry';
+
+  @override
+  String get harnessesLoading => 'Checking installed harnesses...';
+
+  @override
+  String get harnessesLoadErrorTitle => 'Failed to load harnesses';
+
+  @override
+  String get harnessesErrorNetwork =>
+      'Could not reach the local backend service.';
+
+  @override
+  String get harnessesErrorBackend =>
+      'The backend returned an error while checking harnesses.';
+
+  @override
+  String get harnessesErrorNotFound =>
+      'The requested harness could not be found.';
+
+  @override
+  String get harnessesErrorUnexpected =>
+      'An unexpected error occurred while checking harnesses.';
+
+  @override
+  String harnessesRefreshError(String message) {
+    return 'Could not refresh harnesses: $message';
+  }
+
+  @override
+  String harnessesRecheckTooltip(String name) {
+    return 'Re-check $name';
+  }
+
+  @override
+  String harnessesCopyPathTooltip(String name) {
+    return 'Copy $name executable path';
+  }
+
+  @override
+  String get harnessesPathCopiedToast => 'Path copied';
+
+  @override
+  String get harnessesExecutablePathLabel => 'Executable';
+
+  @override
+  String harnessesVersionLabel(String version) {
+    return 'Version $version';
+  }
+
+  @override
+  String get harnessesVersionUnknown => 'Version unavailable';
+
+  @override
+  String get harnessStatusReady => 'Ready';
+
+  @override
+  String get harnessStatusNotInstalled => 'Not installed';
+
+  @override
+  String get harnessStatusAuthError => 'Sign-in required';
+
+  @override
+  String get harnessStatusOutdated => 'Update required';
+
+  @override
+  String get harnessStatusUnavailable => 'Unavailable';
+
+  @override
+  String get harnessGuidanceNotInstalled =>
+      'Install this CLI and ensure it is available on your system PATH.';
+
+  @override
+  String harnessGuidanceAuthError(String name) {
+    return 'Sign in directly using the $name CLI in your terminal. Agentic Hive never stores harness credentials.';
+  }
+
+  @override
+  String harnessGuidanceOutdated(String name) {
+    return 'Update the $name CLI in your terminal so workflow runs do not block on an interactive update prompt.';
+  }
+
+  @override
+  String get harnessGuidanceUnavailable =>
+      'The CLI was found on PATH, but probing its version or status failed.';
+
+  @override
   String get settingsEmptyTitle => 'Settings';
 
   @override
@@ -559,6 +653,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get runsDurationInProgress => 'In progress';
 
   @override
+  String get runsDurationUnavailable => '—';
+
+  @override
+  String get runsLoadMoreAction => 'Load more';
+
+  @override
   String get runsDeleteTooltip => 'Delete run';
 
   @override
@@ -584,6 +684,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get runsFailureValidation => 'The run request was invalid.';
+
+  @override
+  String get runsFailureConflict => 'Active runs cannot be deleted.';
 
   @override
   String get runsFailureBackend =>
