@@ -21,12 +21,13 @@ HttpFailureMapping mapFailureToHttp(Failure failure, {String? requestId}) =>
           requestId: requestId,
         ),
       ),
-      ValidationFailure(:final message) => (
+      ValidationFailure(:final message, :final details) => (
         statusCode: 400,
         error: ApiError(
           code: ApiErrorCode.badRequest,
           message: message,
           requestId: requestId,
+          details: details,
         ),
       ),
       ConflictFailure(:final message) => (

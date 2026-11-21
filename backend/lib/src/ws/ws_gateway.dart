@@ -22,10 +22,14 @@ final class WsGateway {
     required this._pingInterval,
     required this._serverVersion,
     Stream<HarnessInfo>? harnessStatusUpdates,
+    Stream<AppSettings>? settingsUpdates,
     this._generateId = randomId,
   }) {
     _harnessUpdatesSubscription = harnessStatusUpdates?.listen(
       _broadcastHarnessStatus,
+    );
+    _settingsUpdatesSubscription = settingsUpdates?.listen(
+      _broadcastSettingsUpdated,
     );
   }
 
@@ -36,11 +40,14 @@ final class WsGateway {
   final String _serverVersion;
   final String Function() _generateId;
   StreamSubscription<HarnessInfo>? _harnessUpdatesSubscription;
+  StreamSubscription<AppSettings>? _settingsUpdatesSubscription;
 
   /// Releases subscriptions held by the gateway.
   Future<void> close() async {
     await _harnessUpdatesSubscription?.cancel();
     _harnessUpdatesSubscription = null;
+    await _settingsUpdatesSubscription?.cancel();
+    _settingsUpdatesSubscription = null;
   }
 
   void _broadcastHarnessStatus(HarnessInfo harness) {
@@ -49,6 +56,16 @@ final class WsGateway {
         type: WsMessageType.harnessStatusUpdated,
         id: _generateId(),
         payload: HarnessStatusUpdatedPayload(harness: harness).toJson(),
+      ),
+    );
+  }
+
+  void _broadcastSettingsUpdated(AppSettings settings) {
+    _registry.broadcast(
+      WsEnvelope(
+        type: WsMessageType.settingsUpdated,
+        id: _generateId(),
+        payload: SettingsUpdatedPayload(settings: settings).toJson(),
       ),
     );
   }

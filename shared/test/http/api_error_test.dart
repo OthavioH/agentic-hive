@@ -38,7 +38,7 @@ void main() {
       });
     });
 
-    test('omits requestId from JSON when it is null', () {
+    test('omits requestId and details from JSON when they are null', () {
       const error = ApiError(
         code: ApiErrorCode.originNotAllowed,
         message: 'Origin rejected.',
@@ -47,7 +47,24 @@ void main() {
       final body = error.toJson()['error']! as Map<String, Object?>;
 
       expect(body.containsKey('requestId'), isFalse);
+      expect(body.containsKey('details'), isFalse);
       expect(ApiError.fromJson(_overTheWire(error.toJson())).requestId, isNull);
+      expect(ApiError.fromJson(_overTheWire(error.toJson())).details, isNull);
+    });
+
+    test('round-trips details map through JSON when provided', () {
+      const error = ApiError(
+        code: ApiErrorCode.badRequest,
+        message: 'Validation failed.',
+        requestId: 'req-3',
+        details: {
+          'agentsDir': 'Directory does not exist.',
+          'harnessOverrides.codex': 'File is not executable.',
+        },
+      );
+
+      final decoded = ApiError.fromJson(_overTheWire(error.toJson()));
+      expect(decoded, error);
     });
 
     test('throws a FormatException naming "error" when it is missing', () {

@@ -103,5 +103,8 @@ final class _FakeDetector implements HarnessDetector {
   HarnessInfo next;
 
   @override
+  void setExecutableOverride(String? path) {}
+
+  @override
   Future<HarnessInfo> detect() async => next;
 }

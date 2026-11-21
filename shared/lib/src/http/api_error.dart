@@ -12,6 +12,7 @@ sealed class ApiError with _$ApiError {
     required String code,
     required String message,
     String? requestId,
+    Map<String, String>? details,
   }) = _ApiError;
 
   const new _();
@@ -22,7 +23,12 @@ sealed class ApiError with _$ApiError {
 
   /// Encodes this error as the JSON response body.
   JsonMap toJson() => {
-    'error': {'code': code, 'message': message, 'requestId': ?requestId},
+    'error': {
+      'code': code,
+      'message': message,
+      'requestId': ?requestId,
+      'details': ?details,
+    },
   };
 }
 

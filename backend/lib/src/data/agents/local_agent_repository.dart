@@ -16,7 +16,7 @@ final class LocalAgentRepository implements AgentRepository {
     : _path = pathContext ?? p.context;
 
   /// Directory containing flat `<id>.md` agent files.
-  final String agentsDir;
+  String agentsDir;
 
   final p.Context _path;
 

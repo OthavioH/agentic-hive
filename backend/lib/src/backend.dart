@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:agentic_hive_backend/src/config/app_config.dart';
 import 'package:agentic_hive_backend/src/config/platform_paths.dart';
 import 'package:agentic_hive_backend/src/di/dependencies.dart';
+import 'package:agentic_hive_backend/src/domain/settings/settings_service.dart';
 import 'package:agentic_hive_backend/src/server/backend_server.dart';
 import 'package:agentic_hive_backend/src/server/local_socket.dart';
 import 'package:get_it/get_it.dart';
@@ -61,6 +62,7 @@ final class Backend {
         onShutdown: backend.stop,
         consoleOut: consoleOut,
       );
+      await container<SettingsService>().applyPersistedSettings();
       await container<BackendServer>().start(startedAt: startedAt);
     } on Object {
       await container.reset();

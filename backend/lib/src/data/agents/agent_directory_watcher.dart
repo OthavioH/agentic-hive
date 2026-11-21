@@ -18,7 +18,7 @@ final class AgentDirectoryWatcher {
   /// Creates a watcher for [agentsDir]; does not start until [start] is
   /// called.
   new({
-    required this.agentsDir,
+    required this._agentsDir,
     required this._repository,
     required this._registry,
     this._debounceDuration = const Duration(milliseconds: 50),
@@ -28,8 +28,10 @@ final class AgentDirectoryWatcher {
 
   static final _log = Logger('agents.watcher');
 
+  String _agentsDir;
+
   /// Directory being watched for root-level `.md` files.
-  final String agentsDir;
+  String get agentsDir => _agentsDir;
 
   final AgentRepository _repository;
   final ConnectionRegistry _registry;
@@ -127,6 +129,27 @@ final class AgentDirectoryWatcher {
   /// Stops watching and cancels any pending debounce timers.
   Future<void> close() async {
     _closed = true;
+    await _stopWatching();
+  }
+
+  /// Switches the watcher to [newDir] without closing the instance.
+  ///
+  /// If the watcher has already been started, it stops watching the previous
+  /// directory and starts watching [newDir].
+  Future<void> switchDirectory(String newDir) async {
+    if (_closed) return;
+    if (_path.equals(_path.normalize(newDir), _path.normalize(_agentsDir))) {
+      return;
+    }
+    final wasStarted = _subscription != null;
+    await _stopWatching();
+    _agentsDir = newDir;
+    if (wasStarted) {
+      await start();
+    }
+  }
+
+  Future<void> _stopWatching() async {
     for (final timer in _pendingTimers.values) {
       timer.cancel();
     }

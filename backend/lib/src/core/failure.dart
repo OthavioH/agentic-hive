@@ -19,8 +19,11 @@ final class NotFoundFailure extends Failure {
 
 /// Input or state failed domain validation (`400`).
 final class ValidationFailure extends Failure {
-  /// Creates a validation failure.
-  const new(super.message);
+  /// Creates a validation failure with optional per-field [details].
+  const new(super.message, {this.details});
+
+  /// Optional per-field validation error messages (field key -> message).
+  final Map<String, String>? details;
 }
 
 /// The operation conflicts with the current state of a resource (`409`).
