@@ -22,6 +22,7 @@ export 'src/components/hive_key_value_editor.dart';
 export 'src/components/hive_log_stream_viewer.dart';
 export 'src/components/hive_markdown_view.dart';
 export 'src/components/hive_master_detail.dart';
+export 'src/components/hive_metric_tile.dart';
 export 'src/components/hive_page_header.dart';
 export 'src/components/hive_rail_item.dart';
 export 'src/components/hive_segmented_control.dart';

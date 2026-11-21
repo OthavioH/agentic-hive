@@ -51,6 +51,8 @@ const Map<String, String> _useCases = <String, String>{
   'Arguments · Filled': '--verbose',
   'Arguments · Error': 'Remove empty arguments.',
   'Arguments · Disabled': 'Add argument',
+  'Overview row': 'Succeeded today',
+  'Long value and label': '1,284,356',
 };
 
 void main() {

@@ -79,6 +79,8 @@ F10 additions (#20): `HiveNodeStatus.cancelling` (open ring with a stop square i
 
 F11 addition (#23): `HiveRailItem.badgeCount` / `HiveRailDestination.badgeCount` (count pill in `onWarning` on `warning` with a `background` hairline ring; inside the circle's top-right corner when collapsed, trailing the label when expanded; counts above `HiveRailItem.maxBadgeCount` show as `99+`). The pill is excluded from semantics: the consumer passes the count through `semanticLabel` (e.g. `Pauses, 3 pending`).
 
+F15 addition (#22): `HiveMetricTile` (`focal` value in `number` inside `space3`, `compact` value in `display` inside `space2`; value in `onSurface`, Geist `label` in `onSurfaceMuted`; on a `HiveCardSurface` step with `radiusCard` and a hairline border; an optional `HiveFeedbackTone` colors only a leading tone icon, never text; one semantics node labelled `label: value` unless `semanticLabel` is given).
+
 **Desktop platform profile:** Windows, Linux, and macOS; mouse + keyboard first. Every interactive component must have a hover state, a visible keyboard focus indicator, and a semantics label. Support desktop density (sidebar, multi-column, master-detail).
 
 ## Do and Don't
