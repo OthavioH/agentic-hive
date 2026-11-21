@@ -22,6 +22,7 @@ final class UnixSocketBackendClient implements BackendClient {
 
   static const int _connectTimeoutSeconds = 2;
   static const int _handshakeTimeoutSeconds = 3;
+  static const int _requestTimeoutSeconds = 15;
 
   /// Default timeout for socket connect, HTTP status requests, and WebSocket
   /// upgrade.
@@ -32,6 +33,11 @@ final class UnixSocketBackendClient implements BackendClient {
   /// Default timeout to receive `server.hello` after WebSocket upgrade.
   static const Duration defaultHandshakeTimeout = Duration(
     seconds: _handshakeTimeoutSeconds,
+  );
+
+  /// Default timeout for feature HTTP JSON requests.
+  static const Duration defaultRequestTimeout = Duration(
+    seconds: _requestTimeoutSeconds,
   );
 
   final PlatformPaths _platformPaths;
@@ -148,6 +154,124 @@ final class UnixSocketBackendClient implements BackendClient {
         UnexpectedFailure('Unexpected error checking status.', cause: error),
       );
     }
+  }
+
+  @override
+  Future<Result<JsonMap>> getJson(String path, {Duration? timeout}) =>
+      _requestJson('GET', path, timeout: timeout);
+
+  @override
+  Future<Result<JsonMap>> postJson(
+    String path, {
+    JsonMap? body,
+    Duration? timeout,
+  }) => _requestJson('POST', path, body: body, timeout: timeout);
+
+  Future<Result<JsonMap>> _requestJson(
+    String method,
+    String path, {
+    JsonMap? body,
+    Duration? timeout,
+  }) async {
+    if (_closed) {
+      return const FailureResult(
+        NetworkFailure('Backend client has been closed.'),
+      );
+    }
+
+    final clientResult = await _ensureHttpClient();
+    if (clientResult case FailureResult<HttpClient>(:final failure)) {
+      return FailureResult(failure);
+    }
+    final client = (clientResult as Success<HttpClient>).value;
+    final effectiveTimeout = timeout ?? defaultRequestTimeout;
+
+    try {
+      final response = await () async {
+        final uri = Uri.parse('http://localhost$path');
+        final request = method == 'POST'
+            ? await client.postUrl(uri)
+            : await client.getUrl(uri);
+        if (body != null) {
+          request.headers.contentType = ContentType.json;
+          request.write(jsonEncode(body));
+        }
+        return await request.close();
+      }().timeout(effectiveTimeout);
+
+      final rawBody = await response
+          .transform(utf8.decoder)
+          .join()
+          .timeout(effectiveTimeout);
+
+      if (response.statusCode < HttpStatus.ok ||
+          response.statusCode >= HttpStatus.multipleChoices) {
+        return FailureResult(_mapHttpError(response.statusCode, rawBody));
+      }
+
+      if (rawBody.trim().isEmpty) {
+        return const Success(<String, Object?>{});
+      }
+
+      final decoded = jsonDecode(rawBody);
+      if (decoded is! Map<String, Object?>) {
+        return const FailureResult(
+          BackendFailure('Invalid JSON response payload.'),
+        );
+      }
+      return Success(decoded);
+    } on TimeoutException catch (error) {
+      _resetHttpClient();
+      return FailureResult(
+        NetworkFailure(
+          'Timed out waiting for backend response.',
+          cause: error,
+          code: BackendFailureCode.timeout,
+        ),
+      );
+    } on SocketException catch (error) {
+      _resetHttpClient();
+      return FailureResult(
+        NetworkFailure(
+          'Unable to reach backend socket.',
+          cause: error,
+          code: BackendFailureCode.connectionRefused,
+        ),
+      );
+    } on HttpException catch (error) {
+      _resetHttpClient();
+      return FailureResult(
+        NetworkFailure('HTTP transport error.', cause: error),
+      );
+    } on FormatException catch (error) {
+      return FailureResult(
+        BackendFailure('Malformed JSON from backend: ${error.message}'),
+      );
+    } on Object catch (error) {
+      _resetHttpClient();
+      return FailureResult(
+        UnexpectedFailure('Unexpected error during request.', cause: error),
+      );
+    }
+  }
+
+  Failure _mapHttpError(int statusCode, String rawBody) {
+    String? code;
+    var message = 'Request failed with status $statusCode.';
+    try {
+      final decoded = jsonDecode(rawBody);
+      if (decoded is Map<String, Object?>) {
+        final apiError = ApiError.fromJson(decoded);
+        code = apiError.code;
+        message = apiError.message;
+      }
+    } on Object {
+      // Keep default status message when body is not an ApiError JSON object.
+    }
+    if (statusCode == HttpStatus.notFound) {
+      return NotFoundFailure(message);
+    }
+    return BackendFailure(message, code: code, statusCode: statusCode);
   }
 
   @override
