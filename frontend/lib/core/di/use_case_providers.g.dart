@@ -340,3 +340,238 @@ final class ValidateWorkflowProvider
 }
 
 String _$validateWorkflowHash() => r'ae589c2eb1ae31523addd23ec8bf53932ce05f2f';
+
+/// Provides [ListRuns].
+
+@ProviderFor(listRuns)
+final listRunsProvider = ListRunsProvider._();
+
+/// Provides [ListRuns].
+
+final class ListRunsProvider
+    extends $FunctionalProvider<ListRuns, ListRuns, ListRuns>
+    with $Provider<ListRuns> {
+  /// Provides [ListRuns].
+  ListRunsProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'listRunsProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$listRunsHash();
+
+  @$internal
+  @override
+  $ProviderElement<ListRuns> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  ListRuns create(Ref ref) {
+    return listRuns(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(ListRuns value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<ListRuns>(value),
+    );
+  }
+}
+
+String _$listRunsHash() => r'db69da7c40672af35b29ef25384261390d7978c2';
+
+/// Provides [GetRun].
+
+@ProviderFor(getRun)
+final getRunProvider = GetRunProvider._();
+
+/// Provides [GetRun].
+
+final class GetRunProvider extends $FunctionalProvider<GetRun, GetRun, GetRun>
+    with $Provider<GetRun> {
+  /// Provides [GetRun].
+  GetRunProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'getRunProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$getRunHash();
+
+  @$internal
+  @override
+  $ProviderElement<GetRun> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  GetRun create(Ref ref) {
+    return getRun(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(GetRun value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<GetRun>(value),
+    );
+  }
+}
+
+String _$getRunHash() => r'1920648ecacafcdec0ccbe5d4cefec95bfd71e99';
+
+/// Provides [GetRunEvents].
+
+@ProviderFor(getRunEvents)
+final getRunEventsProvider = GetRunEventsProvider._();
+
+/// Provides [GetRunEvents].
+
+final class GetRunEventsProvider
+    extends $FunctionalProvider<GetRunEvents, GetRunEvents, GetRunEvents>
+    with $Provider<GetRunEvents> {
+  /// Provides [GetRunEvents].
+  GetRunEventsProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'getRunEventsProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$getRunEventsHash();
+
+  @$internal
+  @override
+  $ProviderElement<GetRunEvents> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  GetRunEvents create(Ref ref) {
+    return getRunEvents(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(GetRunEvents value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<GetRunEvents>(value),
+    );
+  }
+}
+
+String _$getRunEventsHash() => r'abdef76c4fc4f2f7256607da6240cd761e7e6ab4';
+
+/// Provides [GetRunCheckpoints].
+
+@ProviderFor(getRunCheckpoints)
+final getRunCheckpointsProvider = GetRunCheckpointsProvider._();
+
+/// Provides [GetRunCheckpoints].
+
+final class GetRunCheckpointsProvider
+    extends
+        $FunctionalProvider<
+          GetRunCheckpoints,
+          GetRunCheckpoints,
+          GetRunCheckpoints
+        >
+    with $Provider<GetRunCheckpoints> {
+  /// Provides [GetRunCheckpoints].
+  GetRunCheckpointsProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'getRunCheckpointsProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$getRunCheckpointsHash();
+
+  @$internal
+  @override
+  $ProviderElement<GetRunCheckpoints> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  GetRunCheckpoints create(Ref ref) {
+    return getRunCheckpoints(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(GetRunCheckpoints value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<GetRunCheckpoints>(value),
+    );
+  }
+}
+
+String _$getRunCheckpointsHash() => r'0ff4b4314ae3c924ff8e993f73c9ff60679bb342';
+
+/// Provides [DeleteRun].
+
+@ProviderFor(deleteRun)
+final deleteRunProvider = DeleteRunProvider._();
+
+/// Provides [DeleteRun].
+
+final class DeleteRunProvider
+    extends $FunctionalProvider<DeleteRun, DeleteRun, DeleteRun>
+    with $Provider<DeleteRun> {
+  /// Provides [DeleteRun].
+  DeleteRunProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'deleteRunProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$deleteRunHash();
+
+  @$internal
+  @override
+  $ProviderElement<DeleteRun> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  DeleteRun create(Ref ref) {
+    return deleteRun(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(DeleteRun value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<DeleteRun>(value),
+    );
+  }
+}
+
+String _$deleteRunHash() => r'502c69876b0f0cbfb478b0051b9cc02a33e5ea6f';

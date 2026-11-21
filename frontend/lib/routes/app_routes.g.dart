@@ -32,6 +32,13 @@ RouteBase get $appShellRoute => ShellRouteData.$route(
       path: '/runs',
       hasOverriddenOnExit: false,
       factory: $RunsRoute._fromState,
+      routes: [
+        GoRouteData.$route(
+          path: ':id',
+          hasOverriddenOnExit: false,
+          factory: $RunDetailRoute._fromState,
+        ),
+      ],
     ),
     GoRouteData.$route(
       path: '/pauses',
@@ -130,6 +137,30 @@ mixin $RunsRoute on GoRouteData {
 
   @override
   String get location => GoRouteData.$location('/runs');
+
+  @override
+  void go(BuildContext context) => context.go(location);
+
+  @override
+  Future<T?> push<T>(BuildContext context) => context.push<T>(location);
+
+  @override
+  void pushReplacement(BuildContext context) =>
+      context.pushReplacement(location);
+
+  @override
+  void replace(BuildContext context) => context.replace(location);
+}
+
+mixin $RunDetailRoute on GoRouteData {
+  static RunDetailRoute _fromState(GoRouterState state) =>
+      RunDetailRoute(id: state.pathParameters['id']!);
+
+  RunDetailRoute get _self => this as RunDetailRoute;
+
+  @override
+  String get location =>
+      GoRouteData.$location('/runs/${Uri.encodeComponent(_self.id)}');
 
   @override
   void go(BuildContext context) => context.go(location);

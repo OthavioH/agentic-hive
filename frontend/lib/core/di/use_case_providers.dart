@@ -2,7 +2,13 @@
 //
 // Feature use case providers are registered here so presentation controllers
 // depend on domain use cases without importing data implementations.
+import 'package:agentic_hive_frontend/data/runs/run_providers.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
+import 'package:agentic_hive_frontend/domain/runs/use_cases/delete_run.dart';
+import 'package:agentic_hive_frontend/domain/runs/use_cases/get_run.dart';
+import 'package:agentic_hive_frontend/domain/runs/use_cases/get_run_checkpoints.dart';
+import 'package:agentic_hive_frontend/domain/runs/use_cases/get_run_events.dart';
+import 'package:agentic_hive_frontend/domain/runs/use_cases/list_runs.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/create_workflow.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/delete_workflow.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/duplicate_workflow.dart';
@@ -48,3 +54,25 @@ DeleteWorkflow deleteWorkflow(Ref ref) =>
 @riverpod
 ValidateWorkflow validateWorkflow(Ref ref) =>
     ValidateWorkflow(ref.watch(workflowRepositoryProvider));
+
+/// Provides [ListRuns].
+@riverpod
+ListRuns listRuns(Ref ref) => ListRuns(ref.watch(runRepositoryProvider));
+
+/// Provides [GetRun].
+@riverpod
+GetRun getRun(Ref ref) => GetRun(ref.watch(runRepositoryProvider));
+
+/// Provides [GetRunEvents].
+@riverpod
+GetRunEvents getRunEvents(Ref ref) =>
+    GetRunEvents(ref.watch(runRepositoryProvider));
+
+/// Provides [GetRunCheckpoints].
+@riverpod
+GetRunCheckpoints getRunCheckpoints(Ref ref) =>
+    GetRunCheckpoints(ref.watch(runRepositoryProvider));
+
+/// Provides [DeleteRun].
+@riverpod
+DeleteRun deleteRun(Ref ref) => DeleteRun(ref.watch(runRepositoryProvider));

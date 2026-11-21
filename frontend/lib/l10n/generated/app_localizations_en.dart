@@ -493,4 +493,187 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get workflowsFailureUnexpected =>
       'An unexpected error occurred while processing the workflow.';
+
+  @override
+  String get runsPageSubtitle =>
+      'Monitor workflow executions, event logs, and node checkpoints.';
+
+  @override
+  String get runsRefreshAction => 'Refresh';
+
+  @override
+  String get runsLoadErrorTitle => 'Failed to load runs';
+
+  @override
+  String get runsRetryAction => 'Retry';
+
+  @override
+  String get runsFilterAll => 'All';
+
+  @override
+  String get runsFilterWorkflowLabel => 'Workflow';
+
+  @override
+  String get runsFilterWorkflowAll => 'All workflows';
+
+  @override
+  String get runsFilterEmptyTitle => 'No matching runs';
+
+  @override
+  String get runsFilterEmptyDescription =>
+      'No runs match the selected status or workflow filter.';
+
+  @override
+  String get runsClearFiltersAction => 'Clear filters';
+
+  @override
+  String get runsStatusRunning => 'Running';
+
+  @override
+  String get runsStatusPaused => 'Paused';
+
+  @override
+  String get runsStatusInterrupted => 'Interrupted';
+
+  @override
+  String get runsStatusSucceeded => 'Succeeded';
+
+  @override
+  String get runsStatusFailed => 'Failed';
+
+  @override
+  String get runsStatusCancelled => 'Cancelled';
+
+  @override
+  String runsCheckpointCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count checkpoints',
+      one: '1 checkpoint',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get runsDurationInProgress => 'In progress';
+
+  @override
+  String get runsDeleteTooltip => 'Delete run';
+
+  @override
+  String get runsDeleteTitle => 'Delete run';
+
+  @override
+  String runsDeleteMessage(String workflowName) {
+    return 'Delete this run of \"$workflowName\"? Its event log and checkpoints will be permanently removed.';
+  }
+
+  @override
+  String get runsDeleteConfirm => 'Delete';
+
+  @override
+  String get runsCancelAction => 'Cancel';
+
+  @override
+  String get runsFailureNetwork =>
+      'Could not reach the local backend. Check the connection and try again.';
+
+  @override
+  String get runsFailureNotFound => 'The requested run could not be found.';
+
+  @override
+  String get runsFailureValidation => 'The run request was invalid.';
+
+  @override
+  String get runsFailureBackend =>
+      'The local backend rejected the run request.';
+
+  @override
+  String get runsFailureUnexpected =>
+      'An unexpected error occurred while loading runs.';
+
+  @override
+  String get runDetailBackTooltip => 'Back to runs';
+
+  @override
+  String get runDetailLoadErrorTitle => 'Failed to load run details';
+
+  @override
+  String get runDetailWorkspaceLabel => 'Workspace';
+
+  @override
+  String get runDetailStartedLabel => 'Started';
+
+  @override
+  String get runDetailFinishedLabel => 'Finished';
+
+  @override
+  String get runDetailDurationLabel => 'Duration';
+
+  @override
+  String get runDetailErrorLabel => 'Error';
+
+  @override
+  String get runDetailEventsTitle => 'Event log';
+
+  @override
+  String get runDetailEventsEmpty => 'No events recorded for this run.';
+
+  @override
+  String get runDetailEventPayloadTitle => 'payload';
+
+  @override
+  String get runDetailEventPayloadEmpty => 'No payload';
+
+  @override
+  String get runDetailCopyLabel => 'Copy';
+
+  @override
+  String get runDetailExpandPayloadTooltip => 'Show payload';
+
+  @override
+  String get runDetailCollapsePayloadTooltip => 'Hide payload';
+
+  @override
+  String runDetailNodeLabel(String nodeId) {
+    return 'Node: $nodeId';
+  }
+
+  @override
+  String runDetailEdgeLabel(String edgeId) {
+    return 'Edge: $edgeId';
+  }
+
+  @override
+  String get runDetailCheckpointsTitle => 'Checkpoints';
+
+  @override
+  String get runDetailCheckpointsEmpty => 'No checkpoints saved for this run.';
+
+  @override
+  String runDetailCheckpointSequence(int sequence) {
+    return 'Checkpoint #$sequence';
+  }
+
+  @override
+  String get runDetailCompletedNodeLabel => 'Completed node';
+
+  @override
+  String get runDetailPendingNodesLabel => 'Pending nodes';
+
+  @override
+  String get runDetailAttemptsLabel => 'Attempts by edge';
+
+  @override
+  String get runDetailCircuitBreakerLabel => 'Circuit breaker count';
+
+  @override
+  String get runDetailNodeOutputsLabel => 'node_outputs.json';
+
+  @override
+  String get runDetailNoOutputs => 'No node outputs';
+
+  @override
+  String get runDetailNone => 'None';
 }

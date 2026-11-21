@@ -883,6 +883,330 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'An unexpected error occurred while processing the workflow.'**
   String get workflowsFailureUnexpected;
+
+  /// Subtitle on the Runs list page header.
+  ///
+  /// In en, this message translates to:
+  /// **'Monitor workflow executions, event logs, and node checkpoints.'**
+  String get runsPageSubtitle;
+
+  /// Button label to refresh the runs list or run details.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get runsRefreshAction;
+
+  /// Title shown when loading the runs list fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load runs'**
+  String get runsLoadErrorTitle;
+
+  /// Button label to retry loading runs.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get runsRetryAction;
+
+  /// Filter chip label to show runs of all statuses.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get runsFilterAll;
+
+  /// Label for the workflow filter dropdown on the Runs page.
+  ///
+  /// In en, this message translates to:
+  /// **'Workflow'**
+  String get runsFilterWorkflowLabel;
+
+  /// Option label to include runs from all workflows.
+  ///
+  /// In en, this message translates to:
+  /// **'All workflows'**
+  String get runsFilterWorkflowAll;
+
+  /// Title shown when no runs match the active status or workflow filters.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching runs'**
+  String get runsFilterEmptyTitle;
+
+  /// Description shown when no runs match the active filters.
+  ///
+  /// In en, this message translates to:
+  /// **'No runs match the selected status or workflow filter.'**
+  String get runsFilterEmptyDescription;
+
+  /// Button label to clear active status and workflow filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear filters'**
+  String get runsClearFiltersAction;
+
+  /// Display label for RunStatus.running.
+  ///
+  /// In en, this message translates to:
+  /// **'Running'**
+  String get runsStatusRunning;
+
+  /// Display label for RunStatus.paused.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused'**
+  String get runsStatusPaused;
+
+  /// Display label for RunStatus.interrupted.
+  ///
+  /// In en, this message translates to:
+  /// **'Interrupted'**
+  String get runsStatusInterrupted;
+
+  /// Display label for RunStatus.succeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Succeeded'**
+  String get runsStatusSucceeded;
+
+  /// Display label for RunStatus.failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get runsStatusFailed;
+
+  /// Display label for RunStatus.cancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get runsStatusCancelled;
+
+  /// Checkpoint count label shown on a run summary card.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 checkpoint} other{{count} checkpoints}}'**
+  String runsCheckpointCount(int count);
+
+  /// Duration label shown when a run has not finished yet.
+  ///
+  /// In en, this message translates to:
+  /// **'In progress'**
+  String get runsDurationInProgress;
+
+  /// Tooltip and semantic label for the delete run button.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete run'**
+  String get runsDeleteTooltip;
+
+  /// Title of the delete run confirmation dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete run'**
+  String get runsDeleteTitle;
+
+  /// Confirmation message when deleting a non-active run.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this run of \"{workflowName}\"? Its event log and checkpoints will be permanently removed.'**
+  String runsDeleteMessage(String workflowName);
+
+  /// Confirm button label in the delete run dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get runsDeleteConfirm;
+
+  /// Cancel button label in the delete run dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get runsCancelAction;
+
+  /// Localized error message when a run operation fails with a NetworkFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not reach the local backend. Check the connection and try again.'**
+  String get runsFailureNetwork;
+
+  /// Localized error message when a run operation fails with a NotFoundFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'The requested run could not be found.'**
+  String get runsFailureNotFound;
+
+  /// Localized error message when a run operation fails with a ValidationFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'The run request was invalid.'**
+  String get runsFailureValidation;
+
+  /// Localized error message when a run operation fails with a BackendFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'The local backend rejected the run request.'**
+  String get runsFailureBackend;
+
+  /// Localized error message when a run operation fails with an UnexpectedFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'An unexpected error occurred while loading runs.'**
+  String get runsFailureUnexpected;
+
+  /// Tooltip and semantic label for navigating back to the Runs list.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to runs'**
+  String get runDetailBackTooltip;
+
+  /// Title shown when loading a run detail page fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load run details'**
+  String get runDetailLoadErrorTitle;
+
+  /// Metadata label for the run workspace path.
+  ///
+  /// In en, this message translates to:
+  /// **'Workspace'**
+  String get runDetailWorkspaceLabel;
+
+  /// Metadata label for the run start timestamp.
+  ///
+  /// In en, this message translates to:
+  /// **'Started'**
+  String get runDetailStartedLabel;
+
+  /// Metadata label for the run finish timestamp.
+  ///
+  /// In en, this message translates to:
+  /// **'Finished'**
+  String get runDetailFinishedLabel;
+
+  /// Metadata label for the run duration.
+  ///
+  /// In en, this message translates to:
+  /// **'Duration'**
+  String get runDetailDurationLabel;
+
+  /// Label for the run error banner when a run failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Error'**
+  String get runDetailErrorLabel;
+
+  /// Section heading for the chronological run event log.
+  ///
+  /// In en, this message translates to:
+  /// **'Event log'**
+  String get runDetailEventsTitle;
+
+  /// Empty state text when a run has no events.
+  ///
+  /// In en, this message translates to:
+  /// **'No events recorded for this run.'**
+  String get runDetailEventsEmpty;
+
+  /// Code block header title for an event payload.
+  ///
+  /// In en, this message translates to:
+  /// **'payload'**
+  String get runDetailEventPayloadTitle;
+
+  /// Empty label for an event with an empty payload.
+  ///
+  /// In en, this message translates to:
+  /// **'No payload'**
+  String get runDetailEventPayloadEmpty;
+
+  /// Copy button label inside HiveCodeBlock.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get runDetailCopyLabel;
+
+  /// Semantic label for expanding an event JSON payload.
+  ///
+  /// In en, this message translates to:
+  /// **'Show payload'**
+  String get runDetailExpandPayloadTooltip;
+
+  /// Semantic label for collapsing an event JSON payload.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide payload'**
+  String get runDetailCollapsePayloadTooltip;
+
+  /// Target node badge or label on an event item.
+  ///
+  /// In en, this message translates to:
+  /// **'Node: {nodeId}'**
+  String runDetailNodeLabel(String nodeId);
+
+  /// Target edge badge or label on an event item.
+  ///
+  /// In en, this message translates to:
+  /// **'Edge: {edgeId}'**
+  String runDetailEdgeLabel(String edgeId);
+
+  /// Section heading for the run checkpoints inspector.
+  ///
+  /// In en, this message translates to:
+  /// **'Checkpoints'**
+  String get runDetailCheckpointsTitle;
+
+  /// Empty state text when a run has no checkpoints.
+  ///
+  /// In en, this message translates to:
+  /// **'No checkpoints saved for this run.'**
+  String get runDetailCheckpointsEmpty;
+
+  /// Label for a checkpoint entry in the checkpoint selector list.
+  ///
+  /// In en, this message translates to:
+  /// **'Checkpoint #{sequence}'**
+  String runDetailCheckpointSequence(int sequence);
+
+  /// Label for the completedNodeId field in the checkpoint inspector.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed node'**
+  String get runDetailCompletedNodeLabel;
+
+  /// Label for the pendingNodeIds field in the checkpoint inspector.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending nodes'**
+  String get runDetailPendingNodesLabel;
+
+  /// Label for the attemptsByEdge field in the checkpoint inspector.
+  ///
+  /// In en, this message translates to:
+  /// **'Attempts by edge'**
+  String get runDetailAttemptsLabel;
+
+  /// Label for the circuitBreakerCount field in the checkpoint inspector.
+  ///
+  /// In en, this message translates to:
+  /// **'Circuit breaker count'**
+  String get runDetailCircuitBreakerLabel;
+
+  /// Code block header title for checkpoint nodeOutputs.
+  ///
+  /// In en, this message translates to:
+  /// **'node_outputs.json'**
+  String get runDetailNodeOutputsLabel;
+
+  /// Empty label for a checkpoint with no node outputs.
+  ///
+  /// In en, this message translates to:
+  /// **'No node outputs'**
+  String get runDetailNoOutputs;
+
+  /// Fallback label when a checkpoint field has no value.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get runDetailNone;
 }
 
 class _AppLocalizationsDelegate

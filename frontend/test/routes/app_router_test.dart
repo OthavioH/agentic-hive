@@ -10,6 +10,8 @@ import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/connecting/pages/connecting_page.dart';
 import 'package:agentic_hive_frontend/presentation/error/pages/route_error_page.dart';
 import 'package:agentic_hive_frontend/presentation/overview/pages/overview_page.dart';
+import 'package:agentic_hive_frontend/presentation/runs/pages/run_detail_page.dart';
+import 'package:agentic_hive_frontend/presentation/runs/pages/runs_page.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/pages/workflows_page.dart';
 import 'package:agentic_hive_frontend/routes/app_router_provider.dart';
 import 'package:agentic_hive_frontend/routes/app_routes.dart';
@@ -265,4 +267,33 @@ void main() {
       expect(find.byType(WorkflowsPage), findsOneWidget);
     },
   );
+
+  testWidgets('resolves /runs and /runs/:id routes', (tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          backendClientProvider.overrideWithValue(_FakeBackendClient()),
+        ],
+        child: const HiveApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(HiveApp)),
+    );
+    container.read(appRouterProvider).go(RunsRoute.path);
+    await tester.pumpAndSettle();
+    expect(find.byType(RunsPage), findsOneWidget);
+
+    container
+        .read(appRouterProvider)
+        .go(const RunDetailRoute(id: 'run-42').location);
+    await tester.pumpAndSettle();
+    expect(find.byType(RunDetailPage), findsOneWidget);
+  });
 }
