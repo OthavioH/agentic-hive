@@ -9,6 +9,10 @@ import 'package:agentic_hive_backend/src/data/agents/agent_directory_watcher.dar
 import 'package:agentic_hive_backend/src/data/agents/local_agent_repository.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/io_process_runner.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/os_executable_locator.dart';
+import 'package:agentic_hive_backend/src/data/nodes/dart_process_runner.dart';
+import 'package:agentic_hive_backend/src/data/nodes/os_process_platform.dart';
+import 'package:agentic_hive_backend/src/data/nodes/os_shell_provider.dart';
+import 'package:agentic_hive_backend/src/data/nodes/unconfigured_node_ports.dart';
 import 'package:agentic_hive_backend/src/data/workflows/drift_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/db/app_database.dart';
 import 'package:agentic_hive_backend/src/db/database_health_check.dart';
@@ -19,6 +23,8 @@ import 'package:agentic_hive_backend/src/domain/harnesses/executable_locator.dar
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_detector.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_service.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/node_registry.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
@@ -121,7 +127,32 @@ Future<void> registerDependencies(
       () => DriftWorkflowRepository(di<AppDatabase>()),
       dependsOn: [AppDatabase],
     )
-    ..registerSingleton<WorkflowValidator>(const WorkflowValidator())
+    ..registerSingleton<OsProcessPlatform>(currentProcessPlatform())
+    ..registerSingleton<DefaultShellProvider>(currentDefaultShellProvider())
+    ..registerSingleton<NodeProcessRunner>(
+      DartProcessRunner(platform: di<OsProcessPlatform>()),
+    )
+    ..registerSingleton<PtyRunner>(const UnconfiguredPtyRunner())
+    ..registerSingleton<ResultContract>(const UnconfiguredResultContract())
+    ..registerSingleton<HumanApprovalPort>(
+      const UnconfiguredHumanApprovalPort(),
+    )
+    ..registerSingleton<AgentPromptResolver>(
+      const UnconfiguredAgentPromptResolver(),
+    )
+    ..registerSingleton<NodeRegistry>(
+      NodeRegistry.withDefaults(
+        processRunner: di<NodeProcessRunner>(),
+        ptyRunner: di<PtyRunner>(),
+        defaultShellProvider: di<DefaultShellProvider>(),
+        resultContract: di<ResultContract>(),
+        approvalPort: di<HumanApprovalPort>(),
+        agentPromptResolver: di<AgentPromptResolver>(),
+      ),
+    )
+    ..registerSingleton<WorkflowValidator>(
+      WorkflowValidator(nodeRegistry: di<NodeRegistry>()),
+    )
     ..registerSingletonWithDependencies<WorkflowService>(
       () => WorkflowService(
         repository: di<WorkflowRepository>(),

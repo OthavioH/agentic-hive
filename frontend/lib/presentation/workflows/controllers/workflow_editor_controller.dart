@@ -195,11 +195,17 @@ class WorkflowEditorController extends _$WorkflowEditorController {
     _applyDraft(current, nextWorkflow, revalidate: name != null);
   }
 
-  /// Adds a placeholder node to the canvas and selects it.
+  /// Adds a typed node to the canvas using defaults from [NodeDescriptors]
+  /// and selects it.
   ///
   /// When the workflow has no nodes yet (or no `entryNodeId`), the new node
   /// automatically becomes the entry node.
-  void addNode({required String defaultLabel, double? x, double? y}) {
+  void addNode({
+    required String typeId,
+    required String defaultLabel,
+    double? x,
+    double? y,
+  }) {
     final current = state.asData?.value;
     if (current == null) return;
 
@@ -210,11 +216,13 @@ class WorkflowEditorController extends _$WorkflowEditorController {
       x: x ?? 120.0 + (index % 4) * 260.0,
       y: y ?? 120.0 + (index ~/ 4) * 180.0,
     );
+    final descriptor = NodeDescriptors.of(typeId);
 
     final newNode = WorkflowNode(
       id: id,
-      type: 'placeholder',
+      type: typeId,
       label: defaultLabel,
+      config: descriptor?.defaultConfig() ?? const <String, Object?>{},
       position: position,
     );
     final nextNodes = <WorkflowNode>[...current.workflow.nodes, newNode];
@@ -270,6 +278,17 @@ class WorkflowEditorController extends _$WorkflowEditorController {
       current.workflow.copyWith(nodes: nextNodes),
       revalidate: false,
     );
+  }
+
+  /// Updates a node's typed configuration map and triggers revalidation.
+  void updateNodeConfig(String nodeId, JsonMap config) {
+    final current = state.asData?.value;
+    if (current == null) return;
+    final nextNodes = <WorkflowNode>[
+      for (final node in current.workflow.nodes)
+        if (node.id == nodeId) node.copyWith(config: config) else node,
+    ];
+    _applyDraft(current, current.workflow.copyWith(nodes: nextNodes));
   }
 
   /// Toggles whether [nodeId] is the workflow's `entryNodeId`.
