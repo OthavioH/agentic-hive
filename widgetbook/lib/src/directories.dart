@@ -4,6 +4,7 @@
 // published release resolves in the root pub workspace. See README.md.
 import 'package:hive_widgetbook/src/components/action_use_cases.dart';
 import 'package:hive_widgetbook/src/components/display_use_cases.dart';
+import 'package:hive_widgetbook/src/components/feedback_use_cases.dart';
 import 'package:hive_widgetbook/src/foundations/icon_pages.dart';
 import 'package:hive_widgetbook/src/foundations/motion_page.dart';
 import 'package:hive_widgetbook/src/foundations/token_pages.dart';
@@ -66,6 +67,10 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
           cardComponent(),
           emptyStateComponent(),
         ],
+      ),
+      WidgetbookFolder(
+        name: 'Feedback',
+        children: <WidgetbookNode>[toastComponent()],
       ),
       WidgetbookFolder(
         name: 'Status',

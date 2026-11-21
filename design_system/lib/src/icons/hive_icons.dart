@@ -143,6 +143,11 @@ abstract final class HiveIcons {
   /// Warning or error.
   static const HiveIconData alert = _HugeGlyph(HugeIcons.strokeRoundedAlert02);
 
+  /// Information.
+  static const HiveIconData info = _HugeGlyph(
+    HugeIcons.strokeRoundedInformationCircle,
+  );
+
   /// Search.
   static const HiveIconData search = _HugeGlyph(
     HugeIcons.strokeRoundedSearch01,
@@ -253,6 +258,7 @@ abstract final class HiveIcons {
     'close': close,
     'check': check,
     'alert': alert,
+    'info': info,
     'search': search,
     'refresh': refresh,
     'more': more,

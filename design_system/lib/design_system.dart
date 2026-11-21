@@ -14,6 +14,7 @@ export 'src/components/hive_page_header.dart';
 export 'src/components/hive_rail_item.dart';
 export 'src/components/hive_side_rail.dart';
 export 'src/components/hive_status_dot.dart';
+export 'src/components/hive_toast.dart';
 export 'src/foundation/hive_interaction.dart';
 export 'src/icons/hive_icons.dart';
 export 'src/motion/hive_motion.dart';

@@ -130,5 +130,91 @@ void main() {
 
       expect(find.bySemanticsLabel('Disabled settings'), findsOneWidget);
     });
+
+    testWidgets('shows a spinner and ignores taps and keys when loading', (
+      tester,
+    ) async {
+      var tapped = 0;
+      await tester.pumpWidget(
+        hiveTestApp(
+          child: HiveIconButton(
+            icon: HiveIcons.refresh,
+            semanticLabel: 'Re-check Claude Code',
+            loading: true,
+            autofocus: true,
+            onPressed: () => tapped++,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final inButton = find.byType(HiveIconButton);
+      expect(
+        find.descendant(of: inButton, matching: find.byType(HiveIcon)),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: inButton,
+          matching: find.byType(RotationTransition),
+        ),
+        findsOneWidget,
+      );
+      expect(find.bySemanticsLabel('Re-check Claude Code'), findsOneWidget);
+
+      await tester.tap(inButton);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+
+      expect(tapped, 0);
+    });
+
+    testWidgets('restores the icon and activation after loading', (
+      tester,
+    ) async {
+      var tapped = 0;
+      Widget button({required bool loading}) => hiveTestApp(
+        child: HiveIconButton(
+          icon: HiveIcons.refresh,
+          semanticLabel: 'Re-check Codex',
+          loading: loading,
+          onPressed: () => tapped++,
+        ),
+      );
+
+      await tester.pumpWidget(button(loading: true));
+      await tester.pumpWidget(button(loading: false));
+
+      expect(
+        find.descendant(
+          of: find.byType(HiveIconButton),
+          matching: find.byType(HiveIcon),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.byType(HiveIconButton));
+      await tester.pump();
+
+      expect(tapped, 1);
+    });
+
+    testWidgets('keeps its diameter while loading', (tester) async {
+      Widget button({required bool loading}) => hiveTestApp(
+        child: Center(
+          child: HiveIconButton(
+            icon: HiveIcons.refresh,
+            semanticLabel: 'Re-check Gemini CLI',
+            loading: loading,
+            onPressed: () {},
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(button(loading: false));
+      final resting = tester.getSize(find.byType(HiveIconButton));
+      await tester.pumpWidget(button(loading: true));
+
+      expect(tester.getSize(find.byType(HiveIconButton)), resting);
+    });
   });
 }
