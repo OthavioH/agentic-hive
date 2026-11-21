@@ -6,6 +6,11 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'theme_preference_controller.g.dart';
 
+/// Optional preloaded [AppThemePreference] injected before `runApp` to prevent
+/// a dark-frame flash on startup.
+@Riverpod(keepAlive: true)
+AppThemePreference? initialThemePreference(Ref ref) => null;
+
 /// Manages the active [AppThemePreference] and persists changes locally.
 @Riverpod(keepAlive: true)
 class ThemePreferenceController extends _$ThemePreferenceController {
@@ -14,6 +19,8 @@ class ThemePreferenceController extends _$ThemePreferenceController {
   @override
   AppThemePreference build() {
     _hasUserSelection = false;
+    final preloaded = ref.watch(initialThemePreferenceProvider);
+    if (preloaded != null) return preloaded;
     unawaited(Future<void>.microtask(_loadSavedPreference));
     return AppThemePreference.dark;
   }
@@ -28,6 +35,10 @@ class ThemePreferenceController extends _$ThemePreferenceController {
   Future<void> setPreference(AppThemePreference preference) async {
     _hasUserSelection = true;
     state = preference;
-    await ref.read(themePreferenceStoreProvider).save(preference);
+    try {
+      await ref.read(themePreferenceStoreProvider).save(preference);
+    } on Object {
+      // Keep the active in-memory theme if local persistence fails.
+    }
   }
 }

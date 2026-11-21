@@ -9,6 +9,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
+final class _ThrowingThemeStore implements ThemePreferenceStore {
+  @override
+  Future<AppThemePreference> load() async => AppThemePreference.dark;
+
+  @override
+  Future<void> save(AppThemePreference preference) async {
+    throw const FileSystemException('disk full');
+  }
+}
+
 final class _FakeThemePreferenceStore implements ThemePreferenceStore {
   new({this.initial = AppThemePreference.dark});
 
@@ -103,6 +113,43 @@ void main() {
         );
       },
     );
+
+    test(
+      'uses initialThemePreferenceProvider synchronously without dark flash',
+      () {
+        final store = _FakeThemePreferenceStore();
+        final container = ProviderContainer.test(
+          overrides: [
+            themePreferenceStoreProvider.overrideWithValue(store),
+            initialThemePreferenceProvider.overrideWithValue(
+              AppThemePreference.light,
+            ),
+          ],
+        );
+
+        expect(
+          container.read(themePreferenceControllerProvider),
+          AppThemePreference.light,
+        );
+      },
+    );
+
+    test('setPreference keeps in-memory state when save fails', () async {
+      final container = ProviderContainer.test(
+        overrides: [
+          themePreferenceStoreProvider.overrideWithValue(_ThrowingThemeStore()),
+        ],
+      );
+
+      await container
+          .read(themePreferenceControllerProvider.notifier)
+          .setPreference(AppThemePreference.light);
+
+      expect(
+        container.read(themePreferenceControllerProvider),
+        AppThemePreference.light,
+      );
+    });
   });
 
   group('FileThemePreferenceStore', () {

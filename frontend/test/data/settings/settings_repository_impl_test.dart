@@ -62,6 +62,7 @@ final class _FakeBackendClient implements BackendClient {
 void main() {
   const sampleSettings = AppSettings(
     agentsDir: '/custom/agents',
+    effectiveAgentsDir: '/custom/agents',
     defaultAgentsDir: '/default/agents',
     defaultWorkspaceDir: '/workspace',
     harnessOverrides: <HarnessId, String>{

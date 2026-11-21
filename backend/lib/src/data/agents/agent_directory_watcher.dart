@@ -48,10 +48,18 @@ final class AgentDirectoryWatcher {
   /// Completes once the underlying [DirectoryWatcher] is ready to emit events.
   Future<void> get ready => _watcher?.ready ?? Future<void>.value();
 
-  /// Ensures [agentsDir] exists and begins watching for file changes.
-  Future<void> start() async {
+  /// Begins watching [agentsDir] for file changes.
+  ///
+  /// When [createDirectory] is `true`, [agentsDir] is created if missing. When
+  /// `false`, a missing directory throws a [FileSystemException] instead of
+  /// being auto-created.
+  Future<void> start({bool createDirectory = true}) async {
     if (_closed || _subscription != null) return;
-    await Directory(agentsDir).create(recursive: true);
+    if (createDirectory) {
+      await Directory(agentsDir).create(recursive: true);
+    } else if (!Directory(agentsDir).existsSync()) {
+      throw FileSystemException('Agents directory does not exist.', agentsDir);
+    }
 
     final watcher = DirectoryWatcher(agentsDir);
     _watcher = watcher;
@@ -135,18 +143,46 @@ final class AgentDirectoryWatcher {
   /// Switches the watcher to [newDir] without closing the instance.
   ///
   /// If the watcher has already been started, it stops watching the previous
-  /// directory and starts watching [newDir].
-  Future<void> switchDirectory(String newDir) async {
+  /// directory, starts watching [newDir], and broadcasts an `agents.changed`
+  /// event so connected clients refresh their agent list.
+  Future<void> switchDirectory(
+    String newDir, {
+    bool createDirectory = false,
+  }) async {
     if (_closed) return;
     if (_path.equals(_path.normalize(newDir), _path.normalize(_agentsDir))) {
       return;
     }
+    if (!createDirectory && !Directory(newDir).existsSync()) {
+      throw FileSystemException('Agents directory does not exist.', newDir);
+    }
+    final previousDir = _agentsDir;
     final wasStarted = _subscription != null;
     await _stopWatching();
     _agentsDir = newDir;
     if (wasStarted) {
-      await start();
+      try {
+        await start(createDirectory: createDirectory);
+      } on Object {
+        _agentsDir = previousDir;
+        try {
+          await start(createDirectory: false);
+        } on Object {
+          // Best-effort restore of previous watcher.
+        }
+        rethrow;
+      }
     }
+    _registry.broadcast(
+      WsEnvelope(
+        type: WsMessageType.agentsChanged,
+        id: _generateId(),
+        payload: const AgentsChangedPayload(
+          kind: AgentChangeKind.updated,
+          id: '*',
+        ).toJson(),
+      ),
+    );
   }
 
   Future<void> _stopWatching() async {

@@ -39,9 +39,11 @@ void main() {
     final initialRes = await client.get('/api/v1/settings');
     expect(initialRes.statusCode, 200);
     final initial = AppSettings.fromJson(initialRes.json);
-    expect(initial.agentsDir, p.join(tempDir.path, 'agents'));
+    expect(initial.agentsDir, isNull);
+    expect(initial.effectiveAgentsDir, p.join(tempDir.path, 'agents'));
 
-    // PUT updates agentsDir -> reloads F2 and broadcasts settings.updated.
+    // PUT updates agentsDir -> reloads F2 and broadcasts agents.changed and
+    // settings.updated.
     final putRes = await client.put(
       '/api/v1/settings',
       body: jsonEncode(
@@ -54,11 +56,18 @@ void main() {
     expect(putRes.statusCode, 200);
     final updated = AppSettings.fromJson(putRes.json);
     expect(updated.agentsDir, customAgentsDir.path);
+    expect(updated.effectiveAgentsDir, customAgentsDir.path);
     expect(updated.defaultWorkspaceDir, tempDir.path);
 
-    final wsEvent = await ws.next();
-    expect(wsEvent.type, WsMessageType.settingsUpdated);
-    final payload = SettingsUpdatedPayload.fromJson(wsEvent.payload);
+    final events = [await ws.next(), await ws.next()];
+    final agentsChanged = events.firstWhere(
+      (e) => e.type == WsMessageType.agentsChanged,
+    );
+    expect(AgentsChangedPayload.fromJson(agentsChanged.payload).agent, isNull);
+    final settingsEvent = events.firstWhere(
+      (e) => e.type == WsMessageType.settingsUpdated,
+    );
+    final payload = SettingsUpdatedPayload.fromJson(settingsEvent.payload);
     expect(payload.settings, updated);
 
     // F2 GET /api/v1/agents now reads from customAgentsDir without restart.

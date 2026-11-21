@@ -134,13 +134,6 @@ class _SettingsForm extends ConsumerStatefulWidget {
 }
 
 class _SettingsFormState extends ConsumerState<_SettingsForm> {
-  static const List<HarnessId> _configurableHarnesses = <HarnessId>[
-    HarnessId.claudeCode,
-    HarnessId.codex,
-    HarnessId.geminiCli,
-    HarnessId.antigravity,
-  ];
-
   late final TextEditingController _agentsDirController;
   late final TextEditingController _workspaceDirController;
   late final Map<HarnessId, TextEditingController> _harnessControllers;
@@ -155,7 +148,7 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
       text: widget.state.defaultWorkspaceDirDraft,
     );
     _harnessControllers = <HarnessId, TextEditingController>{
-      for (final id in _configurableHarnesses)
+      for (final id in HarnessId.values)
         id: TextEditingController(
           text: widget.state.harnessOverridesDraft[id] ?? '',
         ),
@@ -170,7 +163,7 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
       _workspaceDirController,
       widget.state.defaultWorkspaceDirDraft,
     );
-    for (final id in _configurableHarnesses) {
+    for (final id in HarnessId.values) {
       _syncController(
         _harnessControllers[id]!,
         widget.state.harnessOverridesDraft[id] ?? '',
@@ -237,7 +230,7 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
               SizedBox(height: spacing.space3),
               _HarnessesSection(
                 state: state,
-                harnesses: _configurableHarnesses,
+                harnesses: HarnessId.values,
                 controllers: _harnessControllers,
                 onOverrideChanged: controller.setHarnessOverride,
                 onBrowseOverride: (id) =>

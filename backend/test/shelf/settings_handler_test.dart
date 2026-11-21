@@ -93,7 +93,8 @@ void main() {
       final response = await handler(buildRequest('/api/v1/settings'));
       expect(response.statusCode, 200);
       final settings = AppSettings.fromJson(await readJson(response));
-      expect(settings.agentsDir, p.join(tempDir.path, 'agents'));
+      expect(settings.agentsDir, isNull);
+      expect(settings.effectiveAgentsDir, p.join(tempDir.path, 'agents'));
       expect(settings.defaultAgentsDir, p.join(tempDir.path, 'agents'));
       expect(settings.defaultWorkspaceDir, isNull);
       expect(settings.harnessOverrides, isEmpty);
@@ -114,6 +115,7 @@ void main() {
       expect(response.statusCode, 200);
       final settings = AppSettings.fromJson(await readJson(response));
       expect(settings.agentsDir, customDir.path);
+      expect(settings.effectiveAgentsDir, customDir.path);
       expect(settings.defaultWorkspaceDir, tempDir.path);
     });
 

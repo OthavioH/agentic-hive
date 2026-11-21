@@ -12,16 +12,17 @@ import 'package:flutter_test/flutter_test.dart';
 final class _FakeSettingsRepository implements SettingsRepository {
   Result<AppSettings> getResult = const Success(
     AppSettings(
-      agentsDir: '/default/agents',
+      effectiveAgentsDir: '/default/agents',
       defaultAgentsDir: '/default/agents',
     ),
   );
   Result<AppSettings> updateResult = const Success(
     AppSettings(
-      agentsDir: '/default/agents',
+      effectiveAgentsDir: '/default/agents',
       defaultAgentsDir: '/default/agents',
     ),
   );
+  Completer<Result<AppSettings>>? pendingUpdate;
   UpdateSettingsRequest? lastRequest;
   final StreamController<AppSettings> updates =
       StreamController<AppSettings>.broadcast();
@@ -30,11 +31,12 @@ final class _FakeSettingsRepository implements SettingsRepository {
   Future<Result<AppSettings>> getSettings() async => getResult;
 
   @override
-  Future<Result<AppSettings>> updateSettings(
-    UpdateSettingsRequest request,
-  ) async {
+  Future<Result<AppSettings>> updateSettings(UpdateSettingsRequest request) {
     lastRequest = request;
-    return updateResult;
+    if (pendingUpdate != null) {
+      return pendingUpdate!.future;
+    }
+    return Future<Result<AppSettings>>.value(updateResult);
   }
 
   @override
@@ -58,6 +60,7 @@ final class _FakeFilePickerDataSource implements FilePickerDataSource {
 void main() {
   const initialSettings = AppSettings(
     agentsDir: '/custom/agents',
+    effectiveAgentsDir: '/custom/agents',
     defaultAgentsDir: '/default/agents',
     defaultWorkspaceDir: '/workspace',
     harnessOverrides: <HarnessId, String>{
@@ -156,6 +159,7 @@ void main() {
 
         const savedSettings = AppSettings(
           agentsDir: '/valid/agents',
+          effectiveAgentsDir: '/valid/agents',
           defaultAgentsDir: '/default/agents',
           defaultWorkspaceDir: '/workspace',
           harnessOverrides: <HarnessId, String>{
@@ -234,6 +238,7 @@ void main() {
 
         const remoteUpdate = AppSettings(
           agentsDir: '/remote/agents',
+          effectiveAgentsDir: '/remote/agents',
           defaultAgentsDir: '/default/agents',
         );
         repo.updates.add(remoteUpdate);
@@ -249,6 +254,7 @@ void main() {
             .setAgentsDir('/local/draft');
         const remoteUpdate2 = AppSettings(
           agentsDir: '/remote/agents2',
+          effectiveAgentsDir: '/remote/agents2',
           defaultAgentsDir: '/default/agents',
         );
         repo.updates.add(remoteUpdate2);
@@ -257,6 +263,51 @@ void main() {
         state = container.read(settingsControllerProvider).requireValue;
         expect(state.saved, remoteUpdate2);
         expect(state.agentsDirDraft, '/local/draft');
+      },
+    );
+
+    test(
+      'preserves edits typed while save is in flight without overwriting',
+      () async {
+        final pending = Completer<Result<AppSettings>>();
+        final repo = _FakeSettingsRepository()
+          ..getResult = const Success(initialSettings)
+          ..pendingUpdate = pending;
+        addTearDown(repo.dispose);
+
+        final container = ProviderContainer.test(
+          overrides: [settingsRepositoryProvider.overrideWithValue(repo)],
+        );
+        final sub = container.listen(settingsControllerProvider, (_, _) {});
+        addTearDown(sub.close);
+
+        await container.read(settingsControllerProvider.future);
+        final notifier = container.read(settingsControllerProvider.notifier)
+          ..setAgentsDir('/saved/agents');
+
+        final saveFuture = notifier.save();
+        // Simulate edit to defaultWorkspaceDir while save() is in flight.
+        notifier.setDefaultWorkspaceDir('/new/workspace');
+
+        pending.complete(
+          const Success(
+            AppSettings(
+              agentsDir: '/saved/agents',
+              effectiveAgentsDir: '/saved/agents',
+              defaultAgentsDir: '/default/agents',
+              defaultWorkspaceDir: '/workspace',
+              harnessOverrides: <HarnessId, String>{
+                HarnessId.claudeCode: '/usr/local/bin/claude',
+              },
+            ),
+          ),
+        );
+        await saveFuture;
+
+        final after = container.read(settingsControllerProvider).requireValue;
+        expect(after.agentsDirDraft, '/saved/agents');
+        expect(after.defaultWorkspaceDirDraft, '/new/workspace');
+        expect(after.hasUnsavedChanges, isTrue);
       },
     );
   });

@@ -11,8 +11,9 @@ part 'app_settings.g.dart';
 sealed class AppSettings with _$AppSettings {
   /// Creates an application settings snapshot.
   const factory({
-    required String agentsDir,
+    required String effectiveAgentsDir,
     required String defaultAgentsDir,
+    String? agentsDir,
     String? defaultWorkspaceDir,
     @Default(<HarnessId, String>{}) Map<HarnessId, String> harnessOverrides,
   }) = _AppSettings;

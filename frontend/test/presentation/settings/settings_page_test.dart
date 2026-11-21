@@ -19,6 +19,7 @@ final class _FakeSettingsRepository implements SettingsRepository {
   Result<AppSettings> getResult = const Success(
     AppSettings(
       agentsDir: '/custom/agents',
+      effectiveAgentsDir: '/custom/agents',
       defaultAgentsDir: '/default/agents',
       defaultWorkspaceDir: '/workspace',
       harnessOverrides: <HarnessId, String>{
@@ -29,6 +30,7 @@ final class _FakeSettingsRepository implements SettingsRepository {
   Result<AppSettings> updateResult = const Success(
     AppSettings(
       agentsDir: '/custom/agents',
+      effectiveAgentsDir: '/custom/agents',
       defaultAgentsDir: '/default/agents',
     ),
   );
@@ -193,7 +195,7 @@ void main() {
 
         repo.updateResult = const Success(
           AppSettings(
-            agentsDir: '/default/agents',
+            effectiveAgentsDir: '/default/agents',
             defaultAgentsDir: '/default/agents',
             harnessOverrides: <HarnessId, String>{
               HarnessId.claudeCode: '/usr/local/bin/claude',

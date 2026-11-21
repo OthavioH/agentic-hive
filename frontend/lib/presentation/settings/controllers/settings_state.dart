@@ -21,7 +21,7 @@ sealed class SettingsState with _$SettingsState {
   /// Builds an initial [SettingsState] synchronized to [settings].
   factory fromAppSettings(AppSettings settings) => SettingsState(
     saved: settings,
-    agentsDirDraft: settings.agentsDir,
+    agentsDirDraft: settings.effectiveAgentsDir,
     defaultWorkspaceDirDraft: settings.defaultWorkspaceDir ?? '',
     harnessOverridesDraft: Map<HarnessId, String>.from(
       settings.harnessOverrides,
@@ -30,7 +30,7 @@ sealed class SettingsState with _$SettingsState {
 
   /// Whether any path or harness override draft differs from [saved].
   bool get hasUnsavedChanges {
-    if (agentsDirDraft.trim() != saved.agentsDir) return true;
+    if (agentsDirDraft.trim() != saved.effectiveAgentsDir) return true;
     final savedWorkspace = saved.defaultWorkspaceDir ?? '';
     if (defaultWorkspaceDirDraft.trim() != savedWorkspace) return true;
     return !_mapsEqual(normalizedHarnessOverrides, saved.harnessOverrides);

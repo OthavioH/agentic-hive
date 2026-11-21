@@ -84,7 +84,8 @@ void main() {
       final result = await service.getSettings();
       expect(result, isA<Success<AppSettings>>());
       final settings = (result as Success<AppSettings>).value;
-      expect(settings.agentsDir, defaultAgentsDir.path);
+      expect(settings.agentsDir, isNull);
+      expect(settings.effectiveAgentsDir, defaultAgentsDir.path);
       expect(settings.defaultAgentsDir, defaultAgentsDir.path);
       expect(settings.defaultWorkspaceDir, isNull);
       expect(settings.harnessOverrides, isEmpty);
@@ -159,6 +160,7 @@ void main() {
         expect(updateRes, isA<Success<AppSettings>>());
         final updated = (updateRes as Success<AppSettings>).value;
         expect(updated.agentsDir, customAgentsDir.path);
+        expect(updated.effectiveAgentsDir, customAgentsDir.path);
         expect(updated.defaultWorkspaceDir, workspaceDir.path);
 
         // F2 repository & watcher switched without moving files.
@@ -175,12 +177,138 @@ void main() {
         );
         expect(resetRes, isA<Success<AppSettings>>());
         final reset = (resetRes as Success<AppSettings>).value;
-        expect(reset.agentsDir, defaultAgentsDir.path);
+        expect(reset.agentsDir, isNull);
+        expect(reset.effectiveAgentsDir, defaultAgentsDir.path);
         expect(reset.defaultWorkspaceDir, isNull);
         expect(agentRepository.agentsDir, defaultAgentsDir.path);
         expect(agentWatcher.agentsDir, defaultAgentsDir.path);
       },
     );
+
+    test(
+      'uses config.agentsDir as single source of truth for default and reset',
+      () async {
+        final yamlAgentsDir = Directory(p.join(tempDir.path, 'yaml-agents'))
+          ..createSync();
+        final yamlAgentRepo = LocalAgentRepository(
+          agentsDir: yamlAgentsDir.path,
+        );
+        final yamlWatcher = AgentDirectoryWatcher(
+          agentsDir: yamlAgentsDir.path,
+          repository: yamlAgentRepo,
+          registry: ConnectionRegistry(),
+        );
+        final yamlService = DefaultSettingsService(
+          repository: repository,
+          config: AppConfig(
+            mode: RuntimeMode.development,
+            dataDir: tempDir.path,
+            agentsDir: yamlAgentsDir.path,
+          ),
+          executableValidator: executableValidator,
+          agentRepository: yamlAgentRepo,
+          agentDirectoryWatcher: yamlWatcher,
+          harnessService: harnessService,
+        );
+        addTearDown(() async {
+          await yamlService.dispose();
+          await yamlWatcher.close();
+        });
+
+        final initial =
+            (await yamlService.getSettings() as Success<AppSettings>).value;
+        expect(initial.agentsDir, isNull);
+        expect(initial.effectiveAgentsDir, yamlAgentsDir.path);
+        expect(initial.defaultAgentsDir, yamlAgentsDir.path);
+
+        await yamlService.updateSettings(
+          UpdateSettingsRequest(agentsDir: customAgentsDir.path),
+        );
+        final reset = (await yamlService.updateSettings(
+          const UpdateSettingsRequest(),
+        ) as Success<AppSettings>).value;
+        expect(reset.agentsDir, isNull);
+        expect(reset.effectiveAgentsDir, yamlAgentsDir.path);
+        expect(reset.defaultAgentsDir, yamlAgentsDir.path);
+        expect(yamlAgentRepo.agentsDir, yamlAgentsDir.path);
+      },
+    );
+
+    test(
+      'applyPersistedSettings does not recreate deleted custom agentsDir and '
+      'falls back to default',
+      () async {
+        final deletedCustom = Directory(p.join(tempDir.path, 'deleted-custom'))
+          ..createSync();
+        await service.updateSettings(
+          UpdateSettingsRequest(agentsDir: deletedCustom.path),
+        );
+        deletedCustom.deleteSync(recursive: true);
+
+        final freshAgentRepo = LocalAgentRepository(
+          agentsDir: defaultAgentsDir.path,
+        );
+        final freshWatcher = AgentDirectoryWatcher(
+          agentsDir: defaultAgentsDir.path,
+          repository: freshAgentRepo,
+          registry: ConnectionRegistry(),
+        );
+        final freshService = DefaultSettingsService(
+          repository: repository,
+          config: AppConfig(
+            mode: RuntimeMode.development,
+            dataDir: tempDir.path,
+          ),
+          executableValidator: executableValidator,
+          agentRepository: freshAgentRepo,
+          agentDirectoryWatcher: freshWatcher,
+          harnessService: harnessService,
+        );
+        addTearDown(() async {
+          await freshService.dispose();
+          await freshWatcher.close();
+        });
+
+        await freshService.applyPersistedSettings();
+        expect(deletedCustom.existsSync(), isFalse);
+        expect(freshAgentRepo.agentsDir, defaultAgentsDir.path);
+        expect(freshWatcher.agentsDir, defaultAgentsDir.path);
+      },
+    );
+
+    test('AgentDirectoryWatcher.start(createDirectory: false) fails without '
+        'creating missing custom folder', () async {
+      final missingDir = Directory(p.join(tempDir.path, 'missing-custom'));
+      final customWatcher = AgentDirectoryWatcher(
+        agentsDir: missingDir.path,
+        repository: agentRepository,
+        registry: ConnectionRegistry(),
+      );
+      addTearDown(customWatcher.close);
+
+      await expectLater(
+        customWatcher.start(createDirectory: false),
+        throwsA(isA<FileSystemException>()),
+      );
+      expect(missingDir.existsSync(), isFalse);
+    });
+
+    test('serializes concurrent updateSettings calls cleanly', () async {
+      final results = await Future.wait([
+        service.updateSettings(
+          UpdateSettingsRequest(agentsDir: customAgentsDir.path),
+        ),
+        service.updateSettings(
+          UpdateSettingsRequest(defaultWorkspaceDir: workspaceDir.path),
+        ),
+      ]);
+
+      expect(results, everyElement(isA<Success<AppSettings>>()));
+      final finalSettings =
+          (await service.getSettings() as Success<AppSettings>).value;
+      expect(finalSettings.agentsDir, isNull);
+      expect(finalSettings.defaultWorkspaceDir, workspaceDir.path);
+    });
 
     test('updates harnessOverrides and triggers F3 re-detection only for '
         'changed harnesses', () async {

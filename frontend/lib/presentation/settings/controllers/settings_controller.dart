@@ -4,6 +4,7 @@ import 'package:agentic_hive_frontend/core/di/use_case_providers.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/presentation/settings/controllers/settings_state.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+import 'package:path/path.dart' as p;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 export 'settings_state.dart';
@@ -121,7 +122,11 @@ class SettingsController extends _$SettingsController {
   Future<void> browseHarnessExecutable(HarnessId id) async {
     final current = state.value;
     if (current == null) return;
-    final picked = await ref.read(pickFileProvider)();
+    final existing = current.harnessOverridesDraft[id]?.trim() ?? '';
+    final initialDir = existing.isEmpty ? null : p.dirname(existing);
+    final picked = await ref.read(pickFileProvider)(
+      initialDirectory: initialDir,
+    );
     if (!ref.mounted || picked == null) return;
     setHarnessOverride(id, picked);
   }
@@ -159,7 +164,12 @@ class SettingsController extends _$SettingsController {
     final latest = state.value ?? current;
     return switch (result) {
       Success<AppSettings>(:final value) => () {
-        state = AsyncData(SettingsState.fromAppSettings(value));
+        final next = _mergeSavedWithConcurrentEdits(
+          saved: value,
+          atSaveStart: current,
+          latest: latest,
+        );
+        state = AsyncData(next);
         return const Success<void>(null);
       }(),
       FailureResult<AppSettings>(:final failure) => () {
@@ -172,6 +182,40 @@ class SettingsController extends _$SettingsController {
         return FailureResult<void>(failure);
       }(),
     };
+  }
+
+  SettingsState _mergeSavedWithConcurrentEdits({
+    required AppSettings saved,
+    required SettingsState atSaveStart,
+    required SettingsState latest,
+  }) {
+    final base = SettingsState.fromAppSettings(saved);
+    final agentsDirDraft = latest.agentsDirDraft == atSaveStart.agentsDirDraft
+        ? base.agentsDirDraft
+        : latest.agentsDirDraft;
+    final workspaceDraft =
+        latest.defaultWorkspaceDirDraft == atSaveStart.defaultWorkspaceDirDraft
+        ? base.defaultWorkspaceDirDraft
+        : latest.defaultWorkspaceDirDraft;
+    final mergedOverrides = Map<HarnessId, String>.from(
+      base.harnessOverridesDraft,
+    );
+    for (final id in HarnessId.values) {
+      final started = atSaveStart.harnessOverridesDraft[id] ?? '';
+      final current = latest.harnessOverridesDraft[id] ?? '';
+      if (current != started) {
+        if (current.isEmpty) {
+          mergedOverrides.remove(id);
+        } else {
+          mergedOverrides[id] = current;
+        }
+      }
+    }
+    return base.copyWith(
+      agentsDirDraft: agentsDirDraft,
+      defaultWorkspaceDirDraft: workspaceDraft,
+      harnessOverridesDraft: mergedOverrides,
+    );
   }
 
   void _onSettingsUpdated(AppSettings updated) {

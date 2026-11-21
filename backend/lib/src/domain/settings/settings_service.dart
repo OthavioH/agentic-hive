@@ -9,7 +9,9 @@ import 'package:agentic_hive_backend/src/data/agents/local_agent_repository.dart
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_service.dart';
 import 'package:agentic_hive_backend/src/domain/settings/executable_validator.dart';
 import 'package:agentic_hive_backend/src/domain/settings/settings_repository.dart';
+import 'package:agentic_hive_backend/src/logging/log_event.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 
 /// Manages runtime application settings, atomic validation, SQLite
@@ -55,6 +57,8 @@ final class DefaultSettingsService implements SettingsService {
   /// SQLite key prefix for per-harness executable overrides.
   static const harnessOverridePrefix = 'harness_override.';
 
+  static final _log = Logger('settings');
+
   final SettingsRepository _repository;
   final AppConfig _config;
   final ExecutableValidator _executableValidator;
@@ -65,8 +69,9 @@ final class DefaultSettingsService implements SettingsService {
 
   final StreamController<AppSettings> _updatesController =
       StreamController<AppSettings>.broadcast();
+  Future<void> _updateLock = Future<void>.value();
 
-  String get _defaultAgentsDir => _path.join(_config.dataDir, 'agents');
+  String get _defaultAgentsDir => _config.agentsDir;
 
   @override
   Stream<AppSettings> get settingsUpdates => _updatesController.stream;
@@ -80,25 +85,94 @@ final class DefaultSettingsService implements SettingsService {
   @override
   Future<Result<AppSettings>> applyPersistedSettings() async {
     final result = await getSettings();
-    if (result case Success(:final value)) {
-      if (!_path.equals(
-        _path.normalize(value.agentsDir),
-        _path.normalize(_agentRepository.agentsDir),
-      )) {
-        await Directory(value.agentsDir).create(recursive: true);
-        _agentRepository.agentsDir = value.agentsDir;
-        await _agentDirectoryWatcher.switchDirectory(value.agentsDir);
-      }
-      await _harnessService.applyExecutableOverrides(
-        value.harnessOverrides,
-        triggerRefresh: false,
+    switch (result) {
+      case FailureResult(:final failure):
+        _log.warning(
+          LogEvent(
+            'settings.apply_persisted_failed',
+            fields: {'message': failure.message},
+          ),
+        );
+        return result;
+      case Success(:final value):
+        if (value.agentsDir != null &&
+            !Directory(value.effectiveAgentsDir).existsSync()) {
+          _log.warning(
+            LogEvent(
+              'settings.custom_agents_dir_missing',
+              fields: {
+                'agentsDir': value.effectiveAgentsDir,
+                'fallbackDir': _defaultAgentsDir,
+              },
+            ),
+          );
+          await _ensureDefaultAndSwitch();
+        } else if (!_path.equals(
+          _path.normalize(value.effectiveAgentsDir),
+          _path.normalize(_agentRepository.agentsDir),
+        )) {
+          try {
+            await _agentDirectoryWatcher.switchDirectory(
+              value.effectiveAgentsDir,
+              createDirectory: value.agentsDir == null,
+            );
+            _agentRepository.agentsDir = value.effectiveAgentsDir;
+          } on Object catch (error, stackTrace) {
+            _log.warning(
+              LogEvent(
+                'settings.switch_agents_dir_failed',
+                fields: {'agentsDir': value.effectiveAgentsDir},
+              ),
+              error,
+              stackTrace,
+            );
+          }
+        }
+        await _harnessService.applyExecutableOverrides(
+          value.harnessOverrides,
+          triggerRefresh: false,
+        );
+        return result;
+    }
+  }
+
+  Future<void> _ensureDefaultAndSwitch() async {
+    try {
+      await Directory(_defaultAgentsDir).create(recursive: true);
+      _agentRepository.agentsDir = _defaultAgentsDir;
+      await _agentDirectoryWatcher.switchDirectory(
+        _defaultAgentsDir,
+        createDirectory: true,
+      );
+    } on Object catch (error, stackTrace) {
+      _log.warning(
+        LogEvent(
+          'settings.fallback_agents_dir_failed',
+          fields: {'agentsDir': _defaultAgentsDir},
+        ),
+        error,
+        stackTrace,
       );
     }
-    return result;
+  }
+
+  Future<T> _synchronized<T>(Future<T> Function() action) {
+    final completer = Completer<T>();
+    _updateLock = _updateLock.then((_) async {
+      try {
+        completer.complete(await action());
+      } on Object catch (error, stackTrace) {
+        completer.completeError(error, stackTrace);
+      }
+    });
+    return completer.future;
   }
 
   @override
-  Future<Result<AppSettings>> updateSettings(
+  Future<Result<AppSettings>> updateSettings(UpdateSettingsRequest request) =>
+      _synchronized(() => _performUpdateSettings(request));
+
+  Future<Result<AppSettings>> _performUpdateSettings(
     UpdateSettingsRequest request,
   ) async {
     final currentResult = await getSettings();
@@ -158,38 +232,45 @@ final class DefaultSettingsService implements SettingsService {
       );
     }
 
-    final effectiveAgentsDir = hasCustomAgentsDir
-        ? rawAgentsDir
-        : _defaultAgentsDir;
+    final customAgentsDir = hasCustomAgentsDir ? rawAgentsDir : null;
+    final effectiveAgentsDir = customAgentsDir ?? _defaultAgentsDir;
     if (!hasCustomAgentsDir) {
       await Directory(effectiveAgentsDir).create(recursive: true);
     }
 
-    final changes = <String, String?>{
-      agentsDirKey: hasCustomAgentsDir ? rawAgentsDir : null,
-      defaultWorkspaceDirKey: hasWorkspaceDir ? rawWorkspaceDir : null,
-      for (final id in HarnessId.values)
-        '$harnessOverridePrefix${id.wireName}': normalizedOverrides[id],
-    };
-
-    final persistResult = await _repository.applyChanges(changes);
-    if (persistResult case FailureResult(:final failure)) {
-      return FailureResult(failure);
-    }
-
     final updated = AppSettings(
-      agentsDir: effectiveAgentsDir,
+      agentsDir: customAgentsDir,
+      effectiveAgentsDir: effectiveAgentsDir,
       defaultAgentsDir: _defaultAgentsDir,
       defaultWorkspaceDir: hasWorkspaceDir ? rawWorkspaceDir : null,
       harnessOverrides: normalizedOverrides,
     );
 
+    final persistResult = await _repository.applyChanges(_changesFor(updated));
+    if (persistResult case FailureResult(:final failure)) {
+      return FailureResult(failure);
+    }
+
     if (!_path.equals(
-      _path.normalize(current.agentsDir),
-      _path.normalize(updated.agentsDir),
+      _path.normalize(current.effectiveAgentsDir),
+      _path.normalize(updated.effectiveAgentsDir),
     )) {
-      _agentRepository.agentsDir = updated.agentsDir;
-      await _agentDirectoryWatcher.switchDirectory(updated.agentsDir);
+      try {
+        await _agentDirectoryWatcher.switchDirectory(
+          updated.effectiveAgentsDir,
+          createDirectory: !hasCustomAgentsDir,
+        );
+        _agentRepository.agentsDir = updated.effectiveAgentsDir;
+      } on Object catch (error) {
+        _agentRepository.agentsDir = current.effectiveAgentsDir;
+        await _repository.applyChanges(_changesFor(current));
+        return FailureResult(
+          PersistenceFailure(
+            'Failed to switch agents directory.',
+            cause: error,
+          ),
+        );
+      }
     }
 
     await _harnessService.applyExecutableOverrides(updated.harnessOverrides);
@@ -201,14 +282,23 @@ final class DefaultSettingsService implements SettingsService {
     return Success(updated);
   }
 
+  Map<String, String?> _changesFor(AppSettings settings) => <String, String?>{
+    agentsDirKey: settings.agentsDir,
+    defaultWorkspaceDirKey: settings.defaultWorkspaceDir,
+    for (final id in HarnessId.values)
+      '$harnessOverridePrefix${id.wireName}': settings.harnessOverrides[id],
+  };
+
   @override
   Future<void> dispose() => _updatesController.close();
 
   AppSettings _mergeWithDefaults(Map<String, String> stored) {
     final storedAgentsDir = stored[agentsDirKey]?.trim();
-    final agentsDir = (storedAgentsDir != null && storedAgentsDir.isNotEmpty)
+    final customAgentsDir =
+        (storedAgentsDir != null && storedAgentsDir.isNotEmpty)
         ? storedAgentsDir
-        : _config.agentsDir;
+        : null;
+    final effectiveAgentsDir = customAgentsDir ?? _defaultAgentsDir;
 
     final storedWorkspace = stored[defaultWorkspaceDirKey]?.trim();
     final defaultWorkspaceDir =
@@ -225,7 +315,8 @@ final class DefaultSettingsService implements SettingsService {
     }
 
     return AppSettings(
-      agentsDir: agentsDir,
+      agentsDir: customAgentsDir,
+      effectiveAgentsDir: effectiveAgentsDir,
       defaultAgentsDir: _defaultAgentsDir,
       defaultWorkspaceDir: defaultWorkspaceDir,
       harnessOverrides: overrides,

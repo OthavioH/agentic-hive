@@ -14,13 +14,14 @@ import 'package:flutter_test/flutter_test.dart';
 final class _FakeSettingsRepository implements SettingsRepository {
   Result<AppSettings> getResult = const Success(
     AppSettings(
-      agentsDir: '/default/agents',
+      effectiveAgentsDir: '/default/agents',
       defaultAgentsDir: '/default/agents',
     ),
   );
   Result<AppSettings> updateResult = const Success(
     AppSettings(
       agentsDir: '/custom/agents',
+      effectiveAgentsDir: '/custom/agents',
       defaultAgentsDir: '/default/agents',
     ),
   );
@@ -73,12 +74,13 @@ void main() {
 
         const updated = AppSettings(
           agentsDir: '/custom/agents',
+          effectiveAgentsDir: '/custom/agents',
           defaultAgentsDir: '/default/agents',
         );
         const request = UpdateSettingsRequest(agentsDir: '/custom/agents');
 
         expect(
-          (await GetSettings(repo)()).valueOrNull?.agentsDir,
+          (await GetSettings(repo)()).valueOrNull?.effectiveAgentsDir,
           '/default/agents',
         );
         expect((await UpdateSettings(repo)(request)).valueOrNull, updated);

@@ -29,6 +29,8 @@ final class _InMemoryAgentRepository implements AgentRepository {
     diskOverrideHash = detail.contentHash;
   }
 
+  void clearStore() => _store.clear();
+
   @override
   Future<Result<List<AgentSummary>>> listAgents() async => Success(
     _store.values
@@ -388,5 +390,39 @@ void main() {
         );
       },
     );
+
+    test('reloads agents list when folder switch emits agents.changed without '
+        'summary', () async {
+      final repo = _InMemoryAgentRepository()..putOnDisk(sampleReviewer);
+      addTearDown(repo.dispose);
+
+      final container = ProviderContainer.test(
+        overrides: [agentRepositoryProvider.overrideWithValue(repo)],
+      )..listen(agentsControllerProvider, (_, _) {});
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        container.read(agentsControllerProvider).agents.value?.map((a) => a.id),
+        <String>['reviewer'],
+      );
+
+      // Simulate backend switching to a new agents directory.
+      final switchedAgent = sampleReviewer.copyWith(
+        id: 'architect',
+        name: 'Architect',
+      );
+      repo
+        ..clearStore()
+        ..putOnDisk(switchedAgent)
+        ..emitChange(
+          const AgentsChangedPayload(kind: AgentChangeKind.updated, id: '*'),
+        );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        container.read(agentsControllerProvider).agents.value?.map((a) => a.id),
+        <String>['architect'],
+      );
+    });
   });
 }

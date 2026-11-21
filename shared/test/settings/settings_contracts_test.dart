@@ -11,6 +11,7 @@ void main() {
     test('round-trips through JSON with all fields', () {
       const settings = AppSettings(
         agentsDir: '/custom/agents',
+        effectiveAgentsDir: '/custom/agents',
         defaultAgentsDir: '/data/agents',
         defaultWorkspaceDir: '/projects/workspace',
         harnessOverrides: {
@@ -25,17 +26,18 @@ void main() {
 
     test('defaults optional fields when omitted', () {
       final decoded = AppSettings.fromJson({
-        'agentsDir': '/data/agents',
+        'effectiveAgentsDir': '/data/agents',
         'defaultAgentsDir': '/data/agents',
       });
 
+      expect(decoded.agentsDir, isNull);
       expect(decoded.defaultWorkspaceDir, isNull);
       expect(decoded.harnessOverrides, isEmpty);
     });
 
     test('throws FormatException on invalid shape', () {
       expect(
-        () => AppSettings.fromJson({'agentsDir': '/data/agents'}),
+        () => AppSettings.fromJson({'effectiveAgentsDir': '/data/agents'}),
         throwsA(isA<FormatException>()),
       );
     });
@@ -75,7 +77,7 @@ void main() {
     test('round-trips SettingsUpdatedPayload through JSON', () {
       const payload = SettingsUpdatedPayload(
         settings: AppSettings(
-          agentsDir: '/data/agents',
+          effectiveAgentsDir: '/data/agents',
           defaultAgentsDir: '/data/agents',
           harnessOverrides: {HarnessId.codex: '/usr/local/bin/codex'},
         ),
