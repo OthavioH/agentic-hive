@@ -9,10 +9,12 @@ import 'package:agentic_hive_frontend/core/lifecycle/backend_launcher.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/tray_service.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/window_lifecycle_service.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
+import 'package:agentic_hive_frontend/data/pauses/pause_providers.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/connecting/pages/connecting_page.dart';
 import 'package:agentic_hive_frontend/presentation/error/pages/route_error_page.dart';
 import 'package:agentic_hive_frontend/presentation/overview/pages/overview_page.dart';
+import 'package:agentic_hive_frontend/presentation/pauses/pages/pauses_page.dart';
 import 'package:agentic_hive_frontend/presentation/runs/pages/run_detail_page.dart';
 import 'package:agentic_hive_frontend/presentation/runs/pages/runs_page.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/pages/workflows_page.dart';
@@ -23,6 +25,8 @@ import 'package:design_system/design_system.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+
+import '../presentation/pauses/fake_pause_repository.dart';
 
 final class _FakeWebSocketSession implements BackendWebSocketSession {
   final StreamController<WsEnvelope> _messages =
@@ -386,5 +390,51 @@ void main() {
         .go(const RunDetailRoute(id: 'run-42').location);
     await tester.pumpAndSettle();
     expect(find.byType(RunDetailPage), findsOneWidget);
+  });
+
+  testWidgets('resolves /pauses route and updates side rail badge count', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final pause1 = Pause(
+      id: 'p1',
+      runId: 'r1',
+      nodeId: 'n1',
+      kind: PauseKind.humanApproval,
+      status: PauseStatus.pending,
+      workflowName: 'WF',
+      nodeLabel: 'Gate',
+      createdAt: DateTime.utc(2026, 11, 21, 10),
+    );
+    final pause2 = pause1.copyWith(id: 'p2', nodeLabel: 'Gate 2');
+    final repo = FakePauseRepository(initial: <Pause>[pause1]);
+    addTearDown(repo.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          backendClientProvider.overrideWithValue(_FakeBackendClient()),
+          pauseRepositoryProvider.overrideWithValue(repo),
+        ],
+        child: const HiveApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel('Pauses, 1 pending'), findsOneWidget);
+
+    repo.emitCreated(pause2);
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('Pauses, 2 pending'), findsOneWidget);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(HiveApp)),
+    );
+    container.read(appRouterProvider).go(PausesRoute.path);
+    await tester.pumpAndSettle();
+    expect(find.byType(PausesPage), findsOneWidget);
   });
 }
