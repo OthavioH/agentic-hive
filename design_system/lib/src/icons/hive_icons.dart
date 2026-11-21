@@ -159,6 +159,11 @@ abstract final class HiveIcons {
     HugeIcons.strokeRoundedArrowDown01,
   );
 
+  /// Jump to the newest line of a live log.
+  static const HiveIconData scrollToBottom = _HugeGlyph(
+    HugeIcons.strokeRoundedArrowDownDouble,
+  );
+
   /// Search.
   static const HiveIconData search = _HugeGlyph(
     HugeIcons.strokeRoundedSearch01,
@@ -272,6 +277,7 @@ abstract final class HiveIcons {
     'info': info,
     'success': success,
     'chevronDown': chevronDown,
+    'scrollToBottom': scrollToBottom,
     'search': search,
     'refresh': refresh,
     'more': more,

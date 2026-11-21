@@ -110,7 +110,10 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
       ),
       WidgetbookFolder(
         name: 'Data',
-        children: <WidgetbookNode>[codeBlockComponent()],
+        children: <WidgetbookNode>[
+          codeBlockComponent(),
+          logStreamViewerComponent(),
+        ],
       ),
       WidgetbookFolder(
         name: 'Feedback',
