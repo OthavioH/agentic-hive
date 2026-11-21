@@ -1,13 +1,15 @@
 import 'package:design_system/src/components/hive_button.dart';
+import 'package:design_system/src/icons/hive_icons.dart';
 import 'package:design_system/src/tokens/hive_tokens_context.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// A modal panel with a title, an optional message and content, and a row
-/// of `HiveButton` actions aligned to the end.
+/// A modal panel that asks the user to confirm or choose: a title, an
+/// optional icon, message or custom content, and a row of actions.
 ///
 /// Drawn as a `surface2` panel with `radiusPanel`, a `borderSubtle`
-/// hairline and the medium shadow token. Show it with [HiveDialog.show],
-/// or use [HiveDialog.confirm] for the common cancel/confirm case.
+/// hairline and the medium shadow token. Show it with [HiveDialog.show] or
+/// [showHiveDialog], or use [HiveDialog.confirm] for the common
+/// cancel/confirm case. It can also be placed inline (Widgetbook, tests).
 class HiveDialog extends StatelessWidget {
   /// Creates a dialog.
   const new({
@@ -15,19 +17,23 @@ class HiveDialog extends StatelessWidget {
     required this.actions,
     this.message,
     this.content,
+    this.icon,
     super.key,
   });
 
-  /// Heading; also names the dialog route for screen readers.
+  /// Short headline; also names the dialog route for screen readers.
   final String title;
 
-  /// Short supporting text under the title.
+  /// Optional supporting text below the title.
   final String? message;
 
-  /// Optional extra content (a form field, a list) under the message.
+  /// Optional custom content (a form field, a list) below the message.
   final Widget? content;
 
-  /// The buttons, least important first; the last one is the confirm.
+  /// Optional icon shown in a circle above the title.
+  final HiveIconData? icon;
+
+  /// The actions, laid out at the end of the panel in order.
   final List<Widget> actions;
 
   /// Shows the dialog built by [builder] over a `background` scrim.
@@ -124,8 +130,9 @@ class HiveDialog extends StatelessWidget {
     final spacing = context.hiveSpacing;
     final typography = context.hiveTypography;
     final elevation = context.hiveElevation;
-    final text = message;
-    final body = content;
+    final glyph = icon;
+    final body = message;
+    final extra = content;
 
     return Center(
       child: Padding(
@@ -139,52 +146,95 @@ class HiveDialog extends StatelessWidget {
             label: title,
             child: Material(
               type: MaterialType.transparency,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: colors.surface2,
-                  borderRadius: context.hiveRadii.panel,
-                  border: Border.all(
-                    color: colors.borderSubtle,
-                    width: elevation.hairline,
+              child: FocusTraversalGroup(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colors.surface2,
+                    borderRadius: context.hiveRadii.panel,
+                    border: Border.all(
+                      color: colors.borderSubtle,
+                      width: elevation.hairline,
+                    ),
+                    boxShadow: elevation.shadowMedium,
                   ),
-                  boxShadow: elevation.shadowMedium,
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(spacing.space4),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      Semantics(
-                        header: true,
-                        child: Text(
-                          title,
-                          style: typography.title.copyWith(
-                            color: colors.onSurface,
+                  child: Padding(
+                    padding: EdgeInsets.all(spacing.space4),
+                    child: DefaultTextStyle(
+                      style: typography.body.copyWith(color: colors.onSurface),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          if (glyph != null) ...<Widget>[
+                            Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: colors.surface3,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: colors.borderSubtle,
+                                    width: elevation.hairline,
+                                  ),
+                                ),
+                                child: Padding(
+                                  padding: EdgeInsets.all(spacing.space1),
+                                  child: HiveIcon(
+                                    glyph,
+                                    size: spacing.space3,
+                                    color: colors.onSurface,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SizedBox(height: spacing.space2),
+                          ],
+                          Semantics(
+                            header: true,
+                            child: Text(
+                              title,
+                              style: typography.titleSmall.copyWith(
+                                color: colors.onSurface,
+                              ),
+                            ),
                           ),
-                        ),
+                          if (body != null || extra != null)
+                            Flexible(
+                              child: SingleChildScrollView(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: <Widget>[
+                                    if (body != null) ...<Widget>[
+                                      SizedBox(height: spacing.space1),
+                                      Text(
+                                        body,
+                                        style: typography.body.copyWith(
+                                          color: colors.onSurfaceMuted,
+                                        ),
+                                      ),
+                                    ],
+                                    if (extra != null) ...<Widget>[
+                                      SizedBox(height: spacing.space2),
+                                      extra,
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                          if (actions.isNotEmpty) ...<Widget>[
+                            SizedBox(height: spacing.space4),
+                            OverflowBar(
+                              alignment: MainAxisAlignment.end,
+                              spacing: spacing.space1,
+                              overflowSpacing: spacing.space1,
+                              overflowAlignment: OverflowBarAlignment.end,
+                              children: actions,
+                            ),
+                          ],
+                        ],
                       ),
-                      if (text != null) ...<Widget>[
-                        SizedBox(height: spacing.space1),
-                        Text(
-                          text,
-                          style: typography.body.copyWith(
-                            color: colors.onSurfaceMuted,
-                          ),
-                        ),
-                      ],
-                      if (body != null) ...<Widget>[
-                        SizedBox(height: spacing.space3),
-                        Flexible(child: SingleChildScrollView(child: body)),
-                      ],
-                      SizedBox(height: spacing.space4),
-                      Wrap(
-                        alignment: WrapAlignment.end,
-                        spacing: spacing.space1,
-                        runSpacing: spacing.space1,
-                        children: actions,
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -195,3 +245,19 @@ class HiveDialog extends StatelessWidget {
     );
   }
 }
+
+/// Shows a [HiveDialog] (or any widget from [builder]) as a modal route over
+/// a `background` scrim at `scrimOpacity`.
+///
+/// Delegates to [HiveDialog.show].
+Future<T?> showHiveDialog<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  required String barrierLabel,
+  bool barrierDismissible = true,
+}) => HiveDialog.show<T>(
+  context: context,
+  builder: builder,
+  barrierLabel: barrierLabel,
+  barrierDismissible: barrierDismissible,
+);

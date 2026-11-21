@@ -6,6 +6,7 @@ import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_service.dart';
 import 'package:agentic_hive_backend/src/http/api_handler.dart';
+import 'package:agentic_hive_backend/src/http/handlers/shutdown_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:shelf/shelf.dart';
@@ -278,6 +279,7 @@ void main() {
         dataDir: '/tmp',
         startedAt: DateTime.utc(2026, 11, 20, 11),
       ),
+      shutdownHandler: ShutdownHandler(onShutdown: () async {}),
       webSocketHandler: (_) => Response(418),
       runsHandler: RunsHandler(service: service),
     );

@@ -343,5 +343,129 @@ void main() {
       expect(secondResult, isA<Success<StatusResponse>>());
       expect((secondResult as Success<StatusResponse>).value.uptimeSeconds, 2);
     });
+
+    test('shutdown(force: false) posts request and returns Success on '
+        '202 Accepted', () async {
+      await _writeServerJson(tempDir, socketPath: socketPath);
+      final server = await HttpServer.bind(
+        InternetAddress(socketPath, type: InternetAddressType.unix),
+        0,
+      );
+      addTearDown(server.close);
+
+      ShutdownRequest? receivedRequest;
+      server.listen((request) async {
+        if (request.method == 'POST' &&
+            request.uri.path == '/api/v1/shutdown') {
+          final raw = await utf8.decoder.bind(request).join();
+          receivedRequest = ShutdownRequest.fromJson(
+            jsonDecode(raw) as Map<String, Object?>,
+          );
+          const payload = ShutdownResponse();
+          request.response
+            ..statusCode = HttpStatus.accepted
+            ..headers.contentType = ContentType.json
+            ..headers.set(HttpHeaders.connectionHeader, 'close')
+            ..write(jsonEncode(payload.toJson()));
+          await request.response.close();
+        }
+      });
+
+      final client = UnixSocketBackendClient(platformPaths: paths);
+      addTearDown(client.close);
+
+      final result = await client.shutdown(force: false);
+      expect(result, isA<Success<ShutdownResponse>>());
+      expect(
+        (result as Success<ShutdownResponse>).value.status,
+        'shutting_down',
+      );
+      expect(receivedRequest, const ShutdownRequest());
+    });
+
+    test(
+      'shutdown(force: false) maps 409 Conflict to BackendFailure',
+      () async {
+        await _writeServerJson(tempDir, socketPath: socketPath);
+        final server = await HttpServer.bind(
+          InternetAddress(socketPath, type: InternetAddressType.unix),
+          0,
+        );
+        addTearDown(server.close);
+
+        ShutdownRequest? receivedRequest;
+        server.listen((request) async {
+          if (request.method == 'POST' &&
+              request.uri.path == '/api/v1/shutdown') {
+            final raw = await utf8.decoder.bind(request).join();
+            receivedRequest = ShutdownRequest.fromJson(
+              jsonDecode(raw) as Map<String, Object?>,
+            );
+            const error = ApiError(
+              code: ApiErrorCode.conflict,
+              message: 'Cannot shut down while 2 runs are active.',
+            );
+            request.response
+              ..statusCode = HttpStatus.conflict
+              ..headers.contentType = ContentType.json
+              ..headers.set(HttpHeaders.connectionHeader, 'close')
+              ..write(jsonEncode(error.toJson()));
+            await request.response.close();
+          }
+        });
+
+        final client = UnixSocketBackendClient(platformPaths: paths);
+        addTearDown(client.close);
+
+        final result = await client.shutdown(force: false);
+        expect(result, isA<FailureResult<ShutdownResponse>>());
+        final failure =
+            (result as FailureResult<ShutdownResponse>).failure
+                as BackendFailure;
+        expect(failure.statusCode, HttpStatus.conflict);
+        expect(failure.code, ApiErrorCode.conflict);
+        expect(failure.message, 'Cannot shut down while 2 runs are active.');
+        expect(receivedRequest, const ShutdownRequest());
+      },
+    );
+
+    test('shutdown(force: true) posts force=true and returns Success on '
+        '202 Accepted', () async {
+      await _writeServerJson(tempDir, socketPath: socketPath);
+      final server = await HttpServer.bind(
+        InternetAddress(socketPath, type: InternetAddressType.unix),
+        0,
+      );
+      addTearDown(server.close);
+
+      ShutdownRequest? receivedRequest;
+      server.listen((request) async {
+        if (request.method == 'POST' &&
+            request.uri.path == '/api/v1/shutdown') {
+          final raw = await utf8.decoder.bind(request).join();
+          receivedRequest = ShutdownRequest.fromJson(
+            jsonDecode(raw) as Map<String, Object?>,
+          );
+          const payload = ShutdownResponse();
+          request.response
+            ..statusCode = HttpStatus.accepted
+            ..headers.contentType = ContentType.json
+            ..headers.set(HttpHeaders.connectionHeader, 'close')
+            ..write(jsonEncode(payload.toJson()));
+          await request.response.close();
+        }
+      });
+
+      final client = UnixSocketBackendClient(platformPaths: paths);
+      addTearDown(client.close);
+
+      final result = await client.shutdown(force: true);
+      expect(result, isA<Success<ShutdownResponse>>());
+      expect(
+        (result as Success<ShutdownResponse>).value.status,
+        'shutting_down',
+      );
+      expect(receivedRequest, const ShutdownRequest(force: true));
+    });
   });
 }

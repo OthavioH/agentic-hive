@@ -1,4 +1,5 @@
 import 'package:design_system/src/foundation/hive_field_frame.dart';
+import 'package:design_system/src/icons/hive_icons.dart';
 import 'package:design_system/src/tokens/hive_tokens_context.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -9,30 +10,41 @@ import 'package:material_ui/material_ui.dart';
 /// focused, a `danger` hairline when [errorText] is set and is announced to
 /// screen readers with [label] (or [semanticLabel]).
 class HiveTextField extends StatefulWidget {
-  /// Creates a text field.
+  /// Creates a text field. Give it a visible [label], or a [semanticLabel]
+  /// when the context already names it (for example a search input).
   const new({
-    required this.label,
+    this.label,
+    this.semanticLabel,
     this.controller,
     this.hint,
+    this.hintText,
     this.helperText,
     this.errorText,
+    this.leadingIcon,
+    this.trailing,
     this.multiline = false,
     this.minLines = 3,
     this.maxLines = 8,
     this.enabled = true,
     this.readOnly = false,
+    this.obscureText = false,
     this.onChanged,
     this.onSubmitted,
     this.textInputAction,
-    this.semanticLabel,
     this.statesController,
     this.focusNode,
     this.autofocus = false,
     super.key,
-  });
+  }) : assert(
+         label != null || semanticLabel != null,
+         'HiveTextField needs a visible label or a semanticLabel.',
+       );
 
   /// Visible label above the field.
-  final String label;
+  final String? label;
+
+  /// Accessibility label; defaults to [label].
+  final String? semanticLabel;
 
   /// Optional controller; the field owns one when null.
   final TextEditingController? controller;
@@ -40,11 +52,20 @@ class HiveTextField extends StatefulWidget {
   /// Placeholder shown while the field is empty.
   final String? hint;
 
+  /// Alias for [hint].
+  final String? hintText;
+
   /// Supporting text below the field; hidden while [errorText] is set.
   final String? helperText;
 
   /// Error message below the field; also turns the hairline `danger`.
   final String? errorText;
+
+  /// Optional leading icon inside a single-line field.
+  final HiveIconData? leadingIcon;
+
+  /// Optional trailing widget inside a single-line field.
+  final Widget? trailing;
 
   /// Whether the field accepts several lines (uses `radiusCard`).
   final bool multiline;
@@ -61,6 +82,9 @@ class HiveTextField extends StatefulWidget {
   /// Whether the text can be selected but not changed.
   final bool readOnly;
 
+  /// Whether to obscure the text (single-line only).
+  final bool obscureText;
+
   /// Called on every edit.
   final ValueChanged<String>? onChanged;
 
@@ -69,9 +93,6 @@ class HiveTextField extends StatefulWidget {
 
   /// The keyboard action button.
   final TextInputAction? textInputAction;
-
-  /// Accessibility label; defaults to [label].
-  final String? semanticLabel;
 
   /// Optional external states controller (hover, focus), for previews.
   final WidgetStatesController? statesController;
@@ -143,6 +164,9 @@ class _HiveTextFieldState extends State<HiveTextField> {
     final spacing = context.hiveSpacing;
     final states = _states.value;
     final enabled = widget.enabled;
+    final effectiveHint = widget.hint ?? widget.hintText;
+    final leading = widget.leadingIcon;
+    final trailing = widget.trailing;
 
     final field = TextField(
       controller: widget.controller,
@@ -150,6 +174,7 @@ class _HiveTextFieldState extends State<HiveTextField> {
       autofocus: widget.autofocus,
       enabled: enabled,
       readOnly: widget.readOnly,
+      obscureText: !widget.multiline && widget.obscureText,
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,
       textInputAction: widget.textInputAction,
@@ -161,10 +186,33 @@ class _HiveTextFieldState extends State<HiveTextField> {
       style: typography.body.copyWith(color: colors.onSurface),
       cursorColor: colors.onSurface,
       decoration: InputDecoration.collapsed(
-        hintText: widget.hint,
+        hintText: effectiveHint,
         hintStyle: typography.body.copyWith(color: colors.onSurfaceMuted),
       ),
     );
+
+    final Widget content;
+    if (leading == null && trailing == null) {
+      content = field;
+    } else {
+      content = Row(
+        children: <Widget>[
+          if (leading != null) ...<Widget>[
+            HiveIcon(
+              leading,
+              size: spacing.space2,
+              color: colors.onSurfaceMuted,
+            ),
+            SizedBox(width: spacing.space1),
+          ],
+          Expanded(child: field),
+          if (trailing != null) ...<Widget>[
+            SizedBox(width: spacing.space1),
+            trailing,
+          ],
+        ],
+      );
+    }
 
     return HiveFieldFrame(
       label: widget.label,
@@ -184,7 +232,7 @@ class _HiveTextFieldState extends State<HiveTextField> {
           label: widget.semanticLabel ?? widget.label,
           // The field brings its own transparent Material, so it works
           // without a Scaffold or Material ancestor.
-          child: Material(type: MaterialType.transparency, child: field),
+          child: Material(type: MaterialType.transparency, child: content),
         ),
       ),
     );

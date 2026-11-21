@@ -61,7 +61,7 @@ Future<void> main(List<String> arguments) async {
     return;
   }
 
-  await _shutdownSignal();
+  await _waitForShutdown(backend);
   await backend.stop();
 }
 
@@ -77,24 +77,26 @@ List<String> _devConfigCandidates() {
   ];
 }
 
-/// Completes on Ctrl+C (all platforms) or SIGTERM (Linux and macOS).
-Future<void> _shutdownSignal() {
+/// Completes on Ctrl+C (all platforms), SIGTERM (Linux and macOS), or when
+/// [Backend.done] completes (such as via `POST /api/v1/shutdown`).
+Future<void> _waitForShutdown(Backend backend) {
   final signals = [
     ProcessSignal.sigint.watch(),
     if (!Platform.isWindows) ProcessSignal.sigterm.watch(),
   ];
   final completer = Completer<void>();
   final subscriptions = <StreamSubscription<ProcessSignal>>[];
-  for (final signal in signals) {
-    subscriptions.add(
-      signal.listen((_) {
-        if (completer.isCompleted) return;
-        for (final subscription in subscriptions) {
-          unawaited(subscription.cancel());
-        }
-        completer.complete();
-      }),
-    );
+  void complete() {
+    if (completer.isCompleted) return;
+    for (final subscription in subscriptions) {
+      unawaited(subscription.cancel());
+    }
+    completer.complete();
   }
+
+  for (final signal in signals) {
+    subscriptions.add(signal.listen((_) => complete()));
+  }
+  unawaited(backend.done.then((_) => complete()));
   return completer.future;
 }

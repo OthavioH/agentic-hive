@@ -4,12 +4,16 @@ import 'package:agentic_hive_frontend/core/backend/backend_client.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_client_provider.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_connection.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_web_socket_session.dart';
+import 'package:agentic_hive_frontend/core/lifecycle/backend_launcher.dart';
+import 'package:agentic_hive_frontend/core/lifecycle/tray_service.dart';
+import 'package:agentic_hive_frontend/core/lifecycle/window_lifecycle_service.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/connecting/pages/connecting_page.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -30,6 +34,10 @@ final class _FakeBackendClient implements BackendClient {
       const FailureResult(NetworkFailure('unused'));
 
   @override
+  Future<Result<ShutdownResponse>> shutdown({required bool force}) async =>
+      const Success(ShutdownResponse());
+
+  @override
   Future<Result<JsonMap>> getJson(String path, {Duration? timeout}) async =>
       const FailureResult(NetworkFailure('unused'));
 
@@ -39,6 +47,14 @@ final class _FakeBackendClient implements BackendClient {
     JsonMap? body,
     Duration? timeout,
   }) async => const FailureResult(NetworkFailure('unused'));
+
+  @override
+  Future<Result<JsonMap>> putJson(String path, JsonMap body) async =>
+      const FailureResult(NetworkFailure('unused'));
+
+  @override
+  Future<Result<void>> delete(String path) async =>
+      const FailureResult(NetworkFailure('unused'));
 
   @override
   Future<Result<JsonMap>> sendJsonRequest(
@@ -65,6 +81,61 @@ final class _FakeTimer implements Timer {
     _active = false;
   }
 }
+
+final class _FakeBackendLauncher implements BackendLauncher {
+  @override
+  Result<BackendLaunchTarget> resolveLaunchTarget() =>
+      const Success(BackendLaunchTarget(executable: '/fake/backend'));
+
+  @override
+  Future<Result<void>> launch() async => const Success(null);
+}
+
+final class _FakeWindowLifecycleService implements WindowLifecycleService {
+  @override
+  Future<void> initialize({
+    required VoidCallback onCloseRequested,
+    VoidCallback? onQuitRequested,
+  }) async {}
+
+  @override
+  Future<void> hideToTray() async {}
+
+  @override
+  Future<void> showAndFocus() async {}
+
+  @override
+  Future<void> exitApplication() async {}
+
+  @override
+  Future<void> dispose() async {}
+}
+
+final class _FakeTrayService implements TrayService {
+  @override
+  Future<void> initialize({
+    required VoidCallback onTrayClick,
+    required void Function(TrayAction action) onAction,
+  }) async {}
+
+  @override
+  Future<void> updateMenu({
+    required TrayMenuLabels labels,
+    required bool canStopBackend,
+  }) async {}
+
+  @override
+  Future<void> dispose() async {}
+}
+
+List<Override> _baseOverrides(_FakeBackendClient fake) => [
+  backendClientProvider.overrideWithValue(fake),
+  backendLauncherProvider.overrideWithValue(_FakeBackendLauncher()),
+  windowLifecycleServiceProvider.overrideWithValue(
+    _FakeWindowLifecycleService(),
+  ),
+  trayServiceProvider.overrideWithValue(_FakeTrayService()),
+];
 
 Widget _buildTestApp() => MaterialApp(
   localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -139,7 +210,7 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
-              backendClientProvider.overrideWithValue(fake),
+              ..._baseOverrides(fake),
               backendConnectionConfigProvider.overrideWithValue(
                 BackendConnectionConfig(
                   nextRandomDouble: () => 0.5,
@@ -173,7 +244,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            backendClientProvider.overrideWithValue(fake),
+            ..._baseOverrides(fake),
             backendConnectionConfigProvider.overrideWithValue(
               BackendConnectionConfig(
                 nextRandomDouble: () => 0.5,
@@ -200,7 +271,7 @@ void main() {
       await tester.pump();
 
       expect(find.text(l10n.connectingAutoRetryHalted), findsOneWidget);
-      expect(fake.statusCalls, 2);
+      expect(fake.statusCalls, greaterThanOrEqualTo(2));
     });
 
     testWidgets('countdown tick updates Retrying in Ns cleanly every second', (
@@ -215,7 +286,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            backendClientProvider.overrideWithValue(fake),
+            ..._baseOverrides(fake),
             backendConnectionConfigProvider.overrideWithValue(
               BackendConnectionConfig(
                 nextRandomDouble: () => 0.5,

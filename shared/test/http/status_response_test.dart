@@ -32,7 +32,52 @@ void main() {
       expect(decoded.database.ok, isTrue);
       expect(decoded.database.schemaVersion, 1);
       expect(decoded.database.error, isNull);
+      expect(decoded.activeRuns, 0);
     });
+
+    test('round-trips a non-zero activeRuns count through JSON', () {
+      const status = StatusResponse(
+        status: BackendStatus.ok,
+        version: '0.1.0',
+        uptimeSeconds: 10,
+        dataDir: '/data/agentic-hive',
+        database: DatabaseStatus(ok: true, schemaVersion: 1),
+        activeRuns: 3,
+      );
+
+      final decoded = StatusResponse.fromJson(_overTheWire(status.toJson()));
+
+      expect(decoded.activeRuns, 3);
+    });
+
+    test('defaults activeRuns to 0 when omitted in JSON', () {
+      final decoded = StatusResponse.fromJson({
+        'status': 'ok',
+        'version': '0.1.0',
+        'uptimeSeconds': 1,
+        'dataDir': '/d',
+        'database': {'status': 'ok'},
+      });
+
+      expect(decoded.activeRuns, 0);
+    });
+
+    test(
+      'throws a FormatException naming "activeRuns" when it is not an int',
+      () {
+        expect(
+          () => StatusResponse.fromJson({
+            'status': 'ok',
+            'version': '0.1.0',
+            'uptimeSeconds': 1,
+            'dataDir': '/d',
+            'database': {'status': 'ok'},
+            'activeRuns': '2',
+          }),
+          throwsA(_formatErrorNaming('activeRuns')),
+        );
+      },
+    );
 
     test('round-trips a degraded status with a database error', () {
       const status = StatusResponse(
@@ -67,6 +112,7 @@ void main() {
         'uptimeSeconds': 5,
         'dataDir': '/d',
         'database': {'status': 'error', 'error': 'down'},
+        'activeRuns': 0,
       });
     });
 

@@ -1,5 +1,6 @@
 import 'package:agentic_hive_backend/src/db/database_health_check.dart';
 import 'package:agentic_hive_backend/src/http/api_handler.dart';
+import 'package:agentic_hive_backend/src/http/handlers/shutdown_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
 import 'package:agentic_hive_backend/src/http/request_context.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
@@ -31,6 +32,7 @@ void main() {
         now: () =>
             startedAt.add(const Duration(seconds: 90, milliseconds: 900)),
       ),
+      shutdownHandler: ShutdownHandler(onShutdown: () async {}),
       webSocketHandler: (request) {
         webSocketCalls++;
         return Response(418);
@@ -60,6 +62,7 @@ void main() {
         'uptimeSeconds': 90,
         'dataDir': dataDir,
         'database': {'status': 'ok', 'schemaVersion': 3},
+        'activeRuns': 0,
       });
       expect(healthCheck.calls, 1);
     });
@@ -80,6 +83,7 @@ void main() {
         'uptimeSeconds': 90,
         'dataDir': dataDir,
         'database': {'status': 'error', 'error': 'database_unavailable'},
+        'activeRuns': 0,
       });
     });
   });
@@ -215,6 +219,7 @@ void main() {
           dataDir: dataDir,
           startedAt: startedAt,
         ),
+        shutdownHandler: ShutdownHandler(onShutdown: () async {}),
         webSocketHandler: (request) => Response(418),
       );
 

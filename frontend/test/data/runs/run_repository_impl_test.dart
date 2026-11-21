@@ -37,6 +37,17 @@ final class _FakeBackendClient implements BackendClient {
   }) => sendJsonRequest('POST', path, body: body);
 
   @override
+  Future<Result<JsonMap>> putJson(String path, JsonMap body) =>
+      sendJsonRequest('PUT', path, body: body);
+
+  @override
+  Future<Result<void>> delete(String path) async => const Success(null);
+
+  @override
+  Future<Result<ShutdownResponse>> shutdown({required bool force}) async =>
+      const FailureResult(NetworkFailure('unused'));
+
+  @override
   Future<Result<StatusResponse>> checkStatus() async =>
       const FailureResult(NetworkFailure('unused'));
 

@@ -59,6 +59,7 @@ final class ConfigLoader {
     return AppConfig(
       mode: mode,
       dataDir: p.normalize(dataDir),
+      agentsDir: values.agentsDir,
       webSocketPingInterval: values.pingIntervalSeconds == null
           ? AppConfig.defaultPingInterval
           : Duration(seconds: values.pingIntervalSeconds!),
@@ -101,16 +102,21 @@ final class ConfigLoader {
     final root = _Section(document, '', source)
       ..allowOnly(const {'paths', 'websocket', 'logs'});
 
-    final paths = root.section('paths')..allowOnly(const {'data_dir'});
+    final paths = root.section('paths')
+      ..allowOnly(const {'data_dir', 'agents_dir'});
     final websocket = root.section('websocket')
       ..allowOnly(const {'ping_interval_seconds'});
     final logs = root.section('logs')..allowOnly(const {'retention_days'});
 
     final rawDataDir = paths.string('data_dir');
+    final rawAgentsDir = paths.string('agents_dir');
     return _FileValues(
       dataDir: rawDataDir == null
           ? null
           : p.normalize(p.join(file.absolute.parent.path, rawDataDir)),
+      agentsDir: rawAgentsDir == null
+          ? null
+          : p.normalize(p.join(file.absolute.parent.path, rawAgentsDir)),
       pingIntervalSeconds: websocket.intInRange(
         'ping_interval_seconds',
         min: 1,
@@ -122,9 +128,15 @@ final class ConfigLoader {
 }
 
 final class _FileValues {
-  const new({this.dataDir, this.pingIntervalSeconds, this.logRetentionDays});
+  const new({
+    this.dataDir,
+    this.agentsDir,
+    this.pingIntervalSeconds,
+    this.logRetentionDays,
+  });
 
   final String? dataDir;
+  final String? agentsDir;
   final int? pingIntervalSeconds;
   final int? logRetentionDays;
 }

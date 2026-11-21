@@ -5,6 +5,9 @@ import 'package:agentic_hive_frontend/core/backend/backend_client.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_client_provider.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_connection.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_web_socket_session.dart';
+import 'package:agentic_hive_frontend/core/lifecycle/backend_launcher.dart';
+import 'package:agentic_hive_frontend/core/lifecycle/tray_service.dart';
+import 'package:agentic_hive_frontend/core/lifecycle/window_lifecycle_service.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/connecting/pages/connecting_page.dart';
@@ -77,8 +80,16 @@ final class _FakeBackendClient implements BackendClient {
   }
 
   @override
-  Future<Result<JsonMap>> getJson(String path, {Duration? timeout}) async =>
-      const Success(<String, Object?>{'harnesses': <Object?>[]});
+  Future<Result<ShutdownResponse>> shutdown({required bool force}) async =>
+      const Success(ShutdownResponse());
+
+  @override
+  Future<Result<JsonMap>> getJson(String path, {Duration? timeout}) async {
+    if (path == '/api/v1/agents') {
+      return const Success(<String, Object?>{'agents': <Object?>[]});
+    }
+    return const Success(<String, Object?>{'harnesses': <Object?>[]});
+  }
 
   @override
   Future<Result<JsonMap>> postJson(
@@ -86,6 +97,14 @@ final class _FakeBackendClient implements BackendClient {
     JsonMap? body,
     Duration? timeout,
   }) async => const FailureResult(NetworkFailure('unused'));
+
+  @override
+  Future<Result<JsonMap>> putJson(String path, JsonMap body) async =>
+      const FailureResult(NetworkFailure('unused'));
+
+  @override
+  Future<Result<void>> delete(String path) async =>
+      const FailureResult(NetworkFailure('unused'));
 
   @override
   Future<Result<JsonMap>> sendJsonRequest(
@@ -96,6 +115,52 @@ final class _FakeBackendClient implements BackendClient {
 
   @override
   Future<void> close() async {}
+}
+
+final class _FakeBackendLauncher implements BackendLauncher {
+  @override
+  Result<BackendLaunchTarget> resolveLaunchTarget() =>
+      const Success(BackendLaunchTarget(executable: '/fake/backend'));
+
+  @override
+  Future<Result<void>> launch() async => const Success(null);
+}
+
+final class _FakeWindowLifecycleService implements WindowLifecycleService {
+  @override
+  Future<void> initialize({
+    required VoidCallback onCloseRequested,
+    VoidCallback? onQuitRequested,
+  }) async {}
+
+  @override
+  Future<void> hideToTray() async {}
+
+  @override
+  Future<void> showAndFocus() async {}
+
+  @override
+  Future<void> exitApplication() async {}
+
+  @override
+  Future<void> dispose() async {}
+}
+
+final class _FakeTrayService implements TrayService {
+  @override
+  Future<void> initialize({
+    required VoidCallback onTrayClick,
+    required void Function(TrayAction action) onAction,
+  }) async {}
+
+  @override
+  Future<void> updateMenu({
+    required TrayMenuLabels labels,
+    required bool canStopBackend,
+  }) async {}
+
+  @override
+  Future<void> dispose() async {}
 }
 
 final class _FakeTimer implements Timer {
@@ -137,6 +202,11 @@ void main() {
       ProviderScope(
         overrides: [
           backendClientProvider.overrideWithValue(_FakeBackendClient()),
+          backendLauncherProvider.overrideWithValue(_FakeBackendLauncher()),
+          windowLifecycleServiceProvider.overrideWithValue(
+            _FakeWindowLifecycleService(),
+          ),
+          trayServiceProvider.overrideWithValue(_FakeTrayService()),
         ],
         child: const HiveApp(),
       ),
@@ -181,6 +251,11 @@ void main() {
         ProviderScope(
           overrides: [
             backendClientProvider.overrideWithValue(fake),
+            backendLauncherProvider.overrideWithValue(_FakeBackendLauncher()),
+            windowLifecycleServiceProvider.overrideWithValue(
+              _FakeWindowLifecycleService(),
+            ),
+            trayServiceProvider.overrideWithValue(_FakeTrayService()),
             backendConnectionConfigProvider.overrideWithValue(
               BackendConnectionConfig(nextRandomDouble: () => 0.5),
             ),
@@ -237,6 +312,11 @@ void main() {
         ProviderScope(
           overrides: [
             backendClientProvider.overrideWithValue(fake),
+            backendLauncherProvider.overrideWithValue(_FakeBackendLauncher()),
+            windowLifecycleServiceProvider.overrideWithValue(
+              _FakeWindowLifecycleService(),
+            ),
+            trayServiceProvider.overrideWithValue(_FakeTrayService()),
             backendConnectionConfigProvider.overrideWithValue(
               BackendConnectionConfig(
                 nextRandomDouble: () => 0.5,

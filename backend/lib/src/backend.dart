@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:agentic_hive_backend/src/config/app_config.dart';
@@ -15,12 +16,18 @@ final class Backend {
   new _(this._di, this.config);
 
   final GetIt _di;
+  final Completer<void> _stopped = Completer<void>();
+  Future<void>? _stopping;
 
   /// The configuration the backend was started with.
   final AppConfig config;
 
   /// Path of the Unix socket the backend listens on.
   String get socketPath => config.socketPath;
+
+  /// Completes when [stop] finishes, including when triggered via
+  /// `POST /api/v1/shutdown`.
+  Future<void> get done => _stopped.future;
 
   /// Prepares the data folder, wires dependencies and starts serving.
   ///
@@ -37,6 +44,7 @@ final class Backend {
 
     await Directory(config.dataDir).create(recursive: true);
     await paths.restrictToOwner(config.dataDir);
+    await Directory(config.agentsDir).create(recursive: true);
 
     // Fail fast, before opening the database or touching the log files, when
     // the path is too long or another backend already serves this folder.
@@ -45,12 +53,14 @@ final class Backend {
       maxPathBytes: paths.maxSocketPathBytes,
     ).prepare();
 
+    final backend = Backend._(container, config);
     try {
       await registerDependencies(
         container,
         config: config,
         platformPaths: paths,
         startedAt: startedAt,
+        onShutdown: backend.stop,
         consoleOut: consoleOut,
       );
       final recovery = await container<RunRecoveryService>()
@@ -63,9 +73,17 @@ final class Backend {
       await container.reset();
       rethrow;
     }
-    return Backend._(container, config);
+    return backend;
   }
 
   /// Stops the server, closes WebSockets and the database, flushes logs.
-  Future<void> stop() => _di.reset();
+  Future<void> stop() => _stopping ??= _performStop();
+
+  Future<void> _performStop() async {
+    try {
+      await _di.reset();
+    } finally {
+      if (!_stopped.isCompleted) _stopped.complete();
+    }
+  }
 }

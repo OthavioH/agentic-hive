@@ -23,6 +23,10 @@ final class _FakeBackendClient implements BackendClient {
       const FailureResult(NetworkFailure('unused'));
 
   @override
+  Future<Result<ShutdownResponse>> shutdown({required bool force}) async =>
+      const Success(ShutdownResponse());
+
+  @override
   Future<Result<JsonMap>> getJson(String path, {Duration? timeout}) async {
     getPaths.add(path);
     return nextGet;
@@ -37,6 +41,14 @@ final class _FakeBackendClient implements BackendClient {
     postPaths.add(path);
     return nextPost;
   }
+
+  @override
+  Future<Result<JsonMap>> putJson(String path, JsonMap body) async =>
+      const FailureResult(NetworkFailure('unused'));
+
+  @override
+  Future<Result<void>> delete(String path) async =>
+      const FailureResult(NetworkFailure('unused'));
 
   @override
   Future<Result<JsonMap>> sendJsonRequest(

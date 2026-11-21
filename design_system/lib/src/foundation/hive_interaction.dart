@@ -27,6 +27,7 @@ class HiveInteraction extends StatefulWidget {
     this.focusNode,
     this.autofocus = false,
     this.selected,
+    this.expanded,
     this.toggled,
     this.semanticValue,
     this.semanticHint,
@@ -54,6 +55,10 @@ class HiveInteraction extends StatefulWidget {
 
   /// Selection state for semantics (rail items), or null when not selectable.
   final bool? selected;
+
+  /// Expansion state for semantics (disclosure headers), or null when the
+  /// component does not expand.
+  final bool? expanded;
 
   /// On/off state for semantics (switches), or null when not a toggle.
   ///
@@ -125,6 +130,7 @@ class _HiveInteractionState extends State<HiveInteraction> {
       button: widget.toggled == null,
       enabled: _enabled,
       selected: widget.selected,
+      expanded: widget.expanded,
       toggled: widget.toggled,
       label: widget.semanticLabel,
       value: widget.semanticValue,

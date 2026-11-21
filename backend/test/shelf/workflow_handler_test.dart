@@ -7,6 +7,7 @@ import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.da
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
 import 'package:agentic_hive_backend/src/http/api_handler.dart';
+import 'package:agentic_hive_backend/src/http/handlers/shutdown_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:shelf/shelf.dart';
@@ -95,6 +96,7 @@ void main() {
         startedAt: DateTime.utc(2026, 11, 20, 11),
       ),
       webSocketHandler: (_) => Response(418),
+      shutdownHandler: ShutdownHandler(onShutdown: () async {}),
       workflowHandler: WorkflowHandler(service: service),
     );
   });
