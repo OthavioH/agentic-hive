@@ -32,6 +32,9 @@ final class DriftRunRepository implements RunRepository {
               startedAt: run.startedAt.toUtc().toIso8601String(),
               finishedAt: Value(run.finishedAt?.toUtc().toIso8601String()),
               errorMessage: Value(run.errorMessage),
+              isolationMode: Value(run.isolationMode.name),
+              worktreePath: Value(run.worktreePath),
+              worktreeBranch: Value(run.worktreeBranch),
             ),
           );
       return Success(run);
@@ -122,6 +125,9 @@ final class DriftRunRepository implements RunRepository {
                   ? null
                   : DateTime.parse(row.finishedAt!).toUtc(),
               checkpointCount: checkpointCounts[row.id] ?? 0,
+              isolationMode: WorkspaceIsolationMode.fromName(row.isolationMode),
+              worktreePath: row.worktreePath,
+              worktreeBranch: row.worktreeBranch,
             ),
           )
           .toList();
@@ -302,6 +308,9 @@ final class DriftRunRepository implements RunRepository {
           ? null
           : DateTime.parse(row.finishedAt!).toUtc(),
       errorMessage: row.errorMessage,
+      isolationMode: WorkspaceIsolationMode.fromName(row.isolationMode),
+      worktreePath: row.worktreePath,
+      worktreeBranch: row.worktreeBranch,
     );
   }
 }

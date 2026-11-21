@@ -48,7 +48,19 @@ enum RunEventType {
 
   /// A checkpoint was persisted.
   @JsonValue('checkpoint.saved')
-  checkpointSaved('checkpoint.saved');
+  checkpointSaved('checkpoint.saved'),
+
+  /// A workspace snapshot was captured.
+  @JsonValue('snapshot.captured')
+  snapshotCaptured('snapshot.captured'),
+
+  /// A workspace snapshot was restored.
+  @JsonValue('snapshot.restored')
+  snapshotRestored('snapshot.restored'),
+
+  /// A non-fatal workspace snapshot or worktree warning occurred.
+  @JsonValue('snapshot.warning')
+  snapshotWarning('snapshot.warning');
 
   new(this.wireName);
 
