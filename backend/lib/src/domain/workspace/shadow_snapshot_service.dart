@@ -9,6 +9,7 @@ import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/snapshot_repository.dart';
+import 'package:agentic_hive_backend/src/domain/workspace/snapshot_service.dart';
 import 'package:agentic_hive_backend/src/logging/log_event.dart';
 import 'package:agentic_hive_backend/src/util/ids.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
@@ -33,7 +34,7 @@ import 'package:path/path.dart' as p;
 /// - Exclusions and the size limit used by the latest capture are persisted in
 ///   the shadow repository, so a restore (and its safety snapshot) applies the
 ///   same rules unless explicit overrides are passed.
-final class ShadowSnapshotService {
+final class ShadowSnapshotService implements SnapshotService {
   /// Creates a shadow snapshot service.
   new({
     required this._git,
@@ -67,6 +68,7 @@ final class ShadowSnapshotService {
   ///
   /// [extraExclusions] and [maxFileSizeBytes] (`null` or `<= 0` disables the
   /// guard) are persisted so [restoreSnapshot] applies the same rules.
+  @override
   Future<Result<Snapshot>> captureSnapshot({
     required String runId,
     required String workspaceDir,
@@ -329,6 +331,7 @@ final class ShadowSnapshotService {
   }
 
   /// Lists all snapshots for [runId] in chronological order.
+  @override
   Future<Result<RunSnapshotsResponse>> listSnapshots(String runId) async {
     final runResult = await _runs.getById(runId);
     if (runResult case FailureResult<Run>(:final failure)) {
@@ -396,6 +399,7 @@ final class ShadowSnapshotService {
   /// Rejects with [ConflictFailure] when the run is currently `running`. The
   /// status is checked inside the per-run lock and re-checked right before
   /// files are rewritten.
+  @override
   Future<Result<RestoreSnapshotResponse>> restoreSnapshot(
     String runId,
     String snapshotId, {

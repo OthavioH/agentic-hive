@@ -154,11 +154,13 @@ final class _FakeAgentPromptResolver implements AgentPromptResolver {
 
 NodeExecutionContext _context({
   JsonMap config = const {'additionalInstructions': 'Implement feature X'},
+  String? humanAnswer,
 }) => NodeExecutionContext(
   runId: 'run-1',
   nodeId: 'node-1',
   workspacePath: '/tmp/workspace',
   config: config,
+  humanAnswer: humanAnswer,
 );
 
 void main() {
@@ -229,6 +231,35 @@ void main() {
       expect(
         invocation.stdinContent,
         contains('Call report_result when finished.'),
+      );
+    });
+
+    test('injects the human answer into the prompt on a re-run', () async {
+      final node = ClaudeCodeNode(
+        processRunner: processRunner,
+        resultContract: resultContract,
+        agentPromptResolver: agentResolver,
+      );
+
+      await node.execute(_context(humanAnswer: 'Use PostgreSQL.'));
+
+      final stdin = processRunner.lastInvocation!.stdinContent!;
+      expect(stdin, contains('## Human Answer'));
+      expect(stdin, contains('Use PostgreSQL.'));
+    });
+
+    test('adds no human answer section without an answer', () async {
+      final node = ClaudeCodeNode(
+        processRunner: processRunner,
+        resultContract: resultContract,
+        agentPromptResolver: agentResolver,
+      );
+
+      await node.execute(_context());
+
+      expect(
+        processRunner.lastInvocation!.stdinContent,
+        isNot(contains('Human Answer')),
       );
     });
 

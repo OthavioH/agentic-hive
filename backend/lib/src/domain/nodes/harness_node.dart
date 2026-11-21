@@ -80,6 +80,15 @@ abstract base class HarnessNode extends Node {
     }
     sections.add(contextBuffer.toString().trimRight());
 
+    final humanAnswer = context.humanAnswer?.trim();
+    if (humanAnswer != null && humanAnswer.isNotEmpty) {
+      sections.add(
+        '## Human Answer\n'
+        'You paused to ask a human for input. Their answer is:\n'
+        '$humanAnswer',
+      );
+    }
+
     final resolvedInstructions =
         (contractInstructions ?? resultContract.instructionsFor(context))
             .trim();

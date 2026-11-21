@@ -14,6 +14,24 @@ void main() {
       gateway.dispose();
     });
 
+    test('announces every new request on the requests stream', () async {
+      final seen = <HumanPauseRequest>[];
+      final subscription = gateway.requests.listen(seen.add);
+
+      final answer = gateway.requestHumanAnswer(
+        runId: 'run-1',
+        nodeId: 'node-1',
+        attempt: 2,
+        question: 'Which database?',
+      );
+
+      expect(seen.single.nodeId, 'node-1');
+      expect(seen.single.attempt, 2);
+      gateway.cancelRun('run-1');
+      await answer;
+      await subscription.cancel();
+    });
+
     test('blocks until human submits answer by pauseId', () async {
       final answerFuture = gateway.requestHumanAnswer(
         runId: 'run-1',

@@ -41,6 +41,10 @@ final class HumanPauseRequest {
 /// Port coordinating blocking `ask_human` pauses between `hive-mcp` HTTP
 /// requests and human responses or run cancellation (ADR 0019).
 abstract interface class HumanPauseGateway {
+  /// Emits every new pending request, so the graph engine can pause the run
+  /// (ADR 0019) while the harness waits.
+  Stream<HumanPauseRequest> get requests;
+
   /// Suspends until a human answers [question] via [submitAnswer] or the run
   /// is cancelled via [cancelRun].
   Future<Result<String>> requestHumanAnswer({
@@ -88,7 +92,12 @@ final class InMemoryHumanPauseGateway implements HumanPauseGateway {
   new();
 
   final Map<String, _PendingPause> _pending = <String, _PendingPause>{};
+  final StreamController<HumanPauseRequest> _requests =
+      StreamController<HumanPauseRequest>.broadcast(sync: true);
   int _nextId = 1;
+
+  @override
+  Stream<HumanPauseRequest> get requests => _requests.stream;
 
   @override
   List<HumanPauseRequest> get allPending =>
@@ -129,6 +138,7 @@ final class InMemoryHumanPauseGateway implements HumanPauseGateway {
     );
     final completer = Completer<Result<String>>();
     _pending[pauseId] = _PendingPause(request: request, completer: completer);
+    _requests.add(request);
     return completer.future;
   }
 
