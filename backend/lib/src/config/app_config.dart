@@ -8,6 +8,7 @@ final class AppConfig {
   const new({
     required this.mode,
     required this.dataDir,
+    this._agentsDir,
     this.webSocketPingInterval = defaultPingInterval,
     this.logRetentionDays = defaultLogRetentionDays,
   });
@@ -23,6 +24,8 @@ final class AppConfig {
 
   /// Absolute path of the data folder.
   final String dataDir;
+
+  final String? _agentsDir;
 
   /// How often the server pings WebSocket clients to detect dead connections.
   final Duration webSocketPingInterval;
@@ -46,4 +49,7 @@ final class AppConfig {
 
   /// The `server.json` file read by the frontend.
   String get serverInfoPath => p.join(dataDir, 'server.json');
+
+  /// The folder where agent `.md` files are stored.
+  String get agentsDir => _agentsDir ?? p.join(dataDir, 'agents');
 }

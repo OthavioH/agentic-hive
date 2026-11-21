@@ -10,4 +10,7 @@ abstract final class WsMessageType {
 
   /// Server → client, answers a message the server could not handle.
   static const error = 'error';
+
+  /// Server → client, broadcast when an agent `.md` file changes on disk.
+  static const agentsChanged = 'agents.changed';
 }

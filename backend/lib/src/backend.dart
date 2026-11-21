@@ -35,6 +35,7 @@ final class Backend {
 
     await Directory(config.dataDir).create(recursive: true);
     await paths.restrictToOwner(config.dataDir);
+    await Directory(config.agentsDir).create(recursive: true);
 
     // Fail fast, before opening the database or touching the log files, when
     // the path is too long or another backend already serves this folder.
