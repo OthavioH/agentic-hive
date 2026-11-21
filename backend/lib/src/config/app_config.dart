@@ -58,4 +58,14 @@ final class AppConfig {
 
   /// The folder where per-run isolated git worktrees are stored.
   String get worktreesDir => p.join(dataDir, 'worktrees');
+
+  /// The folder where per-run artifacts (such as node attempt logs) are
+  /// stored.
+  String get runsDir => p.join(dataDir, 'runs');
+
+  /// The folder for a single run's backend-managed files.
+  String runDir(String runId) => p.join(runsDir, runId);
+
+  /// The folder where raw `stdout`/`stderr` attempt logs for [runId] live.
+  String runLogsDir(String runId) => p.join(runsDir, runId, 'logs');
 }

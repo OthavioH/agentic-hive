@@ -7,12 +7,14 @@ import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_process_platform.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_execution_context.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
+import 'package:agentic_hive_backend/src/domain/runs/process_tree_killer.dart';
 
 /// `dart:io` implementation of [NodeProcessRunner].
 final class DartProcessRunner implements NodeProcessRunner {
   /// Creates a Dart process runner.
   const new({
     this.platform,
+    this.processTracker,
     this.maxOutputLength = defaultMaxOutputLength,
     this.drainTimeout = defaultDrainTimeout,
   });
@@ -25,6 +27,9 @@ final class DartProcessRunner implements NodeProcessRunner {
 
   /// OS-specific process launcher and terminator.
   final OsProcessPlatform? platform;
+
+  /// Optional tracker registering spawned processes for run cancellation.
+  final ProcessTreeTracker? processTracker;
 
   /// Maximum number of characters retained per stream (`stdout` / `stderr`).
   final int maxOutputLength;
@@ -55,6 +60,16 @@ final class DartProcessRunner implements NodeProcessRunner {
           'Failed to start "${invocation.executable}": ${e.message}',
           cause: e,
         ),
+      );
+    }
+
+    final tracker = processTracker;
+    final trackedRunId = invocation.runId;
+    if (tracker != null && trackedRunId != null) {
+      tracker.track(
+        runId: trackedRunId,
+        nodeId: invocation.nodeId ?? '',
+        process: process,
       );
     }
 
@@ -90,18 +105,24 @@ final class DartProcessRunner implements NodeProcessRunner {
 
     var timedOut = false;
     final int exitCode;
-    final timeout = invocation.timeout;
-    if (timeout != null) {
-      exitCode = await process.exitCode.timeout(
-        timeout,
-        onTimeout: () async {
-          timedOut = true;
-          await effectivePlatform.terminateTree(process);
-          return -1;
-        },
-      );
-    } else {
-      exitCode = await process.exitCode;
+    try {
+      final timeout = invocation.timeout;
+      if (timeout != null) {
+        exitCode = await process.exitCode.timeout(
+          timeout,
+          onTimeout: () async {
+            timedOut = true;
+            await effectivePlatform.terminateTree(process);
+            return -1;
+          },
+        );
+      } else {
+        exitCode = await process.exitCode;
+      }
+    } finally {
+      if (tracker != null && trackedRunId != null) {
+        tracker.untrack(process);
+      }
     }
 
     if (timedOut) {

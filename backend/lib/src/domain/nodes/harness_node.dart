@@ -323,7 +323,19 @@ abstract base class HeadlessHarnessNode extends HarnessNode {
       mcpConfigPath: mcpConfigPath,
       environment: environment,
     );
-    return processRunner.run(invocation, onOutput: context.onOutput);
+    return processRunner.run(
+      ProcessInvocation(
+        executable: invocation.executable,
+        workingDirectory: invocation.workingDirectory,
+        arguments: invocation.arguments,
+        environment: invocation.environment,
+        stdinContent: invocation.stdinContent,
+        timeout: invocation.timeout,
+        runId: invocation.runId ?? context.runId,
+        nodeId: invocation.nodeId ?? context.nodeId,
+      ),
+      onOutput: context.onOutput,
+    );
   }
 }
 
