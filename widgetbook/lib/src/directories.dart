@@ -4,6 +4,7 @@
 // published release resolves in the root pub workspace. See README.md.
 import 'package:hive_widgetbook/src/components/action_use_cases.dart';
 import 'package:hive_widgetbook/src/components/display_use_cases.dart';
+import 'package:hive_widgetbook/src/components/form_use_cases.dart';
 import 'package:hive_widgetbook/src/foundations/icon_pages.dart';
 import 'package:hive_widgetbook/src/foundations/motion_page.dart';
 import 'package:hive_widgetbook/src/foundations/token_pages.dart';
@@ -58,6 +59,18 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
       WidgetbookFolder(
         name: 'Actions',
         children: <WidgetbookNode>[buttonComponent(), iconButtonComponent()],
+      ),
+      WidgetbookFolder(
+        name: 'Forms',
+        children: <WidgetbookNode>[
+          textFieldComponent(),
+          selectComponent(),
+          switchComponent(),
+        ],
+      ),
+      WidgetbookFolder(
+        name: 'Overlays',
+        children: <WidgetbookNode>[dialogComponent()],
       ),
       WidgetbookFolder(
         name: 'Layout',

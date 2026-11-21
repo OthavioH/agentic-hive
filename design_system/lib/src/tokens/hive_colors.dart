@@ -108,6 +108,7 @@ class HiveColors extends ThemeExtension<HiveColors> {
     required this.hoverOpacity,
     required this.pressedOpacity,
     required this.disabledOpacity,
+    required this.scrimOpacity,
   });
 
   /// Dark palette (the default theme).
@@ -150,6 +151,7 @@ class HiveColors extends ThemeExtension<HiveColors> {
     hoverOpacity: 0.08,
     pressedOpacity: 0.14,
     disabledOpacity: 0.38,
+    scrimOpacity: 0.64,
   );
 
   /// Light palette.
@@ -192,6 +194,7 @@ class HiveColors extends ThemeExtension<HiveColors> {
     hoverOpacity: 0.08,
     pressedOpacity: 0.14,
     disabledOpacity: 0.38,
+    scrimOpacity: 0.64,
   );
 
   /// Whether this palette is the light or the dark one.
@@ -283,6 +286,9 @@ class HiveColors extends ThemeExtension<HiveColors> {
 
   /// Opacity applied to a whole disabled control.
   final double disabledOpacity;
+
+  /// Opacity of the [background] scrim behind modal dialogs.
+  final double scrimOpacity;
 
   /// Every surface a foreground role may sit on, by role name.
   Map<String, Color> get surfaces => <String, Color>{
@@ -378,6 +384,7 @@ class HiveColors extends ThemeExtension<HiveColors> {
     double? hoverOpacity,
     double? pressedOpacity,
     double? disabledOpacity,
+    double? scrimOpacity,
   }) {
     return HiveColors(
       brightness: brightness ?? this.brightness,
@@ -410,6 +417,7 @@ class HiveColors extends ThemeExtension<HiveColors> {
       hoverOpacity: hoverOpacity ?? this.hoverOpacity,
       pressedOpacity: pressedOpacity ?? this.pressedOpacity,
       disabledOpacity: disabledOpacity ?? this.disabledOpacity,
+      scrimOpacity: scrimOpacity ?? this.scrimOpacity,
     );
   }
 
@@ -452,6 +460,7 @@ class HiveColors extends ThemeExtension<HiveColors> {
       hoverOpacity: d(hoverOpacity, other.hoverOpacity),
       pressedOpacity: d(pressedOpacity, other.pressedOpacity),
       disabledOpacity: d(disabledOpacity, other.disabledOpacity),
+      scrimOpacity: d(scrimOpacity, other.scrimOpacity),
     );
   }
 }

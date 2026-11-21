@@ -143,6 +143,11 @@ abstract final class HiveIcons {
   /// Warning or error.
   static const HiveIconData alert = _HugeGlyph(HugeIcons.strokeRoundedAlert02);
 
+  /// Open a dropdown or expand a section.
+  static const HiveIconData chevronDown = _HugeGlyph(
+    HugeIcons.strokeRoundedArrowDown01,
+  );
+
   /// Search.
   static const HiveIconData search = _HugeGlyph(
     HugeIcons.strokeRoundedSearch01,
@@ -253,6 +258,7 @@ abstract final class HiveIcons {
     'close': close,
     'check': check,
     'alert': alert,
+    'chevronDown': chevronDown,
     'search': search,
     'refresh': refresh,
     'more': more,
