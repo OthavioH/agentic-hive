@@ -74,5 +74,27 @@ final class FakeRunRepository implements RunRepository {
       const Success(<Checkpoint>[]);
 
   @override
+  Future<Result<Run>> startRun(StartRunRequest request) async =>
+      const FailureResult(NotFoundFailure('unused'));
+
+  @override
+  Future<Result<Run>> cancelRun(String id) async =>
+      const FailureResult(NotFoundFailure('unused'));
+
+  @override
+  Future<Result<Run>> resumeRun(String id) async =>
+      const FailureResult(NotFoundFailure('unused'));
+
+  @override
+  Future<Result<RunNodeLogsResponse>> getNodeLogs(
+    String id,
+    String nodeId, {
+    int? attempt,
+    int? tail,
+  }) async => Success(
+    RunNodeLogsResponse(runId: id, nodeId: nodeId, attempt: attempt ?? 1),
+  );
+
+  @override
   Future<Result<void>> deleteRun(String id) async => const Success(null);
 }

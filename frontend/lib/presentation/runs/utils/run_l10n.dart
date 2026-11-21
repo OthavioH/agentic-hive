@@ -32,11 +32,19 @@ abstract final class RunL10n {
     };
   }
 
+  /// Returns whether [failure] represents a 409 Conflict response.
+  static bool isConflict(Failure failure) {
+    return failure is ConflictFailure ||
+        (failure is BackendFailure && failure.statusCode == 409);
+  }
+
   /// Returns the localized label for [status].
   static String localizeStatus(AppLocalizations l10n, RunStatus status) {
     return switch (status) {
       RunStatus.running => l10n.runsStatusRunning,
       RunStatus.paused => l10n.runsStatusPaused,
+      RunStatus.cancelling => l10n.runsStatusCancelling,
+      RunStatus.cancellationUncertain => l10n.runsStatusCancellationUncertain,
       RunStatus.interrupted => l10n.runsStatusInterrupted,
       RunStatus.succeeded => l10n.runsStatusSucceeded,
       RunStatus.failed => l10n.runsStatusFailed,
@@ -49,6 +57,8 @@ abstract final class RunL10n {
     return switch (status) {
       RunStatus.running => HiveNodeStatus.running,
       RunStatus.paused => HiveNodeStatus.paused,
+      RunStatus.cancelling => HiveNodeStatus.cancelling,
+      RunStatus.cancellationUncertain => HiveNodeStatus.cancellationUncertain,
       RunStatus.interrupted => HiveNodeStatus.interrupted,
       RunStatus.succeeded => HiveNodeStatus.succeeded,
       RunStatus.failed => HiveNodeStatus.failed,
@@ -61,6 +71,8 @@ abstract final class RunL10n {
     return switch (status) {
       RunStatus.running => HiveBadgeTone.info,
       RunStatus.paused => HiveBadgeTone.warning,
+      RunStatus.cancelling => HiveBadgeTone.warning,
+      RunStatus.cancellationUncertain => HiveBadgeTone.danger,
       RunStatus.interrupted => HiveBadgeTone.warning,
       RunStatus.succeeded => HiveBadgeTone.success,
       RunStatus.failed => HiveBadgeTone.danger,
@@ -75,13 +87,16 @@ abstract final class RunL10n {
       RunEventType.runResumed ||
       RunEventType.nodeStarted => HiveBadgeTone.info,
       RunEventType.runPaused ||
+      RunEventType.runCancelling ||
       RunEventType.runInterrupted ||
       RunEventType.nodeRetried ||
       RunEventType.snapshotWarning => HiveBadgeTone.warning,
       RunEventType.runSucceeded ||
       RunEventType.nodeCompleted ||
       RunEventType.snapshotRestored => HiveBadgeTone.success,
-      RunEventType.runFailed || RunEventType.nodeFailed => HiveBadgeTone.danger,
+      RunEventType.runFailed ||
+      RunEventType.runCancellationUncertain ||
+      RunEventType.nodeFailed => HiveBadgeTone.danger,
       RunEventType.runCancelled ||
       RunEventType.checkpointSaved ||
       RunEventType.snapshotCaptured => HiveBadgeTone.neutral,

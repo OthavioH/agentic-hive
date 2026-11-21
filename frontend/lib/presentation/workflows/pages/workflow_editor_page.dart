@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
+import 'package:agentic_hive_frontend/presentation/runs/widgets/start_run_dialog.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflow_editor_controller.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/utils/workflow_l10n.dart';
@@ -480,6 +481,24 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
               icon: errorCount > 0 || warningCount > 0
                   ? HiveIcons.alert
                   : HiveIcons.check,
+            ),
+            SizedBox(width: spacing.space2),
+            HiveButton(
+              key: const Key('editor_run_button'),
+              label: l10n.workflowsRunAction,
+              icon: HiveIcons.play,
+              variant: HiveButtonVariant.secondary,
+              onPressed: editorState.isSaving
+                  ? null
+                  : () async {
+                      final created = await StartRunDialog.show(
+                        context,
+                        initialWorkflowId: editorState.workflow.id,
+                      );
+                      if (created != null && context.mounted) {
+                        RunDetailRoute(id: created.id).go(context);
+                      }
+                    },
             ),
             SizedBox(width: spacing.space2),
             HiveButton(

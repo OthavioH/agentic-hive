@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/runs/controllers/runs_list_controller.dart';
 import 'package:agentic_hive_frontend/presentation/runs/utils/run_l10n.dart';
+import 'package:agentic_hive_frontend/presentation/runs/widgets/start_run_dialog.dart';
 import 'package:agentic_hive_frontend/routes/app_routes.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
@@ -30,6 +31,13 @@ class RunsPage extends ConsumerWidget {
     );
     if (!confirmed || !context.mounted) return;
     await ref.read(runsListControllerProvider.notifier).deleteRun(run.id);
+  }
+
+  Future<void> _startNewRun(BuildContext context) async {
+    final created = await StartRunDialog.show(context);
+    if (created != null && context.mounted) {
+      RunDetailRoute(id: created.id).go(context);
+    }
   }
 
   @override
@@ -67,6 +75,12 @@ class RunsPage extends ConsumerWidget {
                   onPressed: () => unawaited(
                     ref.read(runsListControllerProvider.notifier).refresh(),
                   ),
+                ),
+                HiveButton(
+                  key: const Key('runs_new_button'),
+                  label: l10n.runsNewAction,
+                  icon: HiveIcons.play,
+                  onPressed: () => unawaited(_startNewRun(context)),
                 ),
               ],
             ),

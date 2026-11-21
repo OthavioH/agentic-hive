@@ -71,13 +71,21 @@ void main() {
       runs: FakeRunRepository(),
       workspace: FakeWorkspaceRepository(snapshots: <Snapshot>[makeSnapshot()]),
     );
+    await tester.tap(find.text('Checkpoints'));
+    await tester.pumpAndSettle();
     expect(find.text('No checkpoints saved for this run.'), findsOneWidget);
 
     await tester.tap(find.text('Snapshots'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('snapshot_card_snap-1')), findsOneWidget);
     // Node ID resolves to the workflow node label.
-    expect(find.text('Build step'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('snapshot_card_snap-1')),
+        matching: find.text('Build step'),
+      ),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('Checkpoints'));
     await tester.pumpAndSettle();
