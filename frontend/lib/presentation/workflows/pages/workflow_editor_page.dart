@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflow_editor_controller.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/utils/workflow_l10n.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_palette.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/workflow_graph_painter.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/workflow_inspector_panel.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/workflow_node_card.dart';
@@ -324,6 +326,20 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
+                        NodePalette(
+                          onInsertNode: (typeId) {
+                            _editorFocusNode.requestFocus();
+                            controller.addNode(
+                              typeId: typeId,
+                              defaultLabel: resolveNodeTypeLabel(
+                                context,
+                                l10n,
+                                typeId,
+                              ),
+                            );
+                          },
+                        ),
+                        SizedBox(width: spacing.space2),
                         Expanded(
                           child: _buildCanvas(
                             context: context,
@@ -345,6 +361,7 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
                           state: editorState,
                           onUpdateMetadata: controller.updateWorkflowMetadata,
                           onUpdateNodeLabel: controller.updateNodeLabel,
+                          onUpdateNodeConfig: controller.updateNodeConfig,
                           onToggleEntryNode: controller.setEntryNode,
                           onDeleteNode: controller.deleteNode,
                           onUpdateEdge: controller.updateEdge,
@@ -445,19 +462,6 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
             ),
             SizedBox(width: spacing.space2),
             HiveButton(
-              key: const Key('editor_add_node_button'),
-              label: l10n.editorAddNodeAction,
-              icon: HiveIcons.add,
-              variant: HiveButtonVariant.secondary,
-              onPressed: () {
-                final nextNumber = editorState.workflow.nodes.length + 1;
-                controller.addNode(
-                  defaultLabel: l10n.editorDefaultNodeLabel(nextNumber),
-                );
-              },
-            ),
-            SizedBox(width: spacing.space1),
-            HiveButton(
               key: const Key('editor_save_button'),
               label: editorState.isSaving
                   ? l10n.editorSavingAction
@@ -503,171 +507,219 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
       ),
       child: ClipRRect(
         borderRadius: context.hiveRadii.panel,
-        child: Stack(
-          children: <Widget>[
-            InteractiveViewer(
-              transformationController: _transformationController,
-              constrained: false,
-              boundaryMargin: EdgeInsets.all(spacing.space8 * 4),
-              minScale: 0.4,
-              maxScale: 2,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTapUp: (details) {
-                  _editorFocusNode.requestFocus();
-                  final hitEdgeId = WorkflowCanvasGeometry.hitTestEdge(
-                    point: details.localPosition,
-                    nodes: nodes,
-                    edges: edges,
-                  );
-                  if (hitEdgeId != null) {
-                    controller.selectEdge(hitEdgeId);
-                  } else {
-                    controller.clearSelection();
-                  }
-                },
-                child: SizedBox(
-                  width: WorkflowCanvasGeometry.canvasWidth,
-                  height: WorkflowCanvasGeometry.canvasHeight,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: <Widget>[
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: WorkflowGridPainter(
-                            dotColor: colors.borderSubtle,
-                          ),
-                        ),
-                      ),
-                      Positioned.fill(
-                        child: AnimatedBuilder(
-                          animation: _edgeFlowController,
-                          builder: (context, _) {
-                            return CustomPaint(
-                              painter: WorkflowEdgesPainter(
-                                nodes: nodes,
-                                edges: edges,
-                                selectedEdgeId: editorState.selectedEdgeId,
-                                errorEdgeIds: errorEdgeIds,
-                                warningEdgeIds: warningEdgeIds,
-                                colors: colors,
-                                typography: typography,
-                                flowPhase: _edgeFlowController.value,
-                                draftStart: _draftEdgeStart,
-                                draftEnd: _draftEdgeEnd,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      for (final node in nodes)
-                        Positioned(
-                          key: Key('canvas_node_${node.id}'),
-                          left: node.position.x,
-                          top: node.position.y,
-                          child: WorkflowNodeCard(
-                            node: node,
-                            isSelected: editorState.selectedNodeId == node.id,
-                            isEntryNode:
-                                editorState.workflow.entryNodeId == node.id,
-                            hasError: errorNodeIds.contains(node.id),
-                            hasWarning: warningNodeIds.contains(node.id),
-                            onTap: () {
-                              _editorFocusNode.requestFocus();
-                              controller.selectNode(node.id);
-                            },
-                            onDragDelta: (delta) => controller.moveNode(
-                              node.id,
-                              delta.dx,
-                              delta.dy,
+        child: DragTarget<String>(
+          onAcceptWithDetails: (details) {
+            _editorFocusNode.requestFocus();
+            final box =
+                _canvasViewportKey.currentContext?.findRenderObject()
+                    as RenderBox?;
+            double? dropX;
+            double? dropY;
+            if (box != null && box.hasSize) {
+              final localPos = box.globalToLocal(details.offset);
+              final canvasPos = _transformationController.toScene(localPos);
+              dropX = canvasPos.dx.clamp(
+                0.0,
+                WorkflowCanvasGeometry.canvasWidth -
+                    WorkflowCanvasGeometry.nodeWidth,
+              );
+              dropY = canvasPos.dy.clamp(
+                0.0,
+                WorkflowCanvasGeometry.canvasHeight -
+                    WorkflowCanvasGeometry.nodeHeight,
+              );
+            }
+            controller.addNode(
+              typeId: details.data,
+              defaultLabel: resolveNodeTypeLabel(context, l10n, details.data),
+              x: dropX,
+              y: dropY,
+            );
+          },
+          builder: (context, _, _) => Stack(
+            children: <Widget>[
+              InteractiveViewer(
+                transformationController: _transformationController,
+                constrained: false,
+                boundaryMargin: EdgeInsets.all(spacing.space8 * 4),
+                minScale: 0.4,
+                maxScale: 2,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapUp: (details) {
+                    _editorFocusNode.requestFocus();
+                    final hitEdgeId = WorkflowCanvasGeometry.hitTestEdge(
+                      point: details.localPosition,
+                      nodes: nodes,
+                      edges: edges,
+                    );
+                    if (hitEdgeId != null) {
+                      controller.selectEdge(hitEdgeId);
+                    } else {
+                      controller.clearSelection();
+                    }
+                  },
+                  child: SizedBox(
+                    width: WorkflowCanvasGeometry.canvasWidth,
+                    height: WorkflowCanvasGeometry.canvasHeight,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: <Widget>[
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: WorkflowGridPainter(
+                              dotColor: colors.borderSubtle,
                             ),
-                            onPortDragStart: (_) {
-                              final start =
-                                  WorkflowCanvasGeometry.outputPortCenter(node);
-                              setState(() {
-                                _draftEdgeSourceNodeId = node.id;
-                                _draftEdgeStart = start;
-                                _draftEdgeEnd = start;
-                              });
-                            },
-                            onPortDragUpdate: (details) {
-                              setState(() {
-                                _draftEdgeEnd =
-                                    (_draftEdgeEnd ??
-                                        WorkflowCanvasGeometry.outputPortCenter(
-                                          node,
-                                        )) +
-                                    details.delta;
-                              });
-                            },
-                            onPortDragEnd: (_) {
-                              final sourceId = _draftEdgeSourceNodeId;
-                              final dropPoint = _draftEdgeEnd;
-                              setState(() {
-                                _draftEdgeSourceNodeId = null;
-                                _draftEdgeStart = null;
-                                _draftEdgeEnd = null;
-                              });
-                              if (sourceId == null || dropPoint == null) return;
-                              final targetId = _findNodeAtPoint(
-                                dropPoint,
-                                nodes,
+                          ),
+                        ),
+                        Positioned.fill(
+                          child: AnimatedBuilder(
+                            animation: _edgeFlowController,
+                            builder: (context, _) {
+                              return CustomPaint(
+                                painter: WorkflowEdgesPainter(
+                                  nodes: nodes,
+                                  edges: edges,
+                                  selectedEdgeId: editorState.selectedEdgeId,
+                                  errorEdgeIds: errorEdgeIds,
+                                  warningEdgeIds: warningEdgeIds,
+                                  colors: colors,
+                                  typography: typography,
+                                  flowPhase: _edgeFlowController.value,
+                                  draftStart: _draftEdgeStart,
+                                  draftEnd: _draftEdgeEnd,
+                                ),
                               );
-                              if (targetId != null) {
-                                controller.addEdge(
-                                  sourceNodeId: sourceId,
-                                  targetNodeId: targetId,
-                                );
-                              }
                             },
                           ),
                         ),
-                    ],
+                        for (final node in nodes)
+                          Positioned(
+                            key: Key('canvas_node_${node.id}'),
+                            left: node.position.x,
+                            top: node.position.y,
+                            child: WorkflowNodeCard(
+                              node: node,
+                              isSelected: editorState.selectedNodeId == node.id,
+                              isEntryNode:
+                                  editorState.workflow.entryNodeId == node.id,
+                              hasError: errorNodeIds.contains(node.id),
+                              hasWarning: warningNodeIds.contains(node.id),
+                              onTap: () {
+                                _editorFocusNode.requestFocus();
+                                controller.selectNode(node.id);
+                              },
+                              onDragDelta: (delta) => controller.moveNode(
+                                node.id,
+                                delta.dx,
+                                delta.dy,
+                              ),
+                              onPortDragStart: (_) {
+                                final start =
+                                    WorkflowCanvasGeometry.outputPortCenter(
+                                      node,
+                                    );
+                                setState(() {
+                                  _draftEdgeSourceNodeId = node.id;
+                                  _draftEdgeStart = start;
+                                  _draftEdgeEnd = start;
+                                });
+                              },
+                              onPortDragUpdate: (details) {
+                                final fallbackStart =
+                                    WorkflowCanvasGeometry.outputPortCenter(
+                                      node,
+                                    );
+                                setState(() {
+                                  _draftEdgeEnd =
+                                      (_draftEdgeEnd ?? fallbackStart) +
+                                      details.delta;
+                                });
+                              },
+                              onPortDragEnd: (_) {
+                                final sourceId = _draftEdgeSourceNodeId;
+                                final dropPoint = _draftEdgeEnd;
+                                setState(() {
+                                  _draftEdgeSourceNodeId = null;
+                                  _draftEdgeStart = null;
+                                  _draftEdgeEnd = null;
+                                });
+                                if (sourceId == null || dropPoint == null) {
+                                  return;
+                                }
+                                final targetId = _findNodeAtPoint(
+                                  dropPoint,
+                                  nodes,
+                                );
+                                if (targetId != null) {
+                                  var defaultOutput = NodeOutput.onSuccess;
+                                  for (final n in nodes) {
+                                    if (n.id == sourceId) {
+                                      final outputs = NodeDescriptors.of(n.type)
+                                          ?.availableOutputs;
+                                      if (outputs != null &&
+                                          outputs.isNotEmpty) {
+                                        defaultOutput = outputs.first;
+                                      }
+                                      break;
+                                    }
+                                  }
+                                  controller.addEdge(
+                                    sourceNodeId: sourceId,
+                                    targetNodeId: targetId,
+                                    sourceOutput: defaultOutput,
+                                  );
+                                }
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            Positioned(
-              left: spacing.space2,
-              bottom: spacing.space2,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: colors.surface2,
-                  borderRadius: context.hiveRadii.pill,
-                  border: Border.all(
-                    color: colors.borderSubtle,
-                    width: elevation.hairline,
+              Positioned(
+                left: spacing.space2,
+                bottom: spacing.space2,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colors.surface2,
+                    borderRadius: context.hiveRadii.pill,
+                    border: Border.all(
+                      color: colors.borderSubtle,
+                      width: elevation.hairline,
+                    ),
                   ),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(spacing.spaceHalf),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      HiveIconButton(
-                        icon: HiveIcons.add,
-                        size: HiveButtonSize.small,
-                        semanticLabel: l10n.editorZoomInTooltip,
-                        onPressed: () => _zoomBy(1.2),
-                      ),
-                      HiveIconButton(
-                        icon: HiveIcons.close,
-                        size: HiveButtonSize.small,
-                        semanticLabel: l10n.editorZoomOutTooltip,
-                        onPressed: () => _zoomBy(0.8),
-                      ),
-                      HiveIconButton(
-                        icon: HiveIcons.refresh,
-                        size: HiveButtonSize.small,
-                        semanticLabel: l10n.editorZoomResetTooltip,
-                        onPressed: _resetZoom,
-                      ),
-                    ],
+                  child: Padding(
+                    padding: EdgeInsets.all(spacing.spaceHalf),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        HiveIconButton(
+                          icon: HiveIcons.add,
+                          size: HiveButtonSize.small,
+                          semanticLabel: l10n.editorZoomInTooltip,
+                          onPressed: () => _zoomBy(1.2),
+                        ),
+                        HiveIconButton(
+                          icon: HiveIcons.close,
+                          size: HiveButtonSize.small,
+                          semanticLabel: l10n.editorZoomOutTooltip,
+                          onPressed: () => _zoomBy(0.8),
+                        ),
+                        HiveIconButton(
+                          icon: HiveIcons.refresh,
+                          size: HiveButtonSize.small,
+                          semanticLabel: l10n.editorZoomResetTooltip,
+                          onPressed: _resetZoom,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

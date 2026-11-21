@@ -883,6 +883,408 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'An unexpected error occurred while processing the workflow.'**
   String get workflowsFailureUnexpected;
+
+  /// Localized validation message when a node uses an unregistered type.
+  ///
+  /// In en, this message translates to:
+  /// **'Node \"{nodeLabel}\" has an unknown node type.'**
+  String editorIssueUnknownNodeType(String nodeLabel);
+
+  /// Localized validation message when a node's configuration fails validation.
+  ///
+  /// In en, this message translates to:
+  /// **'Node \"{nodeLabel}\" has an invalid configuration.'**
+  String editorIssueInvalidNodeConfig(String nodeLabel);
+
+  /// Display name for the Claude Code harness node.
+  ///
+  /// In en, this message translates to:
+  /// **'Claude Code'**
+  String get nodeTypeClaudeCode;
+
+  /// Display name for the Codex harness node.
+  ///
+  /// In en, this message translates to:
+  /// **'Codex'**
+  String get nodeTypeCodex;
+
+  /// Display name for the Gemini CLI harness node.
+  ///
+  /// In en, this message translates to:
+  /// **'Gemini CLI'**
+  String get nodeTypeGeminiCli;
+
+  /// Display name for the Antigravity CLI harness node.
+  ///
+  /// In en, this message translates to:
+  /// **'Antigravity'**
+  String get nodeTypeAntigravity;
+
+  /// Display name for the generic terminal harness node.
+  ///
+  /// In en, this message translates to:
+  /// **'Terminal Harness'**
+  String get nodeTypeTerminalHarness;
+
+  /// Display name for the command execution node.
+  ///
+  /// In en, this message translates to:
+  /// **'Command'**
+  String get nodeTypeCommand;
+
+  /// Display name for the deterministic tests validator node.
+  ///
+  /// In en, this message translates to:
+  /// **'Tests Validator'**
+  String get nodeTypeTestsValidator;
+
+  /// Display name for the deterministic checklist validator node.
+  ///
+  /// In en, this message translates to:
+  /// **'Checklist Validator'**
+  String get nodeTypeChecklistValidator;
+
+  /// Display name for the harness-backed review validator node.
+  ///
+  /// In en, this message translates to:
+  /// **'Review Validator'**
+  String get nodeTypeReviewValidator;
+
+  /// Display name for the human approval pause node.
+  ///
+  /// In en, this message translates to:
+  /// **'Human Approval'**
+  String get nodeTypeHumanApproval;
+
+  /// Fallback display name for an unregistered node type.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown Node'**
+  String get nodeTypeUnknown;
+
+  /// Node palette category header for harness nodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Harnesses'**
+  String get nodeCategoryHarnesses;
+
+  /// Node palette category header for execution nodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Execution'**
+  String get nodeCategoryExecution;
+
+  /// Node palette category header for validator nodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Validators'**
+  String get nodeCategoryValidators;
+
+  /// Node palette category header for human-in-the-loop nodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Human'**
+  String get nodeCategoryHuman;
+
+  /// Header title for the categorized node palette panel.
+  ///
+  /// In en, this message translates to:
+  /// **'Node Palette'**
+  String get editorPaletteTitle;
+
+  /// Helper text under the node palette header.
+  ///
+  /// In en, this message translates to:
+  /// **'Click or drag onto the canvas'**
+  String get editorPaletteHint;
+
+  /// Accessibility label for a node palette item.
+  ///
+  /// In en, this message translates to:
+  /// **'Add {nodeType} node'**
+  String editorPaletteInsertSemantic(String nodeType);
+
+  /// Section header for per-type node configuration fields in the inspector.
+  ///
+  /// In en, this message translates to:
+  /// **'Configuration'**
+  String get nodeConfigSectionTitle;
+
+  /// Fallback message in the inspector when a node has an unregistered type.
+  ///
+  /// In en, this message translates to:
+  /// **'No configuration form is registered for this node type.'**
+  String get nodeConfigUnknownType;
+
+  /// Text field label for specifying an agent identifier.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent ID'**
+  String get nodeConfigAgentIdLabel;
+
+  /// Placeholder hint for the agent ID input.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. code-reviewer'**
+  String get nodeConfigAgentIdHint;
+
+  /// Helper text under the agent ID field.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter an agent ID manually until the Agent Library is connected.'**
+  String get nodeConfigAgentIdHelper;
+
+  /// Multiline text field label for additional harness instructions.
+  ///
+  /// In en, this message translates to:
+  /// **'Additional instructions'**
+  String get nodeConfigAdditionalInstructionsLabel;
+
+  /// Placeholder hint for additional harness instructions.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra instructions appended to the prompt...'**
+  String get nodeConfigAdditionalInstructionsHint;
+
+  /// Text field label for a relative working directory inside the workspace.
+  ///
+  /// In en, this message translates to:
+  /// **'Working directory'**
+  String get nodeConfigWorkingDirectoryLabel;
+
+  /// Placeholder hint for working directory.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional relative path (e.g. packages/app)'**
+  String get nodeConfigWorkingDirectoryHint;
+
+  /// Text field label for node execution timeout in seconds.
+  ///
+  /// In en, this message translates to:
+  /// **'Timeout (seconds)'**
+  String get nodeConfigTimeoutSecondsLabel;
+
+  /// Placeholder hint for timeout in seconds.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional positive integer'**
+  String get nodeConfigTimeoutSecondsHint;
+
+  /// List field label for extra CLI arguments passed to a harness.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra CLI arguments'**
+  String get nodeConfigExtraArgsLabel;
+
+  /// Accessibility label for each extra CLI argument row.
+  ///
+  /// In en, this message translates to:
+  /// **'Argument'**
+  String get nodeConfigExtraArgsItemLabel;
+
+  /// Button label to append an extra CLI argument.
+  ///
+  /// In en, this message translates to:
+  /// **'Add argument'**
+  String get nodeConfigExtraArgsAddLabel;
+
+  /// Text field label for the executable or shell command.
+  ///
+  /// In en, this message translates to:
+  /// **'Command'**
+  String get nodeConfigCommandLabel;
+
+  /// Placeholder hint for the command input.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. dart, flutter, npm'**
+  String get nodeConfigCommandHint;
+
+  /// List field label for command arguments.
+  ///
+  /// In en, this message translates to:
+  /// **'Arguments'**
+  String get nodeConfigArgsLabel;
+
+  /// Accessibility label for each command argument row.
+  ///
+  /// In en, this message translates to:
+  /// **'Argument'**
+  String get nodeConfigArgsItemLabel;
+
+  /// Button label to append a command argument.
+  ///
+  /// In en, this message translates to:
+  /// **'Add argument'**
+  String get nodeConfigArgsAddLabel;
+
+  /// Key-value editor label for command environment variables.
+  ///
+  /// In en, this message translates to:
+  /// **'Environment variables'**
+  String get nodeConfigEnvLabel;
+
+  /// Key column label in the environment variables editor.
+  ///
+  /// In en, this message translates to:
+  /// **'Variable'**
+  String get nodeConfigEnvKeyLabel;
+
+  /// Value column label in the environment variables editor.
+  ///
+  /// In en, this message translates to:
+  /// **'Value'**
+  String get nodeConfigEnvValueLabel;
+
+  /// Button label to add an environment variable row.
+  ///
+  /// In en, this message translates to:
+  /// **'Add variable'**
+  String get nodeConfigEnvAddLabel;
+
+  /// Error message when two environment variable rows share the same key.
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate variable name'**
+  String get nodeConfigEnvDuplicateKey;
+
+  /// Error message when an environment variable row has a value without a key.
+  ///
+  /// In en, this message translates to:
+  /// **'Variable name is required'**
+  String get nodeConfigEnvEmptyKey;
+
+  /// Accessibility label for removing a list row.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get nodeConfigRemoveButtonLabel;
+
+  /// Section label for the list of checklist validator rules.
+  ///
+  /// In en, this message translates to:
+  /// **'Checklist rules'**
+  String get nodeConfigChecklistRulesLabel;
+
+  /// Empty state text when a checklist validator has no rules.
+  ///
+  /// In en, this message translates to:
+  /// **'No checklist rules configured yet.'**
+  String get nodeConfigChecklistEmpty;
+
+  /// Button label to add a new checklist rule.
+  ///
+  /// In en, this message translates to:
+  /// **'Add rule'**
+  String get nodeConfigChecklistAddRule;
+
+  /// Accessibility label for removing a checklist rule row.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove rule'**
+  String get nodeConfigChecklistRemoveRule;
+
+  /// Text field label for a checklist rule's display label.
+  ///
+  /// In en, this message translates to:
+  /// **'Rule label'**
+  String get nodeConfigChecklistRuleLabelField;
+
+  /// Select field label for a checklist rule's kind.
+  ///
+  /// In en, this message translates to:
+  /// **'Check kind'**
+  String get nodeConfigChecklistRuleKindField;
+
+  /// Checklist rule kind option for checking file existence.
+  ///
+  /// In en, this message translates to:
+  /// **'File exists'**
+  String get nodeConfigChecklistRuleKindFileExists;
+
+  /// Checklist rule kind option for checking command exit code 0.
+  ///
+  /// In en, this message translates to:
+  /// **'Command succeeds'**
+  String get nodeConfigChecklistRuleKindCommandSucceeds;
+
+  /// Checklist rule kind option for matching command stdout against a regex.
+  ///
+  /// In en, this message translates to:
+  /// **'Output matches regex'**
+  String get nodeConfigChecklistRuleKindOutputMatchesRegex;
+
+  /// Text field label for the fileExists checklist rule path.
+  ///
+  /// In en, this message translates to:
+  /// **'Relative file path'**
+  String get nodeConfigChecklistRulePathField;
+
+  /// Placeholder hint for the fileExists checklist rule path.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. build/app.apk'**
+  String get nodeConfigChecklistRulePathHint;
+
+  /// Text field label for the outputMatchesRegex checklist rule pattern.
+  ///
+  /// In en, this message translates to:
+  /// **'Regex pattern'**
+  String get nodeConfigChecklistRulePatternField;
+
+  /// Placeholder hint for the outputMatchesRegex checklist rule pattern.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. All tests passed'**
+  String get nodeConfigChecklistRulePatternHint;
+
+  /// Select field label for choosing which headless harness runs a review validator.
+  ///
+  /// In en, this message translates to:
+  /// **'Review harness'**
+  String get nodeConfigReviewHarnessLabel;
+
+  /// Multiline text field label for review validator criteria.
+  ///
+  /// In en, this message translates to:
+  /// **'Review criteria'**
+  String get nodeConfigReviewCriteriaLabel;
+
+  /// Placeholder hint for review criteria.
+  ///
+  /// In en, this message translates to:
+  /// **'Describe what the reviewer should verify...'**
+  String get nodeConfigReviewCriteriaHint;
+
+  /// Text field label for the human approval node title.
+  ///
+  /// In en, this message translates to:
+  /// **'Approval title'**
+  String get nodeConfigHumanTitleLabel;
+
+  /// Placeholder hint for the human approval title.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Approve production release'**
+  String get nodeConfigHumanTitleHint;
+
+  /// Multiline text field label for human approval instructions.
+  ///
+  /// In en, this message translates to:
+  /// **'Instructions for reviewer'**
+  String get nodeConfigHumanInstructionsLabel;
+
+  /// Placeholder hint for human approval instructions.
+  ///
+  /// In en, this message translates to:
+  /// **'Explain what the human should review before approving or rejecting...'**
+  String get nodeConfigHumanInstructionsHint;
+
+  /// Switch label for allowing the human reviewer to enter feedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow feedback message'**
+  String get nodeConfigHumanAllowFeedbackLabel;
 }
 
 class _AppLocalizationsDelegate

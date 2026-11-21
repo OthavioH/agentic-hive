@@ -617,5 +617,288 @@
   "workflowsFailureUnexpected": "An unexpected error occurred while processing the workflow.",
   "@workflowsFailureUnexpected": {
     "description": "Localized error message when a workflow operation fails with an UnexpectedFailure."
+  },
+  "editorIssueUnknownNodeType": "Node \"{nodeLabel}\" has an unknown node type.",
+  "@editorIssueUnknownNodeType": {
+    "description": "Localized validation message when a node uses an unregistered type.",
+    "placeholders": {
+      "nodeLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "editorIssueInvalidNodeConfig": "Node \"{nodeLabel}\" has an invalid configuration.",
+  "@editorIssueInvalidNodeConfig": {
+    "description": "Localized validation message when a node's configuration fails validation.",
+    "placeholders": {
+      "nodeLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeTypeClaudeCode": "Claude Code",
+  "@nodeTypeClaudeCode": {
+    "description": "Display name for the Claude Code harness node."
+  },
+  "nodeTypeCodex": "Codex",
+  "@nodeTypeCodex": {
+    "description": "Display name for the Codex harness node."
+  },
+  "nodeTypeGeminiCli": "Gemini CLI",
+  "@nodeTypeGeminiCli": {
+    "description": "Display name for the Gemini CLI harness node."
+  },
+  "nodeTypeAntigravity": "Antigravity",
+  "@nodeTypeAntigravity": {
+    "description": "Display name for the Antigravity CLI harness node."
+  },
+  "nodeTypeTerminalHarness": "Terminal Harness",
+  "@nodeTypeTerminalHarness": {
+    "description": "Display name for the generic terminal harness node."
+  },
+  "nodeTypeCommand": "Command",
+  "@nodeTypeCommand": {
+    "description": "Display name for the command execution node."
+  },
+  "nodeTypeTestsValidator": "Tests Validator",
+  "@nodeTypeTestsValidator": {
+    "description": "Display name for the deterministic tests validator node."
+  },
+  "nodeTypeChecklistValidator": "Checklist Validator",
+  "@nodeTypeChecklistValidator": {
+    "description": "Display name for the deterministic checklist validator node."
+  },
+  "nodeTypeReviewValidator": "Review Validator",
+  "@nodeTypeReviewValidator": {
+    "description": "Display name for the harness-backed review validator node."
+  },
+  "nodeTypeHumanApproval": "Human Approval",
+  "@nodeTypeHumanApproval": {
+    "description": "Display name for the human approval pause node."
+  },
+  "nodeTypeUnknown": "Unknown Node",
+  "@nodeTypeUnknown": {
+    "description": "Fallback display name for an unregistered node type."
+  },
+  "nodeCategoryHarnesses": "Harnesses",
+  "@nodeCategoryHarnesses": {
+    "description": "Node palette category header for harness nodes."
+  },
+  "nodeCategoryExecution": "Execution",
+  "@nodeCategoryExecution": {
+    "description": "Node palette category header for execution nodes."
+  },
+  "nodeCategoryValidators": "Validators",
+  "@nodeCategoryValidators": {
+    "description": "Node palette category header for validator nodes."
+  },
+  "nodeCategoryHuman": "Human",
+  "@nodeCategoryHuman": {
+    "description": "Node palette category header for human-in-the-loop nodes."
+  },
+  "editorPaletteTitle": "Node Palette",
+  "@editorPaletteTitle": {
+    "description": "Header title for the categorized node palette panel."
+  },
+  "editorPaletteHint": "Click or drag onto the canvas",
+  "@editorPaletteHint": {
+    "description": "Helper text under the node palette header."
+  },
+  "editorPaletteInsertSemantic": "Add {nodeType} node",
+  "@editorPaletteInsertSemantic": {
+    "description": "Accessibility label for a node palette item.",
+    "placeholders": {
+      "nodeType": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeConfigSectionTitle": "Configuration",
+  "@nodeConfigSectionTitle": {
+    "description": "Section header for per-type node configuration fields in the inspector."
+  },
+  "nodeConfigUnknownType": "No configuration form is registered for this node type.",
+  "@nodeConfigUnknownType": {
+    "description": "Fallback message in the inspector when a node has an unregistered type."
+  },
+  "nodeConfigAgentIdLabel": "Agent ID",
+  "@nodeConfigAgentIdLabel": {
+    "description": "Text field label for specifying an agent identifier."
+  },
+  "nodeConfigAgentIdHint": "e.g. code-reviewer",
+  "@nodeConfigAgentIdHint": {
+    "description": "Placeholder hint for the agent ID input."
+  },
+  "nodeConfigAgentIdHelper": "Enter an agent ID manually until the Agent Library is connected.",
+  "@nodeConfigAgentIdHelper": {
+    "description": "Helper text under the agent ID field."
+  },
+  "nodeConfigAdditionalInstructionsLabel": "Additional instructions",
+  "@nodeConfigAdditionalInstructionsLabel": {
+    "description": "Multiline text field label for additional harness instructions."
+  },
+  "nodeConfigAdditionalInstructionsHint": "Extra instructions appended to the prompt...",
+  "@nodeConfigAdditionalInstructionsHint": {
+    "description": "Placeholder hint for additional harness instructions."
+  },
+  "nodeConfigWorkingDirectoryLabel": "Working directory",
+  "@nodeConfigWorkingDirectoryLabel": {
+    "description": "Text field label for a relative working directory inside the workspace."
+  },
+  "nodeConfigWorkingDirectoryHint": "Optional relative path (e.g. packages/app)",
+  "@nodeConfigWorkingDirectoryHint": {
+    "description": "Placeholder hint for working directory."
+  },
+  "nodeConfigTimeoutSecondsLabel": "Timeout (seconds)",
+  "@nodeConfigTimeoutSecondsLabel": {
+    "description": "Text field label for node execution timeout in seconds."
+  },
+  "nodeConfigTimeoutSecondsHint": "Optional positive integer",
+  "@nodeConfigTimeoutSecondsHint": {
+    "description": "Placeholder hint for timeout in seconds."
+  },
+  "nodeConfigExtraArgsLabel": "Extra CLI arguments",
+  "@nodeConfigExtraArgsLabel": {
+    "description": "List field label for extra CLI arguments passed to a harness."
+  },
+  "nodeConfigExtraArgsItemLabel": "Argument",
+  "@nodeConfigExtraArgsItemLabel": {
+    "description": "Accessibility label for each extra CLI argument row."
+  },
+  "nodeConfigExtraArgsAddLabel": "Add argument",
+  "@nodeConfigExtraArgsAddLabel": {
+    "description": "Button label to append an extra CLI argument."
+  },
+  "nodeConfigCommandLabel": "Command",
+  "@nodeConfigCommandLabel": {
+    "description": "Text field label for the executable or shell command."
+  },
+  "nodeConfigCommandHint": "e.g. dart, flutter, npm",
+  "@nodeConfigCommandHint": {
+    "description": "Placeholder hint for the command input."
+  },
+  "nodeConfigArgsLabel": "Arguments",
+  "@nodeConfigArgsLabel": {
+    "description": "List field label for command arguments."
+  },
+  "nodeConfigArgsItemLabel": "Argument",
+  "@nodeConfigArgsItemLabel": {
+    "description": "Accessibility label for each command argument row."
+  },
+  "nodeConfigArgsAddLabel": "Add argument",
+  "@nodeConfigArgsAddLabel": {
+    "description": "Button label to append a command argument."
+  },
+  "nodeConfigEnvLabel": "Environment variables",
+  "@nodeConfigEnvLabel": {
+    "description": "Key-value editor label for command environment variables."
+  },
+  "nodeConfigEnvKeyLabel": "Variable",
+  "@nodeConfigEnvKeyLabel": {
+    "description": "Key column label in the environment variables editor."
+  },
+  "nodeConfigEnvValueLabel": "Value",
+  "@nodeConfigEnvValueLabel": {
+    "description": "Value column label in the environment variables editor."
+  },
+  "nodeConfigEnvAddLabel": "Add variable",
+  "@nodeConfigEnvAddLabel": {
+    "description": "Button label to add an environment variable row."
+  },
+  "nodeConfigEnvDuplicateKey": "Duplicate variable name",
+  "@nodeConfigEnvDuplicateKey": {
+    "description": "Error message when two environment variable rows share the same key."
+  },
+  "nodeConfigEnvEmptyKey": "Variable name is required",
+  "@nodeConfigEnvEmptyKey": {
+    "description": "Error message when an environment variable row has a value without a key."
+  },
+  "nodeConfigRemoveButtonLabel": "Remove",
+  "@nodeConfigRemoveButtonLabel": {
+    "description": "Accessibility label for removing a list row."
+  },
+  "nodeConfigChecklistRulesLabel": "Checklist rules",
+  "@nodeConfigChecklistRulesLabel": {
+    "description": "Section label for the list of checklist validator rules."
+  },
+  "nodeConfigChecklistEmpty": "No checklist rules configured yet.",
+  "@nodeConfigChecklistEmpty": {
+    "description": "Empty state text when a checklist validator has no rules."
+  },
+  "nodeConfigChecklistAddRule": "Add rule",
+  "@nodeConfigChecklistAddRule": {
+    "description": "Button label to add a new checklist rule."
+  },
+  "nodeConfigChecklistRemoveRule": "Remove rule",
+  "@nodeConfigChecklistRemoveRule": {
+    "description": "Accessibility label for removing a checklist rule row."
+  },
+  "nodeConfigChecklistRuleLabelField": "Rule label",
+  "@nodeConfigChecklistRuleLabelField": {
+    "description": "Text field label for a checklist rule's display label."
+  },
+  "nodeConfigChecklistRuleKindField": "Check kind",
+  "@nodeConfigChecklistRuleKindField": {
+    "description": "Select field label for a checklist rule's kind."
+  },
+  "nodeConfigChecklistRuleKindFileExists": "File exists",
+  "@nodeConfigChecklistRuleKindFileExists": {
+    "description": "Checklist rule kind option for checking file existence."
+  },
+  "nodeConfigChecklistRuleKindCommandSucceeds": "Command succeeds",
+  "@nodeConfigChecklistRuleKindCommandSucceeds": {
+    "description": "Checklist rule kind option for checking command exit code 0."
+  },
+  "nodeConfigChecklistRuleKindOutputMatchesRegex": "Output matches regex",
+  "@nodeConfigChecklistRuleKindOutputMatchesRegex": {
+    "description": "Checklist rule kind option for matching command stdout against a regex."
+  },
+  "nodeConfigChecklistRulePathField": "Relative file path",
+  "@nodeConfigChecklistRulePathField": {
+    "description": "Text field label for the fileExists checklist rule path."
+  },
+  "nodeConfigChecklistRulePathHint": "e.g. build/app.apk",
+  "@nodeConfigChecklistRulePathHint": {
+    "description": "Placeholder hint for the fileExists checklist rule path."
+  },
+  "nodeConfigChecklistRulePatternField": "Regex pattern",
+  "@nodeConfigChecklistRulePatternField": {
+    "description": "Text field label for the outputMatchesRegex checklist rule pattern."
+  },
+  "nodeConfigChecklistRulePatternHint": "e.g. All tests passed",
+  "@nodeConfigChecklistRulePatternHint": {
+    "description": "Placeholder hint for the outputMatchesRegex checklist rule pattern."
+  },
+  "nodeConfigReviewHarnessLabel": "Review harness",
+  "@nodeConfigReviewHarnessLabel": {
+    "description": "Select field label for choosing which headless harness runs a review validator."
+  },
+  "nodeConfigReviewCriteriaLabel": "Review criteria",
+  "@nodeConfigReviewCriteriaLabel": {
+    "description": "Multiline text field label for review validator criteria."
+  },
+  "nodeConfigReviewCriteriaHint": "Describe what the reviewer should verify...",
+  "@nodeConfigReviewCriteriaHint": {
+    "description": "Placeholder hint for review criteria."
+  },
+  "nodeConfigHumanTitleLabel": "Approval title",
+  "@nodeConfigHumanTitleLabel": {
+    "description": "Text field label for the human approval node title."
+  },
+  "nodeConfigHumanTitleHint": "e.g. Approve production release",
+  "@nodeConfigHumanTitleHint": {
+    "description": "Placeholder hint for the human approval title."
+  },
+  "nodeConfigHumanInstructionsLabel": "Instructions for reviewer",
+  "@nodeConfigHumanInstructionsLabel": {
+    "description": "Multiline text field label for human approval instructions."
+  },
+  "nodeConfigHumanInstructionsHint": "Explain what the human should review before approving or rejecting...",
+  "@nodeConfigHumanInstructionsHint": {
+    "description": "Placeholder hint for human approval instructions."
+  },
+  "nodeConfigHumanAllowFeedbackLabel": "Allow feedback message",
+  "@nodeConfigHumanAllowFeedbackLabel": {
+    "description": "Switch label for allowing the human reviewer to enter feedback."
   }
 }

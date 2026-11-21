@@ -1,6 +1,8 @@
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflow_editor_controller.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/utils/workflow_l10n.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/node_config_form_registry.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
 import 'package:material_ui/material_ui.dart';
@@ -13,11 +15,13 @@ class WorkflowInspectorPanel extends StatefulWidget {
     required this.state,
     required this.onUpdateMetadata,
     required this.onUpdateNodeLabel,
+    required this.onUpdateNodeConfig,
     required this.onToggleEntryNode,
     required this.onDeleteNode,
     required this.onUpdateEdge,
     required this.onDeleteEdge,
     required this.onFocusIssue,
+    this.configFormRegistry,
     super.key,
   });
 
@@ -29,6 +33,9 @@ class WorkflowInspectorPanel extends StatefulWidget {
 
   /// Called when the selected node's label changes.
   final void Function(String nodeId, String label) onUpdateNodeLabel;
+
+  /// Called when the selected node's typed configuration changes.
+  final void Function(String nodeId, JsonMap config) onUpdateNodeConfig;
 
   /// Called when the selected node's entry-node switch changes.
   final void Function(String nodeId, {required bool isEntry}) onToggleEntryNode;
@@ -51,13 +58,19 @@ class WorkflowInspectorPanel extends StatefulWidget {
   /// Called when the user clicks a validation issue to focus it on the canvas.
   final ValueChanged<WorkflowValidationIssue> onFocusIssue;
 
+  /// Optional registry of per-type node configuration forms.
+  final NodeConfigFormRegistry? configFormRegistry;
+
   @override
   State<WorkflowInspectorPanel> createState() => _WorkflowInspectorPanelState();
 }
 
 class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
   static const String _customOutputKey = '__custom__';
-  static const List<String> _presetOutputs = <String>['onSuccess', 'onFailure'];
+  static const List<String> _fallbackOutputs = <String>[
+    NodeOutput.onSuccess,
+    NodeOutput.onFailure,
+  ];
 
   final TextEditingController _workflowNameController = TextEditingController();
   final TextEditingController _workflowDescController = TextEditingController();
@@ -66,6 +79,7 @@ class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
   final TextEditingController _edgeOutputController = TextEditingController();
   final TextEditingController _edgeRetriesController = TextEditingController();
 
+  late final NodeConfigFormRegistry _configFormRegistry;
   String? _syncedWorkflowId;
   String? _syncedNodeId;
   String? _syncedEdgeId;
@@ -74,6 +88,8 @@ class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
   @override
   void initState() {
     super.initState();
+    _configFormRegistry =
+        widget.configFormRegistry ?? createNodeConfigFormRegistry();
     _syncControllers();
   }
 
@@ -114,13 +130,24 @@ class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
     final edge = widget.state.selectedEdge;
     if (edge != null && _syncedEdgeId != edge.id) {
       _syncedEdgeId = edge.id;
-      _useCustomOutput = !_presetOutputs.contains(edge.sourceOutput);
+      final presets = _presetOutputsForEdge(edge);
+      _useCustomOutput = !presets.contains(edge.sourceOutput);
       _edgeOutputController.text = edge.sourceOutput;
       _edgeRetriesController.text = edge.maxRetries?.toString() ?? '';
     } else if (edge == null) {
       _syncedEdgeId = null;
       _useCustomOutput = false;
     }
+  }
+
+  List<String> _presetOutputsForEdge(WorkflowEdge edge) {
+    for (final node in widget.state.workflow.nodes) {
+      if (node.id == edge.sourceNodeId) {
+        return NodeDescriptors.of(node.type)?.availableOutputs ??
+            _fallbackOutputs;
+      }
+    }
+    return _fallbackOutputs;
   }
 
   @override
@@ -220,7 +247,19 @@ class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
     final spacing = context.hiveSpacing;
     final typography = context.hiveTypography;
     final colors = context.hiveColors;
+    final elevation = context.hiveElevation;
     final isEntry = widget.state.workflow.entryNodeId == node.id;
+
+    final localizedType = resolveNodeTypeLabel(context, l10n, node.type);
+    if (_nodeTypeController.text != localizedType) {
+      _nodeTypeController.text = localizedType;
+    }
+
+    final configForm = _configFormRegistry.buildForm(
+      context,
+      node,
+      (config) => widget.onUpdateNodeConfig(node.id, config),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -255,6 +294,24 @@ class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
               widget.onToggleEntryNode(node.id, isEntry: value),
         ),
         SizedBox(height: spacing.space3),
+        Divider(color: colors.borderSubtle, height: elevation.hairline),
+        SizedBox(height: spacing.space3),
+        Semantics(
+          header: true,
+          child: Text(
+            l10n.nodeConfigSectionTitle,
+            style: typography.titleSmall.copyWith(color: colors.onSurface),
+          ),
+        ),
+        SizedBox(height: spacing.space2),
+        configForm ??
+            Text(
+              l10n.nodeConfigUnknownType,
+              style: typography.bodySmall.copyWith(
+                color: colors.onSurfaceMuted,
+              ),
+            ),
+        SizedBox(height: spacing.space3),
         HiveButton(
           key: const Key('inspector_delete_node'),
           label: l10n.editorDeleteNodeAction,
@@ -274,10 +331,11 @@ class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
     final spacing = context.hiveSpacing;
     final typography = context.hiveTypography;
     final colors = context.hiveColors;
+    final presetOutputs = _presetOutputsForEdge(edge);
 
     final selectedOption = _useCustomOutput
         ? _customOutputKey
-        : (_presetOutputs.contains(edge.sourceOutput)
+        : (presetOutputs.contains(edge.sourceOutput)
               ? edge.sourceOutput
               : _customOutputKey);
 
@@ -297,7 +355,7 @@ class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
           label: l10n.editorEdgeSourceOutputLabel,
           value: selectedOption,
           options: <HiveSelectOption<String>>[
-            for (final preset in _presetOutputs)
+            for (final preset in presetOutputs)
               HiveSelectOption<String>(value: preset, label: preset),
             HiveSelectOption<String>(
               value: _customOutputKey,

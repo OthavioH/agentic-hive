@@ -3,6 +3,7 @@ import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflow_editor_controller.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/pages/workflow_editor_page.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/workflow_graph_painter.dart';
 import 'package:agentic_hive_frontend/routes/app_routes.dart';
@@ -113,7 +114,7 @@ Widget _buildEditorHost() {
   );
 
   return NodeVisualScope(
-    registry: NodeVisualRegistry(),
+    registry: createNodeVisualRegistry(),
     child: MaterialApp.router(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
@@ -148,8 +149,10 @@ void main() {
     expect(find.text(l10n.editorSavedBadge), findsOneWidget);
     expect(find.text(l10n.editorIssueEmptyNodes), findsOneWidget);
 
-    // Add node -> becomes dirty, selects node, shows node inspector.
-    await tester.tap(find.byKey(const Key('editor_add_node_button')));
+    // Add node from palette -> becomes dirty, selects node, shows inspector.
+    await tester.tap(
+      find.byKey(const Key('palette_item_${NodeTypeId.command}')),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text(l10n.editorUnsavedBadge), findsOneWidget);
@@ -188,8 +191,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Add a node (automatically selected).
-    await tester.tap(find.byKey(const Key('editor_add_node_button')));
+    // Add a node from palette (automatically selected).
+    await tester.tap(
+      find.byKey(const Key('palette_item_${NodeTypeId.command}')),
+    );
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('canvas_node_node_1')), findsOneWidget);
 
@@ -235,9 +240,13 @@ void main() {
       await tester.pumpAndSettle();
 
       // Add two nodes: node_1 at (120, 120) and node_2 at (380, 120).
-      await tester.tap(find.byKey(const Key('editor_add_node_button')));
+      await tester.tap(
+        find.byKey(const Key('palette_item_${NodeTypeId.command}')),
+      );
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('editor_add_node_button')));
+      await tester.tap(
+        find.byKey(const Key('palette_item_${NodeTypeId.command}')),
+      );
       await tester.pumpAndSettle();
 
       final container = ProviderScope.containerOf(
@@ -339,9 +348,13 @@ void main() {
       await tester.pumpAndSettle();
 
       // Add 2 nodes without connecting them -> node_2 is unreachable warning.
-      await tester.tap(find.byKey(const Key('editor_add_node_button')));
+      await tester.tap(
+        find.byKey(const Key('palette_item_${NodeTypeId.command}')),
+      );
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('editor_add_node_button')));
+      await tester.tap(
+        find.byKey(const Key('palette_item_${NodeTypeId.command}')),
+      );
       await tester.pumpAndSettle();
 
       // Select node_1 first so node_2 is not selected.
@@ -359,6 +372,8 @@ void main() {
       );
       expect(issueCard, findsOneWidget);
 
+      await tester.ensureVisible(issueCard);
+      await tester.pumpAndSettle();
       await tester.tap(issueCard);
       await tester.pumpAndSettle();
 
@@ -389,7 +404,9 @@ void main() {
         tester.element(find.byType(WorkflowEditorPage)),
       )!;
 
-      await tester.tap(find.byKey(const Key('editor_add_node_button')));
+      await tester.tap(
+        find.byKey(const Key('palette_item_${NodeTypeId.command}')),
+      );
       await tester.pumpAndSettle();
 
       // 1. Tap Overview in side rail while dirty -> HiveDialog appears;

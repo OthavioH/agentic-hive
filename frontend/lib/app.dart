@@ -1,4 +1,5 @@
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
 import 'package:agentic_hive_frontend/routes/app_router_provider.dart';
 import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:design_system/design_system.dart';
@@ -16,7 +17,7 @@ class HiveApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
     return NodeVisualScope(
-      registry: NodeVisualRegistry(),
+      registry: createNodeVisualRegistry(),
       child: MaterialApp.router(
         onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
         themeMode: ThemeMode.dark,

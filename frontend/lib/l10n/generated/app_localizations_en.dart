@@ -493,4 +493,218 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get workflowsFailureUnexpected =>
       'An unexpected error occurred while processing the workflow.';
+
+  @override
+  String editorIssueUnknownNodeType(String nodeLabel) {
+    return 'Node \"$nodeLabel\" has an unknown node type.';
+  }
+
+  @override
+  String editorIssueInvalidNodeConfig(String nodeLabel) {
+    return 'Node \"$nodeLabel\" has an invalid configuration.';
+  }
+
+  @override
+  String get nodeTypeClaudeCode => 'Claude Code';
+
+  @override
+  String get nodeTypeCodex => 'Codex';
+
+  @override
+  String get nodeTypeGeminiCli => 'Gemini CLI';
+
+  @override
+  String get nodeTypeAntigravity => 'Antigravity';
+
+  @override
+  String get nodeTypeTerminalHarness => 'Terminal Harness';
+
+  @override
+  String get nodeTypeCommand => 'Command';
+
+  @override
+  String get nodeTypeTestsValidator => 'Tests Validator';
+
+  @override
+  String get nodeTypeChecklistValidator => 'Checklist Validator';
+
+  @override
+  String get nodeTypeReviewValidator => 'Review Validator';
+
+  @override
+  String get nodeTypeHumanApproval => 'Human Approval';
+
+  @override
+  String get nodeTypeUnknown => 'Unknown Node';
+
+  @override
+  String get nodeCategoryHarnesses => 'Harnesses';
+
+  @override
+  String get nodeCategoryExecution => 'Execution';
+
+  @override
+  String get nodeCategoryValidators => 'Validators';
+
+  @override
+  String get nodeCategoryHuman => 'Human';
+
+  @override
+  String get editorPaletteTitle => 'Node Palette';
+
+  @override
+  String get editorPaletteHint => 'Click or drag onto the canvas';
+
+  @override
+  String editorPaletteInsertSemantic(String nodeType) {
+    return 'Add $nodeType node';
+  }
+
+  @override
+  String get nodeConfigSectionTitle => 'Configuration';
+
+  @override
+  String get nodeConfigUnknownType =>
+      'No configuration form is registered for this node type.';
+
+  @override
+  String get nodeConfigAgentIdLabel => 'Agent ID';
+
+  @override
+  String get nodeConfigAgentIdHint => 'e.g. code-reviewer';
+
+  @override
+  String get nodeConfigAgentIdHelper =>
+      'Enter an agent ID manually until the Agent Library is connected.';
+
+  @override
+  String get nodeConfigAdditionalInstructionsLabel => 'Additional instructions';
+
+  @override
+  String get nodeConfigAdditionalInstructionsHint =>
+      'Extra instructions appended to the prompt...';
+
+  @override
+  String get nodeConfigWorkingDirectoryLabel => 'Working directory';
+
+  @override
+  String get nodeConfigWorkingDirectoryHint =>
+      'Optional relative path (e.g. packages/app)';
+
+  @override
+  String get nodeConfigTimeoutSecondsLabel => 'Timeout (seconds)';
+
+  @override
+  String get nodeConfigTimeoutSecondsHint => 'Optional positive integer';
+
+  @override
+  String get nodeConfigExtraArgsLabel => 'Extra CLI arguments';
+
+  @override
+  String get nodeConfigExtraArgsItemLabel => 'Argument';
+
+  @override
+  String get nodeConfigExtraArgsAddLabel => 'Add argument';
+
+  @override
+  String get nodeConfigCommandLabel => 'Command';
+
+  @override
+  String get nodeConfigCommandHint => 'e.g. dart, flutter, npm';
+
+  @override
+  String get nodeConfigArgsLabel => 'Arguments';
+
+  @override
+  String get nodeConfigArgsItemLabel => 'Argument';
+
+  @override
+  String get nodeConfigArgsAddLabel => 'Add argument';
+
+  @override
+  String get nodeConfigEnvLabel => 'Environment variables';
+
+  @override
+  String get nodeConfigEnvKeyLabel => 'Variable';
+
+  @override
+  String get nodeConfigEnvValueLabel => 'Value';
+
+  @override
+  String get nodeConfigEnvAddLabel => 'Add variable';
+
+  @override
+  String get nodeConfigEnvDuplicateKey => 'Duplicate variable name';
+
+  @override
+  String get nodeConfigEnvEmptyKey => 'Variable name is required';
+
+  @override
+  String get nodeConfigRemoveButtonLabel => 'Remove';
+
+  @override
+  String get nodeConfigChecklistRulesLabel => 'Checklist rules';
+
+  @override
+  String get nodeConfigChecklistEmpty => 'No checklist rules configured yet.';
+
+  @override
+  String get nodeConfigChecklistAddRule => 'Add rule';
+
+  @override
+  String get nodeConfigChecklistRemoveRule => 'Remove rule';
+
+  @override
+  String get nodeConfigChecklistRuleLabelField => 'Rule label';
+
+  @override
+  String get nodeConfigChecklistRuleKindField => 'Check kind';
+
+  @override
+  String get nodeConfigChecklistRuleKindFileExists => 'File exists';
+
+  @override
+  String get nodeConfigChecklistRuleKindCommandSucceeds => 'Command succeeds';
+
+  @override
+  String get nodeConfigChecklistRuleKindOutputMatchesRegex =>
+      'Output matches regex';
+
+  @override
+  String get nodeConfigChecklistRulePathField => 'Relative file path';
+
+  @override
+  String get nodeConfigChecklistRulePathHint => 'e.g. build/app.apk';
+
+  @override
+  String get nodeConfigChecklistRulePatternField => 'Regex pattern';
+
+  @override
+  String get nodeConfigChecklistRulePatternHint => 'e.g. All tests passed';
+
+  @override
+  String get nodeConfigReviewHarnessLabel => 'Review harness';
+
+  @override
+  String get nodeConfigReviewCriteriaLabel => 'Review criteria';
+
+  @override
+  String get nodeConfigReviewCriteriaHint =>
+      'Describe what the reviewer should verify...';
+
+  @override
+  String get nodeConfigHumanTitleLabel => 'Approval title';
+
+  @override
+  String get nodeConfigHumanTitleHint => 'e.g. Approve production release';
+
+  @override
+  String get nodeConfigHumanInstructionsLabel => 'Instructions for reviewer';
+
+  @override
+  String get nodeConfigHumanInstructionsHint =>
+      'Explain what the human should review before approving or rejecting...';
+
+  @override
+  String get nodeConfigHumanAllowFeedbackLabel => 'Allow feedback message';
 }
