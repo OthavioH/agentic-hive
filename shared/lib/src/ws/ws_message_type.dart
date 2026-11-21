@@ -35,4 +35,11 @@ abstract final class WsMessageType {
   /// Server → client, streamed to connections subscribed to `runId` when a
   /// node emits `stdout` or `stderr` output.
   static const runOutput = 'run.output';
+
+  /// Server → client, broadcast globally when a run creates a pending pause.
+  static const pauseCreated = 'pause.created';
+
+  /// Server → client, broadcast globally when a pending pause is answered or
+  /// cancelled.
+  static const pauseResolved = 'pause.resolved';
 }

@@ -359,6 +359,29 @@ WidgetbookComponent railItemComponent() {
                 ),
               ),
             ),
+      for (final expanded in <bool>[false, true])
+        for (final selected in <bool>[false, true])
+          for (final count in <int>[3, 128])
+            WidgetbookUseCase(
+              name:
+                  '${expanded ? 'Expanded' : 'Collapsed'} · '
+                  '${selected ? 'Active' : 'Inactive'} · Badge '
+                  '${HiveRailItem.badgeText(count)}',
+              builder: (context) => UseCaseFrame(
+                child: SizedBox(
+                  width: expanded ? context.hiveSpacing.space8 * 4 : null,
+                  child: HiveRailItem(
+                    icon: HiveIcons.pauses,
+                    label: 'Pauses',
+                    semanticLabel: 'Pauses, $count pending',
+                    badgeCount: count,
+                    selected: selected,
+                    expanded: expanded,
+                    onPressed: _noop,
+                  ),
+                ),
+              ),
+            ),
     ],
   );
 }
@@ -374,15 +397,36 @@ const List<HiveRailDestination> railDestinations = <HiveRailDestination>[
   HiveRailDestination(icon: HiveIcons.settings, label: 'Settings'),
 ];
 
+/// [railDestinations] with three pending pauses on the Pauses destination.
+const List<HiveRailDestination> railDestinationsWithBadge =
+    <HiveRailDestination>[
+      HiveRailDestination(icon: HiveIcons.overview, label: 'Overview'),
+      HiveRailDestination(icon: HiveIcons.workflows, label: 'Workflows'),
+      HiveRailDestination(icon: HiveIcons.runs, label: 'Runs'),
+      HiveRailDestination(
+        icon: HiveIcons.pauses,
+        label: 'Pauses',
+        badgeCount: 3,
+        semanticLabel: 'Pauses, 3 pending',
+      ),
+      HiveRailDestination(icon: HiveIcons.agents, label: 'Agents'),
+      HiveRailDestination(icon: HiveIcons.harnesses, label: 'Harnesses'),
+      HiveRailDestination(icon: HiveIcons.settings, label: 'Settings'),
+    ];
+
 /// `HiveSideRail`: collapsed, expanded and an interactive shell.
 WidgetbookComponent sideRailComponent() {
-  Widget rail(BuildContext context, {required bool expanded}) {
+  Widget rail(
+    BuildContext context, {
+    required bool expanded,
+    List<HiveRailDestination> destinations = railDestinations,
+  }) {
     return Padding(
       padding: EdgeInsets.all(context.hiveSpacing.space2),
       child: SizedBox(
         height: context.hiveSpacing.space8 * 10,
         child: HiveSideRail(
-          destinations: railDestinations,
+          destinations: destinations,
           selectedIndex: 1,
           onSelected: (_) {},
           initiallyExpanded: expanded,
@@ -409,6 +453,28 @@ WidgetbookComponent sideRailComponent() {
         builder: (context) => Align(
           alignment: Alignment.centerLeft,
           child: rail(context, expanded: true),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Collapsed · Pauses badge',
+        builder: (context) => Align(
+          alignment: Alignment.centerLeft,
+          child: rail(
+            context,
+            expanded: false,
+            destinations: railDestinationsWithBadge,
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Expanded · Pauses badge',
+        builder: (context) => Align(
+          alignment: Alignment.centerLeft,
+          child: rail(
+            context,
+            expanded: true,
+            destinations: railDestinationsWithBadge,
+          ),
         ),
       ),
       WidgetbookUseCase(

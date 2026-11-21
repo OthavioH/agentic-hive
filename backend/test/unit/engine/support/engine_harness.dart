@@ -114,6 +114,7 @@ final class EngineHarness {
       snapshots: snapshots,
       pauseGateway: gateway,
       processTreeKiller: killer,
+      pauses: pauses,
       maxConcurrency: maxConcurrency,
       circuitBreakerThreshold: circuitBreakerThreshold,
       cancelGracePeriod: cancelGracePeriod,
@@ -134,6 +135,9 @@ final class EngineHarness {
 
   /// In-memory event repository.
   final InMemoryRunEventRepository events = InMemoryRunEventRepository();
+
+  /// In-memory pause repository.
+  final InMemoryPauseRepository pauses = InMemoryPauseRepository();
 
   /// Fake snapshot service.
   final FakeSnapshotService snapshots = FakeSnapshotService();

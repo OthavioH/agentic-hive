@@ -1,3 +1,5 @@
+import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+
 /// Base type for expected domain and data-layer failures returned in a
 /// `Result`.
 ///
@@ -67,15 +69,6 @@ final class HarnessRateLimitFailure extends Failure {
 
   /// Canonical `WorkflowNode.type` of the harness that hit the limit.
   final String harnessType;
-}
-
-/// Why a node asked the engine to pause its run.
-enum PauseKind {
-  /// A `human_approval` node waits for an approve/reject decision.
-  approval,
-
-  /// A harness called `ask_human` and waits for a free-form answer.
-  askHuman,
 }
 
 /// A node did not finish because it needs a human before the run can go on.

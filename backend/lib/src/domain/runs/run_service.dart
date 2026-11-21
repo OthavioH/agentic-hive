@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/engine/graph_engine.dart';
+import 'package:agentic_hive_backend/src/domain/engine/resume_input.dart';
 import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_log_store.dart';
@@ -272,7 +273,85 @@ final class RunService {
   ///
   /// Returns [ConflictFailure] (`409 Conflict`) when the run is `paused`, is
   /// already being resumed, or is in any status other than `interrupted`.
-  Future<Result<Run>> resumeRun(String id) async {
+  Future<Result<Run>> resumeRun(String id) =>
+      _resumeWithStatus(id, expectedStatus: RunStatus.interrupted);
+
+  /// Resumes a `paused` run with [input] (either an [ApprovalDecisionInput]
+  /// or a post-restart [HumanAnswerInput]), or queues [input] into an active
+  /// execution of [id] when another paused branch of the same run was just
+  /// answered.
+  Future<Result<Run>> resumePausedRun(
+    String id, {
+    required ResumeInput input,
+  }) async {
+    final engine = _engine;
+    if (engine == null) {
+      return const FailureResult(
+        UnexpectedFailure('GraphEngine is not configured.'),
+      );
+    }
+
+    final runResult = await _runs.getById(id);
+    if (runResult case FailureResult<Run>(:final failure)) {
+      return FailureResult(failure);
+    }
+    final run = runResult.valueOrNull!;
+
+    var reservedDirect = false;
+    String? normalizedWorkspace;
+    var launched = false;
+    try {
+      if (run.isolationMode == WorkspaceIsolationMode.direct &&
+          !engine.isExecuting(id)) {
+        normalizedWorkspace = _canonicalizeWorkspace(run.workspacePath);
+        if (!_reservedDirectWorkspaces.add(normalizedWorkspace)) {
+          return FailureResult(
+            ConflictFailure(
+              'An active direct-mode run is already starting or executing on '
+              'workspace "$normalizedWorkspace".',
+            ),
+          );
+        }
+        reservedDirect = true;
+        final conflict = await _checkDirectWorkspaceConflict(
+          normalizedWorkspace,
+          excludeRunId: id,
+        );
+        if (conflict != null) return FailureResult(conflict);
+      }
+
+      final started = await engine.beginPausedResume(id, input: input);
+      if (started case FailureResult<({Run run, Future<Result<Run>> done})>(
+        :final failure,
+      )) {
+        return FailureResult(failure);
+      }
+      final (run: resumedRun, :done) = started.valueOrNull!;
+      if (!_activeExecutions.containsKey(id)) {
+        launched = true;
+        _launchBackground(
+          id,
+          () => done,
+          onSettled: () {
+            if (reservedDirect && normalizedWorkspace != null) {
+              _reservedDirectWorkspaces.remove(normalizedWorkspace);
+            }
+          },
+        );
+      }
+      return Success(resumedRun);
+    } finally {
+      if (!launched && reservedDirect && normalizedWorkspace != null) {
+        _reservedDirectWorkspaces.remove(normalizedWorkspace);
+      }
+    }
+  }
+
+  Future<Result<Run>> _resumeWithStatus(
+    String id, {
+    required RunStatus expectedStatus,
+    ResumeInput? input,
+  }) async {
     final engine = _engine;
     if (engine == null) {
       return const FailureResult(
@@ -296,11 +375,11 @@ final class RunService {
       }
       final run = runResult.valueOrNull!;
 
-      if (run.status != RunStatus.interrupted) {
+      if (run.status != expectedStatus) {
         return FailureResult(
           ConflictFailure(
-            'Run "$id" is ${run.status.name}; only interrupted runs can be '
-            'resumed.',
+            'Run "$id" is ${run.status.name}; only ${expectedStatus.name} '
+            'runs can be resumed.',
           ),
         );
       }
@@ -326,7 +405,7 @@ final class RunService {
       launched = true;
       _launchBackground(
         id,
-        () => engine.resume(id),
+        () => engine.resume(id, input: input),
         onSettled: () {
           _resumingRunIds.remove(id);
           if (reservedDirect && normalizedWorkspace != null) {
@@ -424,6 +503,7 @@ final class RunService {
     final currentResult = await _runs.getById(runId);
     if (currentResult case Success<Run>(:final value)
         when value.status == RunStatus.running ||
+            value.status == RunStatus.paused ||
             value.status == RunStatus.interrupted) {
       final now = _now().toUtc();
       await _runs.updateStatus(
