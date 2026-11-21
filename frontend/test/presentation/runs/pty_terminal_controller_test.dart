@@ -449,4 +449,135 @@ void main() {
       contains('final-output-before-disconnect'),
     );
   });
+
+  test('reconnect to ended session (ptySessionNotActive) keeps output, '
+      'switches to Ended, and does not resubscribe', () async {
+    final session1 = _FakeWsSession();
+    final session2 = _FakeWsSession();
+    final session3 = _FakeWsSession();
+    final repo = _RecordingPtyRepository();
+
+    final controller = StreamController<BackendWebSocketSession?>.broadcast();
+    BackendWebSocketSession? currentSession = session1;
+
+    final container = ProviderContainer.test(
+      overrides: [
+        ptyRepositoryProvider.overrideWithValue(repo),
+        backendWebSocketSessionProvider.overrideWith((ref) {
+          final sub = controller.stream.listen((next) {
+            currentSession = next;
+            ref.invalidateSelf();
+          });
+          ref.onDispose(sub.cancel);
+          return currentSession;
+        }),
+      ],
+    );
+    addTearDown(() async {
+      container.dispose();
+      await controller.close();
+      await session1.close();
+      await session2.close();
+      await session3.close();
+    });
+
+    final provider = ptyTerminalControllerProvider('run-1', 'node-1', 1);
+    final sub = container.listen(provider, (_, _) {});
+
+    session1.emit(
+      _ptyOutputEnvelope(
+        runId: 'run-1',
+        nodeId: 'node-1',
+        attempt: 1,
+        text: 'rendered-before-end',
+      ),
+    );
+    await pumpEventQueue();
+    expect(sub.read().hasOutput, isTrue);
+
+    // Reconnect to session2; backend replies with ptySessionNotActive.
+    controller.add(session2);
+    await pumpEventQueue();
+    expect(repo.subscriptions, hasLength(2));
+
+    session2.emit(
+      WsEnvelope(
+        id: 'err-1',
+        type: WsMessageType.error,
+        payload: const WsErrorPayload(
+          code: WsErrorCode.ptySessionNotActive,
+          message: 'PTY session is not active or has already ended.',
+          replyTo: 'pty-sub-2',
+        ).toJson(),
+      ),
+    );
+    await pumpEventQueue();
+
+    expect(sub.read().mode, HiveTerminalMode.ended);
+    expect(sub.read().hasOutput, isTrue);
+    expect(
+      sub.read().terminalController.plainText,
+      contains('rendered-before-end'),
+    );
+
+    // Subsequent reconnects must not trigger a resubscribe loop.
+    controller.add(session3);
+    await pumpEventQueue();
+    expect(repo.subscriptions, hasLength(2));
+  });
+
+  test('fresh open of ended session (ptySessionNotActive) enters Ended '
+      'with hasOutput false and does not resubscribe', () async {
+    final session1 = _FakeWsSession();
+    final session2 = _FakeWsSession();
+    final repo = _RecordingPtyRepository();
+
+    final controller = StreamController<BackendWebSocketSession?>.broadcast();
+    BackendWebSocketSession? currentSession = session1;
+
+    final container = ProviderContainer.test(
+      overrides: [
+        ptyRepositoryProvider.overrideWithValue(repo),
+        backendWebSocketSessionProvider.overrideWith((ref) {
+          final sub = controller.stream.listen((next) {
+            currentSession = next;
+            ref.invalidateSelf();
+          });
+          ref.onDispose(sub.cancel);
+          return currentSession;
+        }),
+      ],
+    );
+    addTearDown(() async {
+      container.dispose();
+      await controller.close();
+      await session1.close();
+      await session2.close();
+    });
+
+    final provider = ptyTerminalControllerProvider('run-1', 'node-1', 1);
+    final sub = container.listen(provider, (_, _) {});
+    expect(repo.subscriptions, hasLength(1));
+
+    session1.emit(
+      WsEnvelope(
+        id: 'err-1',
+        type: WsMessageType.error,
+        payload: const WsErrorPayload(
+          code: WsErrorCode.ptySessionNotActive,
+          message: 'PTY session is not active or has already ended.',
+          replyTo: 'pty-sub-1',
+        ).toJson(),
+      ),
+    );
+    await pumpEventQueue();
+
+    expect(sub.read().mode, HiveTerminalMode.ended);
+    expect(sub.read().hasOutput, isFalse);
+
+    // Subsequent reconnect must not resubscribe.
+    controller.add(session2);
+    await pumpEventQueue();
+    expect(repo.subscriptions, hasLength(1));
+  });
 }

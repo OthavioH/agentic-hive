@@ -15,7 +15,11 @@ part 'pty_terminal_controller.g.dart';
 @immutable
 final class PtyTerminalState {
   /// Creates a [PtyTerminalState].
-  const new({required this.mode, required this.terminalController});
+  const new({
+    required this.mode,
+    required this.terminalController,
+    this.hasOutput = false,
+  });
 
   /// Current interaction mode (`watch`, `interactive`, or `ended`).
   final HiveTerminalMode mode;
@@ -23,14 +27,19 @@ final class PtyTerminalState {
   /// Terminal emulator controller holding screen buffer and scrollback.
   final HiveTerminalController terminalController;
 
+  /// Whether any terminal output bytes have been rendered for this session.
+  final bool hasOutput;
+
   /// Returns a copy with updated fields.
   PtyTerminalState copyWith({
     HiveTerminalMode? mode,
     HiveTerminalController? terminalController,
+    bool? hasOutput,
   }) {
     return PtyTerminalState(
       mode: mode ?? this.mode,
       terminalController: terminalController ?? this.terminalController,
+      hasOutput: hasOutput ?? this.hasOutput,
     );
   }
 }
@@ -51,6 +60,7 @@ class PtyTerminalController extends _$PtyTerminalController {
   late HiveTerminalController _terminalController;
   BackendWebSocketSession? _subscribedSession;
   bool _hasReceivedOutput = false;
+  bool _isEnded = false;
   Timer? _resizeTimer;
   (int, int)? _pendingResize;
   (int, int)? _lastSentResize;
@@ -60,6 +70,7 @@ class PtyTerminalController extends _$PtyTerminalController {
     _terminalController = HiveTerminalController();
     _subscribedSession = null;
     _hasReceivedOutput = false;
+    _isEnded = false;
     _resizeTimer = null;
     _pendingResize = null;
     _lastSentResize = null;
@@ -81,6 +92,7 @@ class PtyTerminalController extends _$PtyTerminalController {
       previous,
       next,
     ) {
+      if (_isEnded) return;
       if (next != null &&
           !next.isClosed &&
           !identical(_subscribedSession, next)) {
@@ -134,7 +146,10 @@ class PtyTerminalController extends _$PtyTerminalController {
   /// Locks the terminal permanently to [HiveTerminalMode.ended] while
   /// preserving the final screen and scrollback output.
   void markEnded() {
-    if (!ref.mounted || state.mode == HiveTerminalMode.ended) return;
+    if (!ref.mounted || _isEnded || state.mode == HiveTerminalMode.ended) {
+      return;
+    }
+    _isEnded = true;
     _resizeTimer?.cancel();
     _resizeTimer = null;
     _pendingResize = null;
@@ -184,7 +199,7 @@ class PtyTerminalController extends _$PtyTerminalController {
   }
 
   void _subscribe(BackendWebSocketSession session) {
-    if (session.isClosed) return;
+    if (_isEnded || session.isClosed) return;
     _subscribedSession = session;
 
     unawaited(
@@ -201,12 +216,26 @@ class PtyTerminalController extends _$PtyTerminalController {
     _hasReceivedOutput = false;
     previous.dispose();
     if (ref.mounted) {
-      state = state.copyWith(terminalController: replacement);
+      state = state.copyWith(terminalController: replacement, hasOutput: false);
     }
   }
 
   void _handleWsEnvelope(WsEnvelope envelope) {
-    if (!ref.mounted || envelope.type != WsMessageType.ptyOutput) return;
+    if (!ref.mounted) return;
+    if (envelope.type == WsMessageType.error) {
+      final WsErrorPayload errorPayload;
+      try {
+        errorPayload = WsErrorPayload.fromJson(envelope.payload);
+      } on FormatException {
+        return;
+      }
+      if (errorPayload.code == WsErrorCode.ptySessionNotActive) {
+        markEnded();
+      }
+      return;
+    }
+
+    if (envelope.type != WsMessageType.ptyOutput) return;
     final PtyOutputPayload payload;
     try {
       payload = PtyOutputPayload.fromJson(envelope.payload);
@@ -232,5 +261,8 @@ class PtyTerminalController extends _$PtyTerminalController {
     }
     _hasReceivedOutput = true;
     _terminalController.appendBytes(bytes);
+    if (!state.hasOutput && bytes.isNotEmpty) {
+      state = state.copyWith(hasOutput: true);
+    }
   }
 }

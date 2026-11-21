@@ -88,6 +88,8 @@ class _PtyTerminalPanelState extends ConsumerState<PtyTerminalPanel> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final spacing = context.hiveSpacing;
+    final colors = context.hiveColors;
+    final typography = context.hiveTypography;
     final provider = ptyTerminalControllerProvider(
       widget.runId,
       widget.nodeId,
@@ -117,7 +119,7 @@ class _PtyTerminalPanelState extends ConsumerState<PtyTerminalPanel> {
       ),
     };
 
-    return HiveTerminalView(
+    final terminalView = HiveTerminalView(
       key: Key('run_pty_terminal_view_${widget.nodeId}_${widget.attempt}'),
       controller: terminalState.terminalController,
       mode: mode,
@@ -162,5 +164,32 @@ class _PtyTerminalPanelState extends ConsumerState<PtyTerminalPanel> {
         ],
       ),
     );
+
+    if (mode == HiveTerminalMode.ended && !terminalState.hasOutput) {
+      return Stack(
+        children: <Widget>[
+          terminalView,
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Center(
+                child: Padding(
+                  padding: EdgeInsets.all(spacing.space4),
+                  child: Text(
+                    l10n.runTerminalEndedEmptyNote,
+                    key: const Key('run_terminal_ended_empty_note'),
+                    textAlign: TextAlign.center,
+                    style: typography.body.copyWith(
+                      color: colors.onSurfaceMuted,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return terminalView;
   }
 }

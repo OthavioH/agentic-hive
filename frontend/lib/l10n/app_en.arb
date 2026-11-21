@@ -2109,6 +2109,10 @@
   "@runTerminalModeEndedLabel": {
     "description": "Header mode label for HiveTerminalView when the node has finished."
   },
+  "runTerminalEndedEmptyNote": "This terminal session has ended. View the node's stored logs in the Output tab.",
+  "@runTerminalEndedEmptyNote": {
+    "description": "Empty-terminal note shown in Ended mode when no live terminal output was captured."
+  },
   "runTerminalBadgeWatch": "Watch",
   "@runTerminalBadgeWatch": {
     "description": "Badge label indicating the terminal is in read-only Watch mode."

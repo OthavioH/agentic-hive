@@ -278,8 +278,195 @@ void main() {
         find.byType(HiveTerminalView),
       );
       expect(terminalView.controller.plainText, contains('prompt>'));
+      expect(
+        find.byKey(const Key('run_terminal_ended_empty_note')),
+        findsNothing,
+      );
 
       await session.close();
+    },
+  );
+
+  testWidgets(
+    'fresh open of ended session shows Ended state with empty-terminal note '
+    'and does not resubscribe',
+    (tester) async {
+      tester.view.physicalSize = const Size(960, 720);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final now = DateTime.utc(2026, 11, 21, 5);
+      final run = _buildTerminalRun(status: RunStatus.running, now: now);
+      final session = _FakeWsSession();
+      final ptyRepo = _RecordingPtyRepository();
+      final runRepo = FakeRunRepository();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            runRepositoryProvider.overrideWithValue(runRepo),
+            ptyRepositoryProvider.overrideWithValue(ptyRepo),
+            backendWebSocketSessionProvider.overrideWithValue(session),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: HiveTheme.dark(),
+            home: Scaffold(
+              body: SizedBox.fromSize(
+                size: const Size(640, 480),
+                child: RunOutputPanel(
+                  runId: 'run-1',
+                  detailState: _detailStateFor(
+                    run: run,
+                    nodeStatus: HiveNodeStatus.running,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: _debounceSettleMs));
+
+      expect(ptyRepo.subscriptions, hasLength(1));
+
+      session.emit(
+        WsEnvelope(
+          id: 'err-1',
+          type: WsMessageType.error,
+          payload: const WsErrorPayload(
+            code: WsErrorCode.ptySessionNotActive,
+            message: 'PTY session is not active or has already ended.',
+            replyTo: 'pty-sub-1',
+          ).toJson(),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(HiveTerminalView), findsOneWidget);
+      expect(find.text('Session ended'), findsOneWidget);
+      expect(find.text('Ended'), findsOneWidget);
+      expect(
+        find.byKey(const Key('run_terminal_takeover_button')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('run_terminal_ended_empty_note')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Output tab'), findsOneWidget);
+      expect(ptyRepo.subscriptions, hasLength(1));
+
+      await session.close();
+    },
+  );
+
+  testWidgets(
+    'reconnect to ended session keeps rendered output, switches to Ended, '
+    'and omits empty-terminal note',
+    (tester) async {
+      tester.view.physicalSize = const Size(960, 720);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final now = DateTime.utc(2026, 11, 21, 5);
+      final run = _buildTerminalRun(status: RunStatus.running, now: now);
+      final session1 = _FakeWsSession();
+      final session2 = _FakeWsSession();
+      final sessionController =
+          StreamController<BackendWebSocketSession?>.broadcast();
+      BackendWebSocketSession? currentSession = session1;
+      final ptyRepo = _RecordingPtyRepository();
+      final runRepo = FakeRunRepository();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            runRepositoryProvider.overrideWithValue(runRepo),
+            ptyRepositoryProvider.overrideWithValue(ptyRepo),
+            backendWebSocketSessionProvider.overrideWith((ref) {
+              final sub = sessionController.stream.listen((next) {
+                currentSession = next;
+                ref.invalidateSelf();
+              });
+              ref.onDispose(sub.cancel);
+              return currentSession;
+            }),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: HiveTheme.dark(),
+            home: Scaffold(
+              body: SizedBox.fromSize(
+                size: const Size(640, 480),
+                child: RunOutputPanel(
+                  runId: 'run-1',
+                  detailState: _detailStateFor(
+                    run: run,
+                    nodeStatus: HiveNodeStatus.running,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: _debounceSettleMs));
+
+      session1.emit(
+        WsEnvelope(
+          id: 'out-1',
+          type: WsMessageType.ptyOutput,
+          payload: PtyOutputPayload(
+            runId: 'run-1',
+            nodeId: 'term-1',
+            attempt: 1,
+            data: base64Encode(utf8.encode('preserved-output')),
+            timestamp: now,
+            isSnapshot: true,
+          ).toJson(),
+        ),
+      );
+      await tester.pump();
+
+      sessionController.add(session2);
+      await tester.pump();
+      await tester.pump();
+      expect(ptyRepo.subscriptions, hasLength(2));
+
+      session2.emit(
+        WsEnvelope(
+          id: 'err-1',
+          type: WsMessageType.error,
+          payload: const WsErrorPayload(
+            code: WsErrorCode.ptySessionNotActive,
+            message: 'PTY session is not active or has already ended.',
+            replyTo: 'pty-sub-2',
+          ).toJson(),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Session ended'), findsOneWidget);
+      expect(find.text('Ended'), findsOneWidget);
+      expect(
+        find.byKey(const Key('run_terminal_ended_empty_note')),
+        findsNothing,
+      );
+      final terminalView = tester.widget<HiveTerminalView>(
+        find.byType(HiveTerminalView),
+      );
+      expect(terminalView.controller.plainText, contains('preserved-output'));
+
+      await sessionController.close();
+      await session1.close();
+      await session2.close();
     },
   );
 }
