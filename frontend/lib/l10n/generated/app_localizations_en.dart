@@ -105,6 +105,62 @@ class AppLocalizationsEn extends AppLocalizations {
   String get connectingRetryAction => 'Retry connection';
 
   @override
+  String get connectingReasonNotRunningTitle => 'Backend is not running';
+
+  @override
+  String get connectingReasonNotRunningMessage =>
+      'No active backend was found (server.json is missing). Start the Agentic Hive backend service and it will connect automatically.';
+
+  @override
+  String get connectingReasonRefusedTitle => 'Backend socket unreachable';
+
+  @override
+  String get connectingReasonRefusedMessage =>
+      'The backend socket refused the connection or is stale. Waiting for the backend service to accept connections.';
+
+  @override
+  String get connectingReasonDegradedTitle => 'Backend is degraded';
+
+  @override
+  String get connectingReasonDegradedMessage =>
+      'The backend is running, but a required dependency such as the database is unavailable. Retrying automatically.';
+
+  @override
+  String get connectingReasonProtocolMismatchTitle =>
+      'Protocol version mismatch';
+
+  @override
+  String get connectingReasonProtocolMismatchMessage =>
+      'This desktop app and the running backend use incompatible WebSocket protocol versions. Update the app or backend, then retry.';
+
+  @override
+  String get connectingReasonTimeoutTitle => 'Connection timed out';
+
+  @override
+  String get connectingReasonTimeoutMessage =>
+      'The backend did not respond in time. Retrying automatically.';
+
+  @override
+  String get connectingReasonUnexpectedTitle => 'Unexpected connection error';
+
+  @override
+  String get connectingReasonUnexpectedMessage =>
+      'An unexpected error occurred while connecting to the local backend.';
+
+  @override
+  String connectingNextRetryIn(int seconds) {
+    return 'Retrying in ${seconds}s';
+  }
+
+  @override
+  String get connectingAutoRetryHalted => 'Automatic retry paused';
+
+  @override
+  String connectingAttemptCount(int count) {
+    return 'Attempt $count';
+  }
+
+  @override
   String get routeErrorTitle => 'Page not found';
 
   @override

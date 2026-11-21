@@ -16,7 +16,7 @@ final class _BackendConnectionRefreshNotifier extends ChangeNotifier {
   BackendConnectionState get connectionState => _connectionState;
 
   void updateConnectionState(BackendConnectionState next) {
-    if (_connectionState == next) return;
+    if (_connectionState.isConnected == next.isConnected) return;
     _connectionState = next;
     notifyListeners();
   }
@@ -50,7 +50,7 @@ GoRouter appRouter(Ref ref) {
       final connection = notifier.connectionState;
       final isConnectingRoute = state.matchedLocation == ConnectingRoute.path;
 
-      if (connection != BackendConnectionState.connected) {
+      if (!connection.isConnected) {
         if (!isConnectingRoute) {
           final target = state.uri.toString();
           notifier.rememberedLocation = target.isNotEmpty && target != '/'
