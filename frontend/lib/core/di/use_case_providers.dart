@@ -4,6 +4,7 @@
 // depend on domain use cases without importing data implementations.
 import 'package:agentic_hive_frontend/data/agents/agent_providers.dart';
 import 'package:agentic_hive_frontend/data/harnesses/harness_repository_impl.dart';
+import 'package:agentic_hive_frontend/data/runs/run_providers.dart';
 import 'package:agentic_hive_frontend/data/settings/file_picker_repository_impl.dart';
 import 'package:agentic_hive_frontend/data/settings/settings_repository_impl.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
@@ -17,6 +18,11 @@ import 'package:agentic_hive_frontend/domain/harnesses/get_harnesses_use_case.da
 import 'package:agentic_hive_frontend/domain/harnesses/refresh_harness_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/refresh_harnesses_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/watch_harness_updates_use_case.dart';
+import 'package:agentic_hive_frontend/domain/runs/use_cases/delete_run.dart';
+import 'package:agentic_hive_frontend/domain/runs/use_cases/get_run.dart';
+import 'package:agentic_hive_frontend/domain/runs/use_cases/get_run_checkpoints.dart';
+import 'package:agentic_hive_frontend/domain/runs/use_cases/get_run_events.dart';
+import 'package:agentic_hive_frontend/domain/runs/use_cases/list_runs.dart';
 import 'package:agentic_hive_frontend/domain/settings/get_settings.dart';
 import 'package:agentic_hive_frontend/domain/settings/pick_directory.dart';
 import 'package:agentic_hive_frontend/domain/settings/pick_file.dart';
@@ -117,6 +123,28 @@ DeleteWorkflow deleteWorkflow(Ref ref) =>
 @riverpod
 ValidateWorkflow validateWorkflow(Ref ref) =>
     ValidateWorkflow(ref.watch(workflowRepositoryProvider));
+
+/// Provides [ListRuns].
+@riverpod
+ListRuns listRuns(Ref ref) => ListRuns(ref.watch(runRepositoryProvider));
+
+/// Provides [GetRun].
+@riverpod
+GetRun getRun(Ref ref) => GetRun(ref.watch(runRepositoryProvider));
+
+/// Provides [GetRunEvents].
+@riverpod
+GetRunEvents getRunEvents(Ref ref) =>
+    GetRunEvents(ref.watch(runRepositoryProvider));
+
+/// Provides [GetRunCheckpoints].
+@riverpod
+GetRunCheckpoints getRunCheckpoints(Ref ref) =>
+    GetRunCheckpoints(ref.watch(runRepositoryProvider));
+
+/// Provides [DeleteRun].
+@riverpod
+DeleteRun deleteRun(Ref ref) => DeleteRun(ref.watch(runRepositoryProvider));
 
 /// Provides [GetSettings].
 @riverpod

@@ -287,7 +287,7 @@ void main() {
       expect(selected, isTrue);
       expect(find.byType(HiveIcon), findsOneWidget);
       expect(
-        tester.getSemantics(find.byType(HiveFilterChip)),
+        tester.getSemantics(find.byType(HiveChipFilter)),
         matchesSemantics(
           label: 'backend',
           isButton: true,
@@ -322,7 +322,7 @@ void main() {
       await tester.pump();
 
       expect(
-        tester.getSemantics(find.byType(HiveFilterChip)),
+        tester.getSemantics(find.byType(HiveChipFilter)),
         matchesSemantics(
           label: 'backend',
           isButton: true,

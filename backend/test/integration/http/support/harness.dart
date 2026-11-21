@@ -103,18 +103,13 @@ final class SocketHttpClient {
   Future<SocketResponse> get(
     String pathAndQuery, {
     Map<String, String> headers = const {},
-  }) async {
-    final request = await _client
-        .getUrl(Uri.parse('http://localhost$pathAndQuery'))
-        .timeout(ioTimeout);
-    headers.forEach(request.headers.set);
-    final response = await request.close().timeout(ioTimeout);
-    final body = await response
-        .transform(utf8.decoder)
-        .join()
-        .timeout(ioTimeout);
-    return SocketResponse(response.statusCode, response.headers, body);
-  }
+  }) => _send('GET', pathAndQuery, headers: headers);
+
+  /// Sends `DELETE` to [pathAndQuery] with optional extra [headers].
+  Future<SocketResponse> delete(
+    String pathAndQuery, {
+    Map<String, String> headers = const {},
+  }) => _send('DELETE', pathAndQuery, headers: headers);
 
   /// Sends `POST` to [pathAndQuery] with optional [headers] and [body].
   Future<SocketResponse> post(

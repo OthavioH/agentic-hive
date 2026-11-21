@@ -50,6 +50,12 @@ final class ValidationFailure extends Failure {
   final Map<String, String> details;
 }
 
+/// The operation conflicts with the current state of a resource.
+final class ConflictFailure extends Failure {
+  /// Creates a conflict failure.
+  const new(super.message);
+}
+
 /// An unexpected internal failure.
 final class UnexpectedFailure extends Failure {
   /// Creates an unexpected failure.

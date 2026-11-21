@@ -6,6 +6,7 @@ import 'package:agentic_hive_frontend/presentation/connecting/pages/connecting_p
 import 'package:agentic_hive_frontend/presentation/harnesses/pages/harnesses_page.dart';
 import 'package:agentic_hive_frontend/presentation/overview/pages/overview_page.dart';
 import 'package:agentic_hive_frontend/presentation/pauses/pages/pauses_page.dart';
+import 'package:agentic_hive_frontend/presentation/runs/pages/run_detail_page.dart';
 import 'package:agentic_hive_frontend/presentation/runs/pages/runs_page.dart';
 import 'package:agentic_hive_frontend/presentation/settings/pages/settings_page.dart';
 import 'package:agentic_hive_frontend/presentation/shell/widgets/app_shell.dart';
@@ -29,7 +30,12 @@ part 'app_routes.g.dart';
         TypedGoRoute<WorkflowEditorRoute>(path: WorkflowEditorRoute.subPath),
       ],
     ),
-    TypedGoRoute<RunsRoute>(path: RunsRoute.path),
+    TypedGoRoute<RunsRoute>(
+      path: RunsRoute.path,
+      routes: <TypedRoute<RouteData>>[
+        TypedGoRoute<RunDetailRoute>(path: RunDetailRoute.subPath),
+      ],
+    ),
     TypedGoRoute<PausesRoute>(path: PausesRoute.path),
     TypedGoRoute<AgentsRoute>(path: AgentsRoute.path),
     TypedGoRoute<HarnessesRoute>(path: HarnessesRoute.path),
@@ -119,6 +125,22 @@ class RunsRoute extends GoRouteData with $RunsRoute {
 
   @override
   Widget build(BuildContext context, GoRouterState state) => const RunsPage();
+}
+
+/// Typed route for `/runs/:id`.
+class RunDetailRoute extends GoRouteData with $RunDetailRoute {
+  /// Creates a [RunDetailRoute].
+  const new({required this.id});
+
+  /// Sub-path relative to [RunsRoute].
+  static const String subPath = ':id';
+
+  /// Run identifier.
+  final String id;
+
+  @override
+  Widget build(BuildContext context, GoRouterState state) =>
+      RunDetailPage(runId: id);
 }
 
 /// Typed route for `/pauses`.

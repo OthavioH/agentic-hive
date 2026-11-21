@@ -80,6 +80,7 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
           forms.textFieldComponent(),
           forms.selectComponent(),
           forms.switchComponent(),
+          forms.filterChipComponent(),
           forms.keyValueEditorComponent(),
           forms.stringListFieldComponent(),
         ],
@@ -106,6 +107,10 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
           collapsibleSectionComponent(),
           markdownViewComponent(),
         ],
+      ),
+      WidgetbookFolder(
+        name: 'Data',
+        children: <WidgetbookNode>[codeBlockComponent()],
       ),
       WidgetbookFolder(
         name: 'Feedback',
