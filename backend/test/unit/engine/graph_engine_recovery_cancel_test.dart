@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/engine/resume_input.dart';
-import 'package:agentic_hive_backend/src/domain/nodes/node_outcome.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:test/test.dart';
@@ -143,6 +142,122 @@ void main() {
     });
   });
 
+  group('GraphEngine interrupted rollback selection', () {
+    Workflow fan() => buildWorkflow(
+      nodeIds: ['a', 'b', 'c'],
+      edges: [
+        edge('a', NodeOutput.onSuccess, 'b'),
+        edge('a', NodeOutput.onSuccess, 'c'),
+      ],
+    );
+
+    Future<void> seedCheckpoint({
+      required List<String> pending,
+      required String completed,
+    }) => h.checkpoints.append(
+      id: 'cp-${h.checkpoints.checkpoints.length}',
+      runId: runId,
+      pendingNodeIds: pending,
+      attemptsByEdge: const {},
+      circuitBreakerCount: 0,
+      nodeOutputs: const {},
+      createdAt: h.tick(),
+      completedNodeId: completed,
+    );
+
+    Future<Snapshot> snapshotOf(String nodeId) async {
+      await h.snapshots.captureSnapshot(
+        runId: runId,
+        workspaceDir: '/workspace',
+        nodeId: nodeId,
+      );
+      return h.snapshots.snapshots.last;
+    }
+
+    test('rolls back a node running at the last checkpoint', () async {
+      await h.createRun(fan());
+      // c started, then b (re-queued by a loop) completed: the checkpoint that
+      // names b as completed is newer than c's snapshot, but b is itself
+      // pending again, so no finished node's work is lost.
+      final snapshotC = await snapshotOf('c');
+      await seedCheckpoint(pending: ['b', 'c'], completed: 'b');
+      await snapshotOf('b');
+      await h.recovery.recoverOrphanedRuns();
+
+      final result = await h.engine.resume(runId);
+
+      expect(result.valueOrNull?.status, RunStatus.succeeded);
+      expect(h.snapshots.restored, [snapshotC.id]);
+    });
+
+    test('never restores a snapshot older than a completed node', () async {
+      await h.createRun(fan());
+      await snapshotOf('c');
+      // b is not pending: it finished after c's snapshot, so restoring that
+      // snapshot would erase b's work.
+      await seedCheckpoint(pending: ['c'], completed: 'b');
+      await h.recovery.recoverOrphanedRuns();
+
+      final result = await h.engine.resume(runId);
+
+      expect(result.valueOrNull?.status, RunStatus.succeeded);
+      expect(h.snapshots.restored, isEmpty);
+      final skipped = h.events
+          .ofType(runId, RunEventType.snapshotWarning)
+          .where((e) => e.payload['reason'] == 'rollback_skipped');
+      expect(skipped, hasLength(1));
+    });
+  });
+
+  group('GraphEngine terminal status writes', () {
+    test('a failed status write leaves no run.failed event behind', () async {
+      h.runs.failingStatuses.add(RunStatus.failed);
+      h.script.on('a', [outcome(NodeOutput.onFailure)]);
+      await h.createRun(buildWorkflow(nodeIds: ['a'], edges: const []));
+
+      final result = await h.engine.start(runId);
+
+      expect(result.failureOrNull, isA<PersistenceFailure>());
+      expect(h.run.status, RunStatus.running);
+      expect(h.eventTypes, isNot(contains(RunEventType.runFailed)));
+    });
+
+    test(
+      'a failed status write leaves no run.cancelled event behind',
+      () async {
+        h.runs.failingStatuses.add(RunStatus.cancelled);
+        await h.createRun(
+          buildWorkflow(
+            nodeIds: ['gate'],
+            approvals: {'gate'},
+            edges: const [],
+          ),
+        );
+        await h.engine.start(runId);
+
+        final result = await h.engine.cancel(runId);
+
+        expect(result.failureOrNull, isA<PersistenceFailure>());
+        expect(h.run.status, RunStatus.paused);
+        expect(h.eventTypes, isNot(contains(RunEventType.runCancelled)));
+      },
+    );
+
+    test('the status is written before the terminal event', () async {
+      await h.createRun(buildWorkflow(nodeIds: ['a'], edges: const []));
+      RunStatus? statusWhenEventLogged;
+      h.events.onAppend = (event) {
+        if (event.type == RunEventType.runSucceeded) {
+          statusWhenEventLogged = h.run.status;
+        }
+      };
+
+      await h.engine.start(runId);
+
+      expect(statusWhenEventLogged, RunStatus.succeeded);
+    });
+  });
+
   group('GraphEngine cancellation', () {
     test(
       'a running run reports cancelled only after the kill is confirmed',
@@ -212,25 +327,107 @@ void main() {
       expect(h.killer.confirmed, isTrue);
     });
 
+    test('a failed kill keeps the run cancellable and retryable', () async {
+      final hung = Completer<void>();
+      h.killer
+        ..failure = const NodeExecutionFailure('still alive')
+        ..onKill = (runId, nodeId) {
+          if (h.killer.failure == null && !hung.isCompleted) hung.complete();
+        };
+      h.script.on('a', [outcomeAfter(hung.future, NodeOutput.onSuccess)]);
+      await h.createRun(buildWorkflow(nodeIds: ['a'], edges: const []));
+
+      final started = h.engine.start(runId);
+      await h.settle();
+      final first = await h.engine.cancel(runId);
+
+      expect(first.failureOrNull, isA<ConflictFailure>());
+      expect(first.failureOrNull!.message, contains('cancel it again'));
+      expect(h.run.status, RunStatus.running);
+      expect(h.eventTypes, isNot(contains(RunEventType.runCancelled)));
+      // The engine still owns the run, so no orphan is left unattended.
+      expect(h.engine.isExecuting(runId), isTrue);
+
+      h.killer.failure = null;
+      final second = await h.engine.cancel(runId);
+
+      expect(second.valueOrNull?.status, RunStatus.cancelled);
+      expect((await started).valueOrNull?.status, RunStatus.cancelled);
+      expect(h.killer.kills, hasLength(2));
+      expect(h.engine.isExecuting(runId), isFalse);
+      expect(h.eventTypes.last, RunEventType.runCancelled);
+    });
+
+    test('a cancel issued during start is applied once driven', () async {
+      await h.createRun(
+        buildWorkflow(
+          nodeIds: ['a', 'b'],
+          edges: [edge('a', NodeOutput.onSuccess, 'b')],
+        ),
+      );
+
+      final started = h.engine.start(runId);
+      final cancelled = await h.engine.cancel(runId);
+
+      expect(cancelled.valueOrNull?.status, RunStatus.cancelled);
+      expect((await started).valueOrNull?.status, RunStatus.cancelled);
+      expect(h.script.executions, isEmpty);
+    });
+
     test(
-      'stays running when the process tree exit cannot be confirmed',
+      'a cancel issued during a failing setup reports that failure',
       () async {
-        final hung = Completer<void>();
-        h.killer
-          ..failure = const NodeExecutionFailure('still alive')
-          ..onKill = ((runId, nodeId) => hung.complete());
-        h.script.on('a', [outcomeAfter(hung.future, NodeOutput.onSuccess)]);
+        final started = h.engine.start('missing');
+        final cancelled = await h.engine.cancel('missing');
+
+        expect((await started).failureOrNull, isA<NotFoundFailure>());
+        expect(cancelled.failureOrNull, isA<NotFoundFailure>());
+      },
+    );
+
+    test(
+      'a cancel that races the pause is applied to the paused run',
+      () async {
+        await h.createRun(
+          buildWorkflow(
+            nodeIds: ['gate'],
+            approvals: {'gate'},
+            edges: const [],
+          ),
+        );
+        Future<Result<Run>>? cancelled;
+        h.events.onAppend = (event) {
+          if (event.type == RunEventType.runPaused) {
+            cancelled = h.engine.cancel(runId);
+          }
+        };
+
+        final started = await h.engine.start(runId);
+
+        expect(started.valueOrNull?.status, RunStatus.cancelled);
+        expect((await cancelled!).valueOrNull?.status, RunStatus.cancelled);
+        expect(h.run.status, RunStatus.cancelled);
+      },
+    );
+
+    test(
+      'a cancel that arrives too late says the run already finished',
+      () async {
         await h.createRun(buildWorkflow(nodeIds: ['a'], edges: const []));
+        Future<Result<Run>>? cancelled;
+        h.events.onAppend = (event) {
+          if (event.type == RunEventType.runSucceeded) {
+            cancelled = h.engine.cancel(runId);
+          }
+        };
 
-        final started = h.engine.start(runId);
-        await h.settle();
-        final result = await h.engine.cancel(runId);
-        await started;
+        final started = await h.engine.start(runId);
+        final result = await cancelled!;
 
+        expect(started.valueOrNull?.status, RunStatus.succeeded);
         expect(result.failureOrNull, isA<ConflictFailure>());
-        expect(h.run.status, RunStatus.running);
-        expect(h.eventTypes, isNot(contains(RunEventType.runCancelled)));
-        expect(h.engine.isExecuting(runId), isFalse);
+        expect(result.failureOrNull!.message, contains('succeeded'));
+        expect(h.run.status, RunStatus.succeeded);
       },
     );
 
@@ -251,27 +448,6 @@ void main() {
       expect(h.run.finishedAt, isNotNull);
       expect(h.killer.kills, isEmpty);
       expect(h.eventTypes.last, RunEventType.runCancelled);
-    });
-
-    test('a paused ask_human run releases its pending question', () async {
-      h.script.on('ask', [
-        (context) async {
-          final reply = await h.gateway.requestHumanAnswer(
-            runId: context.runId,
-            nodeId: context.nodeId,
-            attempt: context.attempt,
-            question: 'Which one?',
-          );
-          return reply.map((a) => const NodeOutcome(outputLabel: 'onSuccess'));
-        },
-      ]);
-      await h.createRun(buildWorkflow(nodeIds: ['ask'], edges: const []));
-      await h.engine.start(runId);
-
-      final result = await h.engine.cancel(runId);
-
-      expect(result.valueOrNull?.status, RunStatus.cancelled);
-      expect(h.gateway.allPending, isEmpty);
     });
 
     test('an interrupted run is cancelled immediately', () async {

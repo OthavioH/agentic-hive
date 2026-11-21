@@ -223,6 +223,45 @@ void main() {
       expect(predecessors.keys, ['b']);
     });
 
+    test(
+      'predecessors come from this traversal, not a previous loop',
+      () async {
+        h.script
+          ..on('p', [
+            outcome(NodeOutput.onSuccess, data: {'round': 1}),
+            outcome(NodeOutput.onSuccess, data: {'round': 2}),
+          ])
+          ..on('x', [
+            outcome(NodeOutput.onFailure),
+            outcome(NodeOutput.onSuccess),
+          ]);
+
+        await startRun(
+          buildWorkflow(
+            nodeIds: ['start', 'p', 'q', 'x', 'done'],
+            edges: [
+              edge('start', NodeOutput.onSuccess, 'p'),
+              edge('start', NodeOutput.onSuccess, 'q'),
+              edge('p', NodeOutput.onSuccess, 'x'),
+              edge('q', NodeOutput.onSuccess, 'x'),
+              edge('x', NodeOutput.onFailure, 'p', maxRetries: 2),
+              edge('x', NodeOutput.onSuccess, 'done'),
+            ],
+          ),
+        );
+
+        final runs = h.script.executions.where((c) => c.nodeId == 'x').toList();
+        expect(runs, hasLength(2));
+        final first = runs[0].inputs['predecessors']! as Map<String, Object?>;
+        final second = runs[1].inputs['predecessors']! as Map<String, Object?>;
+        expect(first.keys, unorderedEquals(['p', 'q']));
+        // q did not run again in the second loop: it must not appear as a
+        // predecessor of that traversal.
+        expect(second.keys, ['p']);
+        expect(((second['p']! as Map)['data']! as Map)['round'], 2);
+      },
+    );
+
     test('passes the declared outputs, config and attempt number', () async {
       await startRun(buildWorkflow(nodeIds: ['a'], edges: const []));
 

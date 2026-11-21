@@ -251,6 +251,9 @@ void main() {
       );
       expect(partial.valueOrNull?.status, RunStatus.paused);
 
+      // g2 was not executed again while it waited for its own decision.
+      expect(h.approvalPort.requests, 2);
+
       final done = await h.engine.resume(
         runId,
         input: const ApprovalDecisionInput(
@@ -258,10 +261,11 @@ void main() {
         ),
       );
       expect(done.valueOrNull?.status, RunStatus.succeeded);
+      expect(h.approvalPort.requests, 2);
     });
   });
 
-  group('GraphEngine ask_human pause', () {
+  group('GraphEngine ask_human live pause (ADR 0019)', () {
     Workflow askFlow() => buildWorkflow(
       nodeIds: ['plan', 'ask', 'build'],
       edges: [
@@ -270,51 +274,198 @@ void main() {
       ],
     );
 
-    test('terminates the harness, then saves the pause checkpoint', () async {
-      h.script.on('ask', [askHuman(h, 'Which database?')]);
-      await h.createRun(askFlow());
+    String pendingPauseId() => h.gateway.pendingForRun(runId).single.pauseId;
 
-      final result = await h.engine.start(runId);
-
-      expect(result.valueOrNull?.status, RunStatus.paused);
-      expect(h.killer.kills, [(runId, 'ask')]);
-      expect(h.killer.confirmed, isTrue);
-      expect(h.gateway.allPending, isEmpty);
-      final latest = h.checkpoints.checkpoints.last;
-      expect(latest.pendingNodeIds, ['ask']);
-      final paused = h.events.ofType(runId, RunEventType.runPaused).single;
-      expect(paused.payload['pausedNodes'], [
-        {'nodeId': 'ask', 'kind': 'askHuman', 'question': 'Which database?'},
-      ]);
-      expect(h.script.runsOf('build'), 0);
-      // The harness exit is not an infrastructure failure.
-      expect(h.events.ofType(runId, RunEventType.nodeFailed), isEmpty);
-    });
-
-    test('waits for the process tree to exit before pausing', () async {
-      final exit = Completer<void>();
-      h.killer.confirmation = exit.future;
+    test('pauses the run while the harness stays alive', () async {
       h.script.on('ask', [askHuman(h, 'Which database?')]);
       await h.createRun(askFlow());
 
       final started = h.engine.start(runId);
       await h.settle();
 
-      expect(h.killer.kills, isNotEmpty);
-      expect(h.run.status, RunStatus.running);
-      expect(h.eventTypes, isNot(contains(RunEventType.runPaused)));
+      expect(h.run.status, RunStatus.paused);
+      expect(h.engine.isExecuting(runId), isTrue);
+      // The engine never terminates the harness for ask_human.
+      expect(h.killer.kills, isEmpty);
+      expect(h.gateway.pendingForRun(runId), hasLength(1));
+      expect(h.checkpoints.checkpoints.last.pendingNodeIds, ['ask']);
+      final paused = h.events.ofType(runId, RunEventType.runPaused).single;
+      final node = (paused.payload['pausedNodes']! as List).single as Map;
+      expect(node['nodeId'], 'ask');
+      expect(node['kind'], 'askHuman');
+      expect(node['question'], 'Which database?');
+      expect(node['live'], isTrue);
+      expect(node['pauseId'], pendingPauseId());
+      expect(h.script.runsOf('build'), 0);
+      expect(h.events.ofType(runId, RunEventType.nodeFailed), isEmpty);
 
-      exit.complete();
-      expect((await started).valueOrNull?.status, RunStatus.paused);
+      h.gateway.submitAnswer(pauseId: pendingPauseId(), answer: 'x');
+      await started;
     });
 
-    test('re-runs the node with humanAnswer after a rollback', () async {
+    test('the live answer resumes the same harness without a re-run', () async {
       h.script.on('ask', [askHuman(h, 'Which database?')]);
       await h.createRun(askFlow());
-      await h.engine.start(runId);
-      final askSnapshot = h.snapshots.snapshots.lastWhere(
-        (s) => s.nodeId == 'ask',
+      final started = h.engine.start(runId);
+      await h.settle();
+
+      h.gateway.submitAnswer(pauseId: pendingPauseId(), answer: 'PostgreSQL');
+      final result = await started;
+
+      expect(result.valueOrNull?.status, RunStatus.succeeded);
+      expect(h.script.runsOf('ask'), 1);
+      expect(h.script.executions.every((c) => c.humanAnswer == null), isTrue);
+      expect(h.snapshots.restored, isEmpty);
+      expect(h.killer.kills, isEmpty);
+      expect(h.runs.statusHistory, [
+        RunStatus.paused,
+        RunStatus.running,
+        RunStatus.succeeded,
+      ]);
+      final resumed = h.events.ofType(runId, RunEventType.runResumed).single;
+      expect(resumed.payload['live'], isTrue);
+      final outputs = h.checkpoints.checkpoints.last.nodeOutputs;
+      expect((outputs['ask']!['data']! as Map)['answer'], 'PostgreSQL');
+    });
+
+    test('holds new work back while a harness waits for a human', () async {
+      h.script.on('ask', [askHuman(h, 'Which database?')]);
+      await h.createRun(
+        buildWorkflow(
+          nodeIds: ['a', 'ask', 'side', 'sideNext'],
+          edges: [
+            edge('a', NodeOutput.onSuccess, 'ask'),
+            edge('a', NodeOutput.onSuccess, 'side'),
+            edge('side', NodeOutput.onSuccess, 'sideNext'),
+          ],
+        ),
       );
+
+      final started = h.engine.start(runId);
+      await h.settle();
+
+      expect(h.run.status, RunStatus.paused);
+      expect(h.script.runsOf('side'), 1);
+      expect(h.script.runsOf('sideNext'), 0);
+
+      h.gateway.submitAnswer(pauseId: pendingPauseId(), answer: 'x');
+      final result = await started;
+
+      expect(result.valueOrNull?.status, RunStatus.succeeded);
+      expect(h.script.runsOf('sideNext'), 1);
+    });
+
+    test('cancelling a live pause kills the harness and releases it', () async {
+      h.killer.onKill = (runId, nodeId) => h.gateway.cancelRun(runId);
+      h.script.on('ask', [askHuman(h, 'Which database?')]);
+      await h.createRun(askFlow());
+      final started = h.engine.start(runId);
+      await h.settle();
+
+      final cancelled = await h.engine.cancel(runId);
+
+      expect(cancelled.valueOrNull?.status, RunStatus.cancelled);
+      expect((await started).valueOrNull?.status, RunStatus.cancelled);
+      expect(h.killer.kills, [(runId, null)]);
+      expect(h.gateway.allPending, isEmpty);
+      expect(h.eventTypes.last, RunEventType.runCancelled);
+    });
+
+    test('a live pause keeps the run claimed against resume', () async {
+      h.script.on('ask', [askHuman(h, 'Which database?')]);
+      await h.createRun(askFlow());
+      final started = h.engine.start(runId);
+      await h.settle();
+
+      final resume = await h.engine.resume(
+        runId,
+        input: const HumanAnswerInput(answer: 'PostgreSQL'),
+      );
+
+      expect(resume.failureOrNull, isA<ConflictFailure>());
+      h.gateway.submitAnswer(pauseId: pendingPauseId(), answer: 'x');
+      await started;
+    });
+  });
+
+  group('GraphEngine ask_human after a restart (ADR 0019)', () {
+    Workflow askFlow() => buildWorkflow(
+      nodeIds: ['plan', 'ask', 'side', 'build'],
+      edges: [
+        edge('plan', NodeOutput.onSuccess, 'ask'),
+        edge('ask', NodeOutput.onSuccess, 'build'),
+      ],
+    );
+
+    /// A run left `paused` by a previous backend process: the harness and its
+    /// gateway request are gone, only the checkpoint and the pause event
+    /// remain. When [siblingCompletedAfter] a parallel node finished after the
+    /// asker's snapshot.
+    Future<void> seedPausedAsk({bool siblingCompletedAfter = false}) async {
+      await h.createRun(askFlow(), status: RunStatus.paused);
+      await h.snapshots.captureSnapshot(
+        runId: runId,
+        workspaceDir: '/workspace',
+        nodeId: 'plan',
+      );
+      await h.checkpoints.append(
+        id: 'cp-plan',
+        runId: runId,
+        pendingNodeIds: ['ask'],
+        attemptsByEdge: const {},
+        circuitBreakerCount: 0,
+        nodeOutputs: const {},
+        createdAt: h.tick(),
+        completedNodeId: 'plan',
+      );
+      await h.snapshots.captureSnapshot(
+        runId: runId,
+        workspaceDir: '/workspace',
+        nodeId: 'ask',
+      );
+      if (siblingCompletedAfter) {
+        await h.checkpoints.append(
+          id: 'cp-side',
+          runId: runId,
+          pendingNodeIds: ['ask'],
+          attemptsByEdge: const {},
+          circuitBreakerCount: 0,
+          nodeOutputs: const {},
+          createdAt: h.tick(),
+          completedNodeId: 'side',
+        );
+      }
+      await h.checkpoints.append(
+        id: 'cp-pause',
+        runId: runId,
+        pendingNodeIds: ['ask'],
+        attemptsByEdge: const {},
+        circuitBreakerCount: 0,
+        nodeOutputs: const {},
+        createdAt: h.tick(),
+      );
+      await h.events.append(
+        id: 'ev-paused',
+        runId: runId,
+        type: RunEventType.runPaused,
+        createdAt: h.tick(),
+        payload: {
+          'pausedNodes': [
+            {
+              'nodeId': 'ask',
+              'kind': 'askHuman',
+              'question': 'Which database?',
+              'live': true,
+            },
+          ],
+        },
+      );
+    }
+
+    test('re-runs the node with humanAnswer after a rollback', () async {
+      await seedPausedAsk();
+      final askSnapshot = h.snapshots.snapshots.last;
+      h.script.on('ask', [askHuman(h, 'Which database?')]);
 
       final result = await h.engine.resume(
         runId,
@@ -323,19 +474,37 @@ void main() {
 
       expect(result.valueOrNull?.status, RunStatus.succeeded);
       expect(h.snapshots.restored, [askSnapshot.id]);
-      expect(h.script.runsOf('ask'), 2);
-      final askRuns = h.script.executions.where((c) => c.nodeId == 'ask');
-      expect(askRuns.last.humanAnswer, 'PostgreSQL');
-      expect(askRuns.first.humanAnswer, isNull);
+      expect(h.script.runsOf('ask'), 1);
+      expect(h.script.executions.first.humanAnswer, 'PostgreSQL');
+      expect(h.killer.kills, isEmpty);
       final outputs = h.checkpoints.checkpoints.last.nodeOutputs;
       expect((outputs['ask']!['data']! as Map)['answer'], 'PostgreSQL');
-      expect(h.script.startOrder.last, 'build');
     });
 
+    test(
+      'skips the rollback when a sibling completed after the snapshot',
+      () async {
+        await seedPausedAsk(siblingCompletedAfter: true);
+        h.script.on('ask', [askHuman(h, 'Which database?')]);
+
+        final result = await h.engine.resume(
+          runId,
+          input: const HumanAnswerInput(answer: 'PostgreSQL'),
+        );
+
+        expect(result.valueOrNull?.status, RunStatus.succeeded);
+        expect(h.snapshots.restored, isEmpty);
+        final warning = h.events
+            .ofType(runId, RunEventType.snapshotWarning)
+            .where((e) => e.payload['reason'] == 'rollback_skipped');
+        expect(warning, hasLength(1));
+        expect(warning.single.payload['nodeIds'], ['ask']);
+        expect(h.script.executions.first.humanAnswer, 'PostgreSQL');
+      },
+    );
+
     test('rejects a blank answer and an approval decision', () async {
-      h.script.on('ask', [askHuman(h, 'Which database?')]);
-      await h.createRun(askFlow());
-      await h.engine.start(runId);
+      await seedPausedAsk();
 
       final blank = await h.engine.resume(
         runId,
@@ -354,21 +523,8 @@ void main() {
       expect(h.snapshots.restored, isEmpty);
     });
 
-    test('fails the run when the harness cannot be terminated', () async {
-      h.killer.failure = const NodeExecutionFailure('kill refused');
-      h.script.on('ask', [askHuman(h, 'Which database?')]);
-      await h.createRun(askFlow());
-
-      final result = await h.engine.start(runId);
-
-      expect(result.valueOrNull?.status, RunStatus.failed);
-      expect(h.run.errorMessage, contains('kill refused'));
-    });
-
     test('keeps the run paused when the rollback fails', () async {
-      h.script.on('ask', [askHuman(h, 'Which database?')]);
-      await h.createRun(askFlow());
-      await h.engine.start(runId);
+      await seedPausedAsk();
       h.snapshots.restoreFailure = const NodeExecutionFailure('git failed');
 
       final result = await h.engine.resume(
@@ -378,7 +534,7 @@ void main() {
 
       expect(result.isFailure, isTrue);
       expect(h.run.status, RunStatus.paused);
-      expect(h.script.runsOf('ask'), 1);
+      expect(h.script.runsOf('ask'), 0);
     });
   });
 

@@ -52,6 +52,9 @@ final class _FakeResultContract implements ResultContract {
 
   ResultContractReport? report;
 
+  /// When set, reading the report fails with this failure.
+  Failure? readFailure;
+
   @override
   Future<Result<ResultContractSession>> openSession(
     NodeExecutionContext context,
@@ -70,7 +73,8 @@ final class _FakeResultContract implements ResultContract {
   @override
   Future<Result<ResultContractReport?>> readReport(
     NodeExecutionContext context,
-  ) async => Success(report);
+  ) async =>
+      readFailure == null ? Success(report) : FailureResult(readFailure!);
 }
 
 final class _FakeResultContractSession implements ResultContractSession {
@@ -376,6 +380,24 @@ void main() {
 
       final result = await node.execute(_context());
       expect(result.failureOrNull, isA<HarnessRateLimitFailure>());
+    });
+
+    test('a malformed result report is an infrastructure failure', () async {
+      resultContract.readFailure = const ValidationFailure(
+        'Invalid JSON in fallback result.json.',
+      );
+      final node = CodexNode(
+        processRunner: processRunner,
+        resultContract: resultContract,
+        agentPromptResolver: agentResolver,
+      );
+
+      final result = await node.execute(_context());
+
+      final failure = result.failureOrNull;
+      expect(failure, isA<NodeExecutionFailure>());
+      expect(failure!.message, contains('Invalid JSON'));
+      expect((failure as NodeExecutionFailure).exitCode, 0);
     });
 
     test('maps timeout to NodeExecutionFailure', () async {

@@ -23,7 +23,13 @@ import 'package:logging/logging.dart';
 
 /// A node that stopped the run until a human answers.
 final class _PausedNode {
-  const new({required this.nodeId, required this.kind, this.question});
+  const new({
+    required this.nodeId,
+    required this.kind,
+    this.question,
+    this.pauseId,
+    this.live = false,
+  });
 
   factory fromJson(Object? json) {
     final map = json! as Map<Object?, Object?>;
@@ -31,6 +37,8 @@ final class _PausedNode {
       nodeId: map['nodeId']! as String,
       kind: PauseKind.values.byName(map['kind']! as String),
       question: map['question'] as String?,
+      pauseId: map['pauseId'] as String?,
+      live: map['live'] == true,
     );
   }
 
@@ -38,10 +46,18 @@ final class _PausedNode {
   final PauseKind kind;
   final String? question;
 
+  /// Id of the pending gateway request of a live `ask_human` pause.
+  final String? pauseId;
+
+  /// Whether the harness is still alive, waiting on the gateway (ADR 0019).
+  final bool live;
+
   JsonMap toJson() => <String, Object?>{
     'nodeId': nodeId,
     'kind': kind.name,
     if (question != null) 'question': question,
+    if (pauseId != null) 'pauseId': pauseId,
+    if (live) 'live': true,
   };
 }
 
@@ -61,12 +77,6 @@ final class _ActiveNode {
   /// Assigned right after the node is registered as running, because a node
   /// can raise an `ask_human` request synchronously while it starts.
   late final Future<_NodeCompletion> future;
-
-  /// Set when the harness called `ask_human` during this attempt.
-  HumanPauseRequest? pauseRequest;
-
-  /// Completes once the harness process tree of this attempt has exited.
-  Future<Result<void>>? termination;
 }
 
 /// In-memory state of one run while the engine drives it. Nothing here
@@ -89,7 +99,26 @@ final class _RunExecution {
   final Map<String, JsonMap> nodeOutputs;
 
   final Map<String, _ActiveNode> running = <String, _ActiveNode>{};
+
+  /// Nodes paused by a checkpoint (ADR 0007): they are not running.
   final Map<String, _PausedNode> paused = <String, _PausedNode>{};
+
+  /// Nodes whose harness is alive and waits for a human on the gateway
+  /// (ADR 0019): they are still in [running].
+  final Map<String, _PausedNode> livePaused = <String, _PausedNode>{};
+
+  /// Gateway signals queued for the loop: `(request, answered)`.
+  final List<(HumanPauseRequest, bool)> signals = <(HumanPauseRequest, bool)>[];
+
+  /// Outputs of the predecessors that led to a pending node in its current
+  /// traversal, so loops never see a previous iteration's outcome.
+  final Map<String, Map<String, JsonMap>> traversals =
+      <String, Map<String, JsonMap>>{};
+
+  /// Whether the persisted status is `paused` while the engine still drives
+  /// the run (live `ask_human` pause).
+  bool statusPaused = false;
+
   final Map<String, int> executionsByNode = <String, int>{};
 
   /// Outcomes already decided by a human on resume; the node is not re-run.
@@ -98,14 +127,30 @@ final class _RunExecution {
   /// Answers to inject into the next execution of an `ask_human` node.
   final Map<String, String> humanAnswers = <String, String>{};
 
-  final Completer<void> cancelSignal = Completer<void>();
-  final Completer<Result<Run>> cancelDone = Completer<Result<Run>>();
+  Completer<void> _wake = Completer<void>();
+
+  /// Completes with the outcome of the pending `cancel` call(s).
+  Completer<Result<Run>>? cancelCompleter;
   bool cancelRequested = false;
+
+  /// Set when the last kill could not be confirmed.
+  bool killUnconfirmed = false;
   String? failReason;
+
+  /// Future that completes when the loop must look at new input.
+  Future<void> get wakeFuture => _wake.future;
+
+  /// Wakes the loop.
+  void wakeUp() {
+    if (!_wake.isCompleted) _wake.complete();
+  }
+
+  /// Re-arms the wake signal after the loop handled it.
+  void resetWake() => _wake = Completer<void>();
 }
 
-/// Marker returned by the wait loop when a cancel request wakes it.
-final class _CancelWakeUp {
+/// Marker returned by the wait loop when it was woken without a completion.
+final class _WakeUp {
   const new();
 }
 
@@ -116,6 +161,20 @@ final class _CancelWakeUp {
 /// concrete node type and never assumes the workspace is code. Everything it
 /// persists goes through the run, checkpoint and event repositories, and every
 /// fallible call returns a `Result` (ADR 0017).
+///
+/// **Retries.** `WorkflowEdge.maxRetries` is the number of *allowed retries*
+/// of that edge. Each traversal first checks whether the edge's counter in
+/// `attemptsByEdge` has reached
+/// `maxRetries` (the run fails, the edge is not traversed) and only then
+/// increments the counter and emits `node.retried`. So `maxRetries: 2` lets
+/// the edge be traversed twice and fails the run on the third attempt.
+///
+/// **Pauses.** A `human_approval` pause persists a checkpoint and releases
+/// the run from memory (ADR 0007); `resume` resolves it directly. An
+/// `ask_human` pause keeps the harness alive (ADR 0019): the engine marks the
+/// run `paused`, never terminates the harness, and moves the run back to
+/// `running` when the gateway reports the answer. Only after a backend restart
+/// does `resume` with a `HumanAnswerInput` re-run the node.
 final class GraphEngine {
   /// Creates a graph engine.
   ///
@@ -179,6 +238,11 @@ final class GraphEngine {
   final Set<String> _claimed = <String>{};
   final Map<String, _RunExecution> _active = <String, _RunExecution>{};
 
+  /// `cancel` calls that arrived while `start`/`resume` was still preparing
+  /// the run; honoured as soon as the run is driven.
+  final Map<String, Completer<Result<Run>>> _earlyCancels =
+      <String, Completer<Result<Run>>>{};
+
   /// Whether the engine is currently driving [runId] in this process.
   bool isExecuting(String runId) => _claimed.contains(runId);
 
@@ -186,124 +250,132 @@ final class GraphEngine {
   /// it until it succeeds, fails, is cancelled, or pauses.
   ///
   /// The returned future completes with the run in its final persisted state.
-  Future<Result<Run>> start(String runId) async {
-    if (!_claim(runId)) return _alreadyExecuting(runId);
-    try {
-      final pointResult = await _recovery.resolveResumePoint(runId);
-      if (pointResult case FailureResult<ResumePoint>(:final failure)) {
-        return FailureResult(failure);
-      }
-      final point = pointResult.valueOrNull!;
-
-      if (point.run.status != RunStatus.running) {
-        return FailureResult(
-          ConflictFailure(
-            'Run "$runId" is ${point.run.status.name}; only a running run '
-            'can be started.',
-          ),
-        );
-      }
-      if (point.latestCheckpoint != null) {
-        return FailureResult(
-          ConflictFailure('Run "$runId" already started; resume it instead.'),
-        );
-      }
-
-      final x = _newExecution(point, circuitBreakerCount: 0);
-      await _emit(runId, RunEventType.runStarted);
-      if (point.workflow.entryNodeId == null) {
-        x.failReason = 'The workflow has no entry node.';
-      }
-      return await _drive(x);
-    } finally {
-      _claimed.remove(runId);
+  Future<Result<Run>> start(String runId) => _exclusive(runId, () async {
+    final pointResult = await _recovery.resolveResumePoint(runId);
+    if (pointResult case FailureResult<ResumePoint>(:final failure)) {
+      return FailureResult(failure);
     }
-  }
+    final point = pointResult.valueOrNull!;
 
-  /// Resumes the `paused` or `interrupted` run [runId].
+    if (point.run.status != RunStatus.running) {
+      return FailureResult(
+        ConflictFailure(
+          'Run "$runId" is ${point.run.status.name}; only a running run '
+          'can be started.',
+        ),
+      );
+    }
+    if (point.latestCheckpoint != null) {
+      return FailureResult(
+        ConflictFailure('Run "$runId" already started; resume it instead.'),
+      );
+    }
+
+    final x = _newExecution(point, circuitBreakerCount: 0);
+    await _emit(runId, RunEventType.runStarted);
+    if (point.workflow.entryNodeId == null) {
+      x.failReason = 'The workflow has no entry node.';
+    }
+    return await _drive(x);
+  });
+
+  /// Resumes the `paused` or `interrupted` run [runId] that no live engine
+  /// drives (a run waiting on a live `ask_human` is answered through the
+  /// `HumanPauseGateway`, ADR 0019).
   ///
-  /// A `paused` run needs [input] for its paused node: an
+  /// A `paused` run needs [input] for one paused node: an
   /// [ApprovalDecisionInput] resolves a `human_approval` node directly, a
-  /// [HumanAnswerInput] re-runs the node that asked with the answer injected.
-  /// Resuming a `paused` run keeps `attemptsByEdge` and the circuit breaker
-  /// count. Resuming an `interrupted` run rolls the workspace back to the
-  /// snapshot taken before the interrupted node, resets the circuit breaker to
-  /// `0` and keeps `attemptsByEdge`. [input] is not needed then.
-  Future<Result<Run>> resume(String runId, {ResumeInput? input}) async {
-    if (!_claim(runId)) return _alreadyExecuting(runId);
-    try {
-      final pointResult = await _recovery.resolveResumePoint(runId);
-      if (pointResult case FailureResult<ResumePoint>(:final failure)) {
-        return FailureResult(failure);
-      }
-      final point = pointResult.valueOrNull!;
-      final status = point.run.status;
+  /// [HumanAnswerInput] re-runs the node that asked with the answer injected
+  /// (the restart path of ADR 0019). Other paused nodes stay paused without
+  /// being executed again and need their own `resume`. Resuming a `paused`
+  /// run keeps `attemptsByEdge` and the circuit breaker count.
+  ///
+  /// Resuming an `interrupted` run rolls the workspace back before the
+  /// interrupted nodes (skipped, with a `snapshot.warning`, when a completed
+  /// node's work would be erased), resets the circuit breaker to `0` and
+  /// keeps `attemptsByEdge`. [input] is not needed then.
+  Future<Result<Run>> resume(String runId, {ResumeInput? input}) =>
+      _exclusive(runId, () async {
+        final pointResult = await _recovery.resolveResumePoint(runId);
+        if (pointResult case FailureResult<ResumePoint>(:final failure)) {
+          return FailureResult(failure);
+        }
+        final point = pointResult.valueOrNull!;
+        final status = point.run.status;
 
-      final _RunExecution x;
-      switch (status) {
-        case RunStatus.paused:
-          final prepared = await _preparePausedResume(point, input);
-          if (prepared case FailureResult<_RunExecution>(:final failure)) {
-            return FailureResult(failure);
-          }
-          x = prepared.valueOrNull!;
-        case RunStatus.interrupted:
-          final prepared = await _prepareInterruptedResume(point);
-          if (prepared case FailureResult<_RunExecution>(:final failure)) {
-            return FailureResult(failure);
-          }
-          x = prepared.valueOrNull!;
-        case RunStatus.running ||
-            RunStatus.succeeded ||
-            RunStatus.failed ||
-            RunStatus.cancelled:
-          return FailureResult(
-            ConflictFailure(
-              'Run "$runId" is ${status.name}; only a paused or interrupted '
-              'run can be resumed.',
-            ),
-          );
-      }
+        final _RunExecution x;
+        switch (status) {
+          case RunStatus.paused:
+            final prepared = await _preparePausedResume(point, input);
+            if (prepared case FailureResult<_RunExecution>(:final failure)) {
+              return FailureResult(failure);
+            }
+            x = prepared.valueOrNull!;
+          case RunStatus.interrupted:
+            final prepared = await _prepareInterruptedResume(point);
+            if (prepared case FailureResult<_RunExecution>(:final failure)) {
+              return FailureResult(failure);
+            }
+            x = prepared.valueOrNull!;
+          case RunStatus.running ||
+              RunStatus.succeeded ||
+              RunStatus.failed ||
+              RunStatus.cancelled:
+            return FailureResult(
+              ConflictFailure(
+                'Run "$runId" is ${status.name}; only a paused or '
+                'interrupted run can be resumed.',
+              ),
+            );
+        }
 
-      final updated = await _runs.updateStatus(
-        runId,
-        status: RunStatus.running,
-      );
-      if (updated case FailureResult<Run>(:final failure)) {
-        return FailureResult(failure);
-      }
-      x.run = updated.valueOrNull!;
-      await _emit(
-        runId,
-        RunEventType.runResumed,
-        payload: <String, Object?>{
-          'from': status.name,
-          if (input?.nodeId != null) 'nodeId': input!.nodeId,
-        },
-      );
-      return await _drive(x);
-    } finally {
-      _claimed.remove(runId);
-    }
-  }
+        final updated = await _runs.updateStatus(
+          runId,
+          status: RunStatus.running,
+        );
+        if (updated case FailureResult<Run>(:final failure)) {
+          return FailureResult(failure);
+        }
+        x.run = updated.valueOrNull!;
+        await _emit(
+          runId,
+          RunEventType.runResumed,
+          payload: <String, Object?>{
+            'from': status.name,
+            if (input?.nodeId != null) 'nodeId': input!.nodeId,
+          },
+        );
+        return await _drive(x);
+      });
 
   /// Cancels [runId].
   ///
   /// A run executing in this process aborts its active nodes and reports
   /// `run.cancelled` only after the [ProcessTreeKiller] confirmed that every
-  /// process tree exited. A `paused` (or `interrupted`) run has nothing
-  /// running and transitions to `cancelled` immediately.
+  /// process tree exited. When the exit cannot be confirmed the call returns a
+  /// [ConflictFailure], the run stays `running` and driven by the engine, and
+  /// `cancel` can be called again to retry the kill.
+  ///
+  /// A `cancel` that arrives while `start` or `resume` is still preparing the
+  /// run is queued and applied as soon as the run is driven. A `paused` (or
+  /// `interrupted`) run that no engine drives transitions to `cancelled`
+  /// immediately.
+  ///
+  /// When the run reaches `succeeded` or `failed` before the cancellation took
+  /// effect, the call returns a [ConflictFailure] naming that status instead
+  /// of a misleading success.
   Future<Result<Run>> cancel(String runId) async {
     final executing = _active[runId];
     if (executing != null) {
       executing.cancelRequested = true;
-      if (!executing.cancelSignal.isCompleted) {
-        executing.cancelSignal.complete();
-      }
-      return await executing.cancelDone.future;
+      final waiter = executing.cancelCompleter ??= Completer<Result<Run>>();
+      executing.wakeUp();
+      return await waiter.future;
     }
-    if (!_claim(runId)) return _alreadyExecuting(runId);
-    try {
+    if (_claimed.contains(runId)) {
+      return await (_earlyCancels[runId] ??= Completer<Result<Run>>()).future;
+    }
+    return await _exclusive(runId, () async {
       final runResult = await _runs.getById(runId);
       if (runResult case FailureResult<Run>(:final failure)) {
         return FailureResult(failure);
@@ -330,8 +402,49 @@ final class GraphEngine {
             ConflictFailure('Run "$runId" is already ${run.status.name}.'),
           );
       }
+    });
+  }
+
+  /// Runs [body] while holding the claim on [runId], then settles any
+  /// `cancel` that was queued during [body] but never reached the loop.
+  Future<Result<Run>> _exclusive(
+    String runId,
+    Future<Result<Run>> Function() body,
+  ) async {
+    if (!_claim(runId)) return _alreadyExecuting(runId);
+    Result<Run> result;
+    try {
+      result = await body();
     } finally {
       _claimed.remove(runId);
+    }
+    final queued = _earlyCancels.remove(runId);
+    if (queued == null) return result;
+
+    final settled = await _settleQueuedCancel(runId, result);
+    queued.complete(settled);
+    return result;
+  }
+
+  Future<Result<Run>> _settleQueuedCancel(
+    String runId,
+    Result<Run> result,
+  ) async {
+    switch (result) {
+      case FailureResult<Run>():
+        return result;
+      case Success<Run>(:final value):
+        if (value.status == RunStatus.cancelled) return result;
+        if (value.status == RunStatus.paused ||
+            value.status == RunStatus.interrupted) {
+          return await cancel(runId);
+        }
+        return FailureResult(
+          ConflictFailure(
+            'Run "$runId" finished as ${value.status.name} before the '
+            'cancellation took effect.',
+          ),
+        );
     }
   }
 
@@ -399,6 +512,12 @@ final class GraphEngine {
       );
     }
 
+    // Every other paused node keeps waiting for its own human; it is not
+    // executed again.
+    for (final other in pausedNodes) {
+      if (other.nodeId != target.nodeId) x.paused[other.nodeId] = other;
+    }
+
     switch ((target.kind, input)) {
       case (PauseKind.approval, ApprovalDecisionInput()):
         final approval = input as ApprovalDecisionInput;
@@ -419,11 +538,9 @@ final class GraphEngine {
           );
         }
         x.humanAnswers[target.nodeId] = answer;
-        final rollback = await _rollback(
-          point.run.id,
-          nodeIds: <String>{target.nodeId},
-          earliest: false,
-        );
+        final rollback = await _rollbackBefore(point.run.id, <String>{
+          target.nodeId,
+        });
         if (rollback case FailureResult<void>(:final failure)) {
           return FailureResult(failure);
         }
@@ -446,11 +563,9 @@ final class GraphEngine {
   Future<Result<_RunExecution>> _prepareInterruptedResume(
     ResumePoint point,
   ) async {
-    final rollback = await _rollback(
+    final rollback = await _rollbackBefore(
       point.run.id,
-      nodeIds: point.pendingNodeIds.toSet(),
-      earliest: true,
-      since: point.latestCheckpoint?.createdAt,
+      point.pendingNodeIds.toSet(),
     );
     if (rollback case FailureResult<void>(:final failure)) {
       return FailureResult(failure);
@@ -458,32 +573,72 @@ final class GraphEngine {
     return Success(_newExecution(point, circuitBreakerCount: 0));
   }
 
-  /// Restores the workspace to a pre-node snapshot of one of [nodeIds]: the
-  /// earliest taken at or after [since] when [earliest], else the latest.
-  /// Does nothing when no such snapshot exists (the node never started).
-  Future<Result<void>> _rollback(
-    String runId, {
-    required Set<String> nodeIds,
-    required bool earliest,
-    DateTime? since,
-  }) async {
+  /// Rolls the workspace back to the state before the interrupted [nodeIds]
+  /// started (ADR 0004, ADR 0007).
+  ///
+  /// Every node of one run shares a single workspace, so a snapshot is only
+  /// restorable when no node outside [nodeIds] completed after it was taken:
+  /// restoring would erase that node's work. Per node the latest pre-node
+  /// snapshot is considered; among the restorable ones the earliest wins. When
+  /// none is restorable the rollback is skipped and a `snapshot.warning`
+  /// event says so. Does nothing when no node of [nodeIds] was snapshotted.
+  Future<Result<void>> _rollbackBefore(
+    String runId,
+    Set<String> nodeIds,
+  ) async {
     final listed = await _snapshots.listSnapshots(runId);
     if (listed case FailureResult<RunSnapshotsResponse>(:final failure)) {
       return FailureResult(failure);
     }
-    final candidates = listed.valueOrNull!.items
+    final checkpoints = await _checkpoints.listForRun(runId);
+    if (checkpoints case FailureResult<List<Checkpoint>>(:final failure)) {
+      return FailureResult(failure);
+    }
+
+    final latestByNode = <String, Snapshot>{};
+    for (final snapshot in listed.valueOrNull!.items) {
+      final nodeId = snapshot.nodeId;
+      if (snapshot.kind == SnapshotKind.preNode &&
+          nodeId != null &&
+          nodeIds.contains(nodeId)) {
+        latestByNode[nodeId] = snapshot;
+      }
+    }
+    if (latestByNode.isEmpty) return const Success(null);
+
+    final completions = checkpoints.valueOrNull!
         .where(
-          (s) =>
-              s.kind == SnapshotKind.preNode &&
-              s.nodeId != null &&
-              nodeIds.contains(s.nodeId) &&
-              (since == null || !s.createdAt.isBefore(since)),
+          (c) =>
+              c.completedNodeId != null && !nodeIds.contains(c.completedNodeId),
         )
         .toList(growable: false);
-    if (candidates.isEmpty) return const Success(null);
+    final restorable = latestByNode.values
+        .where(
+          (snapshot) => !completions.any(
+            (c) => !c.createdAt.isBefore(snapshot.createdAt),
+          ),
+        )
+        .toList(growable: false);
 
-    final snapshot = earliest ? candidates.first : candidates.last;
-    final restored = await _snapshots.restoreSnapshot(runId, snapshot.id);
+    if (restorable.isEmpty) {
+      await _emit(
+        runId,
+        RunEventType.snapshotWarning,
+        payload: <String, Object?>{
+          'reason': 'rollback_skipped',
+          'nodeIds': nodeIds.toList(growable: false),
+          'message':
+              'Another node completed after the snapshot of the interrupted '
+              'node; restoring it would erase that work.',
+        },
+      );
+      return const Success(null);
+    }
+
+    final chosen = restorable.reduce(
+      (a, b) => b.createdAt.isBefore(a.createdAt) ? b : a,
+    );
+    final restored = await _snapshots.restoreSnapshot(runId, chosen.id);
     return restored.map((_) {});
   }
 
@@ -516,9 +671,26 @@ final class GraphEngine {
   Future<Result<Run>> _drive(_RunExecution x) async {
     final runId = x.run.id;
     _active[runId] = x;
-    final subscription = _pauseGateway.requests
-        .where((request) => request.runId == runId)
-        .listen((request) => _onPauseRequest(x, request));
+    final queuedCancel = _earlyCancels.remove(runId);
+    if (queuedCancel != null) {
+      x
+        ..cancelRequested = true
+        ..cancelCompleter = queuedCancel;
+    }
+    final subscriptions = <StreamSubscription<HumanPauseRequest>>[
+      _pauseGateway.requests.where((request) => request.runId == runId).listen((
+        request,
+      ) {
+        x.signals.add((request, false));
+        x.wakeUp();
+      }),
+      _pauseGateway.answered.where((request) => request.runId == runId).listen((
+        request,
+      ) {
+        x.signals.add((request, true));
+        x.wakeUp();
+      }),
+    ];
 
     Result<Run> outcome;
     try {
@@ -535,29 +707,63 @@ final class GraphEngine {
           ? failed
           : FailureResult(UnexpectedFailure(x.failReason!, cause: error));
     } finally {
-      await subscription.cancel();
-      _active.remove(runId);
+      for (final subscription in subscriptions) {
+        await subscription.cancel();
+      }
     }
-    if (!x.cancelDone.isCompleted) x.cancelDone.complete(outcome);
+
+    // A cancel that raced the end of the run: apply it when the run is only
+    // paused, otherwise say plainly that it came too late.
+    final waiter = x.cancelCompleter;
+    if (waiter != null && !waiter.isCompleted) {
+      if (outcome case Success<Run>(:final value)
+          when value.status == RunStatus.paused) {
+        _pauseGateway.cancelRun(runId);
+        outcome = await _finishTerminal(
+          runId,
+          status: RunStatus.cancelled,
+          eventType: RunEventType.runCancelled,
+          payload: const <String, Object?>{'from': 'paused'},
+        );
+      }
+      waiter.complete(await _settleQueuedCancel(runId, outcome));
+    }
+    _active.remove(runId);
     return outcome;
   }
 
   Future<Result<Run>> _loop(_RunExecution x) async {
     while (true) {
-      if (x.cancelRequested) return await _finishCancelled(x);
-
-      if (x.failReason == null && x.paused.isEmpty) {
-        await _launchReady(x);
+      if (x.cancelRequested) {
+        final cancelled = await _finishCancelled(x);
+        if (!x.killUnconfirmed) return cancelled;
+        // The process tree could not be confirmed gone: keep driving the run
+        // so `cancel` can be retried, and tell this caller why it failed.
+        x
+          ..killUnconfirmed = false
+          ..cancelRequested = false;
+        final waiter = x.cancelCompleter;
+        x.cancelCompleter = null;
+        waiter?.complete(cancelled);
+        continue;
       }
+
+      await _handleSignals(x);
+      if (x.failReason == null) await _launchReady(x);
       if (x.cancelRequested) continue;
       if (x.failReason != null) return await _finishFailed(x);
       if (x.running.isEmpty) break;
+      if (x.signals.isNotEmpty) continue;
 
       final event = await Future.any<Object>(<Future<Object>>[
         for (final active in x.running.values) active.future,
-        x.cancelSignal.future.then((_) => const _CancelWakeUp()),
+        x.wakeFuture.then((_) => const _WakeUp()),
       ]);
-      if (event is _NodeCompletion) await _onCompletion(x, event);
+      if (event is _NodeCompletion) {
+        await _onCompletion(x, event);
+      } else {
+        x.resetWake();
+      }
     }
 
     if (x.paused.isNotEmpty) return await _finishPaused(x);
@@ -568,6 +774,87 @@ final class GraphEngine {
     }
     return await _finishSucceeded(x);
   }
+
+  // ---------------------------------------------------------------------------
+  // Live ask_human pauses (ADR 0019)
+  // ---------------------------------------------------------------------------
+
+  /// Applies the queued gateway signals.
+  ///
+  /// A question from a running harness pauses the run (checkpoint, `paused`
+  /// status, `run.paused`) while the harness stays alive and the gateway holds
+  /// its request open. The engine never terminates the harness for it. When
+  /// the human answers through the gateway (F11), the run goes back to
+  /// `running` and the harness continues in the same process.
+  Future<void> _handleSignals(_RunExecution x) async {
+    var entered = false;
+    var left = false;
+    while (x.signals.isNotEmpty) {
+      final (request, answered) = x.signals.removeAt(0);
+      final active = x.running[request.nodeId];
+      if (active == null || active.attempt != request.attempt) continue;
+      if (answered) {
+        left = x.livePaused.remove(request.nodeId) != null || left;
+      } else if (!x.livePaused.containsKey(request.nodeId)) {
+        x.livePaused[request.nodeId] = _PausedNode(
+          nodeId: request.nodeId,
+          kind: PauseKind.askHuman,
+          question: request.question,
+          pauseId: request.pauseId,
+          live: true,
+        );
+        entered = true;
+      }
+    }
+    if (entered) await _enterLivePause(x);
+    if (left) await _leaveLivePause(x);
+  }
+
+  Future<void> _enterLivePause(_RunExecution x) async {
+    await _saveCheckpoint(x);
+    if (x.failReason != null) return;
+    if (!x.statusPaused) {
+      final updated = await _runs.updateStatus(
+        x.run.id,
+        status: RunStatus.paused,
+      );
+      if (updated case FailureResult<Run>(:final failure)) {
+        x.failReason = 'Could not mark the run paused: ${failure.message}';
+        return;
+      }
+      x.statusPaused = true;
+    }
+    await _emit(
+      x.run.id,
+      RunEventType.runPaused,
+      payload: <String, Object?>{'pausedNodes': _pausedPayload(x)},
+    );
+  }
+
+  Future<void> _leaveLivePause(_RunExecution x) async {
+    if (!x.statusPaused || x.paused.isNotEmpty || x.livePaused.isNotEmpty) {
+      return;
+    }
+    final updated = await _runs.updateStatus(
+      x.run.id,
+      status: RunStatus.running,
+    );
+    if (updated case FailureResult<Run>(:final failure)) {
+      x.failReason = 'Could not mark the run running: ${failure.message}';
+      return;
+    }
+    x.statusPaused = false;
+    await _emit(
+      x.run.id,
+      RunEventType.runResumed,
+      payload: const <String, Object?>{'from': 'paused', 'live': true},
+    );
+  }
+
+  List<JsonMap> _pausedPayload(_RunExecution x) => [
+    for (final node in x.paused.values) node.toJson(),
+    for (final node in x.livePaused.values) node.toJson(),
+  ];
 
   // ---------------------------------------------------------------------------
   // Launching: frontier, fan-in barrier, serialized snapshots
@@ -597,9 +884,15 @@ final class GraphEngine {
     final slots = maxConcurrency - x.running.length;
     if (slots <= 0 || x.pending.isEmpty) return;
 
+    // While the run waits for a human no new work starts, except nodes whose
+    // outcome the human already decided (they complete immediately).
+    final waiting = x.paused.isNotEmpty || x.livePaused.isNotEmpty;
     final ready = <String>[];
     for (var i = 0; i < x.pending.length && ready.length < slots; i++) {
-      if (!_isHeld(x, i)) ready.add(x.pending[i]);
+      final id = x.pending[i];
+      if (x.paused.containsKey(id)) continue;
+      if (waiting && !x.resolved.containsKey(id)) continue;
+      if (!_isHeld(x, i)) ready.add(id);
     }
     if (ready.isEmpty) return;
 
@@ -717,13 +1010,21 @@ final class GraphEngine {
   }
 
   /// Accumulated outputs of every completed node plus the outcomes of the
-  /// immediate predecessors whose edge led to [nodeId].
+  /// immediate predecessors of the current traversal into [nodeId].
+  ///
+  /// After a resume the traversal is not in memory; the predecessors are then
+  /// derived from the outputs whose label matches an incoming edge.
   Map<String, Object?> _inputsFor(_RunExecution x, String nodeId) {
     final predecessors = <String, Object?>{};
-    for (final edge in x.graph.incoming(nodeId)) {
-      final output = x.nodeOutputs[edge.sourceNodeId];
-      if (output != null && output['outputLabel'] == edge.sourceOutput) {
-        predecessors[edge.sourceNodeId] = output;
+    final traversal = x.traversals[nodeId];
+    if (traversal != null) {
+      predecessors.addAll(traversal);
+    } else {
+      for (final edge in x.graph.incoming(nodeId)) {
+        final output = x.nodeOutputs[edge.sourceNodeId];
+        if (output != null && output['outputLabel'] == edge.sourceOutput) {
+          predecessors[edge.sourceNodeId] = output;
+        }
       }
     }
     return <String, Object?>{
@@ -737,68 +1038,24 @@ final class GraphEngine {
   // ---------------------------------------------------------------------------
 
   Future<void> _onCompletion(_RunExecution x, _NodeCompletion done) async {
-    final active = x.running.remove(done.nodeId)!;
+    x.running.remove(done.nodeId);
+    final wasLive = x.livePaused.remove(done.nodeId) != null;
     if (x.cancelRequested) return;
+    if (wasLive) await _leaveLivePause(x);
 
     switch (done.result) {
       case Success<NodeOutcome>(:final value):
         await _onOutcome(x, done.nodeId, value);
       case FailureResult<NodeOutcome>(:final failure):
-        await _onNodeFailure(x, active, failure);
+        await _onNodeFailure(x, done.nodeId, failure);
     }
-  }
-
-  void _onPauseRequest(_RunExecution x, HumanPauseRequest request) {
-    final active = x.running[request.nodeId];
-    if (active == null ||
-        active.attempt != request.attempt ||
-        active.pauseRequest != null) {
-      return;
-    }
-    active
-      ..pauseRequest = request
-      ..termination = _terminateForPause(request);
-  }
-
-  /// Ends the harness that asked a question: its process tree must exit before
-  /// the pause checkpoint is saved, and the waiting MCP request is released.
-  Future<Result<void>> _terminateForPause(HumanPauseRequest request) async {
-    final killed = await _processTreeKiller.killTree(
-      runId: request.runId,
-      nodeId: request.nodeId,
-    );
-    _pauseGateway.cancelAttempt(
-      runId: request.runId,
-      nodeId: request.nodeId,
-      attempt: request.attempt,
-    );
-    return killed;
   }
 
   Future<void> _onNodeFailure(
     _RunExecution x,
-    _ActiveNode active,
+    String id,
     Failure failure,
   ) async {
-    final id = active.nodeId;
-
-    final request = active.pauseRequest;
-    if (request != null) {
-      final terminated = await active.termination!;
-      if (terminated case FailureResult<void>(failure: final killFailure)) {
-        x.failReason =
-            'Could not terminate node "$id" before pausing: '
-            '${killFailure.message}';
-        return;
-      }
-      x.paused[id] = _PausedNode(
-        nodeId: id,
-        kind: PauseKind.askHuman,
-        question: request.question,
-      );
-      return;
-    }
-
     if (failure case PauseRequestedFailure(:final kind, :final question)) {
       x.paused[id] = _PausedNode(nodeId: id, kind: kind, question: question);
       return;
@@ -849,6 +1106,7 @@ final class GraphEngine {
     NodeOutcome outcome,
   ) async {
     x.circuitBreakerCount = 0;
+    x.traversals.remove(nodeId);
     final label = outcome.outputLabel;
     x.nodeOutputs[nodeId] = <String, Object?>{
       'outputLabel': label,
@@ -900,6 +1158,8 @@ final class GraphEngine {
           },
         );
       }
+      (x.traversals[edge.targetNodeId] ??= <String, JsonMap>{})[nodeId] =
+          x.nodeOutputs[nodeId]!;
       if (!x.pending.contains(edge.targetNodeId)) {
         x.pending.add(edge.targetNodeId);
       }
@@ -992,6 +1252,9 @@ final class GraphEngine {
   // Finishing
   // ---------------------------------------------------------------------------
 
+  /// Writes the final [status] first and the terminal event afterwards, so a
+  /// failed status write never leaves a terminal event in the log for a run
+  /// that is still `running`.
   Future<Result<Run>> _finishTerminal(
     String runId, {
     required RunStatus status,
@@ -999,13 +1262,27 @@ final class GraphEngine {
     JsonMap payload = const <String, Object?>{},
     String? errorMessage,
   }) async {
-    await _emit(runId, eventType, payload: payload);
-    return await _runs.updateStatus(
+    final updated = await _runs.updateStatus(
       runId,
       status: status,
       finishedAt: _now(),
       errorMessage: errorMessage,
     );
+    if (updated case FailureResult<Run>(:final failure)) {
+      _log.severe(
+        LogEvent(
+          'graph_engine.status_write_failed',
+          fields: {
+            'runId': runId,
+            'status': status.name,
+            'error': failure.message,
+          },
+        ),
+      );
+      return updated;
+    }
+    await _emit(runId, eventType, payload: payload);
+    return updated;
   }
 
   Future<Result<Run>> _finishSucceeded(_RunExecution x) => _finishTerminal(
@@ -1018,35 +1295,49 @@ final class GraphEngine {
     await _saveCheckpoint(x);
     if (x.failReason != null) return await _finishFailed(x);
 
+    final updated = await _runs.updateStatus(
+      x.run.id,
+      status: RunStatus.paused,
+    );
+    if (updated case FailureResult<Run>()) return updated;
+    x.statusPaused = true;
     await _emit(
       x.run.id,
       RunEventType.runPaused,
-      payload: <String, Object?>{
-        'pausedNodes': [for (final node in x.paused.values) node.toJson()],
-      },
+      payload: <String, Object?>{'pausedNodes': _pausedPayload(x)},
     );
-    return await _runs.updateStatus(x.run.id, status: RunStatus.paused);
+    return updated;
   }
 
   /// Fail-fast: cancels active siblings, waits for their process trees to
-  /// exit, then marks the run `failed`.
+  /// exit, then marks the run `failed`. When the exit cannot be confirmed the
+  /// run still fails, with `kill_unconfirmed` in the `run.failed` payload and
+  /// the error message, so leftover processes are never silent.
   Future<Result<Run>> _finishFailed(_RunExecution x) async {
-    final reason = x.failReason ?? 'The run failed.';
+    var reason = x.failReason ?? 'The run failed.';
+    var killError = '';
     final stopped = await _stopRunningNodes(x);
     if (stopped case FailureResult<void>(:final failure)) {
+      killError = failure.message;
+      reason = '$reason (process exit unconfirmed: $killError)';
       _log.warning(
         LogEvent(
           'graph_engine.kill_unconfirmed',
-          fields: {'runId': x.run.id, 'error': failure.message},
+          fields: {'runId': x.run.id, 'error': killError},
         ),
       );
+      x.running.clear();
     }
     _pauseGateway.cancelRun(x.run.id);
     return await _finishTerminal(
       x.run.id,
       status: RunStatus.failed,
       eventType: RunEventType.runFailed,
-      payload: <String, Object?>{'reason': reason},
+      payload: <String, Object?>{
+        'reason': reason,
+        if (killError.isNotEmpty) 'kill_unconfirmed': true,
+        if (killError.isNotEmpty) 'kill_error': killError,
+      },
       errorMessage: reason,
     );
   }
@@ -1054,12 +1345,20 @@ final class GraphEngine {
   Future<Result<Run>> _finishCancelled(_RunExecution x) async {
     final stopped = await _stopRunningNodes(x);
     if (stopped case FailureResult<void>(:final failure)) {
-      // The run stays `running`: cancellation is never reported as done
-      // without confirmation that the process tree exited.
+      // Cancellation is never reported as done without confirmation that the
+      // process tree exited: the run stays `running` and cancellable.
+      x.killUnconfirmed = true;
+      _log.warning(
+        LogEvent(
+          'graph_engine.cancel_kill_unconfirmed',
+          fields: {'runId': x.run.id, 'error': failure.message},
+        ),
+      );
       return FailureResult(
         ConflictFailure(
           'Could not confirm that run "${x.run.id}" stopped: '
-          '${failure.message}',
+          '${failure.message}. The run is still active; cancel it again to '
+          'retry.',
         ),
       );
     }
@@ -1068,7 +1367,7 @@ final class GraphEngine {
       x.run.id,
       status: RunStatus.cancelled,
       eventType: RunEventType.runCancelled,
-      payload: const <String, Object?>{'from': 'running'},
+      payload: <String, Object?>{'from': x.statusPaused ? 'paused' : 'running'},
     );
   }
 
@@ -1085,8 +1384,9 @@ final class GraphEngine {
       await Future.wait(
         futures,
       ).timeout(cancelGracePeriod, onTimeout: () => const <_NodeCompletion>[]);
+      x.running.clear();
+      x.livePaused.clear();
     }
-    x.running.clear();
     return killed;
   }
 }

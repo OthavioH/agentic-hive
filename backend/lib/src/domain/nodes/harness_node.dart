@@ -261,6 +261,17 @@ abstract base class HarnessNode extends Node {
         Success<ResultContractReport>(:final value) => Success(
           outcomeFromReport(value, extraData: analysis.metadata),
         ),
+        // Exit code 0 with a missing or malformed report breaks the result
+        // contract (ADR 0003): an infrastructure failure, not a bad config.
+        FailureResult<ResultContractReport>(
+          failure: ValidationFailure(:final message),
+        ) =>
+          FailureResult(
+            NodeExecutionFailure(
+              'Invalid result contract from "$typeId": $message',
+              exitCode: processResult.exitCode,
+            ),
+          ),
         FailureResult<ResultContractReport>(:final failure) => FailureResult(
           failure,
         ),

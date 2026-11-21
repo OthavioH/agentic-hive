@@ -32,6 +32,42 @@ void main() {
       await subscription.cancel();
     });
 
+    test('announces a request on the answered stream once answered', () async {
+      final answered = <HumanPauseRequest>[];
+      final subscription = gateway.answered.listen(answered.add);
+      final answer = gateway.requestHumanAnswer(
+        runId: 'run-1',
+        nodeId: 'node-1',
+        attempt: 1,
+        question: 'Which database?',
+      );
+      final pauseId = gateway.pendingForRun('run-1').single.pauseId;
+
+      expect(answered, isEmpty);
+      gateway.submitAnswer(pauseId: pauseId, answer: 'SQLite');
+
+      expect(answered.single.pauseId, pauseId);
+      expect((await answer).valueOrNull, 'SQLite');
+      await subscription.cancel();
+    });
+
+    test('a cancelled request is not announced as answered', () async {
+      final answered = <HumanPauseRequest>[];
+      final subscription = gateway.answered.listen(answered.add);
+      final answer = gateway.requestHumanAnswer(
+        runId: 'run-1',
+        nodeId: 'node-1',
+        attempt: 1,
+        question: 'Which database?',
+      );
+
+      gateway.cancelRun('run-1');
+      await answer;
+
+      expect(answered, isEmpty);
+      await subscription.cancel();
+    });
+
     test('blocks until human submits answer by pauseId', () async {
       final answerFuture = gateway.requestHumanAnswer(
         runId: 'run-1',

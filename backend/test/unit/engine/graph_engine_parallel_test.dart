@@ -279,6 +279,37 @@ void main() {
       expect(result.valueOrNull?.status, RunStatus.failed);
     });
 
+    test(
+      'reports kill_unconfirmed when the siblings cannot be confirmed gone',
+      () async {
+        final h = EngineHarness();
+        final siblingGate = Completer<void>();
+        h.killer
+          ..failure = const NodeExecutionFailure('still alive')
+          ..onKill = ((runId, nodeId) => siblingGate.complete());
+        h.script
+          ..on('slow', [outcomeAfter(siblingGate.future, NodeOutput.onSuccess)])
+          ..on('bad', [outcome(NodeOutput.onFailure)]);
+
+        final result = await startRun(
+          h,
+          buildWorkflow(
+            nodeIds: ['a', 'slow', 'bad'],
+            edges: [
+              edge('a', NodeOutput.onSuccess, 'slow'),
+              edge('a', NodeOutput.onSuccess, 'bad'),
+            ],
+          ),
+        );
+
+        expect(result.valueOrNull?.status, RunStatus.failed);
+        final failed = h.events.ofType(runId, RunEventType.runFailed).single;
+        expect(failed.payload['kill_unconfirmed'], isTrue);
+        expect(failed.payload['kill_error'], 'still alive');
+        expect(h.run.errorMessage, contains('unconfirmed'));
+      },
+    );
+
     test('does not kill anything when no sibling is active', () async {
       final h = EngineHarness();
       h.script.on('a', [outcome(NodeOutput.onFailure)]);

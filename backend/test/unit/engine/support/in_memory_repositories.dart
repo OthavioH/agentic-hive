@@ -16,6 +16,9 @@ final class InMemoryRunRepository implements RunRepository {
   /// Every status written through [updateStatus], in order.
   final List<RunStatus> statusHistory = <RunStatus>[];
 
+  /// Statuses whose write fails with a [PersistenceFailure].
+  final Set<RunStatus> failingStatuses = <RunStatus>{};
+
   @override
   Future<Result<Run>> create(Run run) async {
     runs[run.id] = run;
@@ -52,6 +55,9 @@ final class InMemoryRunRepository implements RunRepository {
   }) async {
     final run = runs[id];
     if (run == null) return FailureResult(NotFoundFailure('Run "$id".'));
+    if (failingStatuses.contains(status)) {
+      return const FailureResult(PersistenceFailure('disk full'));
+    }
     statusHistory.add(status);
     return Success(
       runs[id] = run.copyWith(
@@ -137,6 +143,9 @@ final class InMemoryRunEventRepository implements RunEventRepository {
   /// Stored events in append order.
   final List<RunEvent> events = <RunEvent>[];
 
+  /// Called right after an event was stored.
+  void Function(RunEvent event)? onAppend;
+
   /// The event types of [runId] in order.
   List<RunEventType> typesOf(String runId) =>
       events.where((e) => e.runId == runId).map((e) => e.type).toList();
@@ -167,6 +176,7 @@ final class InMemoryRunEventRepository implements RunEventRepository {
       payload: payload,
     );
     events.add(event);
+    onAppend?.call(event);
     return Success(event);
   }
 
