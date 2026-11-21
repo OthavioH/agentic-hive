@@ -256,6 +256,30 @@ abstract class AppLocalizations {
   /// **'Failed to load harnesses'**
   String get harnessesLoadErrorTitle;
 
+  /// Localized error message when loading or refreshing harnesses fails due to a network error.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not reach the local backend service.'**
+  String get harnessesErrorNetwork;
+
+  /// Localized error message when the backend returns a failure while checking harnesses.
+  ///
+  /// In en, this message translates to:
+  /// **'The backend returned an error while checking harnesses.'**
+  String get harnessesErrorBackend;
+
+  /// Localized error message when a harness is not found.
+  ///
+  /// In en, this message translates to:
+  /// **'The requested harness could not be found.'**
+  String get harnessesErrorNotFound;
+
+  /// Localized fallback error message when loading or refreshing harnesses fails.
+  ///
+  /// In en, this message translates to:
+  /// **'An unexpected error occurred while checking harnesses.'**
+  String get harnessesErrorUnexpected;
+
   /// Toast error message shown when refreshing harnesses fails.
   ///
   /// In en, this message translates to:

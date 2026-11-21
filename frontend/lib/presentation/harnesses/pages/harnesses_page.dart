@@ -52,7 +52,7 @@ class HarnessesPage extends ConsumerWidget {
               AsyncError<HarnessesState>(:final error) => HiveEmptyState(
                 icon: HiveIcons.alert,
                 title: l10n.harnessesLoadErrorTitle,
-                message: error is Failure ? error.message : error.toString(),
+                message: _localizedErrorMessage(error, l10n),
                 action: HiveButton(
                   key: const ValueKey<String>('harnesses_retry_button'),
                   label: l10n.harnessesRetry,
@@ -99,7 +99,9 @@ class HarnessesPage extends ConsumerWidget {
     if (result case FailureResult<void>(:final failure)) {
       HiveToast.show(
         context,
-        message: l10n.harnessesRefreshError(failure.message),
+        message: l10n.harnessesRefreshError(
+          _localizedErrorMessage(failure, l10n),
+        ),
         tone: HiveToastTone.danger,
       );
     }
@@ -118,11 +120,23 @@ class HarnessesPage extends ConsumerWidget {
     if (result case FailureResult<void>(:final failure)) {
       HiveToast.show(
         context,
-        message: l10n.harnessesRefreshError(failure.message),
+        message: l10n.harnessesRefreshError(
+          _localizedErrorMessage(failure, l10n),
+        ),
         tone: HiveToastTone.danger,
       );
     }
   }
+
+  String _localizedErrorMessage(Object error, AppLocalizations l10n) =>
+      switch (error) {
+        NetworkFailure() => l10n.harnessesErrorNetwork,
+        BackendFailure() => l10n.harnessesErrorBackend,
+        NotFoundFailure() => l10n.harnessesErrorNotFound,
+        ValidationFailure() ||
+        UnexpectedFailure() ||
+        _ => l10n.harnessesErrorUnexpected,
+      };
 
   Future<void> _copyPath(
     BuildContext context,

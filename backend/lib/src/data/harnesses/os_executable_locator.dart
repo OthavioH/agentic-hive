@@ -47,11 +47,21 @@ final class WindowsExecutableLocator implements ExecutableLocator {
     if (result.timedOut || result.launchError != null || result.exitCode != 0) {
       return null;
     }
+    String? fallback;
     for (final rawLine in result.stdout.split(RegExp(r'\r?\n'))) {
       final line = rawLine.trim();
-      if (line.isNotEmpty) return line;
+      if (line.isEmpty) continue;
+      if (_isRunnableWindowsExtension(line)) return line;
+      fallback ??= line;
     }
-    return null;
+    return fallback;
+  }
+
+  static bool _isRunnableWindowsExtension(String path) {
+    final lower = path.toLowerCase();
+    return lower.endsWith('.exe') ||
+        lower.endsWith('.cmd') ||
+        lower.endsWith('.bat');
   }
 }
 

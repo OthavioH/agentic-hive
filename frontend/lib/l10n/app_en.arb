@@ -108,6 +108,22 @@
   "@harnessesLoadErrorTitle": {
     "description": "Error state title when initial harness loading fails."
   },
+  "harnessesErrorNetwork": "Could not reach the local backend service.",
+  "@harnessesErrorNetwork": {
+    "description": "Localized error message when loading or refreshing harnesses fails due to a network error."
+  },
+  "harnessesErrorBackend": "The backend returned an error while checking harnesses.",
+  "@harnessesErrorBackend": {
+    "description": "Localized error message when the backend returns a failure while checking harnesses."
+  },
+  "harnessesErrorNotFound": "The requested harness could not be found.",
+  "@harnessesErrorNotFound": {
+    "description": "Localized error message when a harness is not found."
+  },
+  "harnessesErrorUnexpected": "An unexpected error occurred while checking harnesses.",
+  "@harnessesErrorUnexpected": {
+    "description": "Localized fallback error message when loading or refreshing harnesses fails."
+  },
   "harnessesRefreshError": "Could not refresh harnesses: {message}",
   "@harnessesRefreshError": {
     "description": "Toast error message shown when refreshing harnesses fails.",

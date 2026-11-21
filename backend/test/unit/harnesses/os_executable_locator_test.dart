@@ -59,6 +59,23 @@ void main() {
       expect(runner.lastArguments, ['claude']);
     });
 
+    test('prefers .exe, .cmd, or .bat over extensionless shims', () async {
+      final runner = _FakeProcessRunner(
+        const ProcessRunResult(
+          exitCode: 0,
+          stdout:
+              'C:\\Users\\dev\\AppData\\Roaming\\npm\\codex\r\n'
+              'C:\\Users\\dev\\AppData\\Roaming\\npm\\codex.cmd\r\n',
+          stderr: '',
+        ),
+      );
+      final locator = WindowsExecutableLocator(processRunner: runner);
+
+      final path = await locator.locate('codex');
+
+      expect(path, r'C:\Users\dev\AppData\Roaming\npm\codex.cmd');
+    });
+
     test('returns null on non-zero exit, timeout, or launch error', () async {
       for (final result in const [
         ProcessRunResult(

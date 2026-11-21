@@ -211,27 +211,11 @@ class HarnessCard extends StatelessWidget {
                     ),
                     SizedBox(width: spacing.space1),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          Text(
-                            guidance,
-                            style: typography.bodySmall.copyWith(
-                              color: colors.onSurface,
-                            ),
-                          ),
-                          if (harness.errorMessage != null &&
-                              harness.errorMessage!.isNotEmpty) ...<Widget>[
-                            SizedBox(height: spacing.spaceHalf),
-                            Text(
-                              harness.errorMessage!,
-                              style: typography.mono.copyWith(
-                                color: colors.onSurfaceMuted,
-                              ),
-                            ),
-                          ],
-                        ],
+                      child: Text(
+                        guidance,
+                        style: typography.bodySmall.copyWith(
+                          color: colors.onSurface,
+                        ),
                       ),
                     ),
                   ],

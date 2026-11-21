@@ -42,6 +42,7 @@ final class DefaultHarnessService implements HarnessService {
   final StreamController<HarnessInfo> _statusController =
       StreamController<HarnessInfo>.broadcast();
 
+  bool _scanned = false;
   Future<List<HarnessInfo>>? _inFlightInitialScan;
 
   @override
@@ -49,7 +50,7 @@ final class DefaultHarnessService implements HarnessService {
 
   @override
   Future<Result<List<HarnessInfo>>> listHarnesses() async {
-    if (_cache.isNotEmpty) {
+    if (_scanned) {
       return Success(_orderedCache());
     }
     final scan = _inFlightInitialScan ??= _scanAll(broadcastChanges: false);
@@ -122,6 +123,7 @@ final class DefaultHarnessService implements HarnessService {
         _emit(updated);
       }
     }
+    _scanned = true;
     return _orderedCache();
   }
 

@@ -98,6 +98,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get harnessesLoadErrorTitle => 'Failed to load harnesses';
 
   @override
+  String get harnessesErrorNetwork =>
+      'Could not reach the local backend service.';
+
+  @override
+  String get harnessesErrorBackend =>
+      'The backend returned an error while checking harnesses.';
+
+  @override
+  String get harnessesErrorNotFound =>
+      'The requested harness could not be found.';
+
+  @override
+  String get harnessesErrorUnexpected =>
+      'An unexpected error occurred while checking harnesses.';
+
+  @override
   String harnessesRefreshError(String message) {
     return 'Could not refresh harnesses: $message';
   }

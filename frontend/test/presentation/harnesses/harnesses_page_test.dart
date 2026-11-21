@@ -133,7 +133,7 @@ void main() {
 
       expect(find.text(l10n.harnessStatusAuthError), findsOneWidget);
       expect(find.text(l10n.harnessGuidanceAuthError('Codex')), findsOneWidget);
-      expect(find.text('Run codex login'), findsOneWidget);
+      expect(find.text('Run codex login'), findsNothing);
 
       expect(find.text(l10n.harnessStatusNotInstalled), findsOneWidget);
       expect(find.text(l10n.harnessGuidanceNotInstalled), findsOneWidget);
@@ -146,7 +146,7 @@ void main() {
 
       expect(find.text(l10n.harnessStatusUnavailable), findsOneWidget);
       expect(find.text(l10n.harnessGuidanceUnavailable), findsOneWidget);
-      expect(find.text('Timed out after 5s'), findsOneWidget);
+      expect(find.text('Timed out after 5s'), findsNothing);
     });
 
     testWidgets('renders empty state and error state with retry', (
@@ -171,7 +171,8 @@ void main() {
         tester.element(find.byType(HarnessesPage)),
       )!;
       expect(find.text(l10n.harnessesLoadErrorTitle), findsOneWidget);
-      expect(find.text('Socket offline'), findsOneWidget);
+      expect(find.text(l10n.harnessesErrorNetwork), findsOneWidget);
+      expect(find.text('Socket offline'), findsNothing);
 
       repo.getResult = const Success(<HarnessInfo>[]);
       await tester.tap(
@@ -222,9 +223,10 @@ void main() {
 
         expect(find.byType(HiveToast), findsOneWidget);
         expect(
-          find.text(l10n.harnessesRefreshError('Refresh failed')),
+          find.text(l10n.harnessesRefreshError(l10n.harnessesErrorNetwork)),
           findsOneWidget,
         );
+        expect(find.textContaining('Refresh failed'), findsNothing);
       },
     );
 

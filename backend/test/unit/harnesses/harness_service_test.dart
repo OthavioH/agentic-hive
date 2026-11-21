@@ -142,6 +142,24 @@ void main() {
       (HarnessId.claudeCode, HarnessStatus.ready),
     ]);
   });
+
+  test('refreshOne before initial listHarnesses does not cause listHarnesses '
+      'to return a partial cache', () async {
+    final single = await service.refreshOne(HarnessId.claudeCode);
+    expect(single.valueOrNull?.id, HarnessId.claudeCode);
+
+    final all = await service.listHarnesses();
+    expect(all.valueOrNull?.map((h) => h.id), [
+      HarnessId.claudeCode,
+      HarnessId.codex,
+      HarnessId.geminiCli,
+      HarnessId.antigravity,
+    ]);
+    expect(claude.calls, 2);
+    expect(codex.calls, 1);
+    expect(gemini.calls, 1);
+    expect(agy.calls, 1);
+  });
 }
 
 final class _FakeDetector implements HarnessDetector {
