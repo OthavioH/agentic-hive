@@ -9,13 +9,25 @@ import 'package:material_ui/material_ui.dart';
 @immutable
 class HiveRailDestination {
   /// Creates a destination.
-  const new({required this.icon, required this.label});
+  const new({
+    required this.icon,
+    required this.label,
+    this.badgeCount,
+    this.semanticLabel,
+  });
 
   /// Destination icon.
   final HiveIconData icon;
 
   /// Localized destination name.
   final String label;
+
+  /// Pending count shown on the item; see [HiveRailItem.badgeCount].
+  final int? badgeCount;
+
+  /// Localized accessibility label including the count (for example
+  /// `Pauses, 3 pending`); defaults to [label].
+  final String? semanticLabel;
 }
 
 /// The app's floating pill-shaped navigation rail.
@@ -155,6 +167,8 @@ class _HiveSideRailState extends State<HiveSideRail> {
                         label: widget.destinations[i].label,
                         selected: i == widget.selectedIndex,
                         expanded: expanded,
+                        badgeCount: widget.destinations[i].badgeCount,
+                        semanticLabel: widget.destinations[i].semanticLabel,
                         onPressed: () => widget.onSelected(i),
                       ),
                     ],

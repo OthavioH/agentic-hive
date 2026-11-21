@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:agentic_hive_backend/src/api/agents/agents_handler.dart';
 import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
+import 'package:agentic_hive_backend/src/api/pauses/pauses_handler.dart';
 import 'package:agentic_hive_backend/src/api/result_contract/result_contract_handler.dart';
 import 'package:agentic_hive_backend/src/api/runs/runs_handler.dart';
 import 'package:agentic_hive_backend/src/api/settings/settings_handler.dart';
@@ -18,6 +19,7 @@ import 'package:agentic_hive_backend/src/data/nodes/os_process_platform.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_shell_provider.dart';
 import 'package:agentic_hive_backend/src/data/nodes/pty_runner_factory.dart';
 import 'package:agentic_hive_backend/src/data/nodes/unconfigured_node_ports.dart';
+import 'package:agentic_hive_backend/src/data/pauses/drift_pause_repository.dart';
 import 'package:agentic_hive_backend/src/data/result_contract/hive_result_contract.dart';
 import 'package:agentic_hive_backend/src/data/runs/drift_checkpoint_repository.dart';
 import 'package:agentic_hive_backend/src/data/runs/drift_run_event_repository.dart';
@@ -42,10 +44,13 @@ import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_registry.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/pty_session.dart';
+import 'package:agentic_hive_backend/src/domain/pauses/pause_repository.dart';
+import 'package:agentic_hive_backend/src/domain/pauses/pause_service.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/human_pause_gateway.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_coordinator.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_validator.dart';
 import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart';
+import 'package:agentic_hive_backend/src/domain/runs/pausing_human_approval_port.dart';
 import 'package:agentic_hive_backend/src/domain/runs/process_tree_killer.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_log_store.dart';
@@ -222,9 +227,7 @@ Future<void> registerDependencies(
         humanPauseGateway: di<HumanPauseGateway>(),
       ),
     )
-    ..registerSingleton<HumanApprovalPort>(
-      const UnconfiguredHumanApprovalPort(),
-    )
+    ..registerSingleton<HumanApprovalPort>(const PausingHumanApprovalPort())
     ..registerSingleton<AgentPromptResolver>(
       const UnconfiguredAgentPromptResolver(),
     )
@@ -269,6 +272,15 @@ Future<void> registerDependencies(
     ..registerSingletonWithDependencies<RunEventRepository>(
       () => di<DriftRunEventRepository>(),
       dependsOn: [DriftRunEventRepository],
+    )
+    ..registerSingletonWithDependencies<DriftPauseRepository>(
+      () => DriftPauseRepository(di<AppDatabase>()),
+      dependsOn: [AppDatabase],
+      dispose: (repo) => repo.close(),
+    )
+    ..registerSingletonWithDependencies<PauseRepository>(
+      () => di<DriftPauseRepository>(),
+      dependsOn: [DriftPauseRepository],
     )
     ..registerSingleton<RunLogStore>(
       FileRunLogStore(
@@ -329,6 +341,7 @@ Future<void> registerDependencies(
         snapshots: di<ShadowSnapshotService>(),
         pauseGateway: di<HumanPauseGateway>(),
         processTreeKiller: di<ProcessTreeKiller>(),
+        pauses: di<PauseRepository>(),
         logStore: di<RunLogStore>(),
       ),
       dependsOn: [
@@ -337,6 +350,7 @@ Future<void> registerDependencies(
         RunEventRepository,
         RunRecoveryService,
         ShadowSnapshotService,
+        PauseRepository,
       ],
     )
     ..registerSingletonWithDependencies<RunService>(
@@ -366,6 +380,18 @@ Future<void> registerDependencies(
     ..registerSingletonWithDependencies<RunsHandler>(
       () => RunsHandler(service: di<RunService>()),
       dependsOn: [RunService],
+    )
+    ..registerSingletonWithDependencies<PauseService>(
+      () => PauseService(
+        pauses: di<PauseRepository>(),
+        pauseGateway: di<HumanPauseGateway>(),
+        resumePausedRun: di<RunService>().resumePausedRun,
+      ),
+      dependsOn: [PauseRepository, RunService],
+    )
+    ..registerSingletonWithDependencies<PausesHandler>(
+      () => PausesHandler(service: di<PauseService>()),
+      dependsOn: [PauseService],
     )
     ..registerSingleton<ConnectionRegistry>(ConnectionRegistry())
     ..registerSingleton<LocalAgentRepository>(
@@ -419,8 +445,14 @@ Future<void> registerDependencies(
         runEvents: di<DriftRunEventRepository>().events,
         runOutputs: di<RunLogStore>().outputs,
         ptySessions: di<PtySessionRegistry>(),
+        pauseCreated: di<DriftPauseRepository>().created,
+        pauseResolved: di<DriftPauseRepository>().resolved,
       ),
-      dependsOn: [SettingsService, DriftRunEventRepository],
+      dependsOn: [
+        SettingsService,
+        DriftRunEventRepository,
+        DriftPauseRepository,
+      ],
       dispose: (gateway) => gateway.close(),
     )
     ..registerSingletonWithDependencies<StatusHandler>(
@@ -446,6 +478,7 @@ Future<void> registerDependencies(
           workflowHandler: di<WorkflowHandler>(),
           resultContractHandler: di<ResultContractHandler>(),
           runsHandler: di<RunsHandler>(),
+          pausesHandler: di<PausesHandler>(),
           workspaceHandler: di<WorkspaceHandler>(),
           settingsHandler: di<SettingsHandler>(),
         ),
@@ -462,6 +495,7 @@ Future<void> registerDependencies(
         AgentDirectoryWatcher,
         WorkflowHandler,
         RunsHandler,
+        PausesHandler,
         WorkspaceHandler,
         SettingsHandler,
         WsGateway,

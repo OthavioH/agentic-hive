@@ -220,6 +220,70 @@ class Settings extends Table {
   Set<Column<Object>> get primaryKey => {key};
 }
 
+/// Durable human-in-the-loop pauses for a [Runs] row.
+@DataClassName('PauseRow')
+@TableIndex(
+  name: 'idx_pauses_status_created_at',
+  columns: {#status, #createdAt},
+)
+@TableIndex(name: 'idx_pauses_run_status', columns: {#runId, #status})
+class Pauses extends Table {
+  /// Unique pause identifier.
+  TextColumn get id => text()();
+
+  /// Owning run identifier.
+  TextColumn get runId =>
+      text().references(Runs, #id, onDelete: KeyAction.cascade)();
+
+  /// Node identifier that requested the pause.
+  TextColumn get nodeId => text()();
+
+  /// Pause kind wire name (`humanApproval` or `askHuman`).
+  TextColumn get kind => text()();
+
+  /// Pause status wire name (`pending`, `answered`, or `cancelled`).
+  TextColumn get status => text()();
+
+  /// Snapshot of the workflow name at pause time.
+  TextColumn get workflowName => text()();
+
+  /// Snapshot of the node label at pause time.
+  TextColumn get nodeLabel => text()();
+
+  /// Optional title for `humanApproval` pauses.
+  TextColumn get title => text().nullable()();
+
+  /// Optional instructions for `humanApproval` pauses.
+  TextColumn get instructions => text().nullable()();
+
+  /// Whether free-form feedback is allowed for `humanApproval` pauses.
+  BoolColumn get allowFeedback => boolean().withDefault(const Constant(true))();
+
+  /// Question text for `askHuman` pauses.
+  TextColumn get question => text().nullable()();
+
+  /// JSON-encoded list of suggested answer options for `askHuman` pauses.
+  TextColumn get optionsJson => text()();
+
+  /// Approval decision (`approved` or `rejected`) when answered.
+  TextColumn get decision => text().nullable()();
+
+  /// Optional reviewer feedback when answered.
+  TextColumn get feedback => text().nullable()();
+
+  /// Free-text answer for `askHuman` when answered.
+  TextColumn get answer => text().nullable()();
+
+  /// UTC ISO-8601 creation timestamp.
+  TextColumn get createdAt => text()();
+
+  /// Optional UTC ISO-8601 resolution timestamp.
+  TextColumn get answeredAt => text().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
 /// The backend's SQLite database.
 ///
 /// Raise [schemaVersion] and add a step to [migration] for every schema
@@ -233,6 +297,7 @@ class Settings extends Table {
     RunEvents,
     Settings,
     Snapshots,
+    Pauses,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -248,7 +313,7 @@ class AppDatabase extends _$AppDatabase {
   static const installedAtKey = 'installed_at';
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -283,6 +348,11 @@ class AppDatabase extends _$AppDatabase {
         }
         await m.createTable(snapshots);
         await m.createIndex(idxSnapshotsRunCreatedAt);
+      }
+      if (from < 6) {
+        await m.createTable(pauses);
+        await m.createIndex(idxPausesStatusCreatedAt);
+        await m.createIndex(idxPausesRunStatus);
       }
     },
     beforeOpen: (details) async {

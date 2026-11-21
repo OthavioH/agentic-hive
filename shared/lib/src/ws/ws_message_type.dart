@@ -54,4 +54,11 @@ abstract final class WsMessageType {
 
   /// Client → server, resizes an active PTY session (`cols` and `rows`).
   static const ptyResize = 'pty.resize';
+
+  /// Server → client, broadcast globally when a run creates a pending pause.
+  static const pauseCreated = 'pause.created';
+
+  /// Server → client, broadcast globally when a pending pause is answered or
+  /// cancelled.
+  static const pauseResolved = 'pause.resolved';
 }

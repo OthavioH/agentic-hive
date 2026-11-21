@@ -29,6 +29,8 @@ final class WsGateway {
     Stream<RunEvent>? runEvents,
     Stream<RunOutputPayload>? runOutputs,
     PtySessionRegistry? ptySessions,
+    Stream<Pause>? pauseCreated,
+    Stream<Pause>? pauseResolved,
     this._generateId = randomId,
   }) : _ptySessions = ptySessions {
     _harnessUpdatesSubscription = harnessStatusUpdates?.listen(
@@ -43,6 +45,8 @@ final class WsGateway {
     _ptyEndedSubscription = ptySessions?.sessionEnded.listen(
       _registry.removePtySubscribers,
     );
+    _pauseCreatedSubscription = pauseCreated?.listen(_broadcastPauseCreated);
+    _pauseResolvedSubscription = pauseResolved?.listen(_broadcastPauseResolved);
   }
 
   static final _log = Logger('ws');
@@ -64,6 +68,8 @@ final class WsGateway {
   StreamSubscription<RunOutputPayload>? _runOutputsSubscription;
   StreamSubscription<PtyOutputPayload>? _ptyOutputsSubscription;
   StreamSubscription<PtySessionKey>? _ptyEndedSubscription;
+  StreamSubscription<Pause>? _pauseCreatedSubscription;
+  StreamSubscription<Pause>? _pauseResolvedSubscription;
 
   /// Releases subscriptions held by the gateway.
   Future<void> close() async {
@@ -79,6 +85,10 @@ final class WsGateway {
     _ptyOutputsSubscription = null;
     await _ptyEndedSubscription?.cancel();
     _ptyEndedSubscription = null;
+    await _pauseCreatedSubscription?.cancel();
+    _pauseCreatedSubscription = null;
+    await _pauseResolvedSubscription?.cancel();
+    _pauseResolvedSubscription = null;
   }
 
   void _broadcastHarnessStatus(HarnessInfo harness) {
@@ -129,6 +139,26 @@ final class WsGateway {
         type: WsMessageType.ptyOutput,
         id: _generateId(),
         payload: output.toJson(),
+      ),
+    );
+  }
+
+  void _broadcastPauseCreated(Pause pause) {
+    _registry.broadcast(
+      WsEnvelope(
+        type: WsMessageType.pauseCreated,
+        id: _generateId(),
+        payload: PauseCreatedPayload(pause: pause).toJson(),
+      ),
+    );
+  }
+
+  void _broadcastPauseResolved(Pause pause) {
+    _registry.broadcast(
+      WsEnvelope(
+        type: WsMessageType.pauseResolved,
+        id: _generateId(),
+        payload: PauseResolvedPayload(pause: pause).toJson(),
       ),
     );
   }

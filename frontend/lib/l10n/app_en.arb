@@ -68,9 +68,9 @@
   "@pausesEmptyTitle": {
     "description": "Empty state title on the Pauses placeholder page."
   },
-  "pausesEmptyDescription": "Human approval gates and review checkpoints waiting for your decision will appear here.",
+  "pausesEmptyDescription": "Runs waiting for your approval or answer will appear here.",
   "@pausesEmptyDescription": {
-    "description": "Empty state description on the Pauses placeholder page."
+    "description": "Empty state description on the Pauses inbox page."
   },
   "agentsEmptyTitle": "No agents configured",
   "@agentsEmptyTitle": {
@@ -2142,8 +2142,198 @@
       }
     }
   },
+  "navPausesPendingSemantic": "Pauses, {count} pending",
+  "@navPausesPendingSemantic": {
+    "description": "Accessibility label for the Pauses side rail destination when pending pauses exist.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pausesLoadErrorTitle": "Unable to load pauses",
+  "@pausesLoadErrorTitle": {
+    "description": "Error title when the Pauses inbox fails to load."
+  },
+  "pausesRetryAction": "Retry",
+  "@pausesRetryAction": {
+    "description": "Button label to retry loading the Pauses inbox."
+  },
+  "pausesKindApproval": "Approval",
+  "@pausesKindApproval": {
+    "description": "Badge label for a human approval pause."
+  },
+  "pausesKindQuestion": "Question",
+  "@pausesKindQuestion": {
+    "description": "Badge label for an ask_human question pause."
+  },
+  "pausesStatusPending": "Pending",
+  "@pausesStatusPending": {
+    "description": "Semantic status label for a pending pause."
+  },
+  "pausesWaitingJustNow": "Just now",
+  "@pausesWaitingJustNow": {
+    "description": "Waiting duration label for a pause created less than a minute ago."
+  },
+  "pausesWaitingMinutes": "{minutes}m ago",
+  "@pausesWaitingMinutes": {
+    "description": "Waiting duration label in minutes.",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "pausesWaitingHours": "{hours}h ago",
+  "@pausesWaitingHours": {
+    "description": "Waiting duration label in hours.",
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "pausesWaitingDays": "{days}d ago",
+  "@pausesWaitingDays": {
+    "description": "Waiting duration label in days.",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "pausesSelectPrompt": "Select a pause to review and respond.",
+  "@pausesSelectPrompt": {
+    "description": "Placeholder text in the detail pane when no pause is selected."
+  },
+  "pausesOpenRunAction": "Open run",
+  "@pausesOpenRunAction": {
+    "description": "Ghost button label to navigate to the pause's run detail page."
+  },
+  "pausesOpenRunSemantic": "Open run {runId}",
+  "@pausesOpenRunSemantic": {
+    "description": "Accessibility label for the open-run link button.",
+    "placeholders": {
+      "runId": {
+        "type": "String"
+      }
+    }
+  },
+  "pausesFeedbackLabel": "Feedback",
+  "@pausesFeedbackLabel": {
+    "description": "Field label for optional approval/rejection feedback."
+  },
+  "pausesFeedbackHint": "Optional feedback...",
+  "@pausesFeedbackHint": {
+    "description": "Placeholder text for optional approval/rejection feedback."
+  },
+  "pausesApproveAction": "Approve",
+  "@pausesApproveAction": {
+    "description": "Primary button label to approve a human approval pause."
+  },
+  "pausesRejectAction": "Reject",
+  "@pausesRejectAction": {
+    "description": "Secondary button label to reject a human approval pause."
+  },
+  "pausesAnswerLabel": "Answer",
+  "@pausesAnswerLabel": {
+    "description": "Field label for the ask_human answer input."
+  },
+  "pausesAnswerHint": "Type your answer...",
+  "@pausesAnswerHint": {
+    "description": "Placeholder text for the ask_human answer input."
+  },
+  "pausesSubmitAnswerAction": "Submit Answer",
+  "@pausesSubmitAnswerAction": {
+    "description": "Primary button label to submit an ask_human answer."
+  },
+  "pausesSubmittingLabel": "Submitting...",
+  "@pausesSubmittingLabel": {
+    "description": "Status/button label while a pause response is being submitted."
+  },
+  "pausesAnswerRequiredError": "Please enter an answer before submitting.",
+  "@pausesAnswerRequiredError": {
+    "description": "Validation error shown when submitting a blank ask_human answer."
+  },
+  "pausesConflictMessage": "This pause was already resolved or cancelled.",
+  "@pausesConflictMessage": {
+    "description": "Banner message shown when answering a pause returns HTTP 409 conflict."
+  },
+  "pausesDismissNoticeSemantic": "Dismiss notice",
+  "@pausesDismissNoticeSemantic": {
+    "description": "Accessibility label for dismissing a pause inbox banner."
+  },
+  "pausesSubmitErrorTitle": "Unable to submit response",
+  "@pausesSubmitErrorTitle": {
+    "description": "Banner title when submitting a pause answer fails."
+  },
+  "pausesListItemSemantic": "{kind}: {workflowName}, {nodeLabel}, waiting {waiting}",
+  "@pausesListItemSemantic": {
+    "description": "Accessibility label for a pause item in the master list.",
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      },
+      "workflowName": {
+        "type": "String"
+      },
+      "nodeLabel": {
+        "type": "String"
+      },
+      "waiting": {
+        "type": "String"
+      }
+    }
+  },
+  "pausesAnnounceCreated": "New pause waiting: {nodeLabel}",
+  "@pausesAnnounceCreated": {
+    "description": "Live-region announcement when a new pause arrives.",
+    "placeholders": {
+      "nodeLabel": {
+        "type": "String"
+      }
+    }
+  },
   "nodeConfigSendPromptToStdinLabel": "Send prompt to stdin",
   "@nodeConfigSendPromptToStdinLabel": {
     "description": "Switch label for TerminalHarnessNodeConfig.sendPromptToStdin in the workflow inspector."
+  },
+  "pausesAnnounceResolved": "Pause resolved: {nodeLabel}",
+  "@pausesAnnounceResolved": {
+    "description": "Live-region announcement when a pause is resolved or cancelled.",
+    "placeholders": {
+      "nodeLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "pausesUnknownError": "An unexpected error occurred.",
+  "@pausesUnknownError": {
+    "description": "Fallback error message when a pause operation fails."
+  },
+  "pausesFailureNetwork": "Could not reach the local backend. Check the connection and try again.",
+  "@pausesFailureNetwork": {
+    "description": "Localized error message when a pause request fails due to a network/socket failure."
+  },
+  "pausesFailureNotFound": "This pause could not be found.",
+  "@pausesFailureNotFound": {
+    "description": "Localized error message when a pause record is not found."
+  },
+  "pausesFailureValidation": "The submitted response is invalid.",
+  "@pausesFailureValidation": {
+    "description": "Localized error message when a pause answer fails validation."
+  },
+  "pausesFailureBackend": "The local backend encountered an error while processing pauses.",
+  "@pausesFailureBackend": {
+    "description": "Localized error message when the backend returns an error for a pause request."
+  },
+  "pausesRemoteResolvedNotice": "Pause \"{nodeLabel}\" was resolved or cancelled externally.",
+  "@pausesRemoteResolvedNotice": {
+    "description": "Notice shown when the currently selected pause is resolved or cancelled remotely.",
+    "placeholders": {
+      "nodeLabel": {
+        "type": "String"
+      }
+    }
   }
 }
