@@ -1,11 +1,18 @@
+import 'dart:io';
+
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_shell_provider.dart';
+import 'package:agentic_hive_backend/src/data/result_contract/hive_result_contract.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/headless_harness_nodes.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_execution_context.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/terminal_harness_node.dart';
+import 'package:agentic_hive_backend/src/domain/result_contract/human_pause_gateway.dart';
+import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_coordinator.dart';
+import 'package:agentic_hive_backend/src/mcp/hive_mcp_locator.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 final class _FakeProcessRunner implements NodeProcessRunner {
@@ -46,6 +53,17 @@ final class _FakeResultContract implements ResultContract {
   ResultContractReport? report;
 
   @override
+  Future<Result<ResultContractSession>> openSession(
+    NodeExecutionContext context,
+  ) async => Success(
+    _FakeResultContractSession(
+      context: context,
+      instructions: instructionsFor(context),
+      readReport: () => readReport(context),
+    ),
+  );
+
+  @override
   String instructionsFor(NodeExecutionContext context) =>
       'Call report_result when finished.';
 
@@ -53,6 +71,70 @@ final class _FakeResultContract implements ResultContract {
   Future<Result<ResultContractReport?>> readReport(
     NodeExecutionContext context,
   ) async => Success(report);
+}
+
+final class _FakeResultContractSession implements ResultContractSession {
+  new({
+    required NodeExecutionContext context,
+    required this.instructions,
+    required this._readReport,
+  }) : runId = context.runId,
+       nodeId = context.nodeId,
+       attempt = context.attempt;
+
+  @override
+  final String runId;
+
+  @override
+  final String nodeId;
+
+  @override
+  final int attempt;
+
+  @override
+  final String instructions;
+
+  @override
+  String? get mcpConfigPath => null;
+
+  @override
+  Map<String, String> get env => const <String, String>{};
+
+  @override
+  String? get resultFilePath => null;
+
+  final Future<Result<ResultContractReport?>> Function() _readReport;
+
+  @override
+  Future<Result<ResultContractReport>> resolveOutcome({
+    required int exitCode,
+    bool timedOut = false,
+  }) async {
+    if (timedOut) {
+      return const FailureResult(NodeExecutionFailure('Timed out.'));
+    }
+    if (exitCode != 0) {
+      return FailureResult(
+        NodeExecutionFailure('Exited with code $exitCode.', exitCode: exitCode),
+      );
+    }
+    final reportResult = await _readReport();
+    if (reportResult case FailureResult<ResultContractReport?>(
+      :final failure,
+    )) {
+      return FailureResult(failure);
+    }
+    final report = reportResult.valueOrNull;
+    if (report == null) {
+      return const FailureResult(
+        NodeExecutionFailure('Exited 0 without report.', exitCode: 0),
+      );
+    }
+    return Success(report);
+  }
+
+  @override
+  Future<void> dispose() async {}
 }
 
 final class _FakeAgentPromptResolver implements AgentPromptResolver {
@@ -362,4 +444,119 @@ void main() {
       );
     });
   });
+
+  group('HarnessNode + HiveResultContract session lifecycle', () {
+    test('registers attempt, passes MCP config and env, resolves MCP report, '
+        'and cleans up temp config and pending pauses on dispose', () async {
+      final tempDir = await Directory.systemTemp.createTemp('hive_hn_rc_');
+      addTearDown(() async {
+        if (tempDir.existsSync()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+      final dataDir = p.join(tempDir.path, 'data');
+      final workspaceDir = p.join(tempDir.path, 'ws');
+      await Directory(dataDir).create(recursive: true);
+      await Directory(workspaceDir).create(recursive: true);
+
+      final coordinator = ResultContractCoordinator();
+      final pauseGateway = InMemoryHumanPauseGateway();
+      addTearDown(pauseGateway.dispose);
+      final contract = HiveResultContract(
+        coordinator: coordinator,
+        dataDir: dataDir,
+        socketPath: p.join(dataDir, 'backend.sock'),
+        mcpLocator: HiveMcpLocator(
+          overrideCommand: const HiveMcpLaunchCommand(executable: 'hive-mcp'),
+        ),
+        humanPauseGateway: pauseGateway,
+      );
+
+      String? observedMcpConfigPath;
+      Map<String, String>? observedEnv;
+      late Future<Result<String>> pendingPauseFuture;
+
+      final runner = _CallbackProcessRunner((invocation) {
+        final mcpFlagIndex = invocation.arguments.indexOf('--mcp-config');
+        expect(mcpFlagIndex, isNot(-1));
+        observedMcpConfigPath = invocation.arguments[mcpFlagIndex + 1];
+        observedEnv = invocation.environment;
+        expect(File(observedMcpConfigPath!).existsSync(), isTrue);
+        expect(
+          coordinator.isAttemptRegistered(
+            runId: 'run-rc',
+            nodeId: 'node-rc',
+            attempt: 1,
+          ),
+          isTrue,
+        );
+
+        pendingPauseFuture = pauseGateway.requestHumanAnswer(
+          runId: 'run-rc',
+          nodeId: 'node-rc',
+          attempt: 1,
+          question: 'Dangling question?',
+        );
+
+        final submit = coordinator.submitMcpReport(
+          runId: 'run-rc',
+          nodeId: 'node-rc',
+          attempt: 1,
+          payload: const <String, Object?>{
+            'status': 'onSuccess',
+            'summary': 'Completed via MCP.',
+            'data': <String, Object?>{'ok': true},
+          },
+        );
+        expect(submit.isSuccess, isTrue);
+        return const ProcessExecutionResult(exitCode: 0);
+      });
+
+      final node = ClaudeCodeNode(
+        processRunner: runner,
+        resultContract: contract,
+        agentPromptResolver: agentResolver,
+      );
+
+      final result = await node.execute(
+        NodeExecutionContext(
+          runId: 'run-rc',
+          nodeId: 'node-rc',
+          workspacePath: workspaceDir,
+          config: const <String, Object?>{'additionalInstructions': 'Do work.'},
+        ),
+      );
+
+      expect(result.isSuccess, isTrue);
+      final outcome = result.valueOrNull!;
+      expect(outcome.outputLabel, NodeOutput.onSuccess);
+      expect(outcome.data['summary'], 'Completed via MCP.');
+      expect(outcome.data['ok'], isTrue);
+      expect(observedEnv?['HIVE_RUN_ID'], 'run-rc');
+      expect(observedEnv?['HIVE_NODE_ID'], 'node-rc');
+      expect(observedEnv?['HIVE_ATTEMPT'], '1');
+      expect(File(observedMcpConfigPath!).existsSync(), isFalse);
+      expect(
+        coordinator.isAttemptRegistered(
+          runId: 'run-rc',
+          nodeId: 'node-rc',
+          attempt: 1,
+        ),
+        isFalse,
+      );
+      expect((await pendingPauseFuture).failureOrNull, isA<ConflictFailure>());
+    });
+  });
+}
+
+final class _CallbackProcessRunner implements NodeProcessRunner {
+  new(this._onRun);
+
+  final ProcessExecutionResult Function(ProcessInvocation invocation) _onRun;
+
+  @override
+  Future<Result<ProcessExecutionResult>> run(
+    ProcessInvocation invocation, {
+    NodeOutputCallback? onOutput,
+  }) async => Success(_onRun(invocation));
 }

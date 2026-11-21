@@ -10,6 +10,11 @@ final class NodeExecutionContext {
     required this.runId,
     required this.nodeId,
     required this.workspacePath,
+    this.attempt = 1,
+    this.availableOutputs = const <String>[
+      NodeOutput.onSuccess,
+      NodeOutput.onFailure,
+    ],
     this.config = const <String, Object?>{},
     this.inputs = const <String, Object?>{},
     this.resultJsonPath,
@@ -24,6 +29,12 @@ final class NodeExecutionContext {
 
   /// Absolute path to the run's workspace directory.
   final String workspacePath;
+
+  /// 1-based attempt number for this node execution.
+  final int attempt;
+
+  /// Output edge labels declared by the executing node.
+  final List<String> availableOutputs;
 
   /// Raw `WorkflowNode.config` map for this node.
   final JsonMap config;

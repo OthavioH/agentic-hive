@@ -267,6 +267,8 @@ final class ReviewValidatorNode extends ValidatorNode {
         runId: context.runId,
         nodeId: context.nodeId,
         workspacePath: context.workspacePath,
+        attempt: context.attempt,
+        availableOutputs: availableOutputs,
         config: delegatedConfig,
         inputs: context.inputs,
         resultJsonPath: context.resultJsonPath,

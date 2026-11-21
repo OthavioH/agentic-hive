@@ -42,6 +42,8 @@ final class TerminalHarnessNode extends HarnessNode {
     NodeExecutionContext context, {
     required String workingDirectory,
     required String prompt,
+    String? mcpConfigPath,
+    Map<String, String> environment = const <String, String>{},
   }) {
     final config = TerminalHarnessNodeConfig.fromJson(context.config);
     final configuredCommand = config.command?.trim();
@@ -55,6 +57,7 @@ final class TerminalHarnessNode extends HarnessNode {
         executable: executable,
         arguments: <String>[...config.args, ...config.extraArgs],
         workingDirectory: workingDirectory,
+        environment: environment,
         initialInput: prompt,
         timeout: config.timeoutSeconds != null
             ? Duration(seconds: config.timeoutSeconds!)
