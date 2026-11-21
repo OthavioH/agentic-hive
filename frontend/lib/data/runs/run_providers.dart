@@ -1,6 +1,9 @@
 import 'package:agentic_hive_frontend/core/backend/backend_client_provider.dart';
+import 'package:agentic_hive_frontend/core/backend/backend_connection.dart';
+import 'package:agentic_hive_frontend/data/runs/pty_repository_impl.dart';
 import 'package:agentic_hive_frontend/data/runs/run_repository_impl.dart';
 import 'package:agentic_hive_frontend/data/runs/runs_remote_data_source.dart';
+import 'package:agentic_hive_frontend/domain/runs/pty_repository.dart';
 import 'package:agentic_hive_frontend/domain/runs/run_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -16,4 +19,11 @@ RunsRemoteDataSource runsRemoteDataSource(Ref ref) {
 @riverpod
 RunRepository runRepository(Ref ref) {
   return RunRepositoryImpl(ref.watch(runsRemoteDataSourceProvider));
+}
+
+/// Provides the [PtyRepository] interface backed by
+/// [backendConnectionProvider].
+@riverpod
+PtyRepository ptyRepository(Ref ref) {
+  return WsPtyRepository(ref.read(backendConnectionProvider.notifier).send);
 }
