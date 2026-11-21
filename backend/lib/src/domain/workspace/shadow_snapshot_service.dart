@@ -453,11 +453,11 @@ final class ShadowSnapshotService implements SnapshotService {
     }
     final run = (runResult as Success<Run>).value;
 
-    if (run.status.isActive) {
+    if (run.status.isExecutingProcesses) {
       return FailureResult(
         ConflictFailure(
-          'Cannot restore snapshot while run "$runId" is active '
-          '(${run.status.name}).',
+          'Cannot restore snapshot while run "$runId" is '
+          '${run.status.name}.',
         ),
       );
     }
@@ -487,14 +487,15 @@ final class ShadowSnapshotService implements SnapshotService {
     }
     final safetySnapshot = (safetyResult as Success<Snapshot>).value;
 
-    // The safety capture can take a while; make sure the run did not become
-    // active in the meantime before rewriting files.
+    // The safety capture can take a while; make sure the run did not start
+    // executing processes in the meantime before rewriting files.
     final recheck = await _runs.getById(runId);
-    if (recheck case Success<Run>(:final value) when value.status.isActive) {
+    if (recheck case Success<Run>(:final value)
+        when value.status.isExecutingProcesses) {
       return FailureResult(
         ConflictFailure(
-          'Cannot restore snapshot while run "$runId" is active '
-          '(${value.status.name}).',
+          'Cannot restore snapshot while run "$runId" is '
+          '${value.status.name}.',
         ),
       );
     }

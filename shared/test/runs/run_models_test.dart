@@ -31,6 +31,17 @@ void main() {
       expect(RunStatus.cancelled.isActive, isFalse);
     });
 
+    test('isExecutingProcesses is true only for running and cancelling', () {
+      expect(RunStatus.running.isExecutingProcesses, isTrue);
+      expect(RunStatus.cancelling.isExecutingProcesses, isTrue);
+      expect(RunStatus.paused.isExecutingProcesses, isFalse);
+      expect(RunStatus.cancellationUncertain.isExecutingProcesses, isFalse);
+      expect(RunStatus.interrupted.isExecutingProcesses, isFalse);
+      expect(RunStatus.succeeded.isExecutingProcesses, isFalse);
+      expect(RunStatus.failed.isExecutingProcesses, isFalse);
+      expect(RunStatus.cancelled.isExecutingProcesses, isFalse);
+    });
+
     test('fromName parses valid names and throws on unknown', () {
       for (final status in RunStatus.values) {
         expect(RunStatus.fromName(status.name), status);

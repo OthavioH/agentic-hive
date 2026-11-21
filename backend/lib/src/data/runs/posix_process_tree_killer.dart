@@ -90,17 +90,17 @@ final class PosixProcessTreeKiller
   });
 
   /// Grace period between `SIGTERM` and `SIGKILL`.
-  final Duration gracePeriod;
+  Duration gracePeriod;
 
   /// Maximum time to wait after `SIGKILL` for the tree to exit.
-  final Duration confirmationTimeout;
+  Duration confirmationTimeout;
 
   /// Interval between exit-confirmation polls.
   final Duration pollInterval;
 
   /// Test-only hook that skips sending `SIGTERM`/`SIGKILL` so timeout and
   /// `cancellationUncertain` handling can be tested deterministically.
-  final bool skipTerminateForTesting;
+  bool skipTerminateForTesting;
 
   final List<_TrackedPosixProcess> _tracked = <_TrackedPosixProcess>[];
   final Set<String> _cancellingRuns = <String>{};

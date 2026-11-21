@@ -29,6 +29,14 @@ enum RunStatus {
   /// Whether this run is still active (`running`, `paused`, or `cancelling`).
   bool get isActive => this == running || this == paused || this == cancelling;
 
+  /// Whether processes of this run may still be executing and writing to the
+  /// workspace (`running` or `cancelling`).
+  ///
+  /// Workspace snapshot restoration is blocked while [isExecutingProcesses] is
+  /// `true` and allowed in all other states (including `paused` and
+  /// `interrupted`).
+  bool get isExecutingProcesses => this == running || this == cancelling;
+
   /// Parses a [RunStatus] by its enum [name], throwing a [FormatException]
   /// when unknown.
   static RunStatus fromName(String name) {

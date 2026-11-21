@@ -240,14 +240,14 @@ final class WindowsProcessTreeKiller
 
   /// Maximum time to wait for confirmation that every process in the Job
   /// Object, the root handle, and any pre-assignment descendants have exited.
-  final Duration confirmationTimeout;
+  Duration confirmationTimeout;
 
   /// Interval between exit-confirmation polls.
   final Duration pollInterval;
 
   /// Test-only hook that skips sending the OS termination signal so timeout and
   /// `cancellationUncertain` handling can be tested deterministically.
-  final bool skipTerminateForTesting;
+  bool skipTerminateForTesting;
 
   final List<_TrackedWindowsProcess> _tracked = <_TrackedWindowsProcess>[];
   final Set<String> _cancellingRuns = <String>{};

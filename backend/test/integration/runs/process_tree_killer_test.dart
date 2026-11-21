@@ -122,12 +122,15 @@ Future<void> main() => Future<void>.delayed(const Duration(seconds: 30));
       process.kill(ProcessSignal.sigkill);
     });
 
+    WindowsProcessTreeKiller? winKiller;
+    PosixProcessTreeKiller? posixKiller;
     final ManagedProcessTreeKiller unconfirmedManaged;
     if (Platform.isWindows) {
       final killer = WindowsProcessTreeKiller(
         confirmationTimeout: Duration.zero,
         skipTerminateForTesting: true,
       );
+      winKiller = killer;
       unconfirmedManaged = (killer: killer, tracker: killer);
     } else {
       final killer = PosixProcessTreeKiller(
@@ -135,6 +138,7 @@ Future<void> main() => Future<void>.delayed(const Duration(seconds: 30));
         confirmationTimeout: Duration.zero,
         skipTerminateForTesting: true,
       );
+      posixKiller = killer;
       unconfirmedManaged = (killer: killer, tracker: killer);
     }
 
@@ -164,9 +168,15 @@ Future<void> main() => Future<void>.delayed(const Duration(seconds: 30));
     );
     expect(refused.failureOrNull, isA<NodeExecutionFailure>());
 
-    // Once the process exits, retrying killTree confirms exit and succeeds.
-    process.kill(ProcessSignal.sigkill);
-    await process.exitCode;
+    // Re-enable real termination and normal confirmation window for retry.
+    winKiller
+      ?..skipTerminateForTesting = false
+      ..confirmationTimeout = const Duration(seconds: 5);
+    posixKiller
+      ?..skipTerminateForTesting = false
+      ..gracePeriod = const Duration(milliseconds: 100)
+      ..confirmationTimeout = const Duration(seconds: 5);
+
     final retryRes = await unconfirmedManaged.killer.killTree(runId: 'run-to');
     expect(retryRes.isSuccess, isTrue);
     expect(unconfirmedManaged.tracker.isRunCancelling('run-to'), isFalse);
