@@ -34,6 +34,9 @@ jobs:
       - name: Check formatting
         run: dart format --output=none --set-exit-if-changed .
 
+      - name: Generate code (build_runner + gen-l10n)
+        run: dart run tool/codegen.dart
+
       - name: Analyze (zero issues, infos included)
         run: dart analyze --fatal-infos
 
@@ -43,28 +46,6 @@ jobs:
           output="$(dart fix --dry-run)"
           echo "$output"
           echo "$output" | grep -q "Nothing to fix!"
-
-      - name: Check generated files are up to date (shared)
-        if: runner.os == 'Linux'
-        working-directory: shared
-        run: |
-          dart run build_runner build --delete-conflicting-outputs
-          git diff --exit-code
-
-      - name: Check generated files are up to date (backend)
-        if: runner.os == 'Linux'
-        working-directory: backend
-        run: |
-          dart run build_runner build --delete-conflicting-outputs
-          git diff --exit-code
-
-      - name: Check generated files are up to date (frontend)
-        if: runner.os == 'Linux'
-        working-directory: frontend
-        run: |
-          flutter gen-l10n
-          dart run build_runner build --delete-conflicting-outputs
-          git diff --exit-code
 
       - name: Test shared
         working-directory: shared
