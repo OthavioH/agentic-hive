@@ -94,9 +94,10 @@ void main() {
           nodes: [
             WorkflowNode(
               id: 'n1',
-              type: 'placeholder',
+              type: NodeTypeId.command,
               label: 'Start',
               position: WorkflowPosition(x: 0, y: 0),
+              config: {'command': 'echo start'},
             ),
           ],
           entryNodeId: 'n1',
@@ -126,9 +127,10 @@ void main() {
         nodes: [
           WorkflowNode(
             id: 'n1',
-            type: 'placeholder',
+            type: NodeTypeId.command,
             label: 'Step',
             position: WorkflowPosition(x: 10, y: 20),
+            config: {'command': 'echo step'},
           ),
         ],
         entryNodeId: 'n1',
@@ -149,9 +151,10 @@ void main() {
         nodes: [
           WorkflowNode(
             id: 'n1',
-            type: 'placeholder',
+            type: NodeTypeId.command,
             label: 'Step 1',
             position: WorkflowPosition(x: 10, y: 20),
+            config: {'command': 'echo step1'},
           ),
         ],
         entryNodeId: 'n1',

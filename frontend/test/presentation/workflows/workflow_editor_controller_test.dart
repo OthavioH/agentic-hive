@@ -96,18 +96,58 @@ void main() {
         expect(initial.workflow.entryNodeId, isNull);
 
         final notifier = container.read(provider.notifier)
-          ..addNode(defaultLabel: 'Step 1');
+          ..addNode(typeId: NodeTypeId.command, defaultLabel: 'Step 1');
         final afterFirst = container.read(provider).requireValue;
         expect(afterFirst.isDirty, isTrue);
         expect(afterFirst.workflow.nodes, hasLength(1));
-        final firstId = afterFirst.workflow.nodes.first.id;
+        final firstNode = afterFirst.workflow.nodes.first;
+        expect(firstNode.type, NodeTypeId.command);
+        expect(firstNode.config, NodeDescriptors.command.defaultConfig());
+        final firstId = firstNode.id;
         expect(afterFirst.workflow.entryNodeId, firstId);
         expect(afterFirst.selectedNodeId, firstId);
 
-        notifier.addNode(defaultLabel: 'Step 2');
+        notifier.addNode(
+          typeId: NodeTypeId.humanApproval,
+          defaultLabel: 'Step 2',
+        );
         final afterSecond = container.read(provider).requireValue;
         expect(afterSecond.workflow.nodes, hasLength(2));
         expect(afterSecond.workflow.entryNodeId, firstId);
+      },
+    );
+
+    test(
+      'updateNodeConfig updates node config and triggers revalidation',
+      () async {
+        final repo = _FakeWorkflowRepository();
+        final container = ProviderContainer.test(
+          overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+        );
+
+        final provider = workflowEditorControllerProvider('wf-1');
+        await container.read(provider.future);
+        final notifier = container.read(provider.notifier)
+          ..addNode(typeId: NodeTypeId.command, defaultLabel: 'Run Tests');
+        final nodeId = container
+            .read(provider)
+            .requireValue
+            .workflow
+            .nodes
+            .first
+            .id;
+        final callsBefore = repo.validateCalls;
+
+        final updatedConfig = const CommandNodeConfig(
+          command: 'dart',
+          args: <String>['test'],
+        ).toJson();
+        notifier.updateNodeConfig(nodeId, updatedConfig);
+
+        final state = container.read(provider).requireValue;
+        expect(state.workflow.nodes.first.config, updatedConfig);
+        expect(state.isDirty, isTrue);
+        expect(repo.validateCalls, greaterThan(callsBefore));
       },
     );
 
@@ -120,8 +160,8 @@ void main() {
       final provider = workflowEditorControllerProvider('wf-1');
       await container.read(provider.future);
       final notifier = container.read(provider.notifier)
-        ..addNode(defaultLabel: 'A')
-        ..addNode(defaultLabel: 'B');
+        ..addNode(typeId: NodeTypeId.command, defaultLabel: 'A')
+        ..addNode(typeId: NodeTypeId.command, defaultLabel: 'B');
 
       final nodes = container.read(provider).requireValue.workflow.nodes;
       notifier.addEdge(sourceNodeId: nodes[0].id, targetNodeId: nodes[1].id);
@@ -154,7 +194,12 @@ void main() {
         final provider = workflowEditorControllerProvider('wf-1');
         await container.read(provider.future);
         final notifier = container.read(provider.notifier)
-          ..addNode(defaultLabel: 'Step 1', x: 300, y: 400);
+          ..addNode(
+            typeId: NodeTypeId.command,
+            defaultLabel: 'Step 1',
+            x: 300,
+            y: 400,
+          );
         final nodeId = container
             .read(provider)
             .requireValue
@@ -190,7 +235,7 @@ void main() {
       final provider = workflowEditorControllerProvider('wf-1');
       await container.read(provider.future);
       final notifier = container.read(provider.notifier)
-        ..addNode(defaultLabel: 'Step 1')
+        ..addNode(typeId: NodeTypeId.command, defaultLabel: 'Step 1')
         ..updateWorkflowMetadata(name: 'Renamed Flow');
 
       expect(container.read(provider).requireValue.isDirty, isTrue);

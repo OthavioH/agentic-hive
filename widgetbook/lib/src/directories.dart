@@ -80,6 +80,8 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
           forms.textFieldComponent(),
           forms.selectComponent(),
           forms.switchComponent(),
+          forms.keyValueEditorComponent(),
+          forms.stringListFieldComponent(),
         ],
       ),
       WidgetbookFolder(

@@ -1,0 +1,39 @@
+import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+
+/// Callback receiving streamed stdout/stderr lines from a running node.
+typedef NodeOutputCallback = void Function(String stream, String line);
+
+/// Execution inputs passed to `Node.execute`.
+final class NodeExecutionContext {
+  /// Creates a node execution context.
+  const new({
+    required this.runId,
+    required this.nodeId,
+    required this.workspacePath,
+    this.config = const <String, Object?>{},
+    this.inputs = const <String, Object?>{},
+    this.resultJsonPath,
+    this.onOutput,
+  });
+
+  /// Identifier of the active workflow run.
+  final String runId;
+
+  /// Identifier of the node being executed.
+  final String nodeId;
+
+  /// Absolute path to the run's workspace directory.
+  final String workspacePath;
+
+  /// Raw `WorkflowNode.config` map for this node.
+  final JsonMap config;
+
+  /// Structured outputs passed from upstream nodes.
+  final Map<String, Object?> inputs;
+
+  /// Optional path to `result.json` for harnesses without MCP.
+  final String? resultJsonPath;
+
+  /// Optional callback for streamed output lines.
+  final NodeOutputCallback? onOutput;
+}

@@ -1,4 +1,5 @@
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/workflow_graph_painter.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
@@ -146,9 +147,7 @@ class WorkflowNodeCard extends StatelessWidget {
                           children: <Widget>[
                             Expanded(
                               child: Text(
-                                node.type == 'placeholder'
-                                    ? l10n.editorNodeTypePlaceholder
-                                    : node.type,
+                                resolveNodeVisualLabel(l10n, visual.labelKey),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: typography.bodySmall.copyWith(

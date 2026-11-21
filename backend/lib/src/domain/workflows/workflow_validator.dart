@@ -1,5 +1,6 @@
 import 'dart:collection';
 
+import 'package:agentic_hive_backend/src/domain/nodes/node_registry.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 export 'package:agentic_hive_shared/agentic_hive_shared.dart'
@@ -10,7 +11,13 @@ enum _VisitState { unvisited, visiting, visited }
 /// Pure-Dart domain service that validates a [Workflow] graph.
 final class WorkflowValidator {
   /// Creates a workflow validator.
-  const new();
+  ///
+  /// When [_nodeRegistry] is provided, node types and configs are validated
+  /// against registered descriptors; otherwise falls back to the shared
+  /// [NodeDescriptors] catalog.
+  const new({this._nodeRegistry});
+
+  final NodeRegistry? _nodeRegistry;
 
   /// Validates [workflow] against all structural and safety rules.
   WorkflowValidationResult validate(Workflow workflow) {
@@ -113,6 +120,7 @@ final class WorkflowValidator {
       }
     }
 
+    _validateNodes(workflow.nodes, issues);
     _detectUnboundedCycles(workflow.nodes, validEdges, issues);
     _detectUnreachableNodes(workflow.nodes, validEdges, entryNodeId, issues);
 
@@ -120,6 +128,39 @@ final class WorkflowValidator {
       (issue) => issue.severity == WorkflowValidationSeverity.error,
     );
     return WorkflowValidationResult(isValid: isValid, issues: issues);
+  }
+
+  void _validateNodes(
+    List<WorkflowNode> nodes,
+    List<WorkflowValidationIssue> issues,
+  ) {
+    for (final node in nodes) {
+      final descriptor = _nodeRegistry != null
+          ? _nodeRegistry.descriptorFor(node.type)
+          : NodeDescriptors.of(node.type);
+      if (descriptor == null) {
+        issues.add(
+          WorkflowValidationIssue(
+            severity: WorkflowValidationSeverity.error,
+            code: WorkflowValidationCode.unknownNodeType,
+            message: 'Unknown node type "${node.type}".',
+            nodeId: node.id,
+          ),
+        );
+        continue;
+      }
+
+      for (final configIssue in descriptor.validateConfig(node.config)) {
+        issues.add(
+          WorkflowValidationIssue(
+            severity: WorkflowValidationSeverity.error,
+            code: WorkflowValidationCode.invalidNodeConfig,
+            message: '${configIssue.field}: ${configIssue.message}',
+            nodeId: node.id,
+          ),
+        );
+      }
+    }
   }
 
   void _detectUnboundedCycles(
