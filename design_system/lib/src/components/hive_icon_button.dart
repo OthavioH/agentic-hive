@@ -1,11 +1,15 @@
 import 'package:design_system/src/components/hive_button.dart';
 import 'package:design_system/src/foundation/hive_interaction.dart';
+import 'package:design_system/src/foundation/hive_spinner.dart';
 import 'package:design_system/src/icons/hive_icons.dart';
 import 'package:design_system/src/tokens/hive_tokens_context.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// A circular icon-only button. It shares variants and sizes with
 /// [HiveButton]; its diameter is the button height.
+///
+/// While [loading], it shows a spinner in place of the icon and ignores
+/// activation, like `HiveButton.loading`.
 class HiveIconButton extends StatelessWidget {
   /// Creates an icon button. A null [onPressed] disables it.
   const new({
@@ -14,6 +18,7 @@ class HiveIconButton extends StatelessWidget {
     required this.onPressed,
     this.variant = HiveButtonVariant.ghost,
     this.size = HiveButtonSize.medium,
+    this.loading = false,
     this.statesController,
     this.focusNode,
     this.autofocus = false,
@@ -34,6 +39,9 @@ class HiveIconButton extends StatelessWidget {
 
   /// Size; the diameter equals [HiveButtonSize.height].
   final HiveButtonSize size;
+
+  /// Shows a spinner in place of the icon and ignores activation.
+  final bool loading;
 
   /// Optional external states controller (hover, focus, pressed).
   final WidgetStatesController? statesController;
@@ -56,6 +64,7 @@ class HiveIconButton extends StatelessWidget {
     return HiveInteraction(
       semanticLabel: semanticLabel,
       onPressed: onPressed,
+      busy: loading,
       statesController: statesController,
       focusNode: focusNode,
       autofocus: autofocus,
@@ -89,7 +98,9 @@ class HiveIconButton extends StatelessWidget {
                         ),
                 ),
               ),
-              child: HiveIcon(icon, size: diameter / 2, color: foreground),
+              child: loading
+                  ? HiveSpinner(size: diameter / 2, color: foreground)
+                  : HiveIcon(icon, size: diameter / 2, color: foreground),
             ),
           ),
         );

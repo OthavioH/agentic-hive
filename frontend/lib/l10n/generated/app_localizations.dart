@@ -214,17 +214,167 @@ abstract class AppLocalizations {
   /// **'Define specialized agent roles and prompts to reuse across your workflows.'**
   String get agentsEmptyDescription;
 
-  /// Empty state title on the Harnesses placeholder page.
+  /// Empty state title on the Harnesses page.
   ///
   /// In en, this message translates to:
   /// **'No harnesses detected'**
   String get harnessesEmptyTitle;
 
-  /// Empty state description on the Harnesses placeholder page.
+  /// Empty state description on the Harnesses page.
   ///
   /// In en, this message translates to:
   /// **'Connected CLI harnesses and their availability status will appear here.'**
   String get harnessesEmptyDescription;
+
+  /// Subtitle shown in the Harnesses page header.
+  ///
+  /// In en, this message translates to:
+  /// **'Detected local AI agent CLIs, versions, and sign-in readiness.'**
+  String get harnessesPageSubtitle;
+
+  /// Button label in the Harnesses page header to refresh all harnesses.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get harnessesRefreshAll;
+
+  /// Button label to retry loading harnesses after an error.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get harnessesRetry;
+
+  /// Loading indicator label while fetching harness statuses.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking installed harnesses...'**
+  String get harnessesLoading;
+
+  /// Error state title when initial harness loading fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load harnesses'**
+  String get harnessesLoadErrorTitle;
+
+  /// Localized error message when loading or refreshing harnesses fails due to a network error.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not reach the local backend service.'**
+  String get harnessesErrorNetwork;
+
+  /// Localized error message when the backend returns a failure while checking harnesses.
+  ///
+  /// In en, this message translates to:
+  /// **'The backend returned an error while checking harnesses.'**
+  String get harnessesErrorBackend;
+
+  /// Localized error message when a harness is not found.
+  ///
+  /// In en, this message translates to:
+  /// **'The requested harness could not be found.'**
+  String get harnessesErrorNotFound;
+
+  /// Localized fallback error message when loading or refreshing harnesses fails.
+  ///
+  /// In en, this message translates to:
+  /// **'An unexpected error occurred while checking harnesses.'**
+  String get harnessesErrorUnexpected;
+
+  /// Toast error message shown when refreshing harnesses fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not refresh harnesses: {message}'**
+  String harnessesRefreshError(String message);
+
+  /// Accessibility label for the per-card re-check button.
+  ///
+  /// In en, this message translates to:
+  /// **'Re-check {name}'**
+  String harnessesRecheckTooltip(String name);
+
+  /// Accessibility label for copying a harness executable path.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy {name} executable path'**
+  String harnessesCopyPathTooltip(String name);
+
+  /// Toast confirmation shown after copying a harness executable path.
+  ///
+  /// In en, this message translates to:
+  /// **'Path copied'**
+  String get harnessesPathCopiedToast;
+
+  /// Label above or beside the resolved harness executable path.
+  ///
+  /// In en, this message translates to:
+  /// **'Executable'**
+  String get harnessesExecutablePathLabel;
+
+  /// Detected version label on a harness card.
+  ///
+  /// In en, this message translates to:
+  /// **'Version {version}'**
+  String harnessesVersionLabel(String version);
+
+  /// Fallback version label when no version could be detected.
+  ///
+  /// In en, this message translates to:
+  /// **'Version unavailable'**
+  String get harnessesVersionUnknown;
+
+  /// Badge label when a harness is ready.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready'**
+  String get harnessStatusReady;
+
+  /// Badge label when a harness CLI is not installed on PATH.
+  ///
+  /// In en, this message translates to:
+  /// **'Not installed'**
+  String get harnessStatusNotInstalled;
+
+  /// Badge label when a harness CLI reports an authentication error.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in required'**
+  String get harnessStatusAuthError;
+
+  /// Badge label when a harness CLI requires an update.
+  ///
+  /// In en, this message translates to:
+  /// **'Update required'**
+  String get harnessStatusOutdated;
+
+  /// Badge label when probing a harness CLI fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Unavailable'**
+  String get harnessStatusUnavailable;
+
+  /// Actionable guidance shown when a harness is not installed.
+  ///
+  /// In en, this message translates to:
+  /// **'Install this CLI and ensure it is available on your system PATH.'**
+  String get harnessGuidanceNotInstalled;
+
+  /// Actionable guidance shown when a harness has an authentication error.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in directly using the {name} CLI in your terminal. Agentic Hive never stores harness credentials.'**
+  String harnessGuidanceAuthError(String name);
+
+  /// Actionable guidance shown when a harness is outdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Update the {name} CLI in your terminal so workflow runs do not block on an interactive update prompt.'**
+  String harnessGuidanceOutdated(String name);
+
+  /// Actionable guidance shown when a harness probe fails.
+  ///
+  /// In en, this message translates to:
+  /// **'The CLI was found on PATH, but probing its version or status failed.'**
+  String get harnessGuidanceUnavailable;
 
   /// Empty state title on the Settings placeholder page.
   ///
