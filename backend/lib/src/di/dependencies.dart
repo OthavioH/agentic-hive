@@ -162,6 +162,7 @@ Future<void> registerDependencies(
         dataDir: config.dataDir,
         socketPath: config.socketPath,
         mcpLocator: di<HiveMcpLocator>(),
+        humanPauseGateway: di<HumanPauseGateway>(),
         validator: di<ResultContractValidator>(),
         pathContext: platformPaths.context,
       ),

@@ -33,15 +33,19 @@ final class ClaudeCodeNode extends HeadlessHarnessNode {
     required HarnessNodeConfig config,
     required String workingDirectory,
     required String prompt,
+    String? mcpConfigPath,
+    Map<String, String> environment = const <String, String>{},
   }) => ProcessInvocation(
     executable: 'claude',
     arguments: <String>[
       '-p',
       '--output-format',
       'stream-json',
+      if (mcpConfigPath != null) ...<String>['--mcp-config', mcpConfigPath],
       ...config.extraArgs,
     ],
     workingDirectory: workingDirectory,
+    environment: environment,
     stdinContent: prompt,
     timeout: config.timeoutSeconds != null
         ? Duration(seconds: config.timeoutSeconds!)
@@ -88,10 +92,13 @@ final class CodexNode extends HeadlessHarnessNode {
     required HarnessNodeConfig config,
     required String workingDirectory,
     required String prompt,
+    String? mcpConfigPath,
+    Map<String, String> environment = const <String, String>{},
   }) => ProcessInvocation(
     executable: 'codex',
     arguments: <String>['exec', '--json', ...config.extraArgs],
     workingDirectory: workingDirectory,
+    environment: environment,
     stdinContent: prompt,
     timeout: config.timeoutSeconds != null
         ? Duration(seconds: config.timeoutSeconds!)
@@ -139,6 +146,8 @@ final class GeminiCliNode extends HeadlessHarnessNode {
     required HarnessNodeConfig config,
     required String workingDirectory,
     required String prompt,
+    String? mcpConfigPath,
+    Map<String, String> environment = const <String, String>{},
   }) => ProcessInvocation(
     executable: 'gemini',
     arguments: <String>[
@@ -149,6 +158,7 @@ final class GeminiCliNode extends HeadlessHarnessNode {
       ...config.extraArgs,
     ],
     workingDirectory: workingDirectory,
+    environment: environment,
     stdinContent: prompt,
     timeout: config.timeoutSeconds != null
         ? Duration(seconds: config.timeoutSeconds!)
@@ -196,10 +206,13 @@ final class AntigravityNode extends HeadlessHarnessNode {
     required HarnessNodeConfig config,
     required String workingDirectory,
     required String prompt,
+    String? mcpConfigPath,
+    Map<String, String> environment = const <String, String>{},
   }) => ProcessInvocation(
     executable: 'agy',
     arguments: <String>['-p', ...config.extraArgs],
     workingDirectory: workingDirectory,
+    environment: environment,
     stdinContent: prompt,
     timeout: config.timeoutSeconds != null
         ? Duration(seconds: config.timeoutSeconds!)

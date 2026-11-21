@@ -5,40 +5,49 @@ import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_execution_context.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
+import 'package:agentic_hive_backend/src/domain/result_contract/human_pause_gateway.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_coordinator.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_validator.dart';
 import 'package:agentic_hive_backend/src/mcp/hive_mcp_locator.dart';
 import 'package:path/path.dart' as p;
 
 /// Per-attempt execution session prepared by [HiveResultContract].
-final class ResultContractSession {
+final class HiveResultContractSession implements ResultContractSession {
   /// Creates a session.
   new({
     required this.runId,
     required this.nodeId,
     required this.attempt,
+    required this.instructions,
     required this.mcpConfigPath,
     required this.resultJsonPath,
     required this.command,
     required this.arguments,
     required this.environment,
+    required this._onResolveOutcome,
     required this._onDispose,
   });
 
-  /// Active run identifier.
+  @override
   final String runId;
 
-  /// Active node identifier.
+  @override
   final String nodeId;
 
-  /// 1-based attempt number.
+  @override
   final int attempt;
 
-  /// Temporary MCP config JSON file path for harnesses requiring file config.
+  @override
+  final String instructions;
+
+  @override
   final String mcpConfigPath;
 
   /// Backend-managed fallback `result.json` path outside the user's workspace.
   final String resultJsonPath;
+
+  @override
+  String get resultFilePath => resultJsonPath;
 
   /// Command executable to launch `hive-mcp`.
   final String command;
@@ -49,10 +58,24 @@ final class ResultContractSession {
   /// Environment variables containing the `hive-mcp` execution context.
   final Map<String, String> environment;
 
+  @override
+  Map<String, String> get env => environment;
+
+  final Future<Result<ResultContractReport>> Function({
+    required int exitCode,
+    bool timedOut,
+  })
+  _onResolveOutcome;
   final Future<void> Function() _onDispose;
   bool _disposed = false;
 
-  /// Cleans up the temporary MCP config file and unregisters the attempt.
+  @override
+  Future<Result<ResultContractReport>> resolveOutcome({
+    required int exitCode,
+    bool timedOut = false,
+  }) => _onResolveOutcome(exitCode: exitCode, timedOut: timedOut);
+
+  @override
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
@@ -69,6 +92,7 @@ final class HiveResultContract implements ResultContract {
     required this.dataDir,
     required this.socketPath,
     required this._mcpLocator,
+    this._humanPauseGateway,
     ResultContractValidator? validator,
     p.Context? pathContext,
   }) : _validator =
@@ -85,6 +109,7 @@ final class HiveResultContract implements ResultContract {
   final String socketPath;
 
   final HiveMcpLocator _mcpLocator;
+  final HumanPauseGateway? _humanPauseGateway;
   final ResultContractValidator _validator;
   final p.Context _path;
 
@@ -114,86 +139,129 @@ final class HiveResultContract implements ResultContract {
     '${_safeSegment(nodeId)}-attempt-$attempt.json',
   );
 
-  /// Prepares an execution session for [context], registering the attempt,
-  /// ensuring the fallback directory exists, and writing a temporary MCP
-  /// config file that is deleted when [ResultContractSession.dispose] runs.
-  Future<ResultContractSession> openSession(
+  @override
+  Future<Result<HiveResultContractSession>> openSession(
     NodeExecutionContext context,
   ) async {
-    coordinator.registerAttempt(
+    final registration = coordinator.registerAttempt(
       runId: context.runId,
       nodeId: context.nodeId,
       attempt: context.attempt,
       workspacePath: context.workspacePath,
       availableOutputs: context.availableOutputs,
     );
+    if (registration case FailureResult<void>(:final failure)) {
+      return FailureResult(failure);
+    }
 
-    final resultJsonPath =
-        context.resultJsonPath ??
-        fallbackResultJsonPath(
-          runId: context.runId,
-          nodeId: context.nodeId,
-          attempt: context.attempt,
-        );
-    await Directory(_path.dirname(resultJsonPath)).create(recursive: true);
-
-    final launch = _mcpLocator.resolve();
-    final arguments = launch.argumentsFor(
-      socketPath: socketPath,
-      runId: context.runId,
-      nodeId: context.nodeId,
-      attempt: context.attempt,
-    );
-    final environment = <String, String>{
-      'HIVE_SOCKET_PATH': socketPath,
-      'HIVE_RUN_ID': context.runId,
-      'HIVE_NODE_ID': context.nodeId,
-      'HIVE_ATTEMPT': context.attempt.toString(),
-    };
-
-    final mcpConfigPath = _mcpConfigPath(
-      runId: context.runId,
-      nodeId: context.nodeId,
-      attempt: context.attempt,
-    );
-    final mcpConfigFile = File(mcpConfigPath);
-    await mcpConfigFile.parent.create(recursive: true);
-    await mcpConfigFile.writeAsString(
-      const JsonEncoder.withIndent('  ').convert(<String, Object?>{
-        'mcpServers': <String, Object?>{
-          'hive': <String, Object?>{
-            'command': launch.executable,
-            'args': arguments,
-            'env': environment,
-          },
-        },
-      }),
-    );
-
-    return ResultContractSession(
-      runId: context.runId,
-      nodeId: context.nodeId,
-      attempt: context.attempt,
-      mcpConfigPath: mcpConfigPath,
-      resultJsonPath: resultJsonPath,
-      command: launch.executable,
-      arguments: arguments,
-      environment: environment,
-      onDispose: () async {
+    try {
+      final launchResult = _mcpLocator.resolve();
+      if (launchResult case FailureResult<HiveMcpLaunchCommand>(
+        :final failure,
+      )) {
         coordinator.unregisterAttempt(
           runId: context.runId,
           nodeId: context.nodeId,
           attempt: context.attempt,
         );
-        if (mcpConfigFile.existsSync()) {
-          try {
-            await mcpConfigFile.delete();
-          } on FileSystemException {
-            // Best-effort cleanup of temporary MCP config.
-          }
-        }
-      },
-    );
+        return FailureResult(failure);
+      }
+      final launch = launchResult.valueOrNull!;
+
+      final resultJsonPath =
+          context.resultJsonPath ??
+          fallbackResultJsonPath(
+            runId: context.runId,
+            nodeId: context.nodeId,
+            attempt: context.attempt,
+          );
+      await Directory(_path.dirname(resultJsonPath)).create(recursive: true);
+
+      final staleResultFile = File(resultJsonPath);
+      if (staleResultFile.existsSync()) {
+        await staleResultFile.delete();
+      }
+
+      final arguments = launch.argumentsFor(
+        socketPath: socketPath,
+        runId: context.runId,
+        nodeId: context.nodeId,
+        attempt: context.attempt,
+      );
+      final environment = Map<String, String>.unmodifiable(<String, String>{
+        'HIVE_SOCKET_PATH': socketPath,
+        'HIVE_RUN_ID': context.runId,
+        'HIVE_NODE_ID': context.nodeId,
+        'HIVE_ATTEMPT': context.attempt.toString(),
+      });
+
+      final mcpConfigPath = _mcpConfigPath(
+        runId: context.runId,
+        nodeId: context.nodeId,
+        attempt: context.attempt,
+      );
+      final mcpConfigFile = File(mcpConfigPath);
+      await mcpConfigFile.parent.create(recursive: true);
+      await mcpConfigFile.writeAsString(
+        const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+          'mcpServers': <String, Object?>{
+            'hive': <String, Object?>{
+              'command': launch.executable,
+              'args': arguments,
+              'env': environment,
+            },
+          },
+        }),
+      );
+
+      return Success(
+        HiveResultContractSession(
+          runId: context.runId,
+          nodeId: context.nodeId,
+          attempt: context.attempt,
+          instructions: instructionsFor(context),
+          mcpConfigPath: mcpConfigPath,
+          resultJsonPath: resultJsonPath,
+          command: launch.executable,
+          arguments: arguments,
+          environment: environment,
+          onResolveOutcome: ({required exitCode, timedOut = false}) =>
+              resolveOutcome(
+                context: context,
+                processResult: ProcessExecutionResult(
+                  exitCode: exitCode,
+                  timedOut: timedOut,
+                ),
+              ),
+          onDispose: () async {
+            coordinator.unregisterAttempt(
+              runId: context.runId,
+              nodeId: context.nodeId,
+              attempt: context.attempt,
+            );
+            _humanPauseGateway?.cancelAttempt(
+              runId: context.runId,
+              nodeId: context.nodeId,
+              attempt: context.attempt,
+            );
+            if (mcpConfigFile.existsSync()) {
+              try {
+                await mcpConfigFile.delete();
+              } on FileSystemException {
+                // Best-effort cleanup of temporary MCP config.
+              }
+            }
+          },
+        ),
+      );
+    } catch (_) {
+      coordinator.unregisterAttempt(
+        runId: context.runId,
+        nodeId: context.nodeId,
+        attempt: context.attempt,
+      );
+      rethrow;
+    }
   }
 
   @override
@@ -346,6 +414,10 @@ Write a JSON object with the exact same schema (`status`, `summary`, optional `d
     return Success(report);
   }
 
-  static String _safeSegment(String raw) =>
-      raw.replaceAll(RegExp('[^a-zA-Z0-9._-]'), '_');
+  static String _safeSegment(String raw) {
+    if (raw.isEmpty) return '%00';
+    if (raw == '.') return '%2E';
+    if (raw == '..') return '%2E%2E';
+    return Uri.encodeComponent(raw);
+  }
 }

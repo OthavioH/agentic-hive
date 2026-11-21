@@ -123,5 +123,36 @@ void main() {
       );
       expect(unknownSubmit.failureOrNull, isA<NotFoundFailure>());
     });
+
+    test(
+      'cancelAttempt unblocks only pending questions for that specific attempt',
+      () async {
+        final targetFuture = gateway.requestHumanAnswer(
+          runId: 'run-1',
+          nodeId: 'node-a',
+          attempt: 1,
+          question: 'Attempt 1?',
+        );
+        final otherAttemptFuture = gateway.requestHumanAnswer(
+          runId: 'run-1',
+          nodeId: 'node-a',
+          attempt: 2,
+          question: 'Attempt 2?',
+        );
+
+        final cancelled = gateway.cancelAttempt(
+          runId: 'run-1',
+          nodeId: 'node-a',
+          attempt: 1,
+        );
+        expect(cancelled, 1);
+        expect((await targetFuture).failureOrNull, isA<ConflictFailure>());
+        expect(gateway.pendingForRun('run-1'), hasLength(1));
+
+        final pauseId = gateway.pendingForRun('run-1').single.pauseId;
+        gateway.submitAnswer(pauseId: pauseId, answer: 'Proceed');
+        expect((await otherAttemptFuture).valueOrNull, 'Proceed');
+      },
+    );
   });
 }

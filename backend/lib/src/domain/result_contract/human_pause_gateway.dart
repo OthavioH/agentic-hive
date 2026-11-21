@@ -58,6 +58,15 @@ abstract interface class HumanPauseGateway {
   /// cancellation failure, and returns the number of cancelled requests.
   int cancelRun(String runId);
 
+  /// Cancels all pending requests for `(runId, nodeId, attempt)`, unblocking
+  /// their waiters with a cancellation failure, and returns the number of
+  /// cancelled requests.
+  int cancelAttempt({
+    required String runId,
+    required String nodeId,
+    required int attempt,
+  });
+
   /// Pending pause requests for [runId].
   List<HumanPauseRequest> pendingForRun(String runId);
 
@@ -138,22 +147,36 @@ final class InMemoryHumanPauseGateway implements HumanPauseGateway {
   }
 
   @override
-  int cancelRun(String runId) {
+  int cancelRun(String runId) => _cancelMatching(
+    (req) => req.runId == runId,
+    'Run "$runId" was cancelled while waiting for a human answer.',
+  );
+
+  @override
+  int cancelAttempt({
+    required String runId,
+    required String nodeId,
+    required int attempt,
+  }) => _cancelMatching(
+    (req) =>
+        req.runId == runId && req.nodeId == nodeId && req.attempt == attempt,
+    'Node attempt ($runId, $nodeId, $attempt) ended while waiting for a '
+    'human answer.',
+  );
+
+  int _cancelMatching(
+    bool Function(HumanPauseRequest) predicate,
+    String reason,
+  ) {
     final matchingIds = _pending.entries
-        .where((entry) => entry.value.request.runId == runId)
+        .where((entry) => predicate(entry.value.request))
         .map((entry) => entry.key)
         .toList(growable: false);
 
     for (final pauseId in matchingIds) {
       final pending = _pending.remove(pauseId);
       if (pending != null && !pending.completer.isCompleted) {
-        pending.completer.complete(
-          FailureResult(
-            ConflictFailure(
-              'Run "$runId" was cancelled while waiting for a human answer.',
-            ),
-          ),
-        );
+        pending.completer.complete(FailureResult(ConflictFailure(reason)));
       }
     }
     return matchingIds.length;

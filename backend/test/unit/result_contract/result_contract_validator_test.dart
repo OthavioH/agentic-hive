@@ -188,5 +188,49 @@ void main() {
         expect(result.failureOrNull, isA<ValidationFailure>());
       },
     );
+
+    test('rejects artifact path "." and paths resolving to workspace root', () {
+      for (final rootPath in const <String>['.', './', 'sub/..']) {
+        final result = validator.validate(
+          <String, Object?>{
+            'status': 'onSuccess',
+            'summary': 'Done.',
+            'artifacts': <String>[rootPath],
+          },
+          workspacePath: workspacePath,
+          availableOutputs: const <String>[NodeOutput.onSuccess],
+        );
+        expect(
+          result.failureOrNull,
+          isA<ValidationFailure>(),
+          reason: 'Expected "$rootPath" to be rejected',
+        );
+      }
+    });
+
+    test('rejects cyclic dangling symlinks without hanging when links are '
+        'supported', () async {
+      final linkA = p.join(workspacePath, 'cycle_a');
+      final linkB = p.join(workspacePath, 'cycle_b');
+      try {
+        await Link(linkA).create('cycle_b');
+        await Link(linkB).create('cycle_a');
+      } on FileSystemException {
+        // Windows without Developer Mode / admin privileges may forbid symlinks.
+        return;
+      }
+
+      final result = validator.validate(
+        const <String, Object?>{
+          'status': 'onSuccess',
+          'summary': 'Done.',
+          'artifacts': <String>['cycle_a'],
+        },
+        workspacePath: workspacePath,
+        availableOutputs: const <String>[NodeOutput.onSuccess],
+      );
+
+      expect(result.failureOrNull, isA<ValidationFailure>());
+    });
   });
 }

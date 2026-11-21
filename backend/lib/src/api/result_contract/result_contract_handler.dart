@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/human_pause_gateway.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_coordinator.dart';
 import 'package:agentic_hive_backend/src/http/failure_response.dart';
@@ -55,6 +56,20 @@ final class ResultContractHandler {
     final parsed = _parseAttemptContext(request, runId, nodeId, attemptRaw);
     if (parsed.error != null) return parsed.error!;
     final ctx = parsed.context!;
+
+    if (!_coordinator.isAttemptRegistered(
+      runId: ctx.runId,
+      nodeId: ctx.nodeId,
+      attempt: ctx.attempt,
+    )) {
+      return failureResponse(
+        request,
+        NotFoundFailure(
+          'No active node attempt for run "${ctx.runId}", '
+          'node "${ctx.nodeId}", attempt ${ctx.attempt}.',
+        ),
+      );
+    }
 
     final decoded = await _decodeJsonObject(request);
     if (decoded.error != null) return decoded.error!;

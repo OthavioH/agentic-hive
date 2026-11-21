@@ -47,6 +47,7 @@ abstract base class HarnessNode extends Node {
     NodeExecutionContext context, {
     String? agentId,
     String? additionalInstructions,
+    String? contractInstructions,
   }) async {
     final sections = <String>[];
 
@@ -79,12 +80,38 @@ abstract base class HarnessNode extends Node {
     }
     sections.add(contextBuffer.toString().trimRight());
 
-    final contractInstructions = resultContract.instructionsFor(context).trim();
-    if (contractInstructions.isNotEmpty) {
-      sections.add(contractInstructions);
+    final resolvedInstructions =
+        (contractInstructions ?? resultContract.instructionsFor(context))
+            .trim();
+    if (resolvedInstructions.isNotEmpty) {
+      sections.add(resolvedInstructions);
     }
 
     return Success(sections.join('\n\n'));
+  }
+
+  /// Maps a validated [report] and optional [extraData] to a [NodeOutcome].
+  NodeOutcome outcomeFromReport(
+    ResultContractReport report, {
+    Map<String, Object?> extraData = const <String, Object?>{},
+  }) {
+    final outputLabel = switch (report.status) {
+      ResultContractStatus.success ||
+      ResultContractStatus.approved => NodeOutput.onSuccess,
+      ResultContractStatus.failure ||
+      ResultContractStatus.changesRequested => NodeOutput.onFailure,
+    };
+
+    return NodeOutcome(
+      outputLabel: outputLabel,
+      data: <String, Object?>{
+        ...extraData,
+        ...report.output,
+        'contractStatus': report.status.name,
+        if (report.summary != null) 'summary': report.summary,
+      },
+      artifacts: report.artifacts,
+    );
   }
 
   /// Resolves the ADR 0003 result contract after a harness process exits 0.
@@ -112,25 +139,7 @@ abstract base class HarnessNode extends Node {
       );
     }
 
-    final outputLabel = switch (report.status) {
-      ResultContractStatus.success ||
-      ResultContractStatus.approved => NodeOutput.onSuccess,
-      ResultContractStatus.failure ||
-      ResultContractStatus.changesRequested => NodeOutput.onFailure,
-    };
-
-    return Success(
-      NodeOutcome(
-        outputLabel: outputLabel,
-        data: <String, Object?>{
-          ...extraData,
-          ...report.output,
-          'contractStatus': report.status.name,
-          if (report.summary != null) 'summary': report.summary,
-        },
-        artifacts: report.artifacts,
-      ),
-    );
+    return Success(outcomeFromReport(report, extraData: extraData));
   }
 
   /// Runs the underlying harness process or PTY session and returns its raw
@@ -139,6 +148,8 @@ abstract base class HarnessNode extends Node {
     NodeExecutionContext context, {
     required String workingDirectory,
     required String prompt,
+    String? mcpConfigPath,
+    Map<String, String> environment = const <String, String>{},
   });
 
   /// Interprets stdout/stderr from [result] to detect auth/quota failures and
@@ -166,65 +177,88 @@ abstract base class HarnessNode extends Node {
     }
     final workingDirectory = workingDirResult.valueOrNull!;
 
-    final promptResult = await buildPrompt(
-      context,
-      agentId: config.agentId,
-      additionalInstructions: config.additionalInstructions,
-    );
-    if (promptResult case FailureResult<String>(:final failure)) {
+    final sessionResult = await resultContract.openSession(context);
+    if (sessionResult case FailureResult<ResultContractSession>(
+      :final failure,
+    )) {
       return FailureResult(failure);
     }
-    final prompt = promptResult.valueOrNull!;
+    final session = sessionResult.valueOrNull!;
 
-    final runResult = await runHarness(
-      context,
-      workingDirectory: workingDirectory,
-      prompt: prompt,
-    );
-    if (runResult case FailureResult<ProcessExecutionResult>(:final failure)) {
-      return FailureResult(failure);
-    }
-    final processResult = runResult.valueOrNull!;
-
-    final analysis = parseOutput(processResult);
-    if (analysis.isAuthenticationError) {
-      return FailureResult(
-        HarnessAuthenticationFailure(
-          analysis.errorMessage ??
-              'Authentication required for "$typeId". Sign in to the CLI and '
-                  'retry.',
-          harnessType: typeId,
-        ),
+    try {
+      final promptResult = await buildPrompt(
+        context,
+        agentId: config.agentId,
+        additionalInstructions: config.additionalInstructions,
+        contractInstructions: session.instructions,
       );
-    }
-    if (analysis.isRateLimitError) {
-      return FailureResult(
-        HarnessRateLimitFailure(
-          analysis.errorMessage ??
-              'Rate limit or quota exhausted for "$typeId".',
-          harnessType: typeId,
-        ),
-      );
-    }
+      if (promptResult case FailureResult<String>(:final failure)) {
+        return FailureResult(failure);
+      }
+      final prompt = promptResult.valueOrNull!;
 
-    if (processResult.timedOut) {
-      return FailureResult(
-        NodeExecutionFailure(
-          'Harness "$typeId" timed out after ${config.timeoutSeconds}s.',
-        ),
+      final runResult = await runHarness(
+        context,
+        workingDirectory: workingDirectory,
+        prompt: prompt,
+        mcpConfigPath: session.mcpConfigPath,
+        environment: session.env,
       );
-    }
+      if (runResult case FailureResult<ProcessExecutionResult>(
+        :final failure,
+      )) {
+        return FailureResult(failure);
+      }
+      final processResult = runResult.valueOrNull!;
 
-    if (processResult.exitCode != 0) {
-      return FailureResult(
-        NodeExecutionFailure(
-          'Harness "$typeId" exited with code ${processResult.exitCode}.',
+      final analysis = parseOutput(processResult);
+      if (analysis.isAuthenticationError) {
+        return FailureResult(
+          HarnessAuthenticationFailure(
+            analysis.errorMessage ??
+                'Authentication required for "$typeId". Sign in to the CLI and '
+                    'retry.',
+            harnessType: typeId,
+          ),
+        );
+      }
+      if (analysis.isRateLimitError) {
+        return FailureResult(
+          HarnessRateLimitFailure(
+            analysis.errorMessage ??
+                'Rate limit or quota exhausted for "$typeId".',
+            harnessType: typeId,
+          ),
+        );
+      }
+
+      if (processResult.timedOut) {
+        await session.resolveOutcome(
           exitCode: processResult.exitCode,
-        ),
-      );
-    }
+          timedOut: true,
+        );
+        return FailureResult(
+          NodeExecutionFailure(
+            'Harness "$typeId" timed out after ${config.timeoutSeconds}s.',
+          ),
+        );
+      }
 
-    return await resolveResultContract(context, extraData: analysis.metadata);
+      final outcomeResult = await session.resolveOutcome(
+        exitCode: processResult.exitCode,
+        timedOut: processResult.timedOut,
+      );
+      return switch (outcomeResult) {
+        Success<ResultContractReport>(:final value) => Success(
+          outcomeFromReport(value, extraData: analysis.metadata),
+        ),
+        FailureResult<ResultContractReport>(:final failure) => FailureResult(
+          failure,
+        ),
+      };
+    } finally {
+      await session.dispose();
+    }
   }
 }
 
@@ -249,6 +283,8 @@ abstract base class HeadlessHarnessNode extends HarnessNode {
     required HarnessNodeConfig config,
     required String workingDirectory,
     required String prompt,
+    String? mcpConfigPath,
+    Map<String, String> environment = const <String, String>{},
   });
 
   @override
@@ -256,12 +292,16 @@ abstract base class HeadlessHarnessNode extends HarnessNode {
     NodeExecutionContext context, {
     required String workingDirectory,
     required String prompt,
+    String? mcpConfigPath,
+    Map<String, String> environment = const <String, String>{},
   }) {
     final config = HarnessNodeConfig.fromJson(context.config);
     final invocation = buildInvocation(
       config: config,
       workingDirectory: workingDirectory,
       prompt: prompt,
+      mcpConfigPath: mcpConfigPath,
+      environment: environment,
     );
     return processRunner.run(invocation, onOutput: context.onOutput);
   }

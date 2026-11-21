@@ -1,3 +1,4 @@
+import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/mcp/hive_mcp_locator.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -13,7 +14,9 @@ void main() {
         pathContext: p.windows,
       );
 
-      final launch = locator.resolve();
+      final result = locator.resolve();
+      expect(result.isSuccess, isTrue);
+      final launch = result.valueOrNull!;
       expect(launch.executable, r'C:\Program Files\AgenticHive\hive-mcp.exe');
       expect(launch.baseArguments, isEmpty);
     });
@@ -26,7 +29,9 @@ void main() {
         pathContext: p.posix,
       );
 
-      final launch = locator.resolve();
+      final result = locator.resolve();
+      expect(result.isSuccess, isTrue);
+      final launch = result.valueOrNull!;
       expect(launch.executable, '/opt/agentic-hive/hive-mcp');
       expect(launch.baseArguments, isEmpty);
     });
@@ -41,7 +46,9 @@ void main() {
         pathContext: p.posix,
       );
 
-      final launch = locator.resolve();
+      final result = locator.resolve();
+      expect(result.isSuccess, isTrue);
+      final launch = result.valueOrNull!;
       expect(launch.executable, '/usr/bin/dart');
       expect(launch.baseArguments, const <String>[
         'run',
@@ -67,6 +74,20 @@ void main() {
           '2',
         ],
       );
+    });
+
+    test('returns NodeExecutionFailure when compiled binary has no companion '
+        'hive-mcp executable', () {
+      final locator = HiveMcpLocator(
+        binaryNaming: mcpBinaryNamingFor('linux'),
+        resolvedExecutable: '/opt/agentic-hive/server',
+        fileExists: (_) => false,
+        pathContext: p.posix,
+      );
+
+      final result = locator.resolve();
+      expect(result.isFailure, isTrue);
+      expect(result.failureOrNull, isA<NodeExecutionFailure>());
     });
   });
 }

@@ -166,7 +166,11 @@ final class ResultContractValidator {
     }
 
     final normalizedRoot = _path.normalize(_path.absolute(workspacePath));
-    final canonicalRoot = _resolveCanonicalPath(normalizedRoot);
+    final canonicalRootResult = _resolveCanonicalPath(normalizedRoot);
+    if (canonicalRootResult case FailureResult<String>(:final failure)) {
+      return FailureResult(failure);
+    }
+    final canonicalRoot = canonicalRootResult.valueOrNull!;
     final validated = <String>[];
 
     for (final item in rawArtifacts) {
@@ -190,19 +194,32 @@ final class ResultContractValidator {
       }
 
       final resolved = _path.normalize(_path.join(normalizedRoot, artifact));
-      if (resolved != normalizedRoot &&
+      if (resolved == normalizedRoot ||
           !_path.isWithin(normalizedRoot, resolved)) {
         return FailureResult(
-          ValidationFailure('Artifact "$artifact" escapes the workspace root.'),
+          ValidationFailure(
+            resolved == normalizedRoot
+                ? 'Artifact "$artifact" must reference a path inside the '
+                      'workspace root, not the root directory itself.'
+                : 'Artifact "$artifact" escapes the workspace root.',
+          ),
         );
       }
 
-      final canonicalTarget = _resolveCanonicalPath(resolved);
-      if (canonicalTarget != canonicalRoot &&
+      final canonicalTargetResult = _resolveCanonicalPath(resolved);
+      if (canonicalTargetResult case FailureResult<String>(:final failure)) {
+        return FailureResult(failure);
+      }
+      final canonicalTarget = canonicalTargetResult.valueOrNull!;
+      if (canonicalTarget == canonicalRoot ||
           !_path.isWithin(canonicalRoot, canonicalTarget)) {
         return FailureResult(
           ValidationFailure(
-            'Artifact "$artifact" escapes the workspace root via symlink.',
+            canonicalTarget == canonicalRoot
+                ? 'Artifact "$artifact" must not resolve to the workspace '
+                      'root directory itself.'
+                : 'Artifact "$artifact" escapes the workspace root via '
+                      'symlink.',
           ),
         );
       }
@@ -212,14 +229,26 @@ final class ResultContractValidator {
     return Success(List<String>.unmodifiable(validated));
   }
 
-  String _resolveCanonicalPath(String targetPath) {
+  static const int _maxSymlinkHops = 40;
+
+  Result<String> _resolveCanonicalPath(String targetPath) {
     final missingSegments = <String>[];
+    final visitedSymlinks = <String>{};
+    var hops = 0;
     var current = _path.normalize(targetPath);
 
     while (FileSystemEntity.typeSync(current) ==
         FileSystemEntityType.notFound) {
       if (FileSystemEntity.typeSync(current, followLinks: false) ==
           FileSystemEntityType.link) {
+        if (!visitedSymlinks.add(current) || ++hops > _maxSymlinkHops) {
+          return FailureResult(
+            ValidationFailure(
+              'Artifact path "$targetPath" contains a cyclic or unresolvable '
+              'symlink.',
+            ),
+          );
+        }
         try {
           final linkTarget = Link(current).targetSync();
           final resolvedLink = _path.isAbsolute(linkTarget)
@@ -249,10 +278,12 @@ final class ResultContractValidator {
     }
 
     if (missingSegments.isEmpty) {
-      return _path.normalize(canonicalBase);
+      return Success(_path.normalize(canonicalBase));
     }
-    return _path.normalize(
-      _path.joinAll(<String>[canonicalBase, ...missingSegments.reversed]),
+    return Success(
+      _path.normalize(
+        _path.joinAll(<String>[canonicalBase, ...missingSegments.reversed]),
+      ),
     );
   }
 }

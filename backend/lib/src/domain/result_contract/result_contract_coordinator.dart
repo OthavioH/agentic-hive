@@ -31,7 +31,9 @@ final class ResultContractCoordinator {
 
   /// Registers an active attempt so MCP `report_result` calls can be validated
   /// and locked against its [workspacePath] and [availableOutputs].
-  void registerAttempt({
+  ///
+  /// Returns [ConflictFailure] if the attempt already has a locked report.
+  Result<void> registerAttempt({
     required String runId,
     required String nodeId,
     required int attempt,
@@ -39,11 +41,29 @@ final class ResultContractCoordinator {
     required List<String> availableOutputs,
   }) {
     final key = (runId: runId, nodeId: nodeId, attempt: attempt);
+    final existing = _attempts[key];
+    if (existing?.lockedReport != null) {
+      return FailureResult(
+        ConflictFailure(
+          'Cannot re-register attempt ($runId, $nodeId, $attempt) that already '
+          'has a locked report.',
+        ),
+      );
+    }
     _attempts[key] = _AttemptState(
       workspacePath: workspacePath,
       availableOutputs: List<String>.unmodifiable(availableOutputs),
     );
+    return const Success(null);
   }
+
+  /// Whether `(runId, nodeId, attempt)` is currently registered as an active
+  /// attempt.
+  bool isAttemptRegistered({
+    required String runId,
+    required String nodeId,
+    required int attempt,
+  }) => _attempts.containsKey((runId: runId, nodeId: nodeId, attempt: attempt));
 
   /// Removes state for the attempt identified by `(runId, nodeId, attempt)`.
   void unregisterAttempt({

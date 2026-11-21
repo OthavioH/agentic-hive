@@ -118,13 +118,13 @@ void main() {
     final contract = di<ResultContract>() as HiveResultContract;
     final gateway = di<HumanPauseGateway>();
 
-    final session = await contract.openSession(
+    final session = (await contract.openSession(
       NodeExecutionContext(
         runId: 'run-int-1',
         nodeId: 'node-int-1',
         workspacePath: workspacePath,
       ),
-    );
+    )).valueOrNull!;
     addTearDown(session.dispose);
 
     final mcp = await spawnMcp(
@@ -250,5 +250,16 @@ void main() {
       ApiError.fromJson(response.json).code,
       ApiErrorCode.originNotAllowed,
     );
+  });
+
+  test('ask_human returns 404 when attempt is not registered', () async {
+    final client = openClient(backend.socketPath);
+    final response = await client.post(
+      '/api/v1/internal/runs/unknown-run/nodes/unknown-node/attempts/1/ask-human',
+      body: jsonEncode(const <String, Object?>{'question': 'Anyone there?'}),
+    );
+
+    expect(response.statusCode, 404);
+    expect(ApiError.fromJson(response.json).code, ApiErrorCode.notFound);
   });
 }

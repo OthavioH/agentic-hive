@@ -5,6 +5,7 @@ import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/data/result_contract/hive_result_contract.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_execution_context.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
+import 'package:agentic_hive_backend/src/domain/result_contract/human_pause_gateway.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_coordinator.dart';
 import 'package:agentic_hive_backend/src/mcp/hive_mcp_locator.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
@@ -78,7 +79,7 @@ void main() {
       'openSession creates temporary MCP config and dispose removes it',
       () async {
         final ctx = makeContext();
-        final session = await contract.openSession(ctx);
+        final session = (await contract.openSession(ctx)).valueOrNull!;
 
         final configFile = File(session.mcpConfigPath);
         expect(configFile.existsSync(), isTrue);
@@ -124,7 +125,7 @@ void main() {
       'allows retry after validation error, then locks first valid MCP report',
       () async {
         final ctx = makeContext();
-        final session = await contract.openSession(ctx);
+        final session = (await contract.openSession(ctx)).valueOrNull!;
         addTearDown(session.dispose);
 
         final invalid = coordinator.submitMcpReport(
@@ -165,7 +166,7 @@ void main() {
 
     test('MCP report takes precedence over result.json', () async {
       final ctx = makeContext();
-      final session = await contract.openSession(ctx);
+      final session = (await contract.openSession(ctx)).valueOrNull!;
       addTearDown(session.dispose);
 
       await File(session.resultJsonPath).writeAsString(
@@ -198,7 +199,7 @@ void main() {
       'reads and validates result.json when exit code is 0 and no MCP report',
       () async {
         final ctx = makeContext();
-        final session = await contract.openSession(ctx);
+        final session = (await contract.openSession(ctx)).valueOrNull!;
         addTearDown(session.dispose);
 
         await File(session.resultJsonPath).writeAsString(
@@ -223,7 +224,7 @@ void main() {
 
     test('fails on exit code 0 without report (ADR 0003)', () async {
       final ctx = makeContext();
-      final session = await contract.openSession(ctx);
+      final session = (await contract.openSession(ctx)).valueOrNull!;
       addTearDown(session.dispose);
 
       final resolved = await contract.resolveOutcome(
@@ -239,7 +240,7 @@ void main() {
       'exists',
       () async {
         final ctx = makeContext();
-        final session = await contract.openSession(ctx);
+        final session = (await contract.openSession(ctx)).valueOrNull!;
         addTearDown(session.dispose);
 
         await File(session.resultJsonPath).writeAsString(
@@ -256,6 +257,124 @@ void main() {
         expect(resolved.isFailure, isTrue);
         final failure = resolved.failureOrNull! as NodeExecutionFailure;
         expect(failure.exitCode, 1);
+      },
+    );
+
+    test(
+      'escapes ".." and path separators in fallback paths without collisions',
+      () {
+        final runsRoot = p.join(dataDir, 'runs');
+        final dotDotPath = contract.fallbackResultJsonPath(
+          runId: '..',
+          nodeId: '../evil',
+        );
+        final slashPath = contract.fallbackResultJsonPath(
+          runId: 'a/b',
+          nodeId: 'c_d',
+        );
+        final underscorePath = contract.fallbackResultJsonPath(
+          runId: 'a_b',
+          nodeId: 'c_d',
+        );
+
+        expect(p.isWithin(runsRoot, dotDotPath), isTrue);
+        expect(p.isWithin(runsRoot, slashPath), isTrue);
+        expect(slashPath, isNot(equals(underscorePath)));
+      },
+    );
+
+    test(
+      'openSession deletes stale result.json before launching harness',
+      () async {
+        final ctx = makeContext();
+        final stalePath = contract.fallbackResultJsonPath(
+          runId: ctx.runId,
+          nodeId: ctx.nodeId,
+          attempt: ctx.attempt,
+        );
+        await File(stalePath).parent.create(recursive: true);
+        await File(stalePath)
+            .writeAsString('{"status":"onSuccess","summary":"stale"}');
+        expect(File(stalePath).existsSync(), isTrue);
+
+        final session = (await contract.openSession(ctx)).valueOrNull!;
+        addTearDown(session.dispose);
+        expect(File(stalePath).existsSync(), isFalse);
+      },
+    );
+
+    test(
+      'rejects re-registering an attempt that already has a locked report',
+      () async {
+        final ctx = makeContext();
+        final session = (await contract.openSession(ctx)).valueOrNull!;
+        addTearDown(session.dispose);
+
+        final submit = coordinator.submitMcpReport(
+          runId: ctx.runId,
+          nodeId: ctx.nodeId,
+          attempt: ctx.attempt,
+          payload: const <String, Object?>{
+            'status': 'onSuccess',
+            'summary': 'Locked.',
+          },
+        );
+        expect(submit.isSuccess, isTrue);
+
+        final reOpen = await contract.openSession(ctx);
+        expect(reOpen.failureOrNull, isA<ConflictFailure>());
+      },
+    );
+
+    test(
+      'openSession unregisters attempt if temp-file creation fails',
+      () async {
+        final blockingFile = File(p.join(dataDir, 'runs'));
+        await blockingFile.writeAsString('not-a-directory');
+
+        final ctx = makeContext();
+        await expectLater(
+          contract.openSession(ctx),
+          throwsA(isA<FileSystemException>()),
+        );
+        expect(
+          coordinator.isAttemptRegistered(
+            runId: ctx.runId,
+            nodeId: ctx.nodeId,
+            attempt: ctx.attempt,
+          ),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'session.dispose cancels pending ask_human pauses for that attempt',
+      () async {
+        final pauseGateway = InMemoryHumanPauseGateway();
+        addTearDown(pauseGateway.dispose);
+        final contractWithGateway = HiveResultContract(
+          coordinator: coordinator,
+          dataDir: dataDir,
+          socketPath: p.join(dataDir, 'backend.sock'),
+          mcpLocator: HiveMcpLocator(
+            overrideCommand: const HiveMcpLaunchCommand(executable: 'hive-mcp'),
+          ),
+          humanPauseGateway: pauseGateway,
+        );
+
+        final ctx = makeContext();
+        final session = (await contractWithGateway.openSession(ctx))
+            .valueOrNull!;
+        final pauseFuture = pauseGateway.requestHumanAnswer(
+          runId: ctx.runId,
+          nodeId: ctx.nodeId,
+          attempt: ctx.attempt,
+          question: 'Need input?',
+        );
+
+        await session.dispose();
+        expect((await pauseFuture).failureOrNull, isA<ConflictFailure>());
       },
     );
   });

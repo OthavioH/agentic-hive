@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:agentic_hive_backend/src/core/failure.dart';
+import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:path/path.dart' as p;
 
 /// Command and base arguments required to launch `hive-mcp`.
@@ -91,23 +93,42 @@ final class HiveMcpLocator {
   static bool _defaultFileExists(String path) => File(path).existsSync();
 
   /// Resolves the command used to start `hive-mcp`.
-  HiveMcpLaunchCommand resolve() {
+  ///
+  /// Falls back to `dart run <script>` only when running under the `dart`
+  /// executable in development or when a script/command override is explicitly
+  /// configured. Returns a [NodeExecutionFailure] when running as a compiled
+  /// a compiled binary with no companion `hive-mcp` executable next to it.
+  Result<HiveMcpLaunchCommand> resolve() {
     if (_overrideCommand != null) {
-      return _overrideCommand;
+      return Success(_overrideCommand);
     }
 
     final executableDir = _path.dirname(_resolvedExecutable);
     for (final fileName in _binaryNaming.companionFileNames) {
       final candidate = _path.join(executableDir, fileName);
       if (_fileExists(candidate)) {
-        return HiveMcpLaunchCommand(executable: candidate);
+        return Success(HiveMcpLaunchCommand(executable: candidate));
       }
     }
 
+    final isDartExecutable =
+        _path.basenameWithoutExtension(_resolvedExecutable).toLowerCase() ==
+        'dart';
+    if (!isDartExecutable && _scriptPathOverride == null) {
+      return FailureResult(
+        NodeExecutionFailure(
+          'Could not locate companion hive-mcp executable next to '
+          '"$_resolvedExecutable".',
+        ),
+      );
+    }
+
     final scriptPath = _resolveDevScriptPath();
-    return HiveMcpLaunchCommand(
-      executable: _resolvedExecutable,
-      baseArguments: <String>['run', scriptPath],
+    return Success(
+      HiveMcpLaunchCommand(
+        executable: _resolvedExecutable,
+        baseArguments: <String>['run', scriptPath],
+      ),
     );
   }
 
