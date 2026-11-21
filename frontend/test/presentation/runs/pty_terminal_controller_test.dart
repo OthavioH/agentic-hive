@@ -392,4 +392,61 @@ void main() {
     expect('hello-once'.allMatches(text), hasLength(1));
     expect(text, contains('reconnected-line'));
   });
+
+  test('preserves existing output on WebSocket reconnect when no snapshot '
+      'arrives', () async {
+    final session1 = _FakeWsSession();
+    final session2 = _FakeWsSession();
+    final repo = _RecordingPtyRepository();
+
+    final controller = StreamController<BackendWebSocketSession?>.broadcast();
+    BackendWebSocketSession? currentSession = session1;
+
+    final container = ProviderContainer.test(
+      overrides: [
+        ptyRepositoryProvider.overrideWithValue(repo),
+        backendWebSocketSessionProvider.overrideWith((ref) {
+          final sub = controller.stream.listen((next) {
+            currentSession = next;
+            ref.invalidateSelf();
+          });
+          ref.onDispose(sub.cancel);
+          return currentSession;
+        }),
+      ],
+    );
+    addTearDown(() async {
+      container.dispose();
+      await controller.close();
+      await session1.close();
+      await session2.close();
+    });
+
+    final provider = ptyTerminalControllerProvider('run-1', 'node-1', 1);
+    final sub = container.listen(provider, (_, _) {});
+
+    session1.emit(
+      _ptyOutputEnvelope(
+        runId: 'run-1',
+        nodeId: 'node-1',
+        attempt: 1,
+        text: 'final-output-before-disconnect',
+      ),
+    );
+    await pumpEventQueue();
+    expect(
+      sub.read().terminalController.plainText,
+      contains('final-output-before-disconnect'),
+    );
+
+    // Reconnect (e.g. session ended while disconnected so no snapshot arrives).
+    controller.add(session2);
+    await pumpEventQueue();
+
+    expect(repo.subscriptions, hasLength(2));
+    expect(
+      sub.read().terminalController.plainText,
+      contains('final-output-before-disconnect'),
+    );
+  });
 }

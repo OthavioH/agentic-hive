@@ -224,26 +224,40 @@ void main() {
       await tester.pump();
       expect(ptyRepo.inputs, isEmpty);
 
-      // Take over enables input.
+      // Take over enables input and focuses the terminal.
       await tester.tap(find.byKey(const Key('run_terminal_takeover_button')));
       await tester.pump();
 
       expect(find.text('You have control'), findsOneWidget);
       expect(find.text('Interactive'), findsOneWidget);
       expect(find.text('Release'), findsOneWidget);
+      expect(
+        tester
+            .widget<HiveTerminalView>(find.byType(HiveTerminalView))
+            .focusNode!
+            .hasFocus,
+        isTrue,
+      );
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyA, character: 'a');
+      tester.testTextInput.enterText('a');
       await tester.pump();
       expect(ptyRepo.inputs, hasLength(1));
       expect(utf8.decode(ptyRepo.inputs.single), 'a');
 
-      // Release returns to Watch mode.
+      // Release returns to Watch mode and unfocuses the terminal.
       await tester.tap(find.byKey(const Key('run_terminal_takeover_button')));
       await tester.pump();
       expect(find.text('Watching (read-only)'), findsOneWidget);
       expect(find.text('Take over'), findsOneWidget);
+      expect(
+        tester
+            .widget<HiveTerminalView>(find.byType(HiveTerminalView))
+            .focusNode!
+            .hasFocus,
+        isFalse,
+      );
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyB, character: 'b');
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pump();
       expect(ptyRepo.inputs, hasLength(1));
 

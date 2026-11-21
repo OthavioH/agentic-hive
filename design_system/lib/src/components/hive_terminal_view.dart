@@ -329,7 +329,6 @@ class _HiveTerminalViewState extends State<HiveTerminalView> {
       focusNode: _focusNode,
       autofocus: widget.autofocus,
       readOnly: !mode.acceptsInput,
-      hardwareKeyboardOnly: true,
       cursorType: mode.acceptsInput
           ? xterm.TerminalCursorType.block
           : xterm.TerminalCursorType.underline,

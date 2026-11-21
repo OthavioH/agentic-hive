@@ -51,7 +51,11 @@ BoxBorder? _wellBorder(WidgetTester tester) {
 }
 
 Future<void> _typeA(WidgetTester tester) async {
-  await tester.sendKeyEvent(LogicalKeyboardKey.keyA, character: 'a');
+  if (tester.testTextInput.hasAnyClients) {
+    tester.testTextInput.enterText('a');
+  } else {
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyA, character: 'a');
+  }
   await tester.pump();
 }
 
@@ -182,6 +186,59 @@ void main() {
 
       expect(input.expand((b) => b).toList(), <int>[0x61, 0x0D]);
     });
+
+    testWidgets(
+      'interactive mode supports IME composition and dead-key input',
+      (tester) async {
+        final controller = HiveTerminalController();
+        addTearDown(controller.dispose);
+        final input = <Uint8List>[];
+        await tester.pumpWidget(
+          _view(
+            controller,
+            mode: HiveTerminalMode.interactive,
+            modeLabel: 'You have control',
+            onInput: input.add,
+          ),
+        );
+        await tester.tap(find.byType(HiveTerminalView));
+        await tester.pump(_doubleTapTimeout);
+
+        // Composing (e.g. dead key '´' on pt-BR/ABNT2) must not emit bytes yet.
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: '´',
+            selection: TextSelection.collapsed(offset: 1),
+            composing: TextRange(start: 0, end: 1),
+          ),
+        );
+        await tester.pump();
+        expect(input, isEmpty);
+
+        // Committing composed character 'á' emits its UTF-8 bytes.
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: 'á',
+            selection: TextSelection.collapsed(offset: 1),
+          ),
+        );
+        await tester.pump();
+
+        // Committing CJK composition '漢' emits its UTF-8 bytes.
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: '漢',
+            selection: TextSelection.collapsed(offset: 1),
+          ),
+        );
+        await tester.pump();
+
+        expect(input.expand((b) => b).toList(), <int>[
+          ...utf8.encode('á'),
+          ...utf8.encode('漢'),
+        ]);
+      },
+    );
 
     testWidgets('interactive mode shows a focus ring while focused', (
       tester,

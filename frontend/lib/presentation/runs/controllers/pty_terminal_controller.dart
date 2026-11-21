@@ -50,7 +50,6 @@ class PtyTerminalController extends _$PtyTerminalController {
 
   late HiveTerminalController _terminalController;
   BackendWebSocketSession? _subscribedSession;
-  bool _hasSubscribedOnce = false;
   bool _hasReceivedOutput = false;
   Timer? _resizeTimer;
   (int, int)? _pendingResize;
@@ -60,7 +59,6 @@ class PtyTerminalController extends _$PtyTerminalController {
   PtyTerminalState build(String runId, String nodeId, int attempt) {
     _terminalController = HiveTerminalController();
     _subscribedSession = null;
-    _hasSubscribedOnce = false;
     _hasReceivedOutput = false;
     _resizeTimer = null;
     _pendingResize = null;
@@ -86,8 +84,7 @@ class PtyTerminalController extends _$PtyTerminalController {
       if (next != null &&
           !next.isClosed &&
           !identical(_subscribedSession, next)) {
-        final isReconnect = _hasSubscribedOnce;
-        _subscribe(next, resetBeforeReplay: isReconnect);
+        _subscribe(next);
       }
     });
 
@@ -100,7 +97,7 @@ class PtyTerminalController extends _$PtyTerminalController {
 
     final activeSession = ref.read(backendWebSocketSessionProvider);
     if (activeSession != null && !activeSession.isClosed) {
-      _subscribe(activeSession, resetBeforeReplay: false);
+      _subscribe(activeSession);
     }
 
     return PtyTerminalState(
@@ -186,17 +183,9 @@ class PtyTerminalController extends _$PtyTerminalController {
     });
   }
 
-  void _subscribe(
-    BackendWebSocketSession session, {
-    required bool resetBeforeReplay,
-  }) {
+  void _subscribe(BackendWebSocketSession session) {
     if (session.isClosed) return;
     _subscribedSession = session;
-    _hasSubscribedOnce = true;
-
-    if (resetBeforeReplay) {
-      _resetTerminalController();
-    }
 
     unawaited(
       ref

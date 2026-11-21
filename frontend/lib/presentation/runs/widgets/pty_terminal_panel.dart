@@ -151,6 +151,7 @@ class _PtyTerminalPanelState extends ConsumerState<PtyTerminalPanel> {
               onPressed: () {
                 if (mode == HiveTerminalMode.interactive) {
                   notifier.release();
+                  _focusNode.unfocus();
                 } else {
                   notifier.takeOver();
                   _focusNode.requestFocus();
