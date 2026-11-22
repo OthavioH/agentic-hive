@@ -221,10 +221,11 @@ void main() {
       expect(invocation.executable, 'claude');
       expect(
         invocation.arguments,
-        containsAll([
+        containsAllInOrder([
           '-p',
           '--output-format',
           'stream-json',
+          '--verbose',
           '--model',
           'sonnet',
         ]),
@@ -239,6 +240,87 @@ void main() {
         invocation.stdinContent,
         contains('Call report_result when finished.'),
       );
+    });
+
+    test('ClaudeCodeNode does not duplicate --verbose when extraArgs already '
+        'includes it', () async {
+      final node = ClaudeCodeNode(
+        processRunner: processRunner,
+        resultContract: resultContract,
+        agentPromptResolver: agentResolver,
+      );
+
+      final result = await node.execute(
+        _context(
+          config: const {
+            'additionalInstructions': 'Fix the bug.',
+            'extraArgs': ['--verbose', '--model', 'sonnet'],
+          },
+        ),
+      );
+
+      expect(result.isSuccess, isTrue);
+      final args = processRunner.lastInvocation!.arguments;
+      expect(args.where((arg) => arg == '--verbose'), hasLength(1));
+      expect(
+        args,
+        containsAllInOrder([
+          '-p',
+          '--output-format',
+          'stream-json',
+          '--verbose',
+          '--model',
+          'sonnet',
+        ]),
+      );
+    });
+
+    test('ClaudeCodeNode handles --verbose stream-json events without '
+        'bypassing the result contract', () async {
+      const verboseStreamJsonStdout = '''
+{"type":"system","subtype":"hook_started","hook_id":"h1","hook_name":"SessionStart:startup"}
+{"type":"system","subtype":"hook_response","hook_id":"h1","outcome":"success","exit_code":0}
+{"type":"system","subtype":"init","cwd":"/tmp/workspace","mcp_servers":[{"name":"drive","status":"needs-auth"}]}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"ok"}]}}
+{"type":"rate_limit_event","rate_limit_info":{"status":"allowed"}}
+{"type":"result","subtype":"success","is_error":false,"result":"ok"}
+''';
+      final runnerWithVerboseStdout = _FakeProcessRunner(
+        const ProcessExecutionResult(
+          exitCode: 0,
+          stdout: verboseStreamJsonStdout,
+        ),
+      );
+      final node = ClaudeCodeNode(
+        processRunner: runnerWithVerboseStdout,
+        resultContract: _FakeResultContract(),
+        agentPromptResolver: agentResolver,
+      );
+
+      // Even with a "subtype":"success" result event in stdout, exit 0 without
+      // a result contract report must still fail (ADR 0003).
+      final missingReportResult = await node.execute(_context());
+      expect(missingReportResult.isFailure, isTrue);
+      expect(
+        missingReportResult.failureOrNull,
+        isA<NodeExecutionFailure>().having(
+          (f) => f.message,
+          'message',
+          contains('Exited 0 without report.'),
+        ),
+      );
+
+      // With a non-zero exit code, verbose metadata events like
+      // rate_limit_event or mcp_servers needs-auth must not false-positive.
+      final analysis = node.parseOutput(
+        const ProcessExecutionResult(
+          exitCode: 1,
+          stdout: verboseStreamJsonStdout,
+        ),
+      );
+      expect(analysis.isAuthenticationError, isFalse);
+      expect(analysis.isRateLimitError, isFalse);
+      expect(analysis.metadata['stdout'], verboseStreamJsonStdout);
     });
 
     test('injects the human answer into the prompt on a re-run', () async {
