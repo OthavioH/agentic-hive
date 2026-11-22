@@ -16,8 +16,9 @@ final class HiveMcpServer extends MCPServer with ToolsSupport {
             'ask_human when you need clarification from the user.',
       );
 
-  /// Unix-socket client forwarding tool calls to the local backend.
-  final HiveMcpBackendClient client;
+  /// Unix-socket client forwarding tool calls to the local backend, or `null`
+  /// when running outside an active Agentic Hive run.
+  final HiveMcpBackendClient? client;
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
@@ -79,8 +80,19 @@ final class HiveMcpServer extends MCPServer with ToolsSupport {
     return super.initialize(request);
   }
 
+  static const _outsideRunMessage =
+      'Not running inside an Agentic Hive run (missing HIVE_SOCKET_PATH, '
+      'HIVE_RUN_ID, HIVE_NODE_ID, or HIVE_ATTEMPT).';
+
   Future<CallToolResult> _handleReportResult(CallToolRequest request) async {
-    final result = await client.reportResult(
+    final activeClient = client;
+    if (activeClient == null) {
+      return CallToolResult(
+        isError: true,
+        content: <Content>[TextContent(text: _outsideRunMessage)],
+      );
+    }
+    final result = await activeClient.reportResult(
       request.arguments ?? const <String, Object?>{},
     );
     if (result.isError) {
@@ -95,7 +107,14 @@ final class HiveMcpServer extends MCPServer with ToolsSupport {
   }
 
   Future<CallToolResult> _handleAskHuman(CallToolRequest request) async {
-    final result = await client.askHuman(
+    final activeClient = client;
+    if (activeClient == null) {
+      return CallToolResult(
+        isError: true,
+        content: <Content>[TextContent(text: _outsideRunMessage)],
+      );
+    }
+    final result = await activeClient.askHuman(
       request.arguments ?? const <String, Object?>{},
     );
     if (result.isError) {

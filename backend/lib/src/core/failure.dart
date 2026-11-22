@@ -111,3 +111,9 @@ final class NodeExecutionFailure extends Failure {
   /// Optional underlying cause for logging.
   final Object? cause;
 }
+
+/// Installing or updating the Hive MCP server in a harness CLI failed (`500`).
+final class HarnessMcpInstallFailure extends Failure {
+  /// Creates an MCP installation failure with a safe CLI summary [message].
+  const new(super.message);
+}
