@@ -6,60 +6,96 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('BackendLauncher path resolution', () {
-    test('windows resolves sibling agentic_hive_backend.exe in release', () {
-      const sibling = r'C:\Program Files\AgenticHive\agentic_hive_backend.exe';
+    test(r'windows resolves backend\bin\server.exe in release', () {
+      const bundled = r'C:\Program Files\AgenticHive\backend\bin\server.exe';
       final launcher = backendLauncherFor(
         'windows',
         resolvedExecutable: r'C:\Program Files\AgenticHive\agentic_hive.exe',
         isDebugMode: false,
         environment: const {},
         currentDirectory: r'C:\Users\Ada',
-        fileExists: (path) => path == sibling,
+        fileExists: (path) => path == bundled,
       );
 
       final result = launcher.resolveLaunchTarget();
       expect(result, isA<Success<BackendLaunchTarget>>());
       final target = (result as Success<BackendLaunchTarget>).value;
-      expect(target.executable, sibling);
+      expect(target.executable, bundled);
       expect(target.arguments, isEmpty);
+      expect(target.workingDirectory, isNull);
     });
 
-    test('linux resolves sibling agentic_hive_backend in release', () {
-      const sibling = '/opt/agentic-hive/agentic_hive_backend';
+    test('linux resolves backend/bin/server in release', () {
+      const bundled = '/opt/agentic-hive/backend/bin/server';
       final launcher = backendLauncherFor(
         'linux',
         resolvedExecutable: '/opt/agentic-hive/agentic_hive',
         isDebugMode: false,
         environment: const {},
         currentDirectory: '/home/ada',
-        fileExists: (path) => path == sibling,
+        fileExists: (path) => path == bundled,
       );
 
       final result = launcher.resolveLaunchTarget();
       expect(result, isA<Success<BackendLaunchTarget>>());
       final target = (result as Success<BackendLaunchTarget>).value;
-      expect(target.executable, sibling);
+      expect(target.executable, bundled);
       expect(target.arguments, isEmpty);
+      expect(target.workingDirectory, isNull);
     });
 
-    test('macos resolves sibling agentic_hive_backend in release', () {
-      const sibling =
-          '/Applications/Agentic Hive.app/Contents/MacOS/agentic_hive_backend';
+    test('macos resolves backend/bin/server next to the app executable in '
+        'release', () {
+      const bundled =
+          '/Applications/agentic_hive.app/Contents/MacOS/backend/bin/server';
       final launcher = backendLauncherFor(
         'macos',
         resolvedExecutable:
-            '/Applications/Agentic Hive.app/Contents/MacOS/Agentic Hive',
+            '/Applications/agentic_hive.app/Contents/MacOS/agentic_hive',
         isDebugMode: false,
         environment: const {},
         currentDirectory: '/Users/ada',
-        fileExists: (path) => path == sibling,
+        fileExists: (path) => path == bundled,
       );
 
       final result = launcher.resolveLaunchTarget();
       expect(result, isA<Success<BackendLaunchTarget>>());
       final target = (result as Success<BackendLaunchTarget>).value;
-      expect(target.executable, sibling);
+      expect(target.executable, bundled);
       expect(target.arguments, isEmpty);
+      expect(target.workingDirectory, isNull);
+    });
+
+    test('no longer resolves the old sibling agentic_hive_backend', () {
+      final winLauncher = backendLauncherFor(
+        'windows',
+        resolvedExecutable: r'C:\App\agentic_hive.exe',
+        isDebugMode: false,
+        environment: const {},
+        currentDirectory: r'C:\App',
+        fileExists: (path) => path == r'C:\App\agentic_hive_backend.exe',
+      );
+      final winResult = winLauncher.resolveLaunchTarget();
+      expect(winResult, isA<FailureResult<BackendLaunchTarget>>());
+      expect(
+        (winResult as FailureResult<BackendLaunchTarget>).failure,
+        isA<NotFoundFailure>(),
+      );
+
+      final linuxLauncher = backendLauncherFor(
+        'linux',
+        resolvedExecutable: '/app/agentic_hive',
+        isDebugMode: false,
+        environment: const {},
+        currentDirectory: '/app',
+        fileExists: (path) => path == '/app/agentic_hive_backend',
+      );
+      final linuxResult = linuxLauncher.resolveLaunchTarget();
+      expect(linuxResult, isA<FailureResult<BackendLaunchTarget>>());
+      expect(
+        (linuxResult as FailureResult<BackendLaunchTarget>).failure,
+        isA<NotFoundFailure>(),
+      );
     });
 
     test('debug mode falls back to dart run backend/bin/server.dart', () {
@@ -98,8 +134,47 @@ void main() {
       expect(linuxTarget.workingDirectory, '/repo/backend');
     });
 
+    test('bundled server wins over debug fallback in debug mode', () {
+      const bundled =
+          '/repo/frontend/build/linux/x64/debug/bundle/backend/bin/server';
+      const entrypoint = '/repo/backend/bin/server.dart';
+      final launcher = backendLauncherFor(
+        'linux',
+        resolvedExecutable:
+            '/repo/frontend/build/linux/x64/debug/bundle/agentic_hive',
+        isDebugMode: true,
+        environment: const {},
+        currentDirectory: '/repo',
+        fileExists: (path) => path == bundled || path == entrypoint,
+      );
+
+      final result = launcher.resolveLaunchTarget();
+      expect(result, isA<Success<BackendLaunchTarget>>());
+      final target = (result as Success<BackendLaunchTarget>).value;
+      expect(target.executable, bundled);
+      expect(target.arguments, isEmpty);
+    });
+
+    test('AGENTIC_HIVE_BACKEND_BIN wins over the bundled server', () {
+      const binOverride = '/custom/bin/server';
+      const bundled = '/app/backend/bin/server';
+      final launcher = backendLauncherFor(
+        'linux',
+        resolvedExecutable: '/app/agentic_hive',
+        isDebugMode: false,
+        environment: const {backendBinEnvVar: binOverride},
+        currentDirectory: '/app',
+        fileExists: (path) => path == binOverride || path == bundled,
+      );
+
+      final result = launcher.resolveLaunchTarget();
+      expect(result, isA<Success<BackendLaunchTarget>>());
+      final target = (result as Success<BackendLaunchTarget>).value;
+      expect(target.executable, binOverride);
+    });
+
     test('respects AGENTIC_HIVE_BACKEND_BIN and entrypoint env overrides', () {
-      const binOverride = '/custom/bin/agentic_hive_backend';
+      const binOverride = '/custom/bin/server';
       final binLauncher = backendLauncherFor(
         'linux',
         resolvedExecutable: '/app/agentic_hive',
@@ -129,7 +204,8 @@ void main() {
       expect(entryTarget.arguments, ['run', entryOverride]);
     });
 
-    test('returns NotFoundFailure when binary is missing in release', () {
+    test('returns NotFoundFailure naming the bundled path when the server is '
+        'missing', () {
       final launcher = backendLauncherFor(
         'windows',
         resolvedExecutable: r'C:\App\agentic_hive.exe',
@@ -141,10 +217,9 @@ void main() {
 
       final result = launcher.resolveLaunchTarget();
       expect(result, isA<FailureResult<BackendLaunchTarget>>());
-      expect(
-        (result as FailureResult<BackendLaunchTarget>).failure,
-        isA<NotFoundFailure>(),
-      );
+      final failure = (result as FailureResult<BackendLaunchTarget>).failure;
+      expect(failure, isA<NotFoundFailure>());
+      expect(failure.message, contains(r'C:\App\backend\bin\server.exe'));
     });
 
     test('unsupported OS throws UnsupportedError', () {
@@ -167,14 +242,14 @@ void main() {
       List<String>? startedArgs;
       ProcessStartMode? startedMode;
 
-      const sibling = '/opt/agentic_hive_backend';
+      const bundled = '/opt/backend/bin/server';
       final launcher = backendLauncherFor(
         'linux',
         resolvedExecutable: '/opt/agentic_hive',
         isDebugMode: false,
         environment: const {},
         currentDirectory: '/opt',
-        fileExists: (path) => path == sibling,
+        fileExists: (path) => path == bundled,
         startProcess:
             (executable, arguments, {workingDirectory, mode = .normal}) async {
               startedExe = executable;
@@ -186,24 +261,24 @@ void main() {
 
       final result = await launcher.launch();
       expect(result, isA<Success<void>>());
-      expect(startedExe, sibling);
+      expect(startedExe, bundled);
       expect(startedArgs, isEmpty);
       expect(startedMode, ProcessStartMode.detached);
     });
 
     test('maps ProcessException to NotFoundFailure', () async {
-      const sibling = '/opt/agentic_hive_backend';
+      const bundled = '/opt/backend/bin/server';
       final launcher = backendLauncherFor(
         'linux',
         resolvedExecutable: '/opt/agentic_hive',
         isDebugMode: false,
         environment: const {},
         currentDirectory: '/opt',
-        fileExists: (path) => path == sibling,
+        fileExists: (path) => path == bundled,
         startProcess:
             (executable, arguments, {workingDirectory, mode = .normal}) {
               throw const ProcessException(
-                '/opt/agentic_hive_backend',
+                '/opt/backend/bin/server',
                 <String>['bad'],
                 'No such file',
               );
