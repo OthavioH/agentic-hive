@@ -1,5 +1,6 @@
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/agent_library_select_field.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/node_config_form_registry.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
@@ -23,10 +24,10 @@ class ReviewValidatorConfigForm extends StatefulWidget {
 }
 
 class _ReviewValidatorConfigFormState extends State<ReviewValidatorConfigForm> {
-  final TextEditingController _agentIdController = TextEditingController();
   final TextEditingController _criteriaController = TextEditingController();
   final TextEditingController _timeoutController = TextEditingController();
 
+  String? _agentId;
   String _harnessType = NodeTypeId.claudeCode;
   bool _hasTimeoutError = false;
 
@@ -46,7 +47,6 @@ class _ReviewValidatorConfigFormState extends State<ReviewValidatorConfigForm> {
 
   @override
   void dispose() {
-    _agentIdController.dispose();
     _criteriaController.dispose();
     _timeoutController.dispose();
     super.dispose();
@@ -58,7 +58,7 @@ class _ReviewValidatorConfigFormState extends State<ReviewValidatorConfigForm> {
     _harnessType = headlessHarnessTypeIds.contains(config.harnessType)
         ? config.harnessType
         : NodeTypeId.claudeCode;
-    _agentIdController.text = config.agentId ?? '';
+    _agentId = _nullIfEmpty(config.agentId ?? '');
     _criteriaController.text = config.reviewCriteria ?? '';
     _timeoutController.text = config.timeoutSeconds?.toString() ?? '';
   }
@@ -89,7 +89,7 @@ class _ReviewValidatorConfigFormState extends State<ReviewValidatorConfigForm> {
     widget.onConfigChanged(
       ReviewValidatorNodeConfig(
         harnessType: _harnessType,
-        agentId: _nullIfEmpty(_agentIdController.text),
+        agentId: _agentId,
         reviewCriteria: _nullIfEmpty(_criteriaController.text),
         timeoutSeconds: timeout.value,
       ).toJson(),
@@ -128,13 +128,13 @@ class _ReviewValidatorConfigFormState extends State<ReviewValidatorConfigForm> {
           },
         ),
         SizedBox(height: spacing.space2),
-        HiveTextField(
-          key: const Key('config_review_agent_id'),
-          label: l10n.nodeConfigAgentIdLabel,
-          hint: l10n.nodeConfigAgentIdHint,
-          helperText: l10n.nodeConfigAgentIdHelper,
-          controller: _agentIdController,
-          onChanged: (_) => _emit(),
+        AgentLibrarySelectField(
+          selectKey: const Key('config_review_agent_id'),
+          agentId: _agentId,
+          onChanged: (value) {
+            setState(() => _agentId = value);
+            _emit();
+          },
         ),
         SizedBox(height: spacing.space2),
         HiveTextField(
