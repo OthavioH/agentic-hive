@@ -22,6 +22,7 @@ import 'package:agentic_hive_frontend/routes/app_router_provider.dart';
 import 'package:agentic_hive_frontend/routes/app_routes.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -131,11 +132,41 @@ final class _FakeBackendLauncher implements BackendLauncher {
 }
 
 final class _FakeWindowLifecycleService implements WindowLifecycleService {
+  final ValueNotifier<bool> _isMaximized = ValueNotifier<bool>(false);
+
+  @override
+  bool get hasCustomTitleBar => true;
+
+  @override
+  bool get showSystemMenuOnRelease => false;
+
+  @override
+  ValueListenable<bool> get isMaximized => _isMaximized;
+
+  @override
+  void configureTitleBar() {}
+
+  @override
+  Future<Result<void>> setTitle(String title) async =>
+      const Success<void>(null);
+
   @override
   Future<void> initialize({
     required VoidCallback onCloseRequested,
     VoidCallback? onQuitRequested,
   }) async {}
+
+  @override
+  Future<void> minimize() async {}
+
+  @override
+  Future<void> toggleMaximize() async {}
+
+  @override
+  Future<void> startDragging() async {}
+
+  @override
+  Future<void> showSystemMenu(Offset globalPosition) async {}
 
   @override
   Future<void> hideToTray() async {}

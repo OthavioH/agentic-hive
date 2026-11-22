@@ -20,8 +20,10 @@ import 'package:agentic_hive_frontend/presentation/pauses/pages/pauses_page.dart
 import 'package:agentic_hive_frontend/presentation/runs/pages/runs_page.dart';
 import 'package:agentic_hive_frontend/presentation/settings/pages/settings_page.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/pages/workflows_page.dart';
+import 'package:agentic_hive_frontend/routes/app_router_provider.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -120,6 +122,36 @@ final class _FakeBackendLauncher implements BackendLauncher {
 }
 
 final class _FakeWindowLifecycleService implements WindowLifecycleService {
+  new({this.hasCustomTitleBar = true, bool initialMaximized = false})
+    : _isMaximized = ValueNotifier<bool>(initialMaximized);
+
+  @override
+  final bool hasCustomTitleBar;
+
+  @override
+  bool get showSystemMenuOnRelease => false;
+
+  final ValueNotifier<bool> _isMaximized;
+  final List<String> recordedTitles = <String>[];
+  int minimizeCount = 0;
+  int toggleMaximizeCount = 0;
+  int hideToTrayCount = 0;
+  int exitApplicationCount = 0;
+  int startDraggingCount = 0;
+  Offset? lastSystemMenuPosition;
+
+  @override
+  ValueListenable<bool> get isMaximized => _isMaximized;
+
+  bool get maximized => _isMaximized.value;
+
+  set maximized(bool value) {
+    _isMaximized.value = value;
+  }
+
+  @override
+  void configureTitleBar() {}
+
   @override
   Future<void> initialize({
     required VoidCallback onCloseRequested,
@@ -127,16 +159,49 @@ final class _FakeWindowLifecycleService implements WindowLifecycleService {
   }) async {}
 
   @override
-  Future<void> hideToTray() async {}
+  Future<Result<void>> setTitle(String title) async {
+    recordedTitles.add(title);
+    return const Success<void>(null);
+  }
+
+  @override
+  Future<void> minimize() async {
+    minimizeCount++;
+  }
+
+  @override
+  Future<void> toggleMaximize() async {
+    toggleMaximizeCount++;
+    _isMaximized.value = !_isMaximized.value;
+  }
+
+  @override
+  Future<void> startDragging() async {
+    startDraggingCount++;
+  }
+
+  @override
+  Future<void> showSystemMenu(Offset globalPosition) async {
+    lastSystemMenuPosition = globalPosition;
+  }
+
+  @override
+  Future<void> hideToTray() async {
+    hideToTrayCount++;
+  }
 
   @override
   Future<void> showAndFocus() async {}
 
   @override
-  Future<void> exitApplication() async {}
+  Future<void> exitApplication() async {
+    exitApplicationCount++;
+  }
 
   @override
-  Future<void> dispose() async {}
+  Future<void> dispose() async {
+    _isMaximized.dispose();
+  }
 }
 
 final class _FakeThemePreferenceStore implements ThemePreferenceStore {
@@ -386,5 +451,181 @@ void main() {
         expect(materialApp.themeMode, ThemeMode.light);
       },
     );
+
+    testWidgets(
+      'sets runtime window title from localized appTitle on startup',
+      (tester) async {
+        configureDesktopWindow(tester);
+        final fakeClient = _FakeBackendClient(statusResult: okStatus);
+        final windowService = _FakeWindowLifecycleService();
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              backendClientProvider.overrideWithValue(fakeClient),
+              backendLauncherProvider.overrideWithValue(_FakeBackendLauncher()),
+              windowLifecycleServiceProvider.overrideWithValue(windowService),
+              trayServiceProvider.overrideWithValue(_FakeTrayService()),
+              themePreferenceStoreProvider.overrideWithValue(
+                _FakeThemePreferenceStore(),
+              ),
+            ],
+            child: const HiveApp(),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(windowService.recordedTitles, <String>['Agentic Hive']);
+      },
+    );
+
+    testWidgets(
+      'mounts custom title bar on shell route, wires actions, and tracks '
+      'external maximize changes',
+      (tester) async {
+        configureDesktopWindow(tester);
+        final fakeClient = _FakeBackendClient(statusResult: okStatus);
+        final windowService = _FakeWindowLifecycleService();
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              backendClientProvider.overrideWithValue(fakeClient),
+              backendLauncherProvider.overrideWithValue(_FakeBackendLauncher()),
+              windowLifecycleServiceProvider.overrideWithValue(windowService),
+              trayServiceProvider.overrideWithValue(_FakeTrayService()),
+              themePreferenceStoreProvider.overrideWithValue(
+                _FakeThemePreferenceStore(),
+              ),
+            ],
+            child: const HiveApp(),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final l10n = l10nFrom(tester);
+        expect(find.byType(HiveTitleBar), findsOneWidget);
+
+        Finder captionButtons() => find.descendant(
+          of: find.byType(HiveTitleBar),
+          matching: find.byType(HiveIconButton),
+        );
+        expect(captionButtons(), findsNWidgets(3));
+        expect(
+          tester.widget<HiveIconButton>(captionButtons().at(0)).semanticLabel,
+          l10n.windowMinimize,
+        );
+        expect(
+          tester.widget<HiveIconButton>(captionButtons().at(1)).semanticLabel,
+          l10n.windowMaximize,
+        );
+        final initialMaximizeIcon = tester
+            .widget<HiveIconButton>(captionButtons().at(1))
+            .icon;
+        expect(
+          tester.widget<HiveIconButton>(captionButtons().at(2)).semanticLabel,
+          l10n.windowCloseToTray,
+        );
+
+        await tester.tap(captionButtons().at(0));
+        expect(windowService.minimizeCount, 1);
+
+        await tester.tap(captionButtons().at(1));
+        await tester.pump();
+        expect(windowService.toggleMaximizeCount, 1);
+        expect(
+          tester.widget<HiveIconButton>(captionButtons().at(1)).semanticLabel,
+          l10n.windowRestore,
+        );
+        expect(
+          tester.widget<HiveIconButton>(captionButtons().at(1)).icon,
+          isNot(equals(initialMaximizeIcon)),
+        );
+
+        windowService.maximized = false;
+        await tester.pump();
+        expect(
+          tester.widget<HiveIconButton>(captionButtons().at(1)).semanticLabel,
+          l10n.windowMaximize,
+        );
+        expect(
+          tester.widget<HiveIconButton>(captionButtons().at(1)).icon,
+          equals(initialMaximizeIcon),
+        );
+
+        await tester.tap(captionButtons().at(2));
+        expect(windowService.hideToTrayCount, 1);
+        expect(windowService.exitApplicationCount, 0);
+      },
+    );
+
+    testWidgets('mounts custom title bar on /connecting and error route', (
+      tester,
+    ) async {
+      configureDesktopWindow(tester);
+      final fakeClient = _FakeBackendClient(statusResult: downStatus);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            backendClientProvider.overrideWithValue(fakeClient),
+            backendLauncherProvider.overrideWithValue(_FakeBackendLauncher()),
+            windowLifecycleServiceProvider.overrideWithValue(
+              _FakeWindowLifecycleService(),
+            ),
+            trayServiceProvider.overrideWithValue(_FakeTrayService()),
+            themePreferenceStoreProvider.overrideWithValue(
+              _FakeThemePreferenceStore(),
+            ),
+          ],
+          child: const HiveApp(),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(ConnectingPage), findsOneWidget);
+      expect(find.byType(HiveTitleBar), findsOneWidget);
+
+      // Navigate to an unknown route when connected -> RouteErrorPage still
+      // has the custom title bar.
+      fakeClient.statusResult = okStatus;
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(HiveApp)),
+      );
+      await container.read(backendConnectionProvider.notifier).reconnect();
+      await tester.pumpAndSettle();
+      container.read(appRouterProvider).go('/does-not-exist');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HiveTitleBar), findsOneWidget);
+    });
+
+    testWidgets('omits custom title bar when hasCustomTitleBar is false', (
+      tester,
+    ) async {
+      configureDesktopWindow(tester);
+      final fakeClient = _FakeBackendClient(statusResult: okStatus);
+      final windowService = _FakeWindowLifecycleService(
+        hasCustomTitleBar: false,
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            backendClientProvider.overrideWithValue(fakeClient),
+            backendLauncherProvider.overrideWithValue(_FakeBackendLauncher()),
+            windowLifecycleServiceProvider.overrideWithValue(windowService),
+            trayServiceProvider.overrideWithValue(_FakeTrayService()),
+            themePreferenceStoreProvider.overrideWithValue(
+              _FakeThemePreferenceStore(),
+            ),
+          ],
+          child: const HiveApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HiveTitleBar), findsNothing);
+    });
   });
 }
