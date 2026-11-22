@@ -20,6 +20,7 @@ final class NodeExecutionContext {
     this.isolationMode = WorkspaceIsolationMode.direct,
     this.resultJsonPath,
     this.humanAnswer,
+    this.runInput,
     this.onOutput,
   });
 
@@ -53,6 +54,9 @@ final class NodeExecutionContext {
   /// The human's answer to an earlier `ask_human` question, set when the
   /// engine re-runs a node after resuming its paused run (ADR 0019).
   final String? humanAnswer;
+
+  /// Optional free-text run input passed only to the workflow's entry node.
+  final String? runInput;
 
   /// Optional callback for streamed output lines.
   final NodeOutputCallback? onOutput;

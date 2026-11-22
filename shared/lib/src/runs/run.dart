@@ -25,6 +25,7 @@ sealed class Run with _$Run {
     String? workflowId,
     DateTime? finishedAt,
     String? errorMessage,
+    String? input,
   }) = _Run;
 
   /// Decodes a run; throws a [FormatException] on a bad shape.

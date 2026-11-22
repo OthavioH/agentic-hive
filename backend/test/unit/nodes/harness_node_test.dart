@@ -186,6 +186,7 @@ NodeExecutionContext _context({
   String runId = 'run-1',
   JsonMap config = const {'additionalInstructions': 'Implement feature X'},
   String? humanAnswer,
+  String? runInput,
   WorkspaceIsolationMode isolationMode = WorkspaceIsolationMode.direct,
   String? resultJsonPath,
 }) => NodeExecutionContext(
@@ -194,6 +195,7 @@ NodeExecutionContext _context({
   workspacePath: '/tmp/workspace',
   config: config,
   humanAnswer: humanAnswer,
+  runInput: runInput,
   isolationMode: isolationMode,
   resultJsonPath: resultJsonPath,
 );
@@ -1064,6 +1066,58 @@ void main() {
         isFalse,
       );
       expect((await pendingPauseFuture).failureOrNull, isA<ConflictFailure>());
+    });
+
+    test('includes ## Run input section after agent prompt and before result '
+        'contract instructions when runInput is non-empty', () async {
+      final node = ClaudeCodeNode(
+        processRunner: processRunner,
+        resultContract: resultContract,
+        agentPromptResolver: agentResolver,
+      );
+
+      final result = await node.execute(
+        _context(
+          config: const {'agentId': 'coder'},
+          runInput: 'Check all Dart files for unused imports.',
+        ),
+      );
+
+      expect(result.isSuccess, isTrue);
+      final invocation = processRunner.lastInvocation!;
+      final prompt = invocation.stdinContent!;
+      expect(
+        invocation.arguments.join(' '),
+        isNot(contains('Check all Dart files')),
+      );
+      expect(
+        prompt,
+        contains('## Run input\nCheck all Dart files for unused imports.'),
+      );
+      final agentIdx = prompt.indexOf('You are a careful Dart engineer.');
+      final inputIdx = prompt.indexOf('## Run input');
+      final contractIdx = prompt.indexOf('Call report_result when finished.');
+      expect(agentIdx, lessThan(inputIdx));
+      expect(inputIdx, lessThan(contractIdx));
+    });
+
+    test('omits ## Run input section when runInput is null or blank', () async {
+      final node = ClaudeCodeNode(
+        processRunner: processRunner,
+        resultContract: resultContract,
+        agentPromptResolver: agentResolver,
+      );
+
+      for (final blank in [null, '', '   \n\t  ']) {
+        final result = await node.execute(
+          _context(config: const {'agentId': 'coder'}, runInput: blank),
+        );
+        expect(result.isSuccess, isTrue);
+        expect(
+          processRunner.lastInvocation!.stdinContent,
+          isNot(contains('## Run input')),
+        );
+      }
     });
   });
 }

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:agentic_hive_backend/src/core/failure.dart';
@@ -57,6 +58,7 @@ void main() {
     String? workflowId = 'wf-1',
     DateTime? finishedAt,
     String? errorMessage,
+    String? input,
   }) => Run(
     id: id,
     workflowId: workflowId,
@@ -67,6 +69,7 @@ void main() {
     startedAt: startedAt,
     finishedAt: finishedAt,
     errorMessage: errorMessage,
+    input: input,
   );
 
   test(
@@ -118,7 +121,7 @@ void main() {
         await db.close();
       }
 
-      expect(await readUserVersion(dbFile), 6);
+      expect(await readUserVersion(dbFile), 7);
       final metadata = await readMetadataRows(dbFile);
       expect(metadata['installed_at'], '2026-11-20T00:00:00.000Z');
       final indexes = await selectFromFile(
@@ -457,11 +460,140 @@ void main() {
       expect(events.items.single.payload, {'reason': 'backend_restarted'});
     },
   );
+
+  test('persists and reloads Run.input (both set and null)', () async {
+    final db = AppDatabase.open(dbFile);
+    addTearDown(db.close);
+    final runsRepo = DriftRunRepository(db);
+
+    await runsRepo.create(
+      makeRun(
+        id: 'r-with-input',
+        status: RunStatus.running,
+        startedAt: DateTime.utc(2026, 11, 20, 12),
+        input: 'Inspect all handlers.',
+      ),
+    );
+    await runsRepo.create(
+      makeRun(
+        id: 'r-without-input',
+        status: RunStatus.running,
+        startedAt: DateTime.utc(2026, 11, 20, 13),
+      ),
+    );
+
+    final loadedWith = (await runsRepo.getById('r-with-input')).valueOrNull!;
+    final loadedWithout = (await runsRepo.getById('r-without-input'))
+        .valueOrNull!;
+    expect(loadedWith.input, 'Inspect all handlers.');
+    expect(loadedWithout.input, isNull);
+  });
+
+  test('migrates schemaVersion 6 to 7 adding input column to runs', () async {
+    final v6Executor = NativeDatabase(dbFile);
+    await v6Executor.ensureOpen(_V6SeedUser());
+    await v6Executor.runCustom(
+      'CREATE TABLE app_metadata (key TEXT NOT NULL PRIMARY KEY, '
+      'value TEXT NOT NULL)',
+    );
+    await v6Executor.runCustom(
+      'CREATE TABLE workflows (id TEXT NOT NULL PRIMARY KEY, '
+      'name TEXT NOT NULL, description TEXT, definition_json TEXT NOT NULL, '
+      'created_at TEXT NOT NULL, updated_at TEXT NOT NULL)',
+    );
+    await v6Executor.runCustom(
+      'CREATE TABLE runs (id TEXT NOT NULL PRIMARY KEY, workflow_id TEXT, '
+      'workflow_name TEXT NOT NULL, workflow_definition_json TEXT NOT NULL, '
+      'workspace_path TEXT NOT NULL, status TEXT NOT NULL, '
+      'started_at TEXT NOT NULL, finished_at TEXT, error_message TEXT, '
+      "isolation_mode TEXT NOT NULL DEFAULT 'direct', "
+      'worktree_path TEXT, worktree_branch TEXT)',
+    );
+    await v6Executor.runInsert(
+      'INSERT INTO runs (id, workflow_id, workflow_name, '
+      'workflow_definition_json, workspace_path, status, started_at) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        'legacy-r1',
+        'wf-1',
+        'Build Flow',
+        jsonEncode(sampleWorkflow.toJson()),
+        '/tmp/ws',
+        'succeeded',
+        '2026-11-20T12:00:00.000Z',
+      ],
+    );
+    await v6Executor.runCustom(
+      'CREATE TABLE checkpoints (id TEXT NOT NULL PRIMARY KEY, '
+      'run_id TEXT NOT NULL, sequence INTEGER NOT NULL, '
+      'completed_node_id TEXT, pending_node_ids_json TEXT NOT NULL, '
+      'attempts_by_edge_json TEXT NOT NULL, '
+      'circuit_breaker_count INTEGER NOT NULL, '
+      'node_outputs_json TEXT NOT NULL, created_at TEXT NOT NULL)',
+    );
+    await v6Executor.runCustom(
+      'CREATE TABLE run_events (id TEXT NOT NULL PRIMARY KEY, '
+      'run_id TEXT NOT NULL, sequence INTEGER NOT NULL, type TEXT NOT NULL, '
+      'node_id TEXT, edge_id TEXT, payload_json TEXT NOT NULL, '
+      'created_at TEXT NOT NULL)',
+    );
+    await v6Executor.runCustom(
+      'CREATE TABLE settings (key TEXT NOT NULL PRIMARY KEY, '
+      'value TEXT NOT NULL, updated_at TEXT NOT NULL)',
+    );
+    await v6Executor.runCustom(
+      'CREATE TABLE snapshots (id TEXT NOT NULL PRIMARY KEY, '
+      'run_id TEXT NOT NULL, node_id TEXT, commit_hash TEXT NOT NULL, '
+      'kind TEXT NOT NULL, added_count INTEGER NOT NULL, '
+      'modified_count INTEGER NOT NULL, deleted_count INTEGER NOT NULL, '
+      'created_at TEXT NOT NULL)',
+    );
+    await v6Executor.runCustom(
+      'CREATE TABLE pauses (id TEXT NOT NULL PRIMARY KEY, '
+      'run_id TEXT NOT NULL, node_id TEXT NOT NULL, kind TEXT NOT NULL, '
+      'status TEXT NOT NULL, node_label TEXT NOT NULL, title TEXT, '
+      'instructions TEXT, allow_feedback INTEGER NOT NULL DEFAULT 1, '
+      'question TEXT, options_json TEXT NOT NULL, decision TEXT, '
+      'feedback TEXT, answer TEXT, created_at TEXT NOT NULL, answered_at TEXT)',
+    );
+    await v6Executor.runCustom('PRAGMA user_version = 6');
+    await v6Executor.close();
+
+    final db = AppDatabase.open(dbFile);
+    addTearDown(db.close);
+
+    expect(db.schemaVersion, 7);
+    final runsRepo = DriftRunRepository(db);
+    final legacy = (await runsRepo.getById('legacy-r1')).valueOrNull!;
+    expect(legacy.input, isNull);
+
+    await runsRepo.create(
+      makeRun(
+        id: 'r-new',
+        status: RunStatus.running,
+        startedAt: DateTime.utc(2026, 11, 21, 10),
+        input: 'New run input after migration',
+      ),
+    );
+    final loaded = (await runsRepo.getById('r-new')).valueOrNull!;
+    expect(loaded.input, 'New run input after migration');
+  });
 }
 
 final class _V2SeedUser implements QueryExecutorUser {
   @override
   int get schemaVersion => 2;
+
+  @override
+  Future<void> beforeOpen(
+    QueryExecutor executor,
+    OpeningDetails details,
+  ) async {}
+}
+
+final class _V6SeedUser implements QueryExecutorUser {
+  @override
+  int get schemaVersion => 6;
 
   @override
   Future<void> beforeOpen(

@@ -76,10 +76,12 @@ void main() {
         startedAt: DateTime.utc(2026, 11, 20, 12),
         finishedAt: DateTime.utc(2026, 11, 20, 12, 5),
         errorMessage: 'none',
+        input: 'Check all Dart files for unused imports.',
       );
 
       final json = run.toJson();
       expect(json['status'], 'running');
+      expect(json['input'], 'Check all Dart files for unused imports.');
       expect(json['workflowDefinition'], isA<Map<String, Object?>>());
       expect(Run.fromJson(json), run);
     });
@@ -100,6 +102,7 @@ void main() {
       expect(json.containsKey('errorMessage'), isFalse);
       expect(json.containsKey('worktreePath'), isFalse);
       expect(json.containsKey('worktreeBranch'), isFalse);
+      expect(json.containsKey('input'), isFalse);
       expect(Run.fromJson(json), run);
     });
 
@@ -290,8 +293,11 @@ void main() {
         workspacePath: '/tmp/ws',
         workspaceIsolationMode: WorkspaceIsolationMode.direct,
         ignorePatterns: ['build/', '*.tmp'],
+        input: 'Audit auth middleware',
       );
-      expect(StartRunRequest.fromJson(dto.toJson()), dto);
+      final json = dto.toJson();
+      expect(json['input'], 'Audit auth middleware');
+      expect(StartRunRequest.fromJson(json), dto);
 
       const minimal = StartRunRequest(
         workflowId: 'wf-2',
@@ -300,6 +306,7 @@ void main() {
       final minimalJson = minimal.toJson();
       expect(minimalJson.containsKey('workspaceIsolationMode'), isFalse);
       expect(minimalJson.containsKey('ignorePatterns'), isFalse);
+      expect(minimalJson.containsKey('input'), isFalse);
       expect(StartRunRequest.fromJson(minimalJson), minimal);
     });
 

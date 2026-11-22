@@ -2087,6 +2087,30 @@
   "@startRunConflictError": {
     "description": "Error message shown when starting a second direct run on the same workspace returns 409 Conflict."
   },
+  "startRunInputLabel": "Run input",
+  "@startRunInputLabel": {
+    "description": "Label for the optional run input field in the Start Run dialog."
+  },
+  "startRunInputHint": "Optional instructions for the entry node...",
+  "@startRunInputHint": {
+    "description": "Placeholder text for the run input field in the Start Run dialog."
+  },
+  "startRunInputHelper": "Optional. Passed only to the workflow's entry node.",
+  "@startRunInputHelper": {
+    "description": "Helper text below the run input field in the Start Run dialog."
+  },
+  "runDetailInputLabel": "Run input",
+  "@runDetailInputLabel": {
+    "description": "Section label for the run input card on the Run Detail page."
+  },
+  "runDetailInputShowMore": "Show more",
+  "@runDetailInputShowMore": {
+    "description": "Button label to expand a long run input on the Run Detail page."
+  },
+  "runDetailInputShowLess": "Show less",
+  "@runDetailInputShowLess": {
+    "description": "Button label to collapse a long run input on the Run Detail page."
+  },
   "runDetailCancelAction": "Cancel",
   "@runDetailCancelAction": {
     "description": "Header button label to cancel an active run."

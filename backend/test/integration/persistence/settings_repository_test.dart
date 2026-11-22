@@ -37,7 +37,7 @@ void main() {
       await raw.runCustom('PRAGMA user_version = 2');
       await raw.close();
 
-      // Open with AppDatabase (schemaVersion 6) -> runs onUpgrade(2 -> 6).
+      // Open with AppDatabase (schemaVersion 7) -> runs onUpgrade(2 -> 7).
       final db = AppDatabase.open(dbFile);
       try {
         await db.customSelect('SELECT 1').get();
@@ -45,7 +45,7 @@ void main() {
         await db.close();
       }
 
-      expect(await readUserVersion(dbFile), 6);
+      expect(await readUserVersion(dbFile), 7);
       final metadata = await readMetadataRows(dbFile);
       expect(metadata['installed_at'], '2026-11-20T00:00:00.000Z');
 

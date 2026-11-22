@@ -30,6 +30,9 @@ _Avoid_: link, transition
 One execution of a workflow, with its own state, history and workspace.
 _Avoid_: job, instance, execution
 
+**Run input**:
+Optional free-text task input provided when starting a run and passed to the entry node.
+
 **Workspace**:
 The folder where the nodes of a run work. It can be any folder, not necessarily a repository.
 _Avoid_: project, repo, sandbox

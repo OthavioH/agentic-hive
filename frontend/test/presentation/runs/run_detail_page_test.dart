@@ -357,6 +357,60 @@ void main() {
     await tester.pumpAndSettle();
     expect(repo.resumeCalls, 1);
   });
+
+  testWidgets('RunDetailPage renders collapsible run input when present', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final longInput = List<String>.generate(
+      8,
+      (i) => 'Line ${i + 1}: verify module ${i + 1} invariants.',
+    ).join('\n');
+    final repo = _InputRunRepository(longInput);
+    final ws = _FakeWsSession();
+    addTearDown(ws.close);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          runRepositoryProvider.overrideWithValue(repo),
+          backendWebSocketSessionProvider.overrideWithValue(ws),
+          backendWsMessagesProvider.overrideWith((ref) => ws.messages),
+        ],
+        child: _buildRouterHost(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('run_detail_input_card')), findsOneWidget);
+    final toggle = find.byKey(const Key('run_detail_input_toggle'));
+    expect(toggle, findsOneWidget);
+
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('Line 8: verify module 8 invariants.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+  });
+}
+
+final class _InputRunRepository extends _FakeRunRepository {
+  new(this._input);
+
+  final String? _input;
+
+  @override
+  Future<Result<Run>> getRun(String id) async {
+    final base = (await super.getRun(id)).valueOrNull!;
+    return Success(base.copyWith(input: _input));
+  }
 }
 
 final class _LiveMonitorRunRepository extends _FakeRunRepository {

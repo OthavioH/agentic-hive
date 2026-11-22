@@ -170,6 +170,7 @@ final class EngineHarness {
   Future<Run> createRun(
     Workflow workflow, {
     RunStatus status = RunStatus.running,
+    String? input,
   }) async {
     final run = Run(
       id: runId,
@@ -178,6 +179,7 @@ final class EngineHarness {
       workspacePath: '/workspace',
       status: status,
       startedAt: DateTime.utc(2026),
+      input: input,
     );
     await runs.create(run);
     return run;
