@@ -442,14 +442,32 @@ void main() {
           findsNothing,
         );
 
-        // Also verify unsupported and unknown statuses render their badges.
+        // Also verify unsupported and unknown statuses render their badges,
+        // and unknown offers Install when the CLI is installed.
         repo.updates
-          ..add(harnesses[0].copyWith(mcpStatus: HarnessMcpStatus.unsupported))
-          ..add(harnesses[1].copyWith(mcpStatus: HarnessMcpStatus.unknown));
+          ..add(
+            harnesses[0].copyWith(
+              mcpStatus: HarnessMcpStatus.unknown,
+              mcpMessage: 'Timed out while checking MCP status.',
+            ),
+          )
+          ..add(harnesses[1].copyWith(mcpStatus: HarnessMcpStatus.unsupported));
         await tester.pumpAndSettle();
 
         expect(find.text(l10n.harnessesMcpStatusUnsupported), findsOneWidget);
         expect(find.text(l10n.harnessesMcpStatusUnknown), findsOneWidget);
+        expect(
+          find.text('Timed out while checking MCP status.'),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey<String>('harness_mcp_install_claude_code')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey<String>('harness_mcp_install_codex')),
+          findsNothing,
+        );
       },
     );
 

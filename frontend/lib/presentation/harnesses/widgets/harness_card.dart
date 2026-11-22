@@ -335,7 +335,8 @@ class _McpStatusSection extends StatelessWidget {
     final showAction =
         !cliNotInstalled &&
         (harness.mcpStatus == HarnessMcpStatus.notInstalled ||
-            harness.mcpStatus == HarnessMcpStatus.outdated);
+            harness.mcpStatus == HarnessMcpStatus.outdated ||
+            harness.mcpStatus == HarnessMcpStatus.unknown);
     final mcpMessage = harness.mcpMessage;
 
     return DecoratedBox(

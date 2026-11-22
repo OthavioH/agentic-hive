@@ -18,6 +18,10 @@ Harnesses without a per-run `--mcp-config` flag (such as `agy`, `codex`, and `ge
 4. **Coexistence with per-run injection.** `ClaudeCodeNode` continues passing `--mcp-config` per run. Empirically, Claude Code overrides the user-scoped `hive` entry with the `--mcp-config` entry of the same name without starting a duplicate process.
 5. **Graceful behavior outside a run.** When `HIVE_*` environment variables are absent, `hive-mcp` starts normally, exposes `report_result` and `ask_human`, and returns an `isError: true` tool result explaining that it is not running inside an Agentic Hive run.
 
+## Detection
+
+Claude Code (`claude mcp get hive`) and Gemini CLI (`gemini mcp list`) health-check configured MCP servers by spawning them during probe commands. In development, `hive-mcp` runs via `dart run` and compiles first, causing those probes to exceed `defaultMcpProbeTimeout` under parallel startup load. Both installers therefore detect `mcpServers.hive` directly from their user-level JSON configuration files (`~/.claude.json` and `~/.gemini/settings.json`, parsing tolerantly so unrelated invalid entries do not break detection), while installation continues to go through the CLI commands.
+
 ## Considered options
 
 - **Shared `~/.agents` MCP config:** none of the four CLIs reads MCP servers from `~/.agents`.

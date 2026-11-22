@@ -1,8 +1,161 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/domain/harnesses/harness_mcp_installer.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
 import 'package:agentic_hive_backend/src/mcp/hive_mcp_locator.dart';
+import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:path/path.dart' as p;
+
+/// Resolves the current user's home directory from [environment].
+String? resolveUserHomePath([Map<String, String>? environment]) {
+  final env = environment ?? Platform.environment;
+  final home = env['USERPROFILE'] ?? env['HOME'];
+  if (home == null || home.trim().isEmpty) return null;
+  return home.trim();
+}
+
+/// Reads `mcpServers.hive` from a JSON user config file at [configPath] and
+/// compares it against [expectedCommand].
+///
+/// Used where the CLI's `mcp get`/`mcp list` subcommand health-checks servers
+/// and times out under parallel startup load (ADR 0020).
+Future<HarnessMcpDetectionResult> detectMcpFromJsonConfig({
+  required String? configPath,
+  required String displayName,
+  required HiveMcpLaunchCommand expectedCommand,
+  required Duration timeout,
+  required p.Context pathContext,
+}) async {
+  if (configPath == null) {
+    return HarnessMcpDetectionResult(
+      status: HarnessMcpStatus.unknown,
+      message: 'Could not locate user home directory for $displayName.',
+    );
+  }
+
+  final file = File(configPath);
+  if (!file.existsSync()) {
+    return const HarnessMcpDetectionResult(
+      status: HarnessMcpStatus.notInstalled,
+    );
+  }
+
+  final String raw;
+  try {
+    raw = await file.readAsString().timeout(timeout);
+  } on TimeoutException {
+    return HarnessMcpDetectionResult(
+      status: HarnessMcpStatus.unknown,
+      message: 'Timed out while reading $displayName MCP configuration.',
+    );
+  } on FileSystemException catch (e) {
+    return HarnessMcpDetectionResult(
+      status: HarnessMcpStatus.unknown,
+      message: 'Failed to read $displayName MCP configuration: ${e.message}',
+    );
+  }
+
+  final Object? decoded;
+  try {
+    decoded = jsonDecode(raw);
+  } on FormatException {
+    return HarnessMcpDetectionResult(
+      status: HarnessMcpStatus.unknown,
+      message: 'Could not parse $displayName MCP configuration.',
+    );
+  }
+
+  if (decoded is! Map<String, Object?>) {
+    return HarnessMcpDetectionResult(
+      status: HarnessMcpStatus.unknown,
+      message: 'Unexpected $displayName MCP configuration shape.',
+    );
+  }
+
+  final servers = decoded['mcpServers'];
+  if (servers == null) {
+    return const HarnessMcpDetectionResult(
+      status: HarnessMcpStatus.notInstalled,
+    );
+  }
+  if (servers is! Map<String, Object?>) {
+    return HarnessMcpDetectionResult(
+      status: HarnessMcpStatus.unknown,
+      message: 'Unexpected $displayName mcpServers configuration shape.',
+    );
+  }
+
+  final entry = servers[hiveMcpServerName];
+  if (entry == null) {
+    return const HarnessMcpDetectionResult(
+      status: HarnessMcpStatus.notInstalled,
+    );
+  }
+  if (entry is! Map<String, Object?>) {
+    return HarnessMcpDetectionResult(
+      status: HarnessMcpStatus.unknown,
+      message: 'Unexpected $displayName $hiveMcpServerName MCP entry shape.',
+    );
+  }
+
+  final type = entry['type'];
+  if (type is String && type != 'stdio') {
+    return HarnessMcpDetectionResult(
+      status: HarnessMcpStatus.outdated,
+      message: 'Configured $displayName MCP entry is not a stdio server.',
+    );
+  }
+  if (entry['disabled'] == true || entry['enabled'] == false) {
+    return HarnessMcpDetectionResult(
+      status: HarnessMcpStatus.outdated,
+      message: 'Configured $displayName MCP entry is disabled.',
+    );
+  }
+
+  final command = entry['command'];
+  final rawArgs = entry['args'];
+  if (command is! String) {
+    return HarnessMcpDetectionResult(
+      status: HarnessMcpStatus.outdated,
+      message: 'Configured $displayName MCP entry is missing a stdio command.',
+    );
+  }
+  final List<String> args;
+  if (rawArgs == null) {
+    args = const <String>[];
+  } else if (rawArgs is List<Object?>) {
+    args = rawArgs.whereType<String>().toList();
+    if (args.length != rawArgs.length) {
+      return HarnessMcpDetectionResult(
+        status: HarnessMcpStatus.unknown,
+        message: '$displayName MCP args contain non-string values.',
+      );
+    }
+  } else {
+    return HarnessMcpDetectionResult(
+      status: HarnessMcpStatus.unknown,
+      message: '$displayName MCP args have an unexpected shape.',
+    );
+  }
+
+  if (mcpCommandMatches(
+    command: command,
+    args: args,
+    expected: expectedCommand,
+    pathContext: pathContext,
+  )) {
+    return const HarnessMcpDetectionResult(status: HarnessMcpStatus.installed);
+  }
+
+  return HarnessMcpDetectionResult(
+    status: HarnessMcpStatus.outdated,
+    message: 'Configured $displayName MCP command is outdated.',
+  );
+}
 
 /// Checks whether a configured [command] and [args] match [expected].
 bool mcpCommandMatches({

@@ -125,88 +125,94 @@ class HiveConfirmDialog extends StatelessWidget {
                 ),
                 boxShadow: context.hiveElevation.shadowMedium,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  Flexible(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          if (leading != null) ...<Widget>[
-                            Container(
-                              width: spacing.space6,
-                              height: spacing.space6,
-                              alignment: Alignment.center,
-                              decoration: ShapeDecoration(
-                                color: tone == HiveConfirmTone.destructive
-                                    ? colors.danger
-                                    : colors.surface3,
-                                shape: const CircleBorder(),
+              child: DefaultTextStyle(
+                style: typography.body.copyWith(
+                  color: colors.onSurface,
+                  decoration: TextDecoration.none,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            if (leading != null) ...<Widget>[
+                              Container(
+                                width: spacing.space6,
+                                height: spacing.space6,
+                                alignment: Alignment.center,
+                                decoration: ShapeDecoration(
+                                  color: tone == HiveConfirmTone.destructive
+                                      ? colors.danger
+                                      : colors.surface3,
+                                  shape: const CircleBorder(),
+                                ),
+                                child: HiveIcon(
+                                  leading,
+                                  size: spacing.space3,
+                                  color: tone == HiveConfirmTone.destructive
+                                      ? colors.onDanger
+                                      : colors.onSurface,
+                                ),
                               ),
-                              child: HiveIcon(
-                                leading,
-                                size: spacing.space3,
-                                color: tone == HiveConfirmTone.destructive
-                                    ? colors.onDanger
-                                    : colors.onSurface,
+                              SizedBox(height: spacing.space2),
+                            ],
+                            Semantics(
+                              header: true,
+                              child: Text(
+                                title,
+                                style: typography.titleSmall.copyWith(
+                                  color: colors.onSurface,
+                                ),
                               ),
                             ),
-                            SizedBox(height: spacing.space2),
+                            SizedBox(height: spacing.space1),
+                            Text(
+                              message,
+                              style: typography.body.copyWith(
+                                color: colors.onSurfaceMuted,
+                              ),
+                            ),
+                            if (extra != null) ...<Widget>[
+                              SizedBox(height: spacing.space2),
+                              extra,
+                            ],
                           ],
-                          Semantics(
-                            header: true,
-                            child: Text(
-                              title,
-                              style: typography.titleSmall.copyWith(
-                                color: colors.onSurface,
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: spacing.space1),
-                          Text(
-                            message,
-                            style: typography.body.copyWith(
-                              color: colors.onSurfaceMuted,
-                            ),
-                          ),
-                          if (extra != null) ...<Widget>[
-                            SizedBox(height: spacing.space2),
-                            extra,
-                          ],
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                  SizedBox(height: spacing.space4),
-                  Wrap(
-                    alignment: WrapAlignment.end,
-                    spacing: spacing.space1,
-                    runSpacing: spacing.space1,
-                    children: <Widget>[
-                      HiveButton(
-                        label: cancelLabel,
-                        variant: HiveButtonVariant.ghost,
-                        autofocus: !tone.autofocusConfirm,
-                        onPressed: onCancel,
-                      ),
-                      if (secondary != null)
+                    SizedBox(height: spacing.space4),
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: spacing.space1,
+                      runSpacing: spacing.space1,
+                      children: <Widget>[
                         HiveButton(
-                          label: secondary,
-                          variant: HiveButtonVariant.secondary,
-                          onPressed: onSecondary,
+                          label: cancelLabel,
+                          variant: HiveButtonVariant.ghost,
+                          autofocus: !tone.autofocusConfirm,
+                          onPressed: onCancel,
                         ),
-                      HiveButton(
-                        label: confirmLabel,
-                        variant: tone.confirmVariant,
-                        autofocus: tone.autofocusConfirm,
-                        onPressed: onConfirm,
-                      ),
-                    ],
-                  ),
-                ],
+                        if (secondary != null)
+                          HiveButton(
+                            label: secondary,
+                            variant: HiveButtonVariant.secondary,
+                            onPressed: onSecondary,
+                          ),
+                        HiveButton(
+                          label: confirmLabel,
+                          variant: tone.confirmVariant,
+                          autofocus: tone.autofocusConfirm,
+                          onPressed: onConfirm,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
