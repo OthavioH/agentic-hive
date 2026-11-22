@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show Offset;
 
 import 'package:flutter/foundation.dart';
 import 'package:nativeapi/nativeapi.dart' as na;
@@ -13,11 +14,30 @@ part 'window_lifecycle_service.g.dart';
 /// Intercepts window close events to hide the window to the system tray,
 /// restores and focuses the window on demand, and exits the UI cleanly.
 abstract interface class WindowLifecycleService {
-  /// Registers native window and application quit listeners.
+  /// Whether this platform renders the app's custom title bar.
+  bool get hasCustomTitleBar;
+
+  /// Whether the main window is currently maximized.
+  ValueListenable<bool> get isMaximized;
+
+  /// Registers native window and application quit listeners and configures
+  /// the window title bar style.
   Future<void> initialize({
     required VoidCallback onCloseRequested,
     VoidCallback? onQuitRequested,
   });
+
+  /// Minimizes the main window.
+  Future<void> minimize();
+
+  /// Toggles between maximized and restored states.
+  Future<void> toggleMaximize();
+
+  /// Starts an interactive window drag from the custom title bar.
+  Future<void> startDragging();
+
+  /// Opens the native window system menu at [globalPosition].
+  Future<void> showSystemMenu(Offset globalPosition);
 
   /// Hides the main window to the system tray without exiting.
   Future<void> hideToTray();
@@ -58,8 +78,12 @@ abstract base class NativeWindowLifecycleService
   Window? _window;
   ListenerId? _windowListenerId;
   na.ListenerId? _appListenerId;
+  final ValueNotifier<bool> _isMaximized = ValueNotifier<bool>(false);
   bool _disposed = false;
   bool _exiting = false;
+
+  @override
+  ValueListenable<bool> get isMaximized => _isMaximized;
 
   /// Whether an exit sequence has started and quit events must not be
   /// cancelled.
@@ -82,15 +106,22 @@ abstract base class NativeWindowLifecycleService
     if (_disposed || !hasDisplay) return;
 
     final window = WindowManager.instance.getCurrent();
-    if (window != null && _windowListenerId == null) {
-      _window = window;
-      _windowListenerId = window.addListener((event) {
-        if (event is WindowCloseRequestedEvent) {
-          if (_exiting) return;
-          event.request.cancel();
-          onCloseRequested();
-        }
-      });
+    if (window != null) {
+      window.titleBarStyle = TitleBarStyle.hidden;
+      _isMaximized.value = window.isMaximized;
+      if (_windowListenerId == null) {
+        _window = window;
+        _windowListenerId = window.addListener((event) {
+          if (event is WindowCloseRequestedEvent) {
+            if (_exiting) return;
+            event.request.cancel();
+            onCloseRequested();
+          } else if (event is WindowMaximizedEvent ||
+              event is WindowRestoredEvent) {
+            _isMaximized.value = window.isMaximized;
+          }
+        });
+      }
     }
 
     if (onQuitRequested != null && _appListenerId == null) {
@@ -114,6 +145,43 @@ abstract base class NativeWindowLifecycleService
     if (_exiting || _disposed) return;
     event.request.cancel();
     onQuitRequested();
+  }
+
+  @override
+  Future<void> minimize() async {
+    if (_disposed || !hasDisplay) return;
+    final window = _window ?? WindowManager.instance.getCurrent();
+    if (window == null) return;
+    window.minimize();
+  }
+
+  @override
+  Future<void> toggleMaximize() async {
+    if (_disposed || !hasDisplay) return;
+    final window = _window ?? WindowManager.instance.getCurrent();
+    if (window == null) return;
+    if (window.isMaximized) {
+      window.unmaximize();
+    } else {
+      window.maximize();
+    }
+    _isMaximized.value = window.isMaximized;
+  }
+
+  @override
+  Future<void> startDragging() async {
+    if (_disposed || !hasDisplay) return;
+    final window = _window ?? WindowManager.instance.getCurrent();
+    if (window == null) return;
+    window.startDragging();
+  }
+
+  @override
+  Future<void> showSystemMenu(Offset globalPosition) async {
+    if (_disposed || !hasDisplay) return;
+    final window = _window ?? WindowManager.instance.getCurrent();
+    if (window == null) return;
+    window.showSystemMenu(na.Point(x: globalPosition.dx, y: globalPosition.dy));
   }
 
   @override
@@ -181,6 +249,7 @@ abstract base class NativeWindowLifecycleService
       } on Object catch (_) {}
     }
     _window = null;
+    _isMaximized.dispose();
   }
 }
 
@@ -188,6 +257,9 @@ abstract base class NativeWindowLifecycleService
 final class WindowsWindowLifecycleService extends NativeWindowLifecycleService {
   /// Creates a [WindowsWindowLifecycleService].
   new({super.quitRunner});
+
+  @override
+  bool get hasCustomTitleBar => true;
 
   @override
   bool get hideFromTaskbarWhenHidden => true;
@@ -204,6 +276,9 @@ final class LinuxWindowLifecycleService extends NativeWindowLifecycleService {
   /// Optional environment map override for testing display detection.
   @visibleForTesting
   final Map<String, String>? environment;
+
+  @override
+  bool get hasCustomTitleBar => true;
 
   @override
   bool get hideFromTaskbarWhenHidden => true;
@@ -223,6 +298,9 @@ final class LinuxWindowLifecycleService extends NativeWindowLifecycleService {
 final class MacOSWindowLifecycleService extends NativeWindowLifecycleService {
   /// Creates a [MacOSWindowLifecycleService].
   new({super.quitRunner});
+
+  @override
+  bool get hasCustomTitleBar => false;
 
   @override
   bool get hideFromTaskbarWhenHidden => false;

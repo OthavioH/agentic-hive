@@ -57,6 +57,8 @@ const Map<String, String> _useCases = <String, String>{
   'ANSI palette': 'Take over',
   'Overview row': 'Succeeded today',
   'Long value and label': '1,284,356',
+  'Title bar · Restored': '',
+  'Title bar · Maximized': '',
 };
 
 void main() {

@@ -225,6 +225,48 @@ void main() {
           const HiveHexMark(semanticLabel: 'Agentic Hive'),
         );
       });
+
+      testWidgets('HiveTitleBar restored', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_title_bar_restored',
+          Align(
+            alignment: Alignment.topCenter,
+            child: HiveTitleBar(
+              isMaximized: false,
+              minimizeLabel: 'Minimize',
+              maximizeLabel: 'Maximize',
+              restoreLabel: 'Restore',
+              closeLabel: 'Close to tray',
+              onMinimize: () {},
+              onToggleMaximize: () {},
+              onClose: () {},
+            ),
+          ),
+          size: const Size(720, 80),
+        );
+      });
+
+      testWidgets('HiveTitleBar maximized', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_title_bar_maximized',
+          Align(
+            alignment: Alignment.topCenter,
+            child: HiveTitleBar(
+              isMaximized: true,
+              minimizeLabel: 'Minimize',
+              maximizeLabel: 'Maximize',
+              restoreLabel: 'Restore',
+              closeLabel: 'Close to tray',
+              onMinimize: () {},
+              onToggleMaximize: () {},
+              onClose: () {},
+            ),
+          ),
+          size: const Size(720, 80),
+        );
+      });
     });
   }
 }

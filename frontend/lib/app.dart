@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:agentic_hive_frontend/core/backend/backend_connection.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/app_lifecycle_controller.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/tray_service.dart';
+import 'package:agentic_hive_frontend/core/lifecycle/window_lifecycle_service.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/window_title_provider.dart';
 import 'package:agentic_hive_frontend/core/theme/theme_preference_controller.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
@@ -15,6 +16,7 @@ import 'package:flutter_localizations/flutter_localizations.dart'
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:window_manager/window_manager.dart' show DragToResizeArea;
 
 /// Root widget of the Agentic Hive desktop application.
 class HiveApp extends ConsumerWidget {
@@ -171,6 +173,48 @@ class _LifecycleBridgeState extends ConsumerState<_LifecycleBridge> {
         }
       });
 
-    return widget.child;
+    final windowService = ref.watch(windowLifecycleServiceProvider);
+    final l10n = AppLocalizations.of(context);
+    if (!windowService.hasCustomTitleBar || l10n == null) {
+      return widget.child;
+    }
+
+    return Overlay.wrap(
+      child: DragToResizeArea(
+        child: FocusTraversalGroup(
+          policy: OrderedTraversalPolicy(),
+          child: Column(
+            children: <Widget>[
+              FocusTraversalOrder(
+                order: const NumericFocusOrder(2),
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: windowService.isMaximized,
+                  builder: (context, isMaximized, _) => HiveTitleBar(
+                    isMaximized: isMaximized,
+                    minimizeLabel: l10n.windowMinimize,
+                    maximizeLabel: l10n.windowMaximize,
+                    restoreLabel: l10n.windowRestore,
+                    closeLabel: l10n.windowCloseToTray,
+                    onMinimize: () => unawaited(windowService.minimize()),
+                    onToggleMaximize: () =>
+                        unawaited(windowService.toggleMaximize()),
+                    onClose: () => unawaited(windowService.hideToTray()),
+                    onDragStart: () => unawaited(windowService.startDragging()),
+                    onSystemMenu: (position) =>
+                        unawaited(windowService.showSystemMenu(position)),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: FocusTraversalOrder(
+                  order: const NumericFocusOrder(1),
+                  child: widget.child,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

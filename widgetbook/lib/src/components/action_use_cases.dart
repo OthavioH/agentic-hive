@@ -508,6 +508,41 @@ class _RailShell extends StatefulWidget {
   State<_RailShell> createState() => _RailShellState();
 }
 
+/// `HiveTitleBar`: restored and maximized states.
+WidgetbookComponent titleBarComponent() {
+  Widget frame({required bool isMaximized}) {
+    return UseCaseFrame(
+      child: SizedBox(
+        width: 720,
+        child: HiveTitleBar(
+          isMaximized: isMaximized,
+          minimizeLabel: 'Minimize',
+          maximizeLabel: 'Maximize',
+          restoreLabel: 'Restore',
+          closeLabel: 'Close to tray',
+          onMinimize: _noop,
+          onToggleMaximize: _noop,
+          onClose: _noop,
+        ),
+      ),
+    );
+  }
+
+  return WidgetbookComponent(
+    name: 'HiveTitleBar',
+    useCases: <WidgetbookUseCase>[
+      WidgetbookUseCase(
+        name: 'Title bar · Restored',
+        builder: (context) => frame(isMaximized: false),
+      ),
+      WidgetbookUseCase(
+        name: 'Title bar · Maximized',
+        builder: (context) => frame(isMaximized: true),
+      ),
+    ],
+  );
+}
+
 class _RailShellState extends State<_RailShell> {
   int _selected = 0;
 

@@ -2572,5 +2572,21 @@
   "overviewFailureUnexpected": "An unexpected error occurred.",
   "@overviewFailureUnexpected": {
     "description": "Fallback localized error message on Overview."
+  },
+  "windowMinimize": "Minimize",
+  "@windowMinimize": {
+    "description": "Accessible label and tooltip for the window minimize button."
+  },
+  "windowMaximize": "Maximize",
+  "@windowMaximize": {
+    "description": "Accessible label and tooltip for the window maximize button."
+  },
+  "windowRestore": "Restore",
+  "@windowRestore": {
+    "description": "Accessible label and tooltip for the window restore button when maximized."
+  },
+  "windowCloseToTray": "Close to tray",
+  "@windowCloseToTray": {
+    "description": "Accessible label and tooltip for the window close-to-tray button."
   }
 }
