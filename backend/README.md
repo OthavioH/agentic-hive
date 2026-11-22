@@ -74,23 +74,36 @@ dart run build_runner build --delete-conflicting-outputs
 
 ### Build
 
-`dart compile exe` does **not** work: the `sqlite3` package ships SQLite through a build hook. Use `dart build cli`, from `backend/`:
+`dart compile exe` does **not** work: the `sqlite3` package ships SQLite through a build hook. Use `dart build cli`. It builds one entry point per run and replaces its output folder, so build the backend with the repository tool, from the repository root:
 
 ```sh
-dart build cli
+dart run tool/build_backend_bundle.dart <bundle-dir>
 ```
 
-It produces a bundle for the current OS and CPU, for example `build/cli/windows_x64/bundle/`:
+It runs `dart build cli` for `bin/server.dart` and `bin/hive_mcp.dart` and merges the results into `<bundle-dir>/backend/`:
 
 ```
-bundle/
+backend/
 ├── bin/server(.exe)      # the backend
-└── lib/sqlite3.(dll|so|dylib)
+├── bin/hive_mcp(.exe)    # MCP stdio proxy for harnesses (ADR 0015)
+└── lib/sqlite3.dll | libsqlite3.so | libsqlite3.dylib
 ```
 
-Ship the **whole bundle**: the executable loads SQLite from `../lib`. Build on each target OS (Windows, Linux, macOS); CI release builds will do this later.
+Ship the **whole folder**: the executables load SQLite from `../lib`, and harnesses find `hive_mcp` next to `server`. Build on each target OS.
 
 The compiled executable runs in production mode: it logs at `INFO` and, unless `--data-dir` or `--config` say otherwise, uses the OS data folder below.
+
+### Release
+
+Releases are built by `.github/workflows/release.yml` (ADR 0023) for Windows and Linux. On each OS it builds the app with `flutter build <os> --release`, builds `backend/` into the app's output folder with the tool above (the **Bundle**), and smoke-tests it:
+
+```sh
+dart run tool/smoke_bundle.dart <bundle-dir>
+```
+
+The smoke test checks that the app executable, `backend/bin/server`, `backend/bin/hive_mcp` and the SQLite library exist, starts the bundled backend with a temporary data folder and calls `GET /health` over its socket.
+
+Pushing a tag `vX.Y.Z` on `master` publishes a GitHub pre-release with `agentic-hive-<version>-windows-x64.zip`, `agentic-hive-<version>-linux-x64.tar.gz` and `SHA256SUMS`. The tag must equal the version in `frontend/pubspec.yaml`. Running the workflow by hand (`workflow_dispatch`) is a dry run: it uploads the archives as workflow artifacts and publishes nothing. Builds are not signed yet.
 
 ### How the backend gets started (planned)
 
@@ -119,7 +132,7 @@ The backend keeps running when the app closes, so runs continue in the backgroun
 | Linux | A symlink in `~/.local/bin` | `agentic-hive-backend` |
 | macOS | A symlink in `/usr/local/bin` (or `~/.local/bin`) | `agentic-hive-backend` |
 
-The command name is a proposal. Until the installer exists, run the bundle directly, for example `build/cli/linux_x64/bundle/bin/server`.
+The command name is a proposal. Until the installer exists, run `backend/bin/server` from an extracted Release (or `<bundle-dir>/backend/bin/server` from a local build).
 
 ## Data folder, configuration and logs
 
