@@ -539,8 +539,74 @@ WidgetbookComponent titleBarComponent() {
         name: 'Title bar · Maximized',
         builder: (context) => frame(isMaximized: true),
       ),
+      for (final state in <PreviewState>[
+        PreviewState.hovered,
+        PreviewState.focused,
+        PreviewState.pressed,
+      ])
+        WidgetbookUseCase(
+          name: 'Caption buttons · ${state.label}',
+          builder: (context) =>
+              UseCaseFrame(child: _CaptionButtonsPreview(state: state)),
+        ),
     ],
   );
+}
+
+/// The three caption buttons on the strip `background`, all seeded with the
+/// same [state] so hover, focus and pressed (and close on `danger`) can be
+/// reviewed side by side.
+class _CaptionButtonsPreview extends StatelessWidget {
+  const new({required this.state});
+
+  final PreviewState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = context.hiveSpacing;
+    return ColoredBox(
+      color: context.hiveColors.background,
+      child: Padding(
+        padding: EdgeInsets.all(spacing.space1),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          spacing: spacing.spaceHalf,
+          children: <Widget>[
+            StatesPreview(
+              states: state.states,
+              builder: (controller) => HiveIconButton(
+                icon: HiveIcons.minimize,
+                semanticLabel: 'Minimize',
+                size: HiveButtonSize.small,
+                statesController: controller,
+                onPressed: _noop,
+              ),
+            ),
+            StatesPreview(
+              states: state.states,
+              builder: (controller) => HiveIconButton(
+                icon: HiveIcons.maximize,
+                semanticLabel: 'Maximize',
+                size: HiveButtonSize.small,
+                statesController: controller,
+                onPressed: _noop,
+              ),
+            ),
+            StatesPreview(
+              states: state.states,
+              builder: (controller) => HiveIconButton.dangerHover(
+                icon: HiveIcons.close,
+                semanticLabel: 'Close to tray',
+                size: HiveButtonSize.small,
+                statesController: controller,
+                onPressed: _noop,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _RailShellState extends State<_RailShell> {
