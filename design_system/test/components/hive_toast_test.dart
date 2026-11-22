@@ -1,5 +1,6 @@
 import 'package:design_system/design_system.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -244,5 +245,56 @@ void main() {
       await tester.pump();
       expect(find.byType(HiveToast), findsNothing);
     });
+
+    testWidgets(
+      'renders without yellow double underline in a root overlay without '
+      'DefaultTextStyle',
+      (tester) async {
+        await tester.pumpWidget(
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: DefaultTextStyle(
+              // Mimics WidgetsApp/MaterialApp's fallback error text style
+              // above the root Overlay (yellow double underline).
+              style: const TextStyle(
+                decoration: TextDecoration.underline,
+                decorationColor: Color(0xFFFFFF00),
+                decorationStyle: TextDecorationStyle.double,
+              ),
+              child: Theme(
+                data: HiveTheme.dark(),
+                child: Overlay(
+                  initialEntries: <OverlayEntry>[
+                    OverlayEntry(
+                      builder: (context) => Center(
+                        child: HiveButton(
+                          label: 'Show toast',
+                          onPressed: () => HiveToast.show(
+                            context,
+                            message: 'MCP updated',
+                            tone: HiveToastTone.success,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('Show toast'));
+        await tester.pump();
+        await tester.pump(HiveMotionTokens.standard.medium);
+
+        final paragraph = tester.renderObject<RenderParagraph>(
+          find.text('MCP updated'),
+        );
+        expect(paragraph.text.style?.decoration, TextDecoration.none);
+
+        await _runOut(tester);
+      },
+    );
   });
 }
