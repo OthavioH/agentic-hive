@@ -218,6 +218,60 @@
   "@harnessGuidanceUnavailable": {
     "description": "Actionable guidance shown when a harness probe fails."
   },
+  "harnessesMcpStatusInstalled": "MCP installed",
+  "@harnessesMcpStatusInstalled": {
+    "description": "Badge label when the Hive MCP server is installed and current for a harness."
+  },
+  "harnessesMcpStatusNotInstalled": "MCP not installed",
+  "@harnessesMcpStatusNotInstalled": {
+    "description": "Badge label when the Hive MCP server is not installed for a harness."
+  },
+  "harnessesMcpStatusOutdated": "MCP outdated",
+  "@harnessesMcpStatusOutdated": {
+    "description": "Badge label when the installed Hive MCP server points to an outdated command."
+  },
+  "harnessesMcpStatusUnsupported": "MCP unsupported",
+  "@harnessesMcpStatusUnsupported": {
+    "description": "Badge label when a harness does not support Hive MCP installation."
+  },
+  "harnessesMcpStatusUnknown": "MCP status unknown",
+  "@harnessesMcpStatusUnknown": {
+    "description": "Badge label when detecting Hive MCP installation status failed."
+  },
+  "harnessesMcpStatusNotApplicable": "MCP not applicable",
+  "@harnessesMcpStatusNotApplicable": {
+    "description": "Badge label for MCP status when the harness CLI itself is not installed."
+  },
+  "harnessesMcpInstall": "Install",
+  "@harnessesMcpInstall": {
+    "description": "Button label to install the Hive MCP server into a harness."
+  },
+  "harnessesMcpUpdate": "Update",
+  "@harnessesMcpUpdate": {
+    "description": "Button label to update an outdated Hive MCP server entry in a harness."
+  },
+  "harnessesMcpInstallSuccess": "Installed Hive MCP for {name}",
+  "@harnessesMcpInstallSuccess": {
+    "description": "Toast confirmation shown after installing Hive MCP for a harness.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessesMcpInstallError": "Could not install Hive MCP: {message}",
+  "@harnessesMcpInstallError": {
+    "description": "Toast error message shown when installing Hive MCP fails.",
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessesMcpInstallCliNotInstalled": "Install the harness CLI before installing Hive MCP.",
+  "@harnessesMcpInstallCliNotInstalled": {
+    "description": "Error detail shown when attempting to install Hive MCP for a harness whose CLI is not installed."
+  },
   "settingsEmptyTitle": "Settings",
   "@settingsEmptyTitle": {
     "description": "Empty state title on the Settings placeholder page."

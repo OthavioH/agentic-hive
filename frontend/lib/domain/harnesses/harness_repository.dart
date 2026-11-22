@@ -12,6 +12,10 @@ abstract interface class HarnessRepository {
   /// Re-runs detection for a single harness [id] and returns its updated info.
   Future<Result<HarnessInfo>> refreshHarness(HarnessId id);
 
+  /// Installs or updates the Hive MCP server for [id] and returns its updated
+  /// info.
+  Future<Result<HarnessInfo>> installMcp(HarnessId id);
+
   /// Broadcast stream of real-time harness status updates from the backend.
   Stream<HarnessInfo> watchHarnessUpdates();
 }
