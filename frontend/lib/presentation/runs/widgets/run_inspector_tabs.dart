@@ -7,6 +7,9 @@ enum RunInspectorTab {
   /// Streaming and historical `stdout`/`stderr` output of a node.
   output,
 
+  /// Chat-style plain-text summaries published by each node.
+  outputs,
+
   /// Chronological event log of the run.
   events,
 
@@ -39,6 +42,10 @@ class RunInspectorTabs extends StatelessWidget {
         HiveSegment<RunInspectorTab>(
           value: RunInspectorTab.output,
           label: l10n.runDetailTabOutput,
+        ),
+        HiveSegment<RunInspectorTab>(
+          value: RunInspectorTab.outputs,
+          label: l10n.runDetailTabOutputs,
         ),
         HiveSegment<RunInspectorTab>(
           value: RunInspectorTab.events,
