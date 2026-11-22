@@ -47,6 +47,9 @@ jobs:
           echo "$output"
           echo "$output" | grep -q "Nothing to fix!"
 
+      - name: Test tools
+        run: dart test
+
       - name: Test shared
         working-directory: shared
         run: dart test
