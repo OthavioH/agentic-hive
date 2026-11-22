@@ -145,6 +145,21 @@ WidgetbookComponent iconButtonComponent() {
           ),
         ),
       ],
+      for (final state in PreviewState.values)
+        WidgetbookUseCase(
+          name: 'Danger hover · ${state.label}',
+          builder: (context) => UseCaseFrame(
+            child: StatesPreview(
+              states: state.states,
+              builder: (controller) => HiveIconButton.dangerHover(
+                icon: HiveIcons.close,
+                semanticLabel: 'Close to tray',
+                statesController: controller,
+                onPressed: state.isDisabled ? null : _noop,
+              ),
+            ),
+          ),
+        ),
       WidgetbookUseCase(
         name: 'Sizes',
         builder: (context) => UseCaseFrame(
@@ -213,6 +228,7 @@ WidgetbookComponent iconButtonComponent() {
               initialOption: HiveButtonSize.medium,
               labelBuilder: (v) => v.name,
             ),
+            dangerHover: context.knobs.boolean(label: 'Danger hover'),
             loading: context.knobs.boolean(label: 'Loading'),
             onPressed:
                 context.knobs.boolean(label: 'Enabled', initialValue: true)

@@ -224,5 +224,92 @@ void main() {
 
       expect(tester.getSize(find.byType(HiveIconButton)), resting);
     });
+
+    testWidgets('dangerHover uses danger/onDanger on hover and pressed', (
+      tester,
+    ) async {
+      final controller = WidgetStatesController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        hiveTestApp(
+          child: HiveIconButton.dangerHover(
+            icon: HiveIcons.close,
+            semanticLabel: 'Close to tray',
+            statesController: controller,
+            onPressed: () {},
+          ),
+        ),
+      );
+
+      const colors = HiveColors.dark;
+      ShapeDecoration decoration() =>
+          tester
+                  .widget<AnimatedContainer>(
+                    find.descendant(
+                      of: find.byType(HiveIconButton),
+                      matching: find.byType(AnimatedContainer),
+                    ),
+                  )
+                  .decoration!
+              as ShapeDecoration;
+
+      HiveIcon iconWidget() => tester.widget<HiveIcon>(
+        find.descendant(
+          of: find.byType(HiveIconButton),
+          matching: find.byType(HiveIcon),
+        ),
+      );
+
+      // Resting: transparent background, onSurface icon, CircleBorder.
+      expect(decoration().color, colors.background.withValues(alpha: 0));
+      expect(decoration().shape, isA<CircleBorder>());
+      expect(iconWidget().color, colors.onSurface);
+      expect(find.bySemanticsLabel('Close to tray'), findsOneWidget);
+
+      // Hovered: danger background, onDanger icon.
+      controller.update(WidgetState.hovered, true);
+      await tester.pump();
+      expect(decoration().color, colors.danger);
+      expect(iconWidget().color, colors.onDanger);
+
+      // Pressed: pressed state layer over danger, onDanger icon.
+      controller.update(WidgetState.pressed, true);
+      await tester.pump();
+      expect(
+        decoration().color,
+        Color.alphaBlend(
+          colors.onDanger.withValues(alpha: colors.pressedOpacity),
+          colors.danger,
+        ),
+      );
+      expect(iconWidget().color, colors.onDanger);
+    });
+
+    testWidgets('window caption icons render and are listed in interface', (
+      tester,
+    ) async {
+      expect(HiveIcons.interface['minimize'], HiveIcons.minimize);
+      expect(HiveIcons.interface['maximize'], HiveIcons.maximize);
+      expect(HiveIcons.interface['restore'], HiveIcons.restore);
+
+      await tester.pumpWidget(
+        hiveTestApp(
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              HiveIcon(HiveIcons.minimize, semanticLabel: 'Minimize'),
+              HiveIcon(HiveIcons.maximize, semanticLabel: 'Maximize'),
+              HiveIcon(HiveIcons.restore, semanticLabel: 'Restore'),
+            ],
+          ),
+        ),
+      );
+
+      expect(find.byType(HiveIcon), findsNWidgets(3));
+      expect(find.bySemanticsLabel('Minimize'), findsOneWidget);
+      expect(find.bySemanticsLabel('Maximize'), findsOneWidget);
+      expect(find.bySemanticsLabel('Restore'), findsOneWidget);
+    });
   });
 }
