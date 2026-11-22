@@ -34,8 +34,12 @@ import 'package:agentic_hive_frontend/domain/runs/use_cases/get_run.dart';
 import 'package:agentic_hive_frontend/domain/runs/use_cases/get_run_checkpoints.dart';
 import 'package:agentic_hive_frontend/domain/runs/use_cases/get_run_events.dart';
 import 'package:agentic_hive_frontend/domain/runs/use_cases/list_runs.dart';
+import 'package:agentic_hive_frontend/domain/runs/use_cases/resize_pty.dart';
 import 'package:agentic_hive_frontend/domain/runs/use_cases/resume_run.dart';
+import 'package:agentic_hive_frontend/domain/runs/use_cases/send_pty_input.dart';
 import 'package:agentic_hive_frontend/domain/runs/use_cases/start_run.dart';
+import 'package:agentic_hive_frontend/domain/runs/use_cases/subscribe_pty.dart';
+import 'package:agentic_hive_frontend/domain/runs/use_cases/unsubscribe_pty.dart';
 import 'package:agentic_hive_frontend/domain/settings/get_settings.dart';
 import 'package:agentic_hive_frontend/domain/settings/pick_directory.dart';
 import 'package:agentic_hive_frontend/domain/settings/pick_file.dart';
@@ -179,6 +183,25 @@ ResumeRun resumeRun(Ref ref) => ResumeRun(ref.watch(runRepositoryProvider));
 @riverpod
 GetNodeLogs getNodeLogs(Ref ref) =>
     GetNodeLogs(ref.watch(runRepositoryProvider));
+
+/// Provides [SubscribePty].
+@riverpod
+SubscribePty subscribePty(Ref ref) =>
+    SubscribePty(ref.watch(ptyRepositoryProvider));
+
+/// Provides [UnsubscribePty].
+@riverpod
+UnsubscribePty unsubscribePty(Ref ref) =>
+    UnsubscribePty(ref.watch(ptyRepositoryProvider));
+
+/// Provides [SendPtyInput].
+@riverpod
+SendPtyInput sendPtyInput(Ref ref) =>
+    SendPtyInput(ref.watch(ptyRepositoryProvider));
+
+/// Provides [ResizePty].
+@riverpod
+ResizePty resizePty(Ref ref) => ResizePty(ref.watch(ptyRepositoryProvider));
 
 /// Provides [GetWorkspaceCapabilities].
 @riverpod

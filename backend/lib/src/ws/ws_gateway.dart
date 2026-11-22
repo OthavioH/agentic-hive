@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/pty_session.dart';
 import 'package:agentic_hive_backend/src/http/json_response.dart';
 import 'package:agentic_hive_backend/src/logging/log_event.dart';
 import 'package:agentic_hive_backend/src/util/ids.dart';
@@ -25,10 +28,11 @@ final class WsGateway {
     Stream<AppSettings>? settingsUpdates,
     Stream<RunEvent>? runEvents,
     Stream<RunOutputPayload>? runOutputs,
+    PtySessionRegistry? ptySessions,
     Stream<Pause>? pauseCreated,
     Stream<Pause>? pauseResolved,
     this._generateId = randomId,
-  }) {
+  }) : _ptySessions = ptySessions {
     _harnessUpdatesSubscription = harnessStatusUpdates?.listen(
       _broadcastHarnessStatus,
     );
@@ -37,20 +41,33 @@ final class WsGateway {
     );
     _runEventsSubscription = runEvents?.listen(_broadcastRunEvent);
     _runOutputsSubscription = runOutputs?.listen(_broadcastRunOutput);
+    _ptyOutputsSubscription = ptySessions?.outputs.listen(_broadcastPtyOutput);
+    _ptyEndedSubscription = ptySessions?.sessionEnded.listen(
+      _registry.removePtySubscribers,
+    );
     _pauseCreatedSubscription = pauseCreated?.listen(_broadcastPauseCreated);
     _pauseResolvedSubscription = pauseResolved?.listen(_broadcastPauseResolved);
   }
 
   static final _log = Logger('ws');
 
+  /// Maximum decoded byte length accepted in a single `pty.input` frame.
+  static const int maxPtyInputBytes = 64 * 1024;
+
+  /// Maximum terminal dimensions accepted in `pty.resize`.
+  static const int maxPtyDimension = 1000;
+
   final ConnectionRegistry _registry;
   final Duration _pingInterval;
   final String _serverVersion;
+  final PtySessionRegistry? _ptySessions;
   final String Function() _generateId;
   StreamSubscription<HarnessInfo>? _harnessUpdatesSubscription;
   StreamSubscription<AppSettings>? _settingsUpdatesSubscription;
   StreamSubscription<RunEvent>? _runEventsSubscription;
   StreamSubscription<RunOutputPayload>? _runOutputsSubscription;
+  StreamSubscription<PtyOutputPayload>? _ptyOutputsSubscription;
+  StreamSubscription<PtySessionKey>? _ptyEndedSubscription;
   StreamSubscription<Pause>? _pauseCreatedSubscription;
   StreamSubscription<Pause>? _pauseResolvedSubscription;
 
@@ -64,6 +81,10 @@ final class WsGateway {
     _runEventsSubscription = null;
     await _runOutputsSubscription?.cancel();
     _runOutputsSubscription = null;
+    await _ptyOutputsSubscription?.cancel();
+    _ptyOutputsSubscription = null;
+    await _ptyEndedSubscription?.cancel();
+    _ptyEndedSubscription = null;
     await _pauseCreatedSubscription?.cancel();
     _pauseCreatedSubscription = null;
     await _pauseResolvedSubscription?.cancel();
@@ -105,6 +126,17 @@ final class WsGateway {
       output.runId,
       WsEnvelope(
         type: WsMessageType.runOutput,
+        id: _generateId(),
+        payload: output.toJson(),
+      ),
+    );
+  }
+
+  void _broadcastPtyOutput(PtyOutputPayload output) {
+    _registry.broadcastToPty(
+      (runId: output.runId, nodeId: output.nodeId, attempt: output.attempt),
+      WsEnvelope(
+        type: WsMessageType.ptyOutput,
         id: _generateId(),
         payload: output.toJson(),
       ),
@@ -226,6 +258,14 @@ final class WsGateway {
         _handleRunSubscribe(connection, envelope);
       case WsMessageType.runUnsubscribe:
         _handleRunUnsubscribe(connection, envelope);
+      case WsMessageType.ptySubscribe:
+        _handlePtySubscribe(connection, envelope);
+      case WsMessageType.ptyUnsubscribe:
+        _handlePtyUnsubscribe(connection, envelope);
+      case WsMessageType.ptyInput:
+        unawaited(_handlePtyInput(connection, envelope));
+      case WsMessageType.ptyResize:
+        unawaited(_handlePtyResize(connection, envelope));
       default:
         _sendError(
           connection,
@@ -272,6 +312,233 @@ final class WsGateway {
       return;
     }
     _registry.unsubscribeFromRun(connection.id, payload.runId);
+  }
+
+  PtySessionKey? _validatePtyTarget(
+    WsConnection connection,
+    WsEnvelope envelope, {
+    required String runId,
+    required String nodeId,
+    required int attempt,
+  }) {
+    if (runId.trim().isEmpty) {
+      _sendError(
+        connection,
+        WsErrorCode.invalidMessage,
+        'Field "runId" must not be blank.',
+        replyTo: envelope.id,
+      );
+      return null;
+    }
+    if (nodeId.trim().isEmpty) {
+      _sendError(
+        connection,
+        WsErrorCode.invalidMessage,
+        'Field "nodeId" must not be blank.',
+        replyTo: envelope.id,
+      );
+      return null;
+    }
+    if (attempt < 1) {
+      _sendError(
+        connection,
+        WsErrorCode.invalidMessage,
+        'Field "attempt" must be >= 1.',
+        replyTo: envelope.id,
+      );
+      return null;
+    }
+    return (runId: runId, nodeId: nodeId, attempt: attempt);
+  }
+
+  void _handlePtySubscribe(WsConnection connection, WsEnvelope envelope) {
+    final PtySubscribePayload payload;
+    try {
+      payload = PtySubscribePayload.fromJson(envelope.payload);
+    } on FormatException catch (e) {
+      _sendError(
+        connection,
+        WsErrorCode.invalidMessage,
+        e.message,
+        replyTo: envelope.id,
+      );
+      return;
+    }
+    final key = _validatePtyTarget(
+      connection,
+      envelope,
+      runId: payload.runId,
+      nodeId: payload.nodeId,
+      attempt: payload.attempt,
+    );
+    if (key == null) return;
+
+    // Flush pending coalesced output and take the snapshot *before*
+    // subscribing so the new subscriber does not receive both the snapshot
+    // and the pending chunk in the same coalesce window.
+    final snapshot = _ptySessions?.getScrollbackSnapshot(key);
+    if (snapshot == null) {
+      _sendError(
+        connection,
+        WsErrorCode.ptySessionNotActive,
+        'PTY session is not active or has already ended.',
+        replyTo: envelope.id,
+      );
+      return;
+    }
+
+    _registry.subscribeToPty(connection.id, key);
+    if (snapshot.isNotEmpty) {
+      connection.send(
+        WsEnvelope(
+          type: WsMessageType.ptyOutput,
+          id: _generateId(),
+          payload: PtyOutputPayload(
+            runId: key.runId,
+            nodeId: key.nodeId,
+            attempt: key.attempt,
+            data: base64Encode(snapshot),
+            timestamp: DateTime.now().toUtc(),
+            isSnapshot: true,
+          ).toJson(),
+        ),
+      );
+    }
+  }
+
+  void _handlePtyUnsubscribe(WsConnection connection, WsEnvelope envelope) {
+    final PtyUnsubscribePayload payload;
+    try {
+      payload = PtyUnsubscribePayload.fromJson(envelope.payload);
+    } on FormatException catch (e) {
+      _sendError(
+        connection,
+        WsErrorCode.invalidMessage,
+        e.message,
+        replyTo: envelope.id,
+      );
+      return;
+    }
+    final key = _validatePtyTarget(
+      connection,
+      envelope,
+      runId: payload.runId,
+      nodeId: payload.nodeId,
+      attempt: payload.attempt,
+    );
+    if (key == null) return;
+    _registry.unsubscribeFromPty(connection.id, key);
+  }
+
+  Future<void> _handlePtyInput(
+    WsConnection connection,
+    WsEnvelope envelope,
+  ) async {
+    final PtyInputPayload payload;
+    final List<int> bytes;
+    try {
+      payload = PtyInputPayload.fromJson(envelope.payload);
+      if (payload.data.length > (maxPtyInputBytes * 4 ~/ 3) + 4) {
+        throw const FormatException(
+          'Field "data" exceeds maximum PTY input size (64 KiB).',
+        );
+      }
+      bytes = base64Decode(payload.data);
+      if (bytes.length > maxPtyInputBytes) {
+        throw const FormatException(
+          'Decoded PTY input exceeds maximum size (64 KiB).',
+        );
+      }
+    } on FormatException catch (e) {
+      _sendError(
+        connection,
+        WsErrorCode.invalidMessage,
+        e.message,
+        replyTo: envelope.id,
+      );
+      return;
+    }
+    final key = _validatePtyTarget(
+      connection,
+      envelope,
+      runId: payload.runId,
+      nodeId: payload.nodeId,
+      attempt: payload.attempt,
+    );
+    if (key == null) return;
+
+    final sessions = _ptySessions;
+    if (sessions == null) {
+      _sendError(
+        connection,
+        WsErrorCode.ptySessionNotActive,
+        'PTY session is not active.',
+        replyTo: envelope.id,
+      );
+      return;
+    }
+    final result = await sessions.writeInput(key, bytes);
+    if (result case FailureResult<void>(:final failure)) {
+      _sendError(
+        connection,
+        WsErrorCode.ptySessionNotActive,
+        failure.message,
+        replyTo: envelope.id,
+      );
+    }
+  }
+
+  Future<void> _handlePtyResize(
+    WsConnection connection,
+    WsEnvelope envelope,
+  ) async {
+    final PtyResizePayload payload;
+    try {
+      payload = PtyResizePayload.fromJson(envelope.payload);
+      if (payload.cols <= 0 || payload.rows <= 0) {
+        throw const FormatException('Fields "cols" and "rows" must be > 0.');
+      }
+    } on FormatException catch (e) {
+      _sendError(
+        connection,
+        WsErrorCode.invalidMessage,
+        e.message,
+        replyTo: envelope.id,
+      );
+      return;
+    }
+    final key = _validatePtyTarget(
+      connection,
+      envelope,
+      runId: payload.runId,
+      nodeId: payload.nodeId,
+      attempt: payload.attempt,
+    );
+    if (key == null) return;
+
+    final sessions = _ptySessions;
+    if (sessions == null) {
+      _sendError(
+        connection,
+        WsErrorCode.ptySessionNotActive,
+        'PTY session is not active.',
+        replyTo: envelope.id,
+      );
+      return;
+    }
+    final result = await sessions.resize(
+      key,
+      cols: payload.cols.clamp(1, maxPtyDimension),
+      rows: payload.rows.clamp(1, maxPtyDimension),
+    );
+    if (result case FailureResult<void>(:final failure)) {
+      _sendError(
+        connection,
+        WsErrorCode.ptySessionNotActive,
+        failure.message,
+        replyTo: envelope.id,
+      );
+    }
   }
 
   void _sendError(

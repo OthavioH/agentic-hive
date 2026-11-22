@@ -54,20 +54,23 @@ final class _TrackedPosixProcess {
   new({
     required this.runId,
     required this.nodeId,
-    required this.process,
+    required this.pid,
+    required Future<int>? exitCode,
     required this.pgid,
     required this.hasOwnProcessGroup,
   }) {
-    unawaited(
-      process.exitCode.then((_) {
-        exited = true;
-      }),
-    );
+    if (exitCode != null) {
+      unawaited(
+        exitCode.then((_) {
+          exited = true;
+        }),
+      );
+    }
   }
 
   final String runId;
   final String nodeId;
-  final Process process;
+  final int pid;
   final int pgid;
   final bool hasOwnProcessGroup;
   final Set<int> knownPids = <int>{};
@@ -113,9 +116,21 @@ final class PosixProcessTreeKiller
     required String runId,
     required String nodeId,
     required Process process,
+  }) => trackPid(
+    runId: runId,
+    nodeId: nodeId,
+    pid: process.pid,
+    exitCode: process.exitCode,
+  );
+
+  @override
+  void trackPid({
+    required String runId,
+    required String nodeId,
+    required int pid,
+    Future<int>? exitCode,
   }) {
     final libc = _PosixLibc.instance;
-    final pid = process.pid;
     final backendPgid = libc.getpgid(libc.getpid());
     var pgid = libc.getpgid(pid);
     if (pgid == backendPgid) {
@@ -131,7 +146,8 @@ final class PosixProcessTreeKiller
       _TrackedPosixProcess(
         runId: runId,
         nodeId: nodeId,
-        process: process,
+        pid: pid,
+        exitCode: exitCode,
         pgid: pgid,
         hasOwnProcessGroup: hasOwnGroup,
       )..knownPids.add(pid),
@@ -139,10 +155,13 @@ final class PosixProcessTreeKiller
   }
 
   @override
-  void untrack(Process process) {
+  void untrack(Process process) => untrackPid(process.pid);
+
+  @override
+  void untrackPid(int pid) {
     for (var i = _tracked.length - 1; i >= 0; i--) {
       final entry = _tracked[i];
-      if (entry.process.pid != process.pid || entry.killing) continue;
+      if (entry.pid != pid || entry.killing) continue;
       entry.exited = true;
       // Keep tracking the process group if surviving members remain or if a
       // previous cancel attempt was unconfirmed.
@@ -176,7 +195,7 @@ final class PosixProcessTreeKiller
         ..killing = true
         ..cancelAttempted = true;
       if (!entry.hasOwnProcessGroup) {
-        entry.knownPids.addAll(await _collectTreePids(entry.process.pid));
+        entry.knownPids.addAll(await _collectTreePids(entry.pid));
       }
       if (!skipTerminateForTesting) {
         if (entry.hasOwnProcessGroup) {
@@ -199,7 +218,7 @@ final class PosixProcessTreeKiller
         if (entry.hasOwnProcessGroup) {
           _PosixLibc.instance.kill(-entry.pgid, _sigKill);
         } else {
-          entry.knownPids.addAll(await _collectTreePids(entry.process.pid));
+          entry.knownPids.addAll(await _collectTreePids(entry.pid));
           for (final pid in entry.knownPids) {
             _PosixLibc.instance.kill(pid, _sigKill);
           }

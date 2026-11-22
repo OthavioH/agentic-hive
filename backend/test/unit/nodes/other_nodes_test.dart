@@ -92,6 +92,9 @@ final class _FakeResultContractSession implements ResultContractSession {
   String? get resultFilePath => null;
 
   @override
+  Future<ResultContractReport>? get onMcpReportAccepted => null;
+
+  @override
   Future<Result<ResultContractReport>> resolveOutcome({
     required int exitCode,
     bool timedOut = false,

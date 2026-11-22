@@ -515,4 +515,60 @@ void main() {
       expect(HarnessNodeConfig.fromJson(latestConfig!).timeoutSeconds, 30);
     },
   );
+
+  testWidgets('TerminalHarnessNode inspector form toggles sendPromptToStdin '
+      '(default false)', (tester) async {
+    tester.view.physicalSize = const Size(900, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    JsonMap? latestConfig;
+    final node = WorkflowNode(
+      id: 'n-term',
+      type: NodeTypeId.terminal,
+      label: 'Terminal',
+      config: NodeDescriptors.terminal.defaultConfig(),
+      position: const WorkflowPosition(x: 0, y: 0),
+    );
+
+    await tester.pumpWidget(
+      _wrapWithHost(
+        WorkflowInspectorPanel(
+          state: _stateWith(
+            nodes: <WorkflowNode>[node],
+            selectedNodeId: 'n-term',
+          ),
+          onUpdateMetadata: ({name, description}) {},
+          onUpdateNodeLabel: (_, _) {},
+          onUpdateNodeConfig: (_, config) => latestConfig = config,
+          onToggleEntryNode: (_, {required isEntry}) {},
+          onDeleteNode: (_) {},
+          onUpdateEdge: (
+            _, {
+            sourceOutput,
+            maxRetries,
+            clearMaxRetries = false,
+          }) {},
+          onDeleteEdge: (_) {},
+          onFocusIssue: (_) {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final toggleFinder = find.byKey(
+      const Key('config_terminal_send_prompt_to_stdin'),
+    );
+    expect(toggleFinder, findsOneWidget);
+    expect(tester.widget<HiveSwitch>(toggleFinder).value, isFalse);
+
+    await tester.ensureVisible(toggleFinder);
+    await tester.tap(toggleFinder);
+    await tester.pumpAndSettle();
+
+    expect(
+      TerminalHarnessNodeConfig.fromJson(latestConfig!).sendPromptToStdin,
+      isTrue,
+    );
+  });
 }

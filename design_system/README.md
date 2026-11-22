@@ -46,3 +46,11 @@ Typography styles set the `wght` font variation next to `fontWeight`, because th
 `HiveFadeIn`, `HiveSlideIn`, `HiveStagger`, `HiveMotion.route` and `HivePageTransition` pass motion tokens into `flutter_flux_motion` 0.1.0 specs. Only `lib/src/motion/hive_motion.dart` imports it.
 
 Status on Flutter 3.50.1: works, analysis clean. The widgets used (`FluxFade`, `FluxSlide`, `FluxStagger`, `FluxPageRoute`) only need `flutter/widgets`, so `MaterialUiCompatibilityBridge` is not needed (it is also `@Deprecated`, which would fail `--fatal-infos`). Flux exposes its page transition only through `FluxPageRoute`, so `HivePageTransition` reuses that route's `transitionsBuilder` for router pages such as go_router's `CustomTransitionPage`.
+
+## Terminal emulator
+
+`HiveTerminalView` and `HiveTerminalController` wrap `xterm` 4.0.0 (TerminalStudio, the latest stable release on 2026-11-21). Only `lib/src/components/hive_terminal_view.dart` imports it; no `xterm` type appears in the public API, so `frontend/` never imports it.
+
+Status on Flutter 3.50.1: works, analysis clean. `xterm` imports `package:flutter/material.dart`, but only for types: it never reads a legacy `Theme`, `Localizations` or `Material` ancestor (checked in the 4.0.0 sources). `MaterialUiCompatibilityBridge` is therefore not needed (it is also `@Deprecated`, which would fail `--fatal-infos`). If a later `xterm` release starts reading legacy Material ancestors, wrap the `TerminalView` inside `hive_terminal_view.dart` in the bridge; nothing outside that file changes.
+
+`xterm` is stale (last release 2024-02). Maintained forks exist (`xterm2`, `xterm3`) with far fewer users; swap the import inside `hive_terminal_view.dart` if `xterm` breaks on a Flutter upgrade.

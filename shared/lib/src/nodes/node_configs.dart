@@ -73,6 +73,7 @@ sealed class TerminalHarnessNodeConfig with _$TerminalHarnessNodeConfig {
     @Default(<String>[]) List<String> extraArgs,
     String? command,
     @Default(<String>[]) List<String> args,
+    @Default(false) bool sendPromptToStdin,
   }) = _TerminalHarnessNodeConfig;
 
   const new _();

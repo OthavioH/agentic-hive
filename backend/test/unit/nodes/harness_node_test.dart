@@ -107,6 +107,9 @@ final class _FakeResultContractSession implements ResultContractSession {
   @override
   String? get resultFilePath => null;
 
+  @override
+  Future<ResultContractReport>? get onMcpReportAccepted => null;
+
   final Future<Result<ResultContractReport?>> Function() _readReport;
 
   @override
@@ -491,9 +494,10 @@ void main() {
       expect(result.valueOrNull!.outputLabel, NodeOutput.onSuccess);
       expect(ptyRunner.lastInvocation!.executable, 'claude');
       expect(ptyRunner.lastInvocation!.arguments, ['--chat']);
+      expect(ptyRunner.lastInvocation!.initialInput, isNull);
       expect(
-        ptyRunner.lastInvocation!.initialInput,
-        contains('Interactive task'),
+        ptyRunner.lastInvocation!.environment['HIVE_PROMPT_FILE'],
+        isNotNull,
       );
     });
   });

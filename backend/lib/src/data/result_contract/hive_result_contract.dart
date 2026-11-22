@@ -24,6 +24,7 @@ final class HiveResultContractSession implements ResultContractSession {
     required this.command,
     required this.arguments,
     required this.environment,
+    required this._onMcpReportAccepted,
     required this._onResolveOutcome,
     required this._onDispose,
   });
@@ -60,6 +61,11 @@ final class HiveResultContractSession implements ResultContractSession {
 
   @override
   Map<String, String> get env => environment;
+
+  final Future<ResultContractReport>? _onMcpReportAccepted;
+
+  @override
+  Future<ResultContractReport>? get onMcpReportAccepted => _onMcpReportAccepted;
 
   final Future<Result<ResultContractReport>> Function({
     required int exitCode,
@@ -225,6 +231,11 @@ final class HiveResultContract implements ResultContract {
           command: launch.executable,
           arguments: arguments,
           environment: environment,
+          onMcpReportAccepted: coordinator.watchMcpReport(
+            runId: context.runId,
+            nodeId: context.nodeId,
+            attempt: context.attempt,
+          ),
           onResolveOutcome: ({required exitCode, timedOut = false}) =>
               resolveOutcome(
                 context: context,

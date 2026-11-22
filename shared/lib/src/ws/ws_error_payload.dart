@@ -25,4 +25,7 @@ abstract final class WsErrorCode {
 
   /// The envelope was valid, but its `type` is not handled.
   static const unknownMessageType = 'unknown_message_type';
+
+  /// The target PTY session is not active or has already exited.
+  static const ptySessionNotActive = 'pty_session_not_active';
 }

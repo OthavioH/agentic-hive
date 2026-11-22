@@ -40,6 +40,7 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
 
   List<String> _extraArgs = const <String>[];
   List<String> _args = const <String>[];
+  bool _sendPromptToStdin = false;
   String? _syncedNodeId;
   bool _hasTimeoutError = false;
 
@@ -80,6 +81,7 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
       _extraArgs = List<String>.of(config.extraArgs);
       _commandController.text = config.command ?? '';
       _args = List<String>.of(config.args);
+      _sendPromptToStdin = config.sendPromptToStdin;
     } else {
       final config = _parseHarnessConfig(widget.node.config);
       _agentIdController.text = config.agentId ?? '';
@@ -89,6 +91,7 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
       _extraArgs = List<String>.of(config.extraArgs);
       _commandController.clear();
       _args = const <String>[];
+      _sendPromptToStdin = false;
     }
   }
 
@@ -131,6 +134,7 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
           extraArgs: _extraArgs,
           command: _nullIfEmpty(_commandController.text),
           args: _args,
+          sendPromptToStdin: _sendPromptToStdin,
         ).toJson(),
       );
     } else {
@@ -191,6 +195,16 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
             items: _args,
             onChanged: (items) {
               setState(() => _args = items);
+              _emit();
+            },
+          ),
+          SizedBox(height: spacing.space2),
+          HiveSwitch(
+            key: const Key('config_terminal_send_prompt_to_stdin'),
+            label: l10n.nodeConfigSendPromptToStdinLabel,
+            value: _sendPromptToStdin,
+            onChanged: (value) {
+              setState(() => _sendPromptToStdin = value);
               _emit();
             },
           ),

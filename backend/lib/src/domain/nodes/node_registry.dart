@@ -7,6 +7,7 @@ import 'package:agentic_hive_backend/src/domain/nodes/node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/terminal_harness_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/validator_nodes.dart';
+import 'package:agentic_hive_backend/src/domain/runs/process_tree_killer.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 /// Factory function instantiating a [Node].
@@ -33,6 +34,7 @@ final class NodeRegistry {
     required ResultContract resultContract,
     required HumanApprovalPort approvalPort,
     required AgentPromptResolver agentPromptResolver,
+    ProcessTreeKiller? processTreeKiller,
   }) {
     final registry = NodeRegistry();
     registry
@@ -75,6 +77,7 @@ final class NodeRegistry {
           defaultShellProvider: defaultShellProvider,
           resultContract: resultContract,
           agentPromptResolver: agentPromptResolver,
+          processTreeKiller: processTreeKiller,
         ),
       )
       ..register(

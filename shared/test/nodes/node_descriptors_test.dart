@@ -112,11 +112,14 @@ void main() {
         args: ['--dangerously-skip-permissions'],
         workingDirectory: 'sub',
         timeoutSeconds: 60,
+        sendPromptToStdin: true,
       );
       final decoded = TerminalHarnessNodeConfig.fromJson(
         _overTheWire(config.toJson()),
       );
       expect(decoded, config);
+      expect(decoded.sendPromptToStdin, isTrue);
+      expect(const TerminalHarnessNodeConfig().sendPromptToStdin, isFalse);
       expect(decoded.validate(), isEmpty);
 
       expect(

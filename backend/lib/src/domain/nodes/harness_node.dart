@@ -158,6 +158,8 @@ abstract base class HarnessNode extends Node {
     required String workingDirectory,
     required String prompt,
     String? mcpConfigPath,
+    String? resultFilePath,
+    Future<ResultContractReport>? onMcpReportAccepted,
     Map<String, String> environment = const <String, String>{},
   });
 
@@ -211,6 +213,8 @@ abstract base class HarnessNode extends Node {
         workingDirectory: workingDirectory,
         prompt: prompt,
         mcpConfigPath: session.mcpConfigPath,
+        resultFilePath: session.resultFilePath,
+        onMcpReportAccepted: session.onMcpReportAccepted,
         environment: session.env,
       );
       if (runResult case FailureResult<ProcessExecutionResult>(
@@ -313,6 +317,8 @@ abstract base class HeadlessHarnessNode extends HarnessNode {
     required String workingDirectory,
     required String prompt,
     String? mcpConfigPath,
+    String? resultFilePath,
+    Future<ResultContractReport>? onMcpReportAccepted,
     Map<String, String> environment = const <String, String>{},
   }) {
     final config = HarnessNodeConfig.fromJson(context.config);
