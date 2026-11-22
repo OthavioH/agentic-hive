@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 final class _FakeBackendClient implements BackendClient {
   String? lastMethod;
   String? lastPath;
+  JsonMap? lastBody;
   Result<JsonMap> nextResponse = const Success(<String, Object?>{});
 
   @override
@@ -20,6 +21,7 @@ final class _FakeBackendClient implements BackendClient {
   }) async {
     lastMethod = method;
     lastPath = path;
+    lastBody = body;
     return nextResponse;
   }
 
@@ -167,5 +169,84 @@ void main() {
         .read(workspaceRepositoryProvider)
         .restoreSnapshot('run-1', 's1');
     expect((result.failureOrNull! as BackendFailure).statusCode, 409);
+  });
+
+  test('listWorkspaces GETs /api/v1/workspaces and decodes items', () async {
+    client.nextResponse = const Success(<String, Object?>{
+      'items': <Object?>[
+        <String, Object?>{
+          'id': 'ws-1',
+          'name': 'Repo One',
+          'rootPath': '/tmp/repo-one',
+          'isGit': true,
+          'createdAt': '2026-11-22T10:00:00.000Z',
+          'updatedAt': '2026-11-22T10:00:00.000Z',
+          'activeRunCount': 2,
+        },
+      ],
+    });
+    final result = await container
+        .read(workspaceRepositoryProvider)
+        .listWorkspaces();
+    expect(client.lastMethod, 'GET');
+    expect(client.lastPath, '/api/v1/workspaces');
+    expect(result.valueOrNull?.single.id, 'ws-1');
+    expect(result.valueOrNull?.single.activeRunCount, 2);
+  });
+
+  test(
+    'createWorkspace POSTs to /api/v1/workspaces with rootPath and name',
+    () async {
+      client.nextResponse = const Success(<String, Object?>{
+        'id': 'ws-2',
+        'name': 'Custom',
+        'rootPath': '/tmp/repo-two',
+        'isGit': false,
+        'createdAt': '2026-11-22T10:00:00.000Z',
+        'updatedAt': '2026-11-22T10:00:00.000Z',
+      });
+      final result = await container
+          .read(workspaceRepositoryProvider)
+          .createWorkspace(rootPath: '/tmp/repo-two', name: 'Custom');
+      expect(client.lastMethod, 'POST');
+      expect(client.lastPath, '/api/v1/workspaces');
+      expect(client.lastBody, <String, Object?>{
+        'rootPath': '/tmp/repo-two',
+        'name': 'Custom',
+      });
+      expect(result.valueOrNull?.name, 'Custom');
+      expect(result.valueOrNull?.isGit, isFalse);
+    },
+  );
+
+  test('renameWorkspace PATCHes /api/v1/workspaces/:id', () async {
+    client.nextResponse = const Success(<String, Object?>{
+      'id': 'ws-1',
+      'name': 'Renamed',
+      'rootPath': '/tmp/repo-one',
+      'isGit': true,
+      'createdAt': '2026-11-22T10:00:00.000Z',
+      'updatedAt': '2026-11-22T11:00:00.000Z',
+    });
+    final result = await container
+        .read(workspaceRepositoryProvider)
+        .renameWorkspace('ws-1', name: 'Renamed');
+    expect(client.lastMethod, 'PATCH');
+    expect(client.lastPath, '/api/v1/workspaces/ws-1');
+    expect(client.lastBody, <String, Object?>{'name': 'Renamed'});
+    expect(result.valueOrNull?.name, 'Renamed');
+  });
+
+  test('unregisterWorkspace DELETEs /api/v1/workspaces/:id', () async {
+    client.nextResponse = const Success(<String, Object?>{
+      'id': 'ws-1',
+      'deleted': true,
+    });
+    final result = await container
+        .read(workspaceRepositoryProvider)
+        .unregisterWorkspace('ws-1');
+    expect(client.lastMethod, 'DELETE');
+    expect(client.lastPath, '/api/v1/workspaces/ws-1');
+    expect(result.isSuccess, isTrue);
   });
 }
