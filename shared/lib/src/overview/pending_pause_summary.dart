@@ -17,6 +17,12 @@ sealed class PendingPauseSummary with _$PendingPauseSummary {
     required String nodeLabel,
     required PauseKind pauseKind,
     required String prompt,
+
+    /// Whether the pause requires feedback before it can be answered.
+    ///
+    /// Currently always `false` because `Pause` only models optional
+    /// `allowFeedback` and has no required-feedback concept; kept on the DTO
+    /// so the frontend branch remains ready without a breaking contract change.
     required bool requiresFeedback,
     required DateTime createdAt,
   }) = _PendingPauseSummary;

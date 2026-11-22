@@ -42,6 +42,17 @@ void main() {
       expect(RunStatus.cancelled.isExecutingProcesses, isFalse);
     });
 
+    test('isRunningOrPaused is true only for running and paused', () {
+      expect(RunStatus.running.isRunningOrPaused, isTrue);
+      expect(RunStatus.paused.isRunningOrPaused, isTrue);
+      expect(RunStatus.cancelling.isRunningOrPaused, isFalse);
+      expect(RunStatus.cancellationUncertain.isRunningOrPaused, isFalse);
+      expect(RunStatus.interrupted.isRunningOrPaused, isFalse);
+      expect(RunStatus.succeeded.isRunningOrPaused, isFalse);
+      expect(RunStatus.failed.isRunningOrPaused, isFalse);
+      expect(RunStatus.cancelled.isRunningOrPaused, isFalse);
+    });
+
     test('fromName parses valid names and throws on unknown', () {
       for (final status in RunStatus.values) {
         expect(RunStatus.fromName(status.name), status);
