@@ -114,7 +114,8 @@ void main() {
         final locator = HiveMcpLocator(
           binaryNaming: mcpBinaryNamingFor('linux'),
           resolvedExecutable: '/opt/agentic-hive/backend/bin/server',
-          fileExists: (path) => path == '/opt/agentic-hive/backend/bin/hive_mcp',
+          fileExists: (path) =>
+              path == '/opt/agentic-hive/backend/bin/hive_mcp',
           pathContext: p.posix,
         );
 

@@ -277,11 +277,9 @@ void main() {
         fileExists: (path) => path == bundled,
         startProcess:
             (executable, arguments, {workingDirectory, mode = .normal}) {
-              throw const ProcessException(
-                '/opt/backend/bin/server',
-                <String>['bad'],
-                'No such file',
-              );
+              throw const ProcessException('/opt/backend/bin/server', <String>[
+                'bad',
+              ], 'No such file');
             },
       );
 
