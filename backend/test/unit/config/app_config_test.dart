@@ -20,6 +20,12 @@ void main() {
       expect(config.serverInfoPath, p.join(dataDir, 'server.json'));
     });
 
+    test('keeps the legacy agents folder in the data folder', () {
+      final config = configFor(RuntimeMode.development);
+
+      expect(config.legacyAgentsDir, p.join(dataDir, 'agents'));
+    });
+
     test('logs at FINE in development', () {
       expect(configFor(RuntimeMode.development).logLevel, Level.FINE);
     });

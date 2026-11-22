@@ -59,7 +59,13 @@ final class ConfigLoader {
     return AppConfig(
       mode: mode,
       dataDir: p.normalize(dataDir),
-      agentsDir: values.agentsDir,
+      agentsDir:
+          values.agentsDir ??
+          platformPaths.context.join(
+            platformPaths.homeDir(),
+            '.agents',
+            'agents',
+          ),
       webSocketPingInterval: values.pingIntervalSeconds == null
           ? AppConfig.defaultPingInterval
           : Duration(seconds: values.pingIntervalSeconds!),
