@@ -114,6 +114,75 @@ final class DriftRunEventRepository implements RunEventRepository {
 
   static const int _defaultLimit = 200;
   static const int _maxLimit = 1000;
+  static const int _runIdBatchSize = 500;
+
+  @override
+  Future<Result<Map<String, Map<String, DateTime>>>> findExecutingNodesForRuns(
+    List<String> runIds,
+  ) async {
+    if (runIds.isEmpty) {
+      return const Success(<String, Map<String, DateTime>>{});
+    }
+    try {
+      final result = <String, Map<String, DateTime>>{};
+      final newer = _db.alias(_db.runEvents, 'newer');
+      for (var i = 0; i < runIds.length; i += _runIdBatchSize) {
+        final end = (i + _runIdBatchSize).clamp(0, runIds.length);
+        final batch = runIds.sublist(i, end);
+        final hasNewerLifecycleEvent = existsQuery(
+          _db.selectOnly(newer)
+            ..addColumns([const Constant(1)])
+            ..where(
+              newer.runId.equalsExp(_db.runEvents.runId) &
+                  newer.nodeId.equalsExp(_db.runEvents.nodeId) &
+                  newer.sequence.isBiggerThan(_db.runEvents.sequence) &
+                  newer.type.isIn([
+                    RunEventType.nodeStarted.wireName,
+                    RunEventType.nodeCompleted.wireName,
+                    RunEventType.nodeFailed.wireName,
+                  ]),
+            ),
+        );
+        final rows =
+            await (_db.selectOnly(_db.runEvents)
+                  ..addColumns([
+                    _db.runEvents.runId,
+                    _db.runEvents.nodeId,
+                    _db.runEvents.createdAt,
+                  ])
+                  ..where(
+                    _db.runEvents.runId.isIn(batch) &
+                        _db.runEvents.nodeId.isNotNull() &
+                        _db.runEvents.nodeId.equals('').not() &
+                        _db.runEvents.type.equals(
+                          RunEventType.nodeStarted.wireName,
+                        ) &
+                        hasNewerLifecycleEvent.not(),
+                  )
+                  ..orderBy([
+                    OrderingTerm.asc(_db.runEvents.runId),
+                    OrderingTerm.asc(_db.runEvents.sequence),
+                  ]))
+                .get();
+        for (final row in rows) {
+          final runId = row.read(_db.runEvents.runId)!;
+          final nodeId = row.read(_db.runEvents.nodeId)!;
+          final createdAt = DateTime.parse(row.read(_db.runEvents.createdAt)!)
+              .toUtc();
+          result.putIfAbsent(runId, () => <String, DateTime>{})[nodeId] =
+              createdAt;
+        }
+      }
+      return Success(result);
+    } on Object catch (error) {
+      return FailureResult(
+        PersistenceFailure(
+          'Failed to find executing nodes for runs.',
+          cause: error,
+        ),
+      );
+    }
+  }
 
   @override
   Future<Result<({List<RunEvent> items, int lastSequence})>> listForRun(

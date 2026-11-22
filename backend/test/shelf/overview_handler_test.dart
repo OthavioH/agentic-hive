@@ -66,6 +66,22 @@ final class _FakeRunRepository implements RunRepository {
   }
 
   @override
+  Future<Result<int>> countByStatusFinishedSince(
+    RunStatus status, {
+    required DateTime finishedSince,
+  }) async {
+    final cutoff = finishedSince.toUtc();
+    return Success(
+      runs.where((r) {
+        final finishedAt = r.finishedAt;
+        return r.status == status &&
+            finishedAt != null &&
+            !finishedAt.toUtc().isBefore(cutoff);
+      }).length,
+    );
+  }
+
+  @override
   Future<Result<Run>> updateStatus(
     String id, {
     required RunStatus status,
@@ -118,6 +134,30 @@ final class _FakeRunEventRepository implements RunEventRepository {
   }) async {
     final items = eventsByRun[runId] ?? const <RunEvent>[];
     return Success((items: items, lastSequence: items.length));
+  }
+
+  @override
+  Future<Result<Map<String, Map<String, DateTime>>>> findExecutingNodesForRuns(
+    List<String> runIds,
+  ) async {
+    final result = <String, Map<String, DateTime>>{};
+    for (final runId in runIds) {
+      final executing = <String, DateTime>{};
+      for (final event in eventsByRun[runId] ?? const <RunEvent>[]) {
+        final nodeId = event.nodeId;
+        if (nodeId == null || nodeId.isEmpty) continue;
+        if (event.type == RunEventType.nodeStarted) {
+          executing[nodeId] = event.createdAt;
+        } else if (event.type == RunEventType.nodeCompleted ||
+            event.type == RunEventType.nodeFailed) {
+          executing.remove(nodeId);
+        }
+      }
+      if (executing.isNotEmpty) {
+        result[runId] = executing;
+      }
+    }
+    return Success(result);
   }
 }
 
@@ -518,14 +558,15 @@ void main() {
     expect(snapshot.pendingPauses.first.prompt, 'Approve rollout');
     expect(snapshot.pendingPauses.last.prompt, 'Which branch?');
 
-    // Recent runs: capped at 5, non-active only, newest startedAt first
+    // Recent runs: capped at 5, excludes running/paused (includes cancelling),
+    // newest startedAt first.
     expect(snapshot.recentRuns.length, 5);
     expect(snapshot.recentRuns.map((r) => r.id).toList(), [
       'run-interrupted',
+      'run-cancelling',
       'run-ok-0',
       'run-ok-1',
       'run-ok-2',
-      'run-ok-3',
     ]);
   });
 

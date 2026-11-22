@@ -227,4 +227,215 @@ You are a senior developer.
     );
     expect(rejected.statusCode, 403);
   });
+
+  test(
+    'GET /api/v1/overview handles >200 events per run, multiple active '
+    'runs, cancelling runs in recentRuns, and 24h window boundaries',
+    () async {
+      final now = DateTime.now().toUtc();
+      final cfg = configFor(dataDir);
+      final longWorkflow = Workflow(
+        id: 'wf-long',
+        name: 'Long Flow',
+        nodes: const [
+          WorkflowNode(
+            id: 'early-done',
+            type: NodeTypeId.command,
+            label: 'Early Done',
+            position: WorkflowPosition(x: 0, y: 0),
+            config: {'command': 'echo 1'},
+          ),
+          WorkflowNode(
+            id: 'late-running',
+            type: NodeTypeId.command,
+            label: 'Late Running',
+            position: WorkflowPosition(x: 100, y: 0),
+            config: {'command': 'echo 2'},
+          ),
+          WorkflowNode(
+            id: 'parallel-running',
+            type: NodeTypeId.command,
+            label: 'Parallel Running',
+            position: WorkflowPosition(x: 200, y: 0),
+            config: {'command': 'echo 3'},
+          ),
+        ],
+        edges: const [],
+        entryNodeId: 'early-done',
+        createdAt: DateTime.utc(2026, 11, 21, 9),
+        updatedAt: DateTime.utc(2026, 11, 21, 9),
+      );
+
+      final db = AppDatabase.open(File(cfg.databasePath));
+      try {
+        final runs = DriftRunRepository(db);
+        final events = DriftRunEventRepository(db);
+
+        await runs.create(
+          Run(
+            id: 'run-long',
+            workflowId: longWorkflow.id,
+            workflowName: longWorkflow.name,
+            workflowDefinition: longWorkflow,
+            workspacePath: '/tmp/ws',
+            status: RunStatus.running,
+            startedAt: now.subtract(const Duration(minutes: 30)),
+          ),
+        );
+        await runs.create(
+          Run(
+            id: 'run-second',
+            workflowId: longWorkflow.id,
+            workflowName: longWorkflow.name,
+            workflowDefinition: longWorkflow,
+            workspacePath: '/tmp/ws',
+            status: RunStatus.running,
+            startedAt: now.subtract(const Duration(minutes: 10)),
+          ),
+        );
+        await runs.create(
+          Run(
+            id: 'run-cancelling',
+            workflowId: longWorkflow.id,
+            workflowName: longWorkflow.name,
+            workflowDefinition: longWorkflow,
+            workspacePath: '/tmp/ws',
+            status: RunStatus.cancelling,
+            startedAt: now.subtract(const Duration(minutes: 5)),
+          ),
+        );
+        await runs.create(
+          Run(
+            id: 'run-ok-in',
+            workflowId: longWorkflow.id,
+            workflowName: longWorkflow.name,
+            workflowDefinition: longWorkflow,
+            workspacePath: '/tmp/ws',
+            status: RunStatus.succeeded,
+            startedAt: now.subtract(const Duration(hours: 24)),
+            finishedAt: now.subtract(const Duration(hours: 23, minutes: 58)),
+          ),
+        );
+        await runs.create(
+          Run(
+            id: 'run-ok-out',
+            workflowId: longWorkflow.id,
+            workflowName: longWorkflow.name,
+            workflowDefinition: longWorkflow,
+            workspacePath: '/tmp/ws',
+            status: RunStatus.succeeded,
+            startedAt: now.subtract(const Duration(hours: 25)),
+            finishedAt: now.subtract(const Duration(hours: 24, minutes: 2)),
+          ),
+        );
+
+        // >200 events in run-long: early-done starts at seq 1, completes at seq
+        // 205, and late-running starts at seq 206.
+        await events.append(
+          id: 'long-ev-1',
+          runId: 'run-long',
+          type: RunEventType.nodeStarted,
+          nodeId: 'early-done',
+          createdAt: now.subtract(const Duration(minutes: 29)),
+        );
+        for (var seq = 2; seq <= 204; seq++) {
+          await events.append(
+            id: 'long-ev-$seq',
+            runId: 'run-long',
+            type: RunEventType.snapshotWarning,
+            createdAt: now.subtract(const Duration(minutes: 20)),
+          );
+        }
+        await events.append(
+          id: 'long-ev-205',
+          runId: 'run-long',
+          type: RunEventType.nodeCompleted,
+          nodeId: 'early-done',
+          createdAt: now.subtract(const Duration(minutes: 15)),
+        );
+        await events.append(
+          id: 'long-ev-206',
+          runId: 'run-long',
+          type: RunEventType.nodeStarted,
+          nodeId: 'late-running',
+          createdAt: now.subtract(const Duration(minutes: 14)),
+        );
+
+        // Second active run with its own executing node.
+        await events.append(
+          id: 'second-ev-1',
+          runId: 'run-second',
+          type: RunEventType.nodeStarted,
+          nodeId: 'parallel-running',
+          createdAt: now.subtract(const Duration(minutes: 9)),
+        );
+
+        // Verify exact window boundary on DriftRunRepository directly.
+        final cutoff = DateTime.utc(2026, 11, 20, 12);
+        await runs.create(
+          Run(
+            id: 'run-boundary-exact',
+            workflowId: longWorkflow.id,
+            workflowName: longWorkflow.name,
+            workflowDefinition: longWorkflow,
+            workspacePath: '/tmp/ws',
+            status: RunStatus.failed,
+            startedAt: cutoff.subtract(const Duration(minutes: 1)),
+            finishedAt: cutoff,
+          ),
+        );
+        await runs.create(
+          Run(
+            id: 'run-boundary-micro-after',
+            workflowId: longWorkflow.id,
+            workflowName: longWorkflow.name,
+            workflowDefinition: longWorkflow,
+            workspacePath: '/tmp/ws',
+            status: RunStatus.failed,
+            startedAt: cutoff.subtract(const Duration(minutes: 1)),
+            finishedAt: cutoff.add(const Duration(microseconds: 1)),
+          ),
+        );
+        await runs.create(
+          Run(
+            id: 'run-boundary-ms-before',
+            workflowId: longWorkflow.id,
+            workflowName: longWorkflow.name,
+            workflowDefinition: longWorkflow,
+            workspacePath: '/tmp/ws',
+            status: RunStatus.failed,
+            startedAt: cutoff.subtract(const Duration(minutes: 1)),
+            finishedAt: cutoff.subtract(const Duration(milliseconds: 1)),
+          ),
+        );
+
+        final boundaryCount = await runs.countByStatusFinishedSince(
+          RunStatus.failed,
+          finishedSince: cutoff,
+        );
+        expect(boundaryCount.valueOrNull, 2);
+      } finally {
+        await db.close();
+      }
+
+      final response = await client.get('/api/v1/overview');
+      expect(response.statusCode, 200);
+
+      final snapshot = OverviewSnapshot.fromJson(
+        jsonDecode(response.body) as JsonMap,
+      );
+      expect(snapshot.metrics.activeRunsCount, 2);
+      expect(snapshot.metrics.activeNodesCount, 2);
+      expect(snapshot.metrics.succeededLast24hCount, 1);
+      expect(snapshot.activeRuns.map((r) => (r.runId, r.activeNodeCount)), [
+        ('run-second', 1),
+        ('run-long', 1),
+      ]);
+      expect(snapshot.activeNodes.map((n) => (n.runId, n.nodeId, n.status)), [
+        ('run-second', 'parallel-running', ActiveNodeStatus.running),
+        ('run-long', 'late-running', ActiveNodeStatus.running),
+      ]);
+      expect(snapshot.recentRuns.map((r) => r.id), contains('run-cancelling'));
+    },
+  );
 }

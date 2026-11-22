@@ -25,4 +25,13 @@ abstract interface class RunEventRepository {
     int? afterSequence,
     int? limit,
   });
+
+  /// Returns currently executing node start timestamps keyed by
+  /// `runId -> nodeId -> startedAt` for the given [runIds].
+  ///
+  /// A node is executing if its latest lifecycle event (`node.started`,
+  /// `node.completed`, or `node.failed`) by `sequence` is `node.started`.
+  Future<Result<Map<String, Map<String, DateTime>>>> findExecutingNodesForRuns(
+    List<String> runIds,
+  );
 }

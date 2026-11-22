@@ -20,7 +20,6 @@ final class RepositoryOverviewRepository implements OverviewRepository {
 
   static const int _recentRunsLimit = 5;
   static const int _pausePageSize = 200;
-  static const int _metricsQueryLimit = 10000;
 
   final RunRepository _runs;
   final RunEventRepository _events;
@@ -66,6 +65,20 @@ final class RepositoryOverviewRepository implements OverviewRepository {
       pendingPausesByRunId.putIfAbsent(pause.runId, () => <Pause>[]).add(pause);
     }
 
+    final activeRunIds = activeRunRecords
+        .map((run) => run.id)
+        .toList(growable: false);
+    final executingNodesResult = await _events.findExecutingNodesForRuns(
+      activeRunIds,
+    );
+    if (executingNodesResult
+        case FailureResult<Map<String, Map<String, DateTime>>>(
+          :final failure,
+        )) {
+      return FailureResult(failure);
+    }
+    final executingByRunId = executingNodesResult.valueOrNull!;
+
     final activeNodes = <ActiveNodeSummary>[];
     final activeNodeCountByRunId = <String, int>{};
 
@@ -95,16 +108,8 @@ final class RepositoryOverviewRepository implements OverviewRepository {
         seenNodeIds.add(pause.nodeId);
       }
 
-      final eventsResult = await _events.listForRun(run.id);
-      if (eventsResult
-          case FailureResult<({List<RunEvent> items, int lastSequence})>(
-            :final failure,
-          )) {
-        return FailureResult(failure);
-      }
-      final executingNodes = _extractExecutingNodes(
-        eventsResult.valueOrNull!.items,
-      );
+      final executingNodes =
+          executingByRunId[run.id] ?? const <String, DateTime>{};
       for (final entry in executingNodes.entries) {
         final nodeId = entry.key;
         if (!seenNodeIds.add(nodeId)) continue;
@@ -153,23 +158,26 @@ final class RepositoryOverviewRepository implements OverviewRepository {
             nodeLabel: pause.nodeLabel,
             pauseKind: pause.kind,
             prompt: _pausePrompt(pause),
+            // Pause only models optional `allowFeedback` and has no
+            // required-feedback concept; keep `false` until the domain
+            // supports mandatory feedback.
             requiresFeedback: false,
             createdAt: pause.createdAt,
           ),
         )
         .toList(growable: false);
 
-    final succeeded24hResult = await _countFinishedInWindow(
+    final succeeded24hResult = await _runs.countByStatusFinishedSince(
       RunStatus.succeeded,
-      cutoff24h,
+      finishedSince: cutoff24h,
     );
     if (succeeded24hResult case FailureResult<int>(:final failure)) {
       return FailureResult(failure);
     }
 
-    final failed24hResult = await _countFinishedInWindow(
+    final failed24hResult = await _runs.countByStatusFinishedSince(
       RunStatus.failed,
-      cutoff24h,
+      finishedSince: cutoff24h,
     );
     if (failed24hResult case FailureResult<int>(:final failure)) {
       return FailureResult(failure);
@@ -223,23 +231,6 @@ final class RepositoryOverviewRepository implements OverviewRepository {
     }
   }
 
-  Future<Result<int>> _countFinishedInWindow(
-    RunStatus status,
-    DateTime cutoff,
-  ) async {
-    final result = await _runs.list(status: status, limit: _metricsQueryLimit);
-    return result.map((page) {
-      var count = 0;
-      for (final run in page.items) {
-        final finishedAt = run.finishedAt;
-        if (finishedAt != null && !finishedAt.isBefore(cutoff)) {
-          count++;
-        }
-      }
-      return count;
-    });
-  }
-
   Future<Result<List<RunSummary>>> _loadRecentRuns({
     required int activeRunCount,
   }) async {
@@ -247,7 +238,7 @@ final class RepositoryOverviewRepository implements OverviewRepository {
     final result = await _runs.list(limit: queryLimit);
     return result.map(
       (page) => page.items
-          .where((run) => !run.status.isActive)
+          .where((run) => !run.status.isRunningOrPaused)
           .take(_recentRunsLimit)
           .toList(growable: false),
     );
@@ -265,21 +256,6 @@ final class RepositoryOverviewRepository implements OverviewRepository {
     final bRunning = b.status == ActiveNodeStatus.running;
     if (aRunning != bRunning) return aRunning ? -1 : 1;
     return b.startedAt.compareTo(a.startedAt);
-  }
-
-  static Map<String, DateTime> _extractExecutingNodes(List<RunEvent> events) {
-    final executing = <String, DateTime>{};
-    for (final event in events) {
-      final nodeId = event.nodeId;
-      if (nodeId == null || nodeId.isEmpty) continue;
-      if (event.type == RunEventType.nodeStarted) {
-        executing[nodeId] = event.createdAt;
-      } else if (event.type == RunEventType.nodeCompleted ||
-          event.type == RunEventType.nodeFailed) {
-        executing.remove(nodeId);
-      }
-    }
-    return executing;
   }
 
   static String? _extractAgentId(WorkflowNode? node) {

@@ -21,6 +21,13 @@ abstract interface class RunRepository {
   /// Lists all runs currently in [status], ordered by `startedAt ASC`.
   Future<Result<List<Run>>> listByStatus(RunStatus status);
 
+  /// Counts runs currently in [status] whose `finishedAt` timestamp is non-null
+  /// and at or after [finishedSince] (inclusive).
+  Future<Result<int>> countByStatusFinishedSince(
+    RunStatus status, {
+    required DateTime finishedSince,
+  });
+
   /// Updates the [status] (and optional [finishedAt] and [errorMessage]) of
   /// run [id].
   ///
