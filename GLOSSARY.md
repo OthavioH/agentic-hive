@@ -24,6 +24,14 @@ _Avoid_: step, stage, task
 A link between nodes, labeled by the output that activates it (`onSuccess`, `onFailure` or a validator label).
 _Avoid_: link, transition
 
+**App**:
+The desktop program the user opens, named Agentic Hive everywhere the user can see it (window, taskbar, process list, tray). It draws, edits and sends commands; it does not run work.
+_Avoid_: frontend, client, UI (in anything user-facing)
+
+**Backend**:
+The local process that runs workflows and keeps state. It keeps running after the app closes.
+_Avoid_: server, daemon (in anything user-facing)
+
 ## Execution
 
 **Run**:
