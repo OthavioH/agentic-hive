@@ -137,6 +137,19 @@ abstract final class HiveIcons {
   /// Close or cancel.
   static const HiveIconData close = _HugeGlyph(HugeIcons.strokeRoundedCancel01);
 
+  /// Minimize a window.
+  static const HiveIconData minimize = _HugeGlyph(
+    HugeIcons.strokeRoundedRemove01,
+  );
+
+  /// Maximize a window.
+  static const HiveIconData maximize = _HugeGlyph(
+    HugeIcons.strokeRoundedSquare,
+  );
+
+  /// Restore a maximized window.
+  static const HiveIconData restore = _HugeGlyph(HugeIcons.strokeRoundedCopy01);
+
   /// Confirm.
   static const HiveIconData check = _HugeGlyph(HugeIcons.strokeRoundedTick02);
 
@@ -280,6 +293,9 @@ abstract final class HiveIcons {
     'person': person,
     'add': add,
     'close': close,
+    'minimize': minimize,
+    'maximize': maximize,
+    'restore': restore,
     'check': check,
     'alert': alert,
     'info': info,

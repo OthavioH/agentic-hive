@@ -28,6 +28,7 @@ const Map<String, String> _useCases = <String, String>{
   'success · Default icon': 'Claude Code is ready',
   'Long message': '',
   'Danger · Default': 'Run workflow',
+  'Danger hover · Hovered': '',
   'Single-line · Focused': 'Workflow name',
   'Single-line · Error': 'Name is required.',
   'Multi-line · Default': 'Description',
