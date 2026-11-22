@@ -11,5 +11,6 @@ sealed class HarnessesState with _$HarnessesState {
     required List<HarnessInfo> harnesses,
     @Default(false) bool isRefreshingAll,
     @Default(<HarnessId>{}) Set<HarnessId> refreshingIds,
+    @Default(<HarnessId>{}) Set<HarnessId> installingMcpIds,
   }) = _HarnessesState;
 }

@@ -104,6 +104,47 @@ class HarnessesController extends _$HarnessesController {
     };
   }
 
+  /// Installs or updates the Hive MCP server for a single harness [id],
+  /// showing a loading state only on that harness's card.
+  Future<Result<void>> installMcp(HarnessId id) async {
+    final current = state.value;
+    if (current == null || current.installingMcpIds.contains(id)) {
+      return const Success<void>(null);
+    }
+
+    state = AsyncData(
+      current.copyWith(
+        installingMcpIds: <HarnessId>{...current.installingMcpIds, id},
+      ),
+    );
+
+    final result = await ref.read(installHarnessMcpUseCaseProvider)(id);
+    if (!ref.mounted) {
+      return const FailureResult<void>(
+        UnexpectedFailure('Harnesses controller was disposed.'),
+      );
+    }
+
+    final latest = state.value ?? current;
+    final remainingIds = Set<HarnessId>.of(latest.installingMcpIds)..remove(id);
+
+    return switch (result) {
+      Success<HarnessInfo>(:final value) => () {
+        state = AsyncData(
+          latest.copyWith(
+            harnesses: _upsertHarness(latest.harnesses, value),
+            installingMcpIds: remainingIds,
+          ),
+        );
+        return const Success<void>(null);
+      }(),
+      FailureResult<HarnessInfo>(:final failure) => () {
+        state = AsyncData(latest.copyWith(installingMcpIds: remainingIds));
+        return FailureResult<void>(failure);
+      }(),
+    };
+  }
+
   void _onHarnessUpdated(HarnessInfo updated) {
     if (!ref.mounted) return;
     final current = state.value;

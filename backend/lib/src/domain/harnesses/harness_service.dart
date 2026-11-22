@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_detector.dart';
+import 'package:agentic_hive_backend/src/domain/harnesses/harness_mcp_installer.dart';
+import 'package:agentic_hive_backend/src/mcp/hive_mcp_locator.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 /// Manages in-memory harness availability, probing, and status broadcasts.
@@ -18,6 +20,10 @@ abstract interface class HarnessService {
 
   /// Re-runs detection for [id], updates cache, and broadcasts the result.
   Future<Result<HarnessInfo>> refreshOne(HarnessId id);
+
+  /// Installs or updates the `hive` MCP server in [id]'s user configuration
+  /// and returns the refreshed [HarnessInfo].
+  Future<Result<HarnessInfo>> installMcp(HarnessId id);
 
   /// Applies custom executable path overrides for all harnesses.
   ///
@@ -41,11 +47,17 @@ abstract interface class HarnessService {
 /// Default in-memory implementation of [HarnessService].
 final class DefaultHarnessService implements HarnessService {
   /// Creates a harness service backed by [detectors].
-  new({required List<HarnessDetector> detectors, DateTime Function()? now})
-    : _detectors = {for (final detector in detectors) detector.id: detector},
-      _now = now ?? DateTime.now;
+  new({
+    required List<HarnessDetector> detectors,
+    this._mcpInstallers,
+    this._mcpLocator,
+    DateTime Function()? now,
+  }) : _detectors = {for (final detector in detectors) detector.id: detector},
+       _now = now ?? DateTime.now;
 
   final Map<HarnessId, HarnessDetector> _detectors;
+  final HarnessMcpInstallerRegistry? _mcpInstallers;
+  final HiveMcpLocator? _mcpLocator;
   final DateTime Function() _now;
   final Map<HarnessId, HarnessInfo> _cache = {};
   final Map<HarnessId, String?> _overrides = {};
@@ -88,10 +100,58 @@ final class DefaultHarnessService implements HarnessService {
         NotFoundFailure('Unknown harness "${id.wireName}".'),
       );
     }
-    final updated = await detector.detect();
+    final detected = await detector.detect();
+    final updated = await _enrichMcpStatus(detected);
     _cache[id] = updated;
     _emit(updated);
     return Success(updated);
+  }
+
+  @override
+  Future<Result<HarnessInfo>> installMcp(HarnessId id) async {
+    final detector = _detectors[id];
+    if (detector == null) {
+      return FailureResult(
+        NotFoundFailure('Unknown harness "${id.wireName}".'),
+      );
+    }
+
+    final installer = _mcpInstallers?[id];
+    final locator = _mcpLocator;
+    if (installer == null || locator == null) {
+      return FailureResult(
+        ConflictFailure(
+          'MCP installation is not supported for ${id.displayName}.',
+        ),
+      );
+    }
+
+    final current = _cache[id] ?? await detector.detect();
+    final executablePath = current.executablePath;
+    if (current.status == HarnessStatus.notInstalled ||
+        executablePath == null) {
+      return FailureResult(
+        ConflictFailure('${id.displayName} CLI is not installed.'),
+      );
+    }
+
+    final commandResult = locator.resolve();
+    if (commandResult case FailureResult<HiveMcpLaunchCommand>(
+      :final failure,
+    )) {
+      return FailureResult(failure);
+    }
+    final command = commandResult.valueOrNull!;
+
+    final installResult = await installer.install(
+      executablePath: executablePath,
+      command: command,
+    );
+    if (installResult case FailureResult<void>(:final failure)) {
+      return FailureResult(failure);
+    }
+
+    return await refreshOne(id);
   }
 
   @override
@@ -145,8 +205,11 @@ final class DefaultHarnessService implements HarnessService {
 
   Future<List<HarnessInfo>> _scanAll({required bool broadcastChanges}) async {
     final detectors = _detectors.values.toList();
-    final results = await Future.wait([
+    final detected = await Future.wait([
       for (final detector in detectors) detector.detect(),
+    ]);
+    final results = await Future.wait([
+      for (final info in detected) _enrichMcpStatus(info),
     ]);
 
     for (final updated in results) {
@@ -158,6 +221,50 @@ final class DefaultHarnessService implements HarnessService {
     }
     _scanned = true;
     return _orderedCache();
+  }
+
+  Future<HarnessInfo> _enrichMcpStatus(HarnessInfo info) async {
+    final installers = _mcpInstallers;
+    final locator = _mcpLocator;
+    if (installers == null || locator == null) {
+      return info;
+    }
+
+    if (info.status == HarnessStatus.notInstalled ||
+        info.executablePath == null) {
+      return info.copyWith(
+        mcpStatus: HarnessMcpStatus.unsupported,
+        mcpMessage: '${info.displayName} CLI is not installed.',
+      );
+    }
+
+    final installer = installers[info.id];
+    if (installer == null) {
+      return info.copyWith(
+        mcpStatus: HarnessMcpStatus.unsupported,
+        mcpMessage:
+            'MCP installation is not supported for ${info.displayName}.',
+      );
+    }
+
+    final commandResult = locator.resolve();
+    if (commandResult case FailureResult<HiveMcpLaunchCommand>(
+      :final failure,
+    )) {
+      return info.copyWith(
+        mcpStatus: HarnessMcpStatus.unknown,
+        mcpMessage: failure.message,
+      );
+    }
+
+    final detection = await installer.detect(
+      executablePath: info.executablePath!,
+      expectedCommand: commandResult.valueOrNull!,
+    );
+    return info.copyWith(
+      mcpStatus: detection.status,
+      mcpMessage: detection.message,
+    );
   }
 
   void _reportObservedStatus(
@@ -194,6 +301,8 @@ final class DefaultHarnessService implements HarnessService {
     return previous.status != next.status ||
         previous.version != next.version ||
         previous.executablePath != next.executablePath ||
-        previous.errorMessage != next.errorMessage;
+        previous.errorMessage != next.errorMessage ||
+        previous.mcpStatus != next.mcpStatus ||
+        previous.mcpMessage != next.mcpMessage;
   }
 }

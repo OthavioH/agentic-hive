@@ -20,6 +20,9 @@ abstract interface class HarnessesRemoteDataSource {
   /// Calls `POST /api/v1/harnesses/:id/refresh`.
   Future<Result<HarnessInfo>> refreshHarness(HarnessId id);
 
+  /// Calls `POST /api/v1/harnesses/:id/mcp/install`.
+  Future<Result<HarnessInfo>> installMcp(HarnessId id);
+
   /// Stream of [HarnessInfo] updates parsed from `harness.status_updated`
   /// WebSocket messages.
   Stream<HarnessInfo> watchHarnessUpdates();
@@ -49,6 +52,12 @@ final class HarnessesRemoteDataSourceImpl implements HarnessesRemoteDataSource {
   @override
   Future<Result<HarnessInfo>> refreshHarness(HarnessId id) => _decodeJsonResult(
     _client.postJson('/api/v1/harnesses/${id.wireName}/refresh'),
+    HarnessInfo.fromJson,
+  );
+
+  @override
+  Future<Result<HarnessInfo>> installMcp(HarnessId id) => _decodeJsonResult(
+    _client.postJson('/api/v1/harnesses/${id.wireName}/mcp/install'),
     HarnessInfo.fromJson,
   );
 

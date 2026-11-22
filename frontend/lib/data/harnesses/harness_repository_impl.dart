@@ -30,6 +30,10 @@ final class HarnessRepositoryImpl implements HarnessRepository {
       _remoteDataSource.refreshHarness(id);
 
   @override
+  Future<Result<HarnessInfo>> installMcp(HarnessId id) =>
+      _remoteDataSource.installMcp(id);
+
+  @override
   Stream<HarnessInfo> watchHarnessUpdates() =>
       _remoteDataSource.watchHarnessUpdates();
 }

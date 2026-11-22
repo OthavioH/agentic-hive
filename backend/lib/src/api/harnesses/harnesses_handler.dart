@@ -47,4 +47,21 @@ final class HarnessesHandler {
       onFailure: (failure) => failureResponse(request, failure),
     );
   }
+
+  /// `POST /api/v1/harnesses/<id>/mcp/install`: installs or updates the Hive
+  /// MCP server in one harness's user config and returns refreshed info.
+  Future<Response> installMcp(Request request, String rawId) async {
+    final id = HarnessId.tryParse(rawId);
+    if (id == null) {
+      return failureResponse(
+        request,
+        NotFoundFailure('Unknown harness "$rawId".'),
+      );
+    }
+    final result = await _harnessService.installMcp(id);
+    return result.fold<Response>(
+      onSuccess: (harness) => jsonResponse(200, harness),
+      onFailure: (failure) => failureResponse(request, failure),
+    );
+  }
 }

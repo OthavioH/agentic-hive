@@ -40,32 +40,32 @@ Future<void> main(List<String> arguments) async {
   final attemptRaw =
       _nonEmpty(args.option('attempt')) ?? _nonEmpty(env['HIVE_ATTEMPT']);
 
+  final HiveMcpBackendClient? client;
   if (socketPath == null ||
       runId == null ||
       nodeId == null ||
       attemptRaw == null) {
-    stderr.writeln(
-      'Missing required execution context. Provide --socket, --run-id, '
-      '--node-id, and --attempt (or HIVE_SOCKET_PATH, HIVE_RUN_ID, '
-      'HIVE_NODE_ID, HIVE_ATTEMPT).\n\n${parser.usage}',
+    // Outside an Agentic Hive run (for example `claude mcp get hive` or an
+    // interactive user session): start the server and answer tool calls with
+    // an `isError` message instead of failing startup.
+    client = null;
+  } else {
+    final attempt = int.tryParse(attemptRaw);
+    if (attempt == null || attempt < 1) {
+      stderr.writeln(
+        'Invalid --attempt "$attemptRaw": must be a positive int.',
+      );
+      exitCode = _usageError;
+      return;
+    }
+    client = HiveMcpBackendClient(
+      socketPath: socketPath,
+      runId: runId,
+      nodeId: nodeId,
+      attempt: attempt,
     );
-    exitCode = _usageError;
-    return;
   }
 
-  final attempt = int.tryParse(attemptRaw);
-  if (attempt == null || attempt < 1) {
-    stderr.writeln('Invalid --attempt "$attemptRaw": must be a positive int.');
-    exitCode = _usageError;
-    return;
-  }
-
-  final client = HiveMcpBackendClient(
-    socketPath: socketPath,
-    runId: runId,
-    nodeId: nodeId,
-    attempt: attempt,
-  );
   final server = HiveMcpServer(
     stdioChannel(input: stdin, output: stdout),
     client: client,
