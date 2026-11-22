@@ -73,7 +73,45 @@ void main() {
         'displayName': 'Gemini CLI',
         'status': 'notInstalled',
         'checkedAt': checkedAt.toIso8601String(),
+        'mcpStatus': 'unknown',
       });
+    });
+
+    test('round-trips all five HarnessMcpStatus values and mcpMessage', () {
+      const expectedWire = {
+        HarnessMcpStatus.installed: 'installed',
+        HarnessMcpStatus.notInstalled: 'not_installed',
+        HarnessMcpStatus.outdated: 'outdated',
+        HarnessMcpStatus.unsupported: 'unsupported',
+        HarnessMcpStatus.unknown: 'unknown',
+      };
+
+      for (final mcpStatus in HarnessMcpStatus.values) {
+        final info = HarnessInfo(
+          id: HarnessId.claudeCode,
+          displayName: 'Claude Code',
+          status: HarnessStatus.ready,
+          checkedAt: checkedAt,
+          mcpStatus: mcpStatus,
+          mcpMessage: mcpStatus == HarnessMcpStatus.installed ? null : 'note',
+        );
+
+        final json = _overTheWire(info.toJson());
+        expect(json['mcpStatus'], expectedWire[mcpStatus]);
+        expect(HarnessInfo.fromJson(json), info);
+      }
+    });
+
+    test('defaults mcpStatus to unknown when omitted in JSON', () {
+      final decoded = HarnessInfo.fromJson({
+        'id': 'claude_code',
+        'displayName': 'Claude Code',
+        'status': 'ready',
+        'checkedAt': checkedAt.toIso8601String(),
+      });
+
+      expect(decoded.mcpStatus, HarnessMcpStatus.unknown);
+      expect(decoded.mcpMessage, isNull);
     });
 
     test('throws a FormatException naming "status" for an unknown status', () {
