@@ -53,10 +53,16 @@ import 'package:agentic_hive_frontend/domain/workflows/use_cases/get_workflow.da
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/list_workflows.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/update_workflow.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/validate_workflow.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/create_workspace.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/get_snapshot_diff.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/get_workspace_capabilities.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/list_run_snapshots.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/list_workspaces.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/load_last_workspace_id.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/rename_workspace.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/restore_snapshot.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/save_last_workspace_id.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/unregister_workspace.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'use_case_providers.g.dart';
@@ -282,3 +288,33 @@ GetOverviewUseCase getOverviewUseCase(Ref ref) =>
 @riverpod
 WatchOverviewEventsUseCase watchOverviewEventsUseCase(Ref ref) =>
     WatchOverviewEventsUseCase(ref.watch(overviewRepositoryProvider));
+
+/// Provides [ListWorkspaces].
+@riverpod
+ListWorkspaces listWorkspaces(Ref ref) =>
+    ListWorkspaces(ref.watch(workspaceRepositoryProvider));
+
+/// Provides [CreateWorkspace].
+@riverpod
+CreateWorkspace createWorkspace(Ref ref) =>
+    CreateWorkspace(ref.watch(workspaceRepositoryProvider));
+
+/// Provides [RenameWorkspace].
+@riverpod
+RenameWorkspace renameWorkspace(Ref ref) =>
+    RenameWorkspace(ref.watch(workspaceRepositoryProvider));
+
+/// Provides [UnregisterWorkspace].
+@riverpod
+UnregisterWorkspace unregisterWorkspace(Ref ref) =>
+    UnregisterWorkspace(ref.watch(workspaceRepositoryProvider));
+
+/// Provides [LoadLastWorkspaceId].
+@riverpod
+LoadLastWorkspaceId loadLastWorkspaceId(Ref ref) =>
+    LoadLastWorkspaceId(ref.watch(workspaceSelectionStoreProvider));
+
+/// Provides [SaveLastWorkspaceId].
+@riverpod
+SaveLastWorkspaceId saveLastWorkspaceId(Ref ref) =>
+    SaveLastWorkspaceId(ref.watch(workspaceSelectionStoreProvider));

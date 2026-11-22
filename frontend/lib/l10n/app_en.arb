@@ -2572,5 +2572,169 @@
   "overviewFailureUnexpected": "An unexpected error occurred.",
   "@overviewFailureUnexpected": {
     "description": "Fallback localized error message on Overview."
+  },
+  "workspaceCurrentLabel": "Current workspace",
+  "@workspaceCurrentLabel": {
+    "description": "Label for the active workspace selector in the shell bar."
+  },
+  "workspaceNoneSelected": "No workspace registered",
+  "@workspaceNoneSelected": {
+    "description": "Placeholder text shown when no workspaces are registered."
+  },
+  "workspaceLoading": "Loading workspaces…",
+  "@workspaceLoading": {
+    "description": "Status text while registered workspaces are loading."
+  },
+  "workspaceLoadError": "Could not load workspaces",
+  "@workspaceLoadError": {
+    "description": "Error label when loading registered workspaces fails."
+  },
+  "workspaceRetryAction": "Retry",
+  "@workspaceRetryAction": {
+    "description": "Button label to retry loading workspaces."
+  },
+  "workspaceManageAction": "Workspaces",
+  "@workspaceManageAction": {
+    "description": "Button label to open the workspace registry dialog."
+  },
+  "workspaceRegistryTitle": "Workspaces",
+  "@workspaceRegistryTitle": {
+    "description": "Title of the workspace registry dialog."
+  },
+  "workspaceRegistrySubtitle": "Register a folder once to organize runs and scoped definitions.",
+  "@workspaceRegistrySubtitle": {
+    "description": "Subtitle of the workspace registry dialog."
+  },
+  "workspaceEmptyTitle": "No workspaces yet",
+  "@workspaceEmptyTitle": {
+    "description": "Empty state title in the workspace registry dialog."
+  },
+  "workspaceEmptyMessage": "Add a folder below to register your first workspace.",
+  "@workspaceEmptyMessage": {
+    "description": "Empty state message in the workspace registry dialog."
+  },
+  "workspaceAddFolderLabel": "Folder path",
+  "@workspaceAddFolderLabel": {
+    "description": "Label for the workspace folder path input."
+  },
+  "workspaceAddFolderHint": "Select or enter an absolute folder path",
+  "@workspaceAddFolderHint": {
+    "description": "Hint for the workspace folder path input."
+  },
+  "workspaceAddBrowseAction": "Browse",
+  "@workspaceAddBrowseAction": {
+    "description": "Button label to browse for a workspace folder."
+  },
+  "workspaceAddNameLabel": "Workspace name",
+  "@workspaceAddNameLabel": {
+    "description": "Label for the workspace display name input."
+  },
+  "workspaceAddNameHint": "Defaults to folder name",
+  "@workspaceAddNameHint": {
+    "description": "Hint for the workspace display name input."
+  },
+  "workspaceAddAction": "Add workspace",
+  "@workspaceAddAction": {
+    "description": "Primary button label to register a new workspace."
+  },
+  "workspaceGitBadge": "Git",
+  "@workspaceGitBadge": {
+    "description": "Badge shown on a git-backed workspace."
+  },
+  "workspaceActiveRunsBadge": "{count, plural, =1{1 active run} other{{count} active runs}}",
+  "@workspaceActiveRunsBadge": {
+    "description": "Badge showing how many active runs belong to a workspace.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workspaceRenameTooltip": "Rename {name}",
+  "@workspaceRenameTooltip": {
+    "description": "Tooltip and semantic label for renaming a workspace.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceRemoveTooltip": "Remove {name}",
+  "@workspaceRemoveTooltip": {
+    "description": "Tooltip and semantic label for removing a workspace.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceRenameTitle": "Rename workspace",
+  "@workspaceRenameTitle": {
+    "description": "Title of the rename workspace dialog."
+  },
+  "workspaceRenameSave": "Save",
+  "@workspaceRenameSave": {
+    "description": "Save button label in the rename workspace dialog."
+  },
+  "workspaceRenameCancel": "Cancel",
+  "@workspaceRenameCancel": {
+    "description": "Cancel button label in the rename workspace dialog."
+  },
+  "workspaceRemoveTitle": "Remove workspace?",
+  "@workspaceRemoveTitle": {
+    "description": "Title of the unregister workspace confirmation dialog."
+  },
+  "workspaceRemoveMessage": "Remove \"{name}\" from the workspace list? This only unregisters it and does not delete any files on disk.",
+  "@workspaceRemoveMessage": {
+    "description": "Confirmation message when removing a workspace with no active runs.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceRemoveActiveRunsMessage": "\"{name}\" has {count, plural, =1{1 active run} other{{count} active runs}}. Removing only unregisters the workspace and does not delete any files on disk, but active runs must finish or be cancelled first.",
+  "@workspaceRemoveActiveRunsMessage": {
+    "description": "Warning confirmation message when removing a workspace with active runs.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workspaceRemoveConfirm": "Remove",
+  "@workspaceRemoveConfirm": {
+    "description": "Destructive confirm button label to unregister a workspace."
+  },
+  "workspaceRemoveCancel": "Cancel",
+  "@workspaceRemoveCancel": {
+    "description": "Cancel button label in the remove workspace dialog."
+  },
+  "workspaceCloseAction": "Close",
+  "@workspaceCloseAction": {
+    "description": "Close button label in the workspace registry dialog."
+  },
+  "workspaceErrorPathRequired": "Enter or select a folder path.",
+  "@workspaceErrorPathRequired": {
+    "description": "Validation error when adding a workspace without a folder path."
+  },
+  "workspaceErrorNameRequired": "Enter a workspace name.",
+  "@workspaceErrorNameRequired": {
+    "description": "Validation error when renaming a workspace to an empty name."
+  },
+  "workspaceErrorNetwork": "Could not reach the local backend.",
+  "@workspaceErrorNetwork": {
+    "description": "Error message when a workspace request fails with NetworkFailure."
+  },
+  "workspaceErrorConflict": "That workspace folder is already registered or has active runs.",
+  "@workspaceErrorConflict": {
+    "description": "Error message when a workspace request fails with a 409 conflict."
+  },
+  "workspaceErrorUnexpected": "Could not complete the workspace action.",
+  "@workspaceErrorUnexpected": {
+    "description": "Fallback error message for workspace operations."
   }
 }

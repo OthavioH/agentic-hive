@@ -1,8 +1,23 @@
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
-/// Repository contract for workspace capabilities and run snapshots.
+/// Repository contract for workspace registry, capabilities and run snapshots.
 abstract interface class WorkspaceRepository {
+  /// Lists all registered workspaces.
+  Future<Result<List<Workspace>>> listWorkspaces();
+
+  /// Registers a workspace at [rootPath] with an optional [name].
+  Future<Result<Workspace>> createWorkspace({
+    required String rootPath,
+    String? name,
+  });
+
+  /// Renames workspace [id] to [name].
+  Future<Result<Workspace>> renameWorkspace(String id, {required String name});
+
+  /// Unregisters workspace [id] without deleting any files.
+  Future<Result<void>> unregisterWorkspace(String id);
+
   /// Reports git availability and, when [path] is given, whether it is a git
   /// repository with commits.
   Future<Result<WorkspaceCapabilities>> getCapabilities({String? path});
