@@ -132,6 +132,55 @@ void main() {
       },
     );
 
+    test(
+      'installMcp requests POST /api/v1/harnesses/:id/mcp/install',
+      () async {
+        final installedClaude = claude.copyWith(
+          mcpStatus: HarnessMcpStatus.installed,
+        );
+        final client = _FakeBackendClient()
+          ..nextPost = Success(installedClaude.toJson());
+        final controller = StreamController<WsEnvelope>.broadcast();
+        addTearDown(controller.close);
+
+        final ds = HarnessesRemoteDataSourceImpl(
+          client: client,
+          wsMessages: controller.stream,
+        );
+
+        final result = await ds.installMcp(HarnessId.claudeCode);
+        expect(client.postPaths, <String>[
+          '/api/v1/harnesses/claude_code/mcp/install',
+        ]);
+        expect(result.valueOrNull, installedClaude);
+      },
+    );
+
+    test('installMcp preserves BackendFailure on 409 conflict', () async {
+      final client = _FakeBackendClient()
+        ..nextPost = const FailureResult(
+          BackendFailure(
+            'Harness CLI is not installed.',
+            code: 'harness_not_installed',
+            statusCode: 409,
+          ),
+        );
+      final controller = StreamController<WsEnvelope>.broadcast();
+      addTearDown(controller.close);
+
+      final ds = HarnessesRemoteDataSourceImpl(
+        client: client,
+        wsMessages: controller.stream,
+      );
+
+      final result = await ds.installMcp(HarnessId.codex);
+      expect(client.postPaths, <String>['/api/v1/harnesses/codex/mcp/install']);
+      expect(
+        result.failureOrNull,
+        isA<BackendFailure>().having((f) => f.statusCode, 'statusCode', 409),
+      );
+    });
+
     test('returns BackendFailure on malformed response JSON', () async {
       final client = _FakeBackendClient()
         ..nextGet = const Success(<String, Object?>{'unexpected': true});
@@ -208,6 +257,9 @@ void main() {
 
       final oneResult = await repo.refreshHarness(HarnessId.claudeCode);
       expect(oneResult.valueOrNull, claude);
+
+      final installResult = await repo.installMcp(HarnessId.claudeCode);
+      expect(installResult.valueOrNull, claude);
     });
   });
 }

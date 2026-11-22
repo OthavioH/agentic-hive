@@ -79,6 +79,8 @@ class HarnessesPage extends ConsumerWidget {
                 state: value,
                 onRecheck: (id) => _refreshHarness(context, ref, l10n, id),
                 onCopyPath: (path) => _copyPath(context, l10n, path),
+                onInstallMcp: (harness) =>
+                    _installMcp(context, ref, l10n, harness),
               ),
             },
           ),
@@ -128,6 +130,48 @@ class HarnessesPage extends ConsumerWidget {
     }
   }
 
+  Future<void> _installMcp(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+    HarnessInfo harness,
+  ) async {
+    final result = await ref
+        .read(harnessesControllerProvider.notifier)
+        .installMcp(harness.id);
+    if (!context.mounted) return;
+    switch (result) {
+      case Success<void>():
+        HiveToast.show(
+          context,
+          message: l10n.harnessesMcpInstallSuccess(harness.displayName),
+          tone: HiveToastTone.success,
+        );
+      case FailureResult<void>(:final failure):
+        HiveToast.show(
+          context,
+          message: l10n.harnessesMcpInstallError(
+            _mcpInstallErrorMessage(failure, l10n),
+          ),
+          tone: HiveToastTone.danger,
+        );
+    }
+  }
+
+  String _mcpInstallErrorMessage(Failure failure, AppLocalizations l10n) =>
+      switch (failure) {
+        NetworkFailure() => l10n.harnessesErrorNetwork,
+        BackendFailure(:final statusCode) when statusCode == 409 =>
+          l10n.harnessesMcpInstallCliNotInstalled,
+        BackendFailure(:final message) when message.isNotEmpty => message,
+        BackendFailure() => l10n.harnessesErrorBackend,
+        NotFoundFailure() => l10n.harnessesErrorNotFound,
+        ConflictFailure(:final message) when message.isNotEmpty => message,
+        ConflictFailure() ||
+        ValidationFailure() ||
+        UnexpectedFailure() => l10n.harnessesErrorUnexpected,
+      };
+
   String _localizedErrorMessage(Object error, AppLocalizations l10n) =>
       switch (error) {
         NetworkFailure() => l10n.harnessesErrorNetwork,
@@ -158,11 +202,13 @@ class _HarnessesGrid extends StatelessWidget {
     required this.state,
     required this.onRecheck,
     required this.onCopyPath,
+    required this.onInstallMcp,
   });
 
   final HarnessesState state;
   final ValueChanged<HarnessId> onRecheck;
   final ValueChanged<String> onCopyPath;
+  final ValueChanged<HarnessInfo> onInstallMcp;
 
   @override
   Widget build(BuildContext context) {
@@ -188,8 +234,12 @@ class _HarnessesGrid extends StatelessWidget {
                     harness: harness,
                     isRefreshing: state.refreshingIds.contains(harness.id),
                     isGlobalRefreshing: state.isRefreshingAll,
+                    isInstallingMcp: state.installingMcpIds.contains(
+                      harness.id,
+                    ),
                     onRecheck: () => onRecheck(harness.id),
                     onCopyPath: onCopyPath,
+                    onInstallMcp: () => onInstallMcp(harness),
                   ),
                 ),
             ],

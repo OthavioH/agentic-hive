@@ -74,7 +74,8 @@ Handler buildApiHandler({
     router
       ..get('/api/v1/harnesses', harnessesHandler.list)
       ..post('/api/v1/harnesses/refresh', harnessesHandler.refreshAll)
-      ..post('/api/v1/harnesses/<id>/refresh', harnessesHandler.refreshOne);
+      ..post('/api/v1/harnesses/<id>/refresh', harnessesHandler.refreshOne)
+      ..post('/api/v1/harnesses/<id>/mcp/install', harnessesHandler.installMcp);
   }
 
   if (agentsHandler != null) {

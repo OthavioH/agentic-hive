@@ -1,4 +1,5 @@
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/agent_library_select_field.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/node_config_form_registry.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
@@ -32,12 +33,12 @@ class HarnessConfigForm extends StatefulWidget {
 }
 
 class _HarnessConfigFormState extends State<HarnessConfigForm> {
-  final TextEditingController _agentIdController = TextEditingController();
   final TextEditingController _instructionsController = TextEditingController();
   final TextEditingController _workingDirController = TextEditingController();
   final TextEditingController _timeoutController = TextEditingController();
   final TextEditingController _commandController = TextEditingController();
 
+  String? _agentId;
   List<String> _extraArgs = const <String>[];
   List<String> _args = const <String>[];
   bool _sendPromptToStdin = false;
@@ -61,7 +62,6 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
 
   @override
   void dispose() {
-    _agentIdController.dispose();
     _instructionsController.dispose();
     _workingDirController.dispose();
     _timeoutController.dispose();
@@ -74,7 +74,7 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
     _hasTimeoutError = false;
     if (widget.includeTerminalFields) {
       final config = _parseTerminalConfig(widget.node.config);
-      _agentIdController.text = config.agentId ?? '';
+      _agentId = _nullIfEmpty(config.agentId ?? '');
       _instructionsController.text = config.additionalInstructions ?? '';
       _workingDirController.text = config.workingDirectory ?? '';
       _timeoutController.text = config.timeoutSeconds?.toString() ?? '';
@@ -84,7 +84,7 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
       _sendPromptToStdin = config.sendPromptToStdin;
     } else {
       final config = _parseHarnessConfig(widget.node.config);
-      _agentIdController.text = config.agentId ?? '';
+      _agentId = _nullIfEmpty(config.agentId ?? '');
       _instructionsController.text = config.additionalInstructions ?? '';
       _workingDirController.text = config.workingDirectory ?? '';
       _timeoutController.text = config.timeoutSeconds?.toString() ?? '';
@@ -127,7 +127,7 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
     if (widget.includeTerminalFields) {
       widget.onConfigChanged(
         TerminalHarnessNodeConfig(
-          agentId: _nullIfEmpty(_agentIdController.text),
+          agentId: _agentId,
           additionalInstructions: _nullIfEmpty(_instructionsController.text),
           workingDirectory: _nullIfEmpty(_workingDirController.text),
           timeoutSeconds: timeout.value,
@@ -140,7 +140,7 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
     } else {
       widget.onConfigChanged(
         HarnessNodeConfig(
-          agentId: _nullIfEmpty(_agentIdController.text),
+          agentId: _agentId,
           additionalInstructions: _nullIfEmpty(_instructionsController.text),
           workingDirectory: _nullIfEmpty(_workingDirController.text),
           timeoutSeconds: timeout.value,
@@ -158,13 +158,13 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        HiveTextField(
-          key: const Key('config_harness_agent_id'),
-          label: l10n.nodeConfigAgentIdLabel,
-          hint: l10n.nodeConfigAgentIdHint,
-          helperText: l10n.nodeConfigAgentIdHelper,
-          controller: _agentIdController,
-          onChanged: (_) => _emit(),
+        AgentLibrarySelectField(
+          selectKey: const Key('config_harness_agent_id'),
+          agentId: _agentId,
+          onChanged: (value) {
+            setState(() => _agentId = value);
+            _emit();
+          },
         ),
         SizedBox(height: spacing.space2),
         HiveTextField(

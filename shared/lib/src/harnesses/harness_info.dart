@@ -1,4 +1,5 @@
 import 'package:agentic_hive_shared/src/harnesses/harness_id.dart';
+import 'package:agentic_hive_shared/src/harnesses/harness_mcp_status.dart';
 import 'package:agentic_hive_shared/src/harnesses/harness_status.dart';
 import 'package:agentic_hive_shared/src/json_fields.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
@@ -18,6 +19,8 @@ sealed class HarnessInfo with _$HarnessInfo {
     String? version,
     String? executablePath,
     String? errorMessage,
+    @Default(HarnessMcpStatus.unknown) HarnessMcpStatus mcpStatus,
+    String? mcpMessage,
   }) = _HarnessInfo;
 
   /// Decodes a harness info record; throws a [FormatException] on a bad shape.

@@ -1253,6 +1253,7 @@ final class GraphEngine {
           availableOutputs: node.availableOutputs,
           config: workflowNode.config,
           inputs: _inputsFor(x, id),
+          isolationMode: x.run.isolationMode,
           humanAnswer: x.humanAnswers.remove(id),
           runInput: id == x.run.workflowDefinition.entryNodeId
               ? x.run.input

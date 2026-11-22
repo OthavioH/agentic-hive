@@ -17,6 +17,7 @@ final class NodeExecutionContext {
     ],
     this.config = const <String, Object?>{},
     this.inputs = const <String, Object?>{},
+    this.isolationMode = WorkspaceIsolationMode.direct,
     this.resultJsonPath,
     this.humanAnswer,
     this.runInput,
@@ -43,6 +44,9 @@ final class NodeExecutionContext {
 
   /// Structured outputs passed from upstream nodes.
   final Map<String, Object?> inputs;
+
+  /// Workspace isolation mode for the active run (`worktree` or `direct`).
+  final WorkspaceIsolationMode isolationMode;
 
   /// Optional path to `result.json` for harnesses without MCP.
   final String? resultJsonPath;

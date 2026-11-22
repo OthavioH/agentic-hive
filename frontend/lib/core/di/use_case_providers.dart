@@ -18,6 +18,7 @@ import 'package:agentic_hive_frontend/domain/agents/list_agents_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/update_agent_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/watch_agent_changes_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/get_harnesses_use_case.dart';
+import 'package:agentic_hive_frontend/domain/harnesses/install_harness_mcp_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/refresh_harness_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/refresh_harnesses_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/watch_harness_updates_use_case.dart';
@@ -104,6 +105,11 @@ RefreshHarnessesUseCase refreshHarnessesUseCase(Ref ref) =>
 @riverpod
 RefreshHarnessUseCase refreshHarnessUseCase(Ref ref) =>
     RefreshHarnessUseCase(ref.watch(harnessRepositoryProvider));
+
+/// Provides [InstallHarnessMcpUseCase].
+@riverpod
+InstallHarnessMcpUseCase installHarnessMcpUseCase(Ref ref) =>
+    InstallHarnessMcpUseCase(ref.watch(harnessRepositoryProvider));
 
 /// Provides [WatchHarnessUpdatesUseCase].
 @riverpod

@@ -13,6 +13,7 @@ import 'package:agentic_hive_backend/src/domain/result_contract/human_pause_gate
 import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_coordinator.dart';
 import 'package:agentic_hive_backend/src/mcp/hive_mcp_locator.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -146,9 +147,15 @@ final class _FakeResultContractSession implements ResultContractSession {
 }
 
 final class _FakeAgentPromptResolver implements AgentPromptResolver {
-  new(this.prompts);
+  new(
+    this.prompts, {
+    this.allowedTools = const <String, List<String>>{},
+    this.deniedTools = const <String, List<String>>{},
+  });
 
   final Map<String, String> prompts;
+  final Map<String, List<String>> allowedTools;
+  final Map<String, List<String>> deniedTools;
 
   @override
   Future<Result<String>> resolvePrompt(String agentId) async {
@@ -158,19 +165,39 @@ final class _FakeAgentPromptResolver implements AgentPromptResolver {
     }
     return Success(prompt);
   }
+
+  @override
+  Future<Result<ResolvedAgent>> resolveAgent(String agentId) async {
+    final prompt = prompts[agentId];
+    if (prompt == null) {
+      return FailureResult(NotFoundFailure('Agent "$agentId" not found.'));
+    }
+    return Success(
+      ResolvedAgent(
+        prompt: prompt,
+        allowedTools: allowedTools[agentId] ?? const <String>[],
+        deniedTools: deniedTools[agentId] ?? const <String>[],
+      ),
+    );
+  }
 }
 
 NodeExecutionContext _context({
+  String runId = 'run-1',
   JsonMap config = const {'additionalInstructions': 'Implement feature X'},
   String? humanAnswer,
   String? runInput,
+  WorkspaceIsolationMode isolationMode = WorkspaceIsolationMode.direct,
+  String? resultJsonPath,
 }) => NodeExecutionContext(
-  runId: 'run-1',
+  runId: runId,
   nodeId: 'node-1',
   workspacePath: '/tmp/workspace',
   config: config,
   humanAnswer: humanAnswer,
   runInput: runInput,
+  isolationMode: isolationMode,
+  resultJsonPath: resultJsonPath,
 );
 
 void main() {
@@ -365,7 +392,10 @@ void main() {
       final result = await node.execute(_context());
       expect(result.isSuccess, isTrue);
       expect(processRunner.lastInvocation!.executable, 'codex');
-      expect(processRunner.lastInvocation!.arguments, ['exec', '--json']);
+      expect(
+        processRunner.lastInvocation!.arguments,
+        containsAllInOrder(['exec', '--json', '--sandbox', 'workspace-write']),
+      );
       expect(
         processRunner.lastInvocation!.stdinContent,
         contains('Implement feature X'),
@@ -417,6 +447,8 @@ void main() {
           'stream-json',
           '--output-format',
           'stream-json',
+          '--mode',
+          'accept-edits',
           '--model',
           'gemini-3-pro',
         ]);
@@ -615,6 +647,291 @@ void main() {
       final agyResult = await agy.execute(_context());
       expect(agyResult.isSuccess, isTrue);
       expect(agyResult.valueOrNull!.outputLabel, NodeOutput.onSuccess);
+    });
+  });
+
+  group('Headless harness permission policy', () {
+    const resultJsonPath =
+        '/tmp/hive-data/runs/run-1/results/node-1-attempt-1.json';
+    const resultsDir = '/tmp/hive-data/runs/run-1/results';
+
+    late _FakeAgentPromptResolver policyAgentResolver;
+
+    setUp(() {
+      policyAgentResolver = _FakeAgentPromptResolver(
+        const {'sweeper': 'Sweep the workspace.'},
+        allowedTools: const {
+          'sweeper': ['Read', 'Bash(git status)', 'Edit'],
+        },
+        deniedTools: const {
+          'sweeper': ['Bash(git status)', 'WebFetch'],
+        },
+      );
+    });
+
+    test(
+      'ClaudeCodeNode applies worktree bypass, Hive MCP tools, results dir, '
+      'allowed/denied tools (denied wins), and keeps extraArgs last',
+      () async {
+        final node = ClaudeCodeNode(
+          processRunner: processRunner,
+          resultContract: resultContract,
+          agentPromptResolver: policyAgentResolver,
+        );
+
+        final result = await node.execute(
+          _context(
+            isolationMode: WorkspaceIsolationMode.worktree,
+            resultJsonPath: resultJsonPath,
+            config: const {
+              'agentId': 'sweeper',
+              'extraArgs': ['--permission-mode', 'plan'],
+            },
+          ),
+        );
+
+        expect(result.isSuccess, isTrue);
+        final args = processRunner.lastInvocation!.arguments;
+        expect(args, contains('--dangerously-skip-permissions'));
+        expect(args, containsAllInOrder(['--add-dir', resultsDir]));
+        expect(
+          args,
+          containsAllInOrder([
+            '--allowedTools',
+            'mcp__hive__report_result,mcp__hive__ask_human,Read,Edit',
+          ]),
+        );
+        expect(
+          args,
+          containsAllInOrder([
+            '--disallowedTools',
+            'Bash(git status),WebFetch',
+          ]),
+        );
+        // extraArgs must stay last so user can override.
+        expect(args.sublist(args.length - 2), ['--permission-mode', 'plan']);
+      },
+    );
+
+    test(
+      'ClaudeCodeNode applies direct mode acceptEdits and Hive MCP tools',
+      () async {
+        final node = ClaudeCodeNode(
+          processRunner: processRunner,
+          resultContract: resultContract,
+          agentPromptResolver: policyAgentResolver,
+        );
+
+        final result = await node.execute(
+          _context(
+            resultJsonPath: resultJsonPath,
+            config: const {'agentId': 'sweeper'},
+          ),
+        );
+
+        expect(result.isSuccess, isTrue);
+        final args = processRunner.lastInvocation!.arguments;
+        expect(args, isNot(contains('--dangerously-skip-permissions')));
+        expect(args, containsAllInOrder(['--permission-mode', 'acceptEdits']));
+        expect(args, containsAllInOrder(['--add-dir', resultsDir]));
+        expect(
+          args,
+          containsAllInOrder([
+            '--allowedTools',
+            'mcp__hive__report_result,mcp__hive__ask_human,Read,Edit',
+          ]),
+        );
+        expect(
+          args,
+          containsAllInOrder([
+            '--disallowedTools',
+            'Bash(git status),WebFetch',
+          ]),
+        );
+      },
+    );
+
+    test(
+      'CodexNode applies worktree bypass, direct sandbox, results dir, '
+      'extraArgs last, and logs unsupported tool lists once per run',
+      () async {
+        final warnings = <String>[];
+        final sub = Logger.root.onRecord.listen((record) {
+          if (record.level >= Level.WARNING) {
+            warnings.add(record.message);
+          }
+        });
+        addTearDown(sub.cancel);
+
+        final node = CodexNode(
+          processRunner: processRunner,
+          resultContract: resultContract,
+          agentPromptResolver: policyAgentResolver,
+        );
+
+        await node.execute(
+          _context(
+            runId: 'codex-policy-run-1',
+            isolationMode: WorkspaceIsolationMode.worktree,
+            resultJsonPath: resultJsonPath,
+            config: const {
+              'agentId': 'sweeper',
+              'extraArgs': ['--model', 'o3'],
+            },
+          ),
+        );
+
+        final worktreeArgs = processRunner.lastInvocation!.arguments;
+        expect(
+          worktreeArgs,
+          contains('--dangerously-bypass-approvals-and-sandbox'),
+        );
+        expect(worktreeArgs, containsAllInOrder(['--add-dir', resultsDir]));
+        expect(worktreeArgs.sublist(worktreeArgs.length - 2), [
+          '--model',
+          'o3',
+        ]);
+
+        // Second call in same run must not duplicate the same gap warning.
+        await node.execute(
+          _context(
+            runId: 'codex-policy-run-1',
+            resultJsonPath: resultJsonPath,
+            config: const {'agentId': 'sweeper'},
+          ),
+        );
+
+        final directArgs = processRunner.lastInvocation!.arguments;
+        expect(
+          directArgs,
+          isNot(contains('--dangerously-bypass-approvals-and-sandbox')),
+        );
+        expect(
+          directArgs,
+          containsAllInOrder(['--sandbox', 'workspace-write']),
+        );
+        expect(directArgs, containsAllInOrder(['--add-dir', resultsDir]));
+        expect(
+          warnings.where((w) => w.contains('allowed_tools')),
+          hasLength(1),
+        );
+        expect(warnings.where((w) => w.contains('denied_tools')), hasLength(1));
+      },
+    );
+
+    test('GeminiCliNode applies approval-mode, hive MCP server, include-dir, '
+        'filtered allowed-tools, logs denied_tools gap once, and keeps '
+        'extraArgs last', () async {
+      final warnings = <String>[];
+      final sub = Logger.root.onRecord.listen((record) {
+        if (record.level >= Level.WARNING) {
+          warnings.add(record.message);
+        }
+      });
+      addTearDown(sub.cancel);
+
+      final node = GeminiCliNode(
+        processRunner: processRunner,
+        resultContract: resultContract,
+        agentPromptResolver: policyAgentResolver,
+      );
+
+      await node.execute(
+        _context(
+          runId: 'gemini-policy-run-1',
+          isolationMode: WorkspaceIsolationMode.worktree,
+          resultJsonPath: resultJsonPath,
+          config: const {
+            'agentId': 'sweeper',
+            'extraArgs': ['--model', 'gemini-2.5-pro'],
+          },
+        ),
+      );
+
+      final worktreeArgs = processRunner.lastInvocation!.arguments;
+      expect(worktreeArgs, containsAllInOrder(['--approval-mode', 'yolo']));
+      expect(
+        worktreeArgs,
+        containsAllInOrder(['--allowed-mcp-server-names', 'hive']),
+      );
+      expect(
+        worktreeArgs,
+        containsAllInOrder(['--include-directories', resultsDir]),
+      );
+      expect(
+        worktreeArgs,
+        containsAllInOrder(['--allowed-tools', 'Read', 'Edit']),
+      );
+      expect(worktreeArgs, isNot(contains('Bash(git status)')));
+      expect(worktreeArgs.sublist(worktreeArgs.length - 2), [
+        '--model',
+        'gemini-2.5-pro',
+      ]);
+
+      await node.execute(
+        _context(
+          runId: 'gemini-policy-run-1',
+          resultJsonPath: resultJsonPath,
+          config: const {'agentId': 'sweeper'},
+        ),
+      );
+
+      final directArgs = processRunner.lastInvocation!.arguments;
+      expect(directArgs, containsAllInOrder(['--approval-mode', 'auto_edit']));
+      expect(warnings.where((w) => w.contains('denied_tools')), hasLength(1));
+    });
+
+    test('AntigravityNode applies worktree bypass, direct accept-edits mode, '
+        'results dir, extraArgs last, and logs unsupported tool lists once '
+        'per run', () async {
+      final warnings = <String>[];
+      final sub = Logger.root.onRecord.listen((record) {
+        if (record.level >= Level.WARNING) {
+          warnings.add(record.message);
+        }
+      });
+      addTearDown(sub.cancel);
+
+      final node = AntigravityNode(
+        processRunner: processRunner,
+        resultContract: resultContract,
+        agentPromptResolver: policyAgentResolver,
+      );
+
+      await node.execute(
+        _context(
+          runId: 'agy-policy-run-1',
+          isolationMode: WorkspaceIsolationMode.worktree,
+          resultJsonPath: resultJsonPath,
+          config: const {
+            'agentId': 'sweeper',
+            'extraArgs': ['--model', 'gemini-3-pro'],
+          },
+        ),
+      );
+
+      final worktreeArgs = processRunner.lastInvocation!.arguments;
+      expect(worktreeArgs, contains('--dangerously-skip-permissions'));
+      expect(worktreeArgs, containsAllInOrder(['--add-dir', resultsDir]));
+      expect(worktreeArgs.sublist(worktreeArgs.length - 2), [
+        '--model',
+        'gemini-3-pro',
+      ]);
+
+      await node.execute(
+        _context(
+          runId: 'agy-policy-run-1',
+          resultJsonPath: resultJsonPath,
+          config: const {'agentId': 'sweeper'},
+        ),
+      );
+
+      final directArgs = processRunner.lastInvocation!.arguments;
+      expect(directArgs, isNot(contains('--dangerously-skip-permissions')));
+      expect(directArgs, containsAllInOrder(['--mode', 'accept-edits']));
+      expect(directArgs, containsAllInOrder(['--add-dir', resultsDir]));
+      expect(warnings.where((w) => w.contains('allowed_tools')), hasLength(1));
+      expect(warnings.where((w) => w.contains('denied_tools')), hasLength(1));
     });
   });
 

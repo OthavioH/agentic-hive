@@ -5,6 +5,8 @@ import 'package:agentic_hive_backend/src/domain/nodes/node_execution_context.dar
 import 'package:agentic_hive_backend/src/domain/nodes/node_outcome.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+import 'package:logging/logging.dart';
+import 'package:path/path.dart' as p;
 
 /// Interpreted output from a harness CLI run.
 final class HarnessOutputAnalysis {
@@ -40,28 +42,36 @@ abstract base class HarnessNode extends Node {
   /// Port used to resolve an `agentId` into prompt text.
   final AgentPromptResolver agentPromptResolver;
 
-  /// Builds the full prompt from an optional `agentId`,
-  /// `additionalInstructions`, execution context, and result contract
-  /// instructions.
+  /// Builds the full prompt from an optional `agentId` (or pre-resolved
+  /// [agentPrompt]), `additionalInstructions`, execution context, and result
+  /// contract instructions.
   Future<Result<String>> buildPrompt(
     NodeExecutionContext context, {
     String? agentId,
+    String? agentPrompt,
     String? additionalInstructions,
     String? contractInstructions,
   }) async {
     final sections = <String>[];
 
-    final trimmedAgentId = agentId?.trim();
-    if (trimmedAgentId != null && trimmedAgentId.isNotEmpty) {
-      final agentResult = await agentPromptResolver.resolvePrompt(
-        trimmedAgentId,
-      );
-      if (agentResult case FailureResult<String>(:final failure)) {
-        return FailureResult(failure);
+    final preResolved = agentPrompt?.trim();
+    if (preResolved != null) {
+      if (preResolved.isNotEmpty) {
+        sections.add(preResolved);
       }
-      final agentPrompt = agentResult.valueOrNull!.trim();
-      if (agentPrompt.isNotEmpty) {
-        sections.add(agentPrompt);
+    } else {
+      final trimmedAgentId = agentId?.trim();
+      if (trimmedAgentId != null && trimmedAgentId.isNotEmpty) {
+        final agentResult = await agentPromptResolver.resolvePrompt(
+          trimmedAgentId,
+        );
+        if (agentResult case FailureResult<String>(:final failure)) {
+          return FailureResult(failure);
+        }
+        final resolvedPrompt = agentResult.valueOrNull!.trim();
+        if (resolvedPrompt.isNotEmpty) {
+          sections.add(resolvedPrompt);
+        }
       }
     }
 
@@ -166,6 +176,8 @@ abstract base class HarnessNode extends Node {
     String? resultFilePath,
     Future<ResultContractReport>? onMcpReportAccepted,
     Map<String, String> environment = const <String, String>{},
+    List<String> allowedTools = const <String>[],
+    List<String> deniedTools = const <String>[],
   });
 
   /// Interprets stdout/stderr from [result] to detect auth/quota failures and
@@ -202,9 +214,22 @@ abstract base class HarnessNode extends Node {
     final session = sessionResult.valueOrNull!;
 
     try {
+      ResolvedAgent? resolvedAgent;
+      final trimmedAgentId = config.agentId?.trim();
+      if (trimmedAgentId != null && trimmedAgentId.isNotEmpty) {
+        final agentResult = await agentPromptResolver.resolveAgent(
+          trimmedAgentId,
+        );
+        if (agentResult case FailureResult<ResolvedAgent>(:final failure)) {
+          return FailureResult(failure);
+        }
+        resolvedAgent = agentResult.valueOrNull;
+      }
+
       final promptResult = await buildPrompt(
         context,
         agentId: config.agentId,
+        agentPrompt: resolvedAgent?.prompt,
         additionalInstructions: config.additionalInstructions,
         contractInstructions: session.instructions,
       );
@@ -221,6 +246,8 @@ abstract base class HarnessNode extends Node {
         resultFilePath: session.resultFilePath,
         onMcpReportAccepted: session.onMcpReportAccepted,
         environment: session.env,
+        allowedTools: resolvedAgent?.allowedTools ?? const <String>[],
+        deniedTools: resolvedAgent?.deniedTools ?? const <String>[],
       );
       if (runResult case FailureResult<ProcessExecutionResult>(
         :final failure,
@@ -301,8 +328,66 @@ abstract base class HeadlessHarnessNode extends HarnessNode {
     required super.agentPromptResolver,
   });
 
+  static final Logger _log = Logger('headless_harness_node');
+  static final Set<String> _loggedPolicyGaps = <String>{};
+
   /// Process runner used to invoke the harness CLI.
   final NodeProcessRunner processRunner;
+
+  /// Normalizes and filters [allowedTools] against [deniedTools] so denied
+  /// tools always take precedence, returning deduplicated lists in order.
+  static ({List<String> allowed, List<String> denied}) resolveToolLists({
+    List<String> allowedTools = const <String>[],
+    List<String> deniedTools = const <String>[],
+  }) {
+    final denied = <String>[];
+    final deniedSeen = <String>{};
+    for (final raw in deniedTools) {
+      final tool = raw.trim();
+      if (tool.isNotEmpty && deniedSeen.add(tool)) {
+        denied.add(tool);
+      }
+    }
+
+    final allowed = <String>[];
+    final allowedSeen = <String>{};
+    for (final raw in allowedTools) {
+      final tool = raw.trim();
+      if (tool.isNotEmpty &&
+          !deniedSeen.contains(tool) &&
+          allowedSeen.add(tool)) {
+        allowed.add(tool);
+      }
+    }
+
+    return (allowed: allowed, denied: denied);
+  }
+
+  /// Logs a permission-policy CLI gap at most once per `(runId, typeId,
+  /// gapKey)` so unsupported flags are never silently ignored or spammed.
+  void logPolicyGapOnce({
+    required String? runId,
+    required String gapKey,
+    required String message,
+  }) {
+    final effectiveRunId = runId ?? '<no-run>';
+    final key = '$effectiveRunId|$typeId|$gapKey';
+    if (_loggedPolicyGaps.length > 1000) {
+      _loggedPolicyGaps.clear();
+    }
+    if (_loggedPolicyGaps.add(key)) {
+      _log.warning(message);
+    }
+  }
+
+  /// Builds the CLI permission-policy arguments for this harness (ADR 0021).
+  List<String> buildPermissionArgs({
+    required WorkspaceIsolationMode isolationMode,
+    String? resultsDir,
+    List<String> allowedTools = const <String>[],
+    List<String> deniedTools = const <String>[],
+    String? runId,
+  });
 
   /// Builds the CLI [ProcessInvocation] for this harness.
   ///
@@ -314,6 +399,11 @@ abstract base class HeadlessHarnessNode extends HarnessNode {
     required String prompt,
     String? mcpConfigPath,
     Map<String, String> environment = const <String, String>{},
+    WorkspaceIsolationMode isolationMode = WorkspaceIsolationMode.direct,
+    String? resultsDir,
+    List<String> allowedTools = const <String>[],
+    List<String> deniedTools = const <String>[],
+    String? runId,
   });
 
   @override
@@ -325,14 +415,26 @@ abstract base class HeadlessHarnessNode extends HarnessNode {
     String? resultFilePath,
     Future<ResultContractReport>? onMcpReportAccepted,
     Map<String, String> environment = const <String, String>{},
+    List<String> allowedTools = const <String>[],
+    List<String> deniedTools = const <String>[],
   }) {
     final config = HarnessNodeConfig.fromJson(context.config);
+    final effectiveResultPath = resultFilePath ?? context.resultJsonPath;
+    final resultsDir =
+        effectiveResultPath != null && effectiveResultPath.isNotEmpty
+        ? p.dirname(effectiveResultPath)
+        : null;
     final invocation = buildInvocation(
       config: config,
       workingDirectory: workingDirectory,
       prompt: prompt,
       mcpConfigPath: mcpConfigPath,
       environment: environment,
+      isolationMode: context.isolationMode,
+      resultsDir: resultsDir,
+      allowedTools: allowedTools,
+      deniedTools: deniedTools,
+      runId: context.runId,
     );
     return processRunner.run(
       ProcessInvocation(

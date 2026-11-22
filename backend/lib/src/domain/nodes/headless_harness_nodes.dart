@@ -27,8 +27,48 @@ final class ClaudeCodeNode extends HeadlessHarnessNode {
     caseSensitive: false,
   );
 
+  static const List<String> _hiveMcpTools = <String>[
+    'mcp__hive__report_result',
+    'mcp__hive__ask_human',
+  ];
+
   @override
   String get typeId => NodeTypeId.claudeCode;
+
+  @override
+  List<String> buildPermissionArgs({
+    required WorkspaceIsolationMode isolationMode,
+    String? resultsDir,
+    List<String> allowedTools = const <String>[],
+    List<String> deniedTools = const <String>[],
+    String? runId,
+  }) {
+    final resolved = HeadlessHarnessNode.resolveToolLists(
+      allowedTools: allowedTools,
+      deniedTools: deniedTools,
+    );
+    final allowed = <String>[
+      ..._hiveMcpTools,
+      for (final tool in resolved.allowed)
+        if (!_hiveMcpTools.contains(tool)) tool,
+    ];
+
+    return <String>[
+      if (isolationMode == WorkspaceIsolationMode.worktree)
+        '--dangerously-skip-permissions'
+      else ...<String>['--permission-mode', 'acceptEdits'],
+      if (resultsDir != null && resultsDir.isNotEmpty) ...<String>[
+        '--add-dir',
+        resultsDir,
+      ],
+      '--allowedTools',
+      allowed.join(','),
+      if (resolved.denied.isNotEmpty) ...<String>[
+        '--disallowedTools',
+        resolved.denied.join(','),
+      ],
+    ];
+  }
 
   @override
   ProcessInvocation buildInvocation({
@@ -37,6 +77,11 @@ final class ClaudeCodeNode extends HeadlessHarnessNode {
     required String prompt,
     String? mcpConfigPath,
     Map<String, String> environment = const <String, String>{},
+    WorkspaceIsolationMode isolationMode = WorkspaceIsolationMode.direct,
+    String? resultsDir,
+    List<String> allowedTools = const <String>[],
+    List<String> deniedTools = const <String>[],
+    String? runId,
   }) => ProcessInvocation(
     executable: 'claude',
     arguments: <String>[
@@ -45,6 +90,13 @@ final class ClaudeCodeNode extends HeadlessHarnessNode {
       'stream-json',
       if (!config.extraArgs.contains('--verbose')) '--verbose',
       if (mcpConfigPath != null) ...<String>['--mcp-config', mcpConfigPath],
+      ...buildPermissionArgs(
+        isolationMode: isolationMode,
+        resultsDir: resultsDir,
+        allowedTools: allowedTools,
+        deniedTools: deniedTools,
+        runId: runId,
+      ),
       ...config.extraArgs,
     ],
     workingDirectory: workingDirectory,
@@ -91,15 +143,73 @@ final class CodexNode extends HeadlessHarnessNode {
   String get typeId => NodeTypeId.codex;
 
   @override
+  List<String> buildPermissionArgs({
+    required WorkspaceIsolationMode isolationMode,
+    String? resultsDir,
+    List<String> allowedTools = const <String>[],
+    List<String> deniedTools = const <String>[],
+    String? runId,
+  }) {
+    final resolved = HeadlessHarnessNode.resolveToolLists(
+      allowedTools: allowedTools,
+      deniedTools: deniedTools,
+    );
+    if (resolved.allowed.isNotEmpty) {
+      logPolicyGapOnce(
+        runId: runId,
+        gapKey: 'allowed_tools',
+        message:
+            'Codex CLI (`codex exec`) has no per-tool allow flag; ignoring '
+            'agent allowed_tools: ${resolved.allowed.join(', ')} (ADR 0021).',
+      );
+    }
+    if (resolved.denied.isNotEmpty) {
+      logPolicyGapOnce(
+        runId: runId,
+        gapKey: 'denied_tools',
+        message:
+            'Codex CLI (`codex exec`) has no per-tool deny flag; ignoring '
+            'agent denied_tools: ${resolved.denied.join(', ')} (ADR 0021).',
+      );
+    }
+
+    return <String>[
+      if (isolationMode == WorkspaceIsolationMode.worktree)
+        '--dangerously-bypass-approvals-and-sandbox'
+      else ...<String>['--sandbox', 'workspace-write'],
+      if (resultsDir != null && resultsDir.isNotEmpty) ...<String>[
+        '--add-dir',
+        resultsDir,
+      ],
+    ];
+  }
+
+  @override
   ProcessInvocation buildInvocation({
     required HarnessNodeConfig config,
     required String workingDirectory,
     required String prompt,
     String? mcpConfigPath,
     Map<String, String> environment = const <String, String>{},
+    WorkspaceIsolationMode isolationMode = WorkspaceIsolationMode.direct,
+    String? resultsDir,
+    List<String> allowedTools = const <String>[],
+    List<String> deniedTools = const <String>[],
+    String? runId,
   }) => ProcessInvocation(
     executable: 'codex',
-    arguments: <String>['exec', '--json', ...config.extraArgs],
+    arguments: <String>[
+      'exec',
+      '--json',
+      ...buildPermissionArgs(
+        isolationMode: isolationMode,
+        resultsDir: resultsDir,
+        allowedTools: allowedTools,
+        deniedTools: deniedTools,
+        runId: runId,
+      ),
+      ...config.extraArgs,
+    ],
     workingDirectory: workingDirectory,
     environment: environment,
     stdinContent: prompt,
@@ -145,12 +255,59 @@ final class GeminiCliNode extends HeadlessHarnessNode {
   String get typeId => NodeTypeId.geminiCli;
 
   @override
+  List<String> buildPermissionArgs({
+    required WorkspaceIsolationMode isolationMode,
+    String? resultsDir,
+    List<String> allowedTools = const <String>[],
+    List<String> deniedTools = const <String>[],
+    String? runId,
+  }) {
+    final resolved = HeadlessHarnessNode.resolveToolLists(
+      allowedTools: allowedTools,
+      deniedTools: deniedTools,
+    );
+    if (resolved.denied.isNotEmpty) {
+      logPolicyGapOnce(
+        runId: runId,
+        gapKey: 'denied_tools',
+        message:
+            'Gemini CLI (`gemini`) has no CLI flag for denied_tools without '
+            'a policy file; ignoring agent denied_tools: '
+            '${resolved.denied.join(', ')} (ADR 0021).',
+      );
+    }
+
+    return <String>[
+      '--approval-mode',
+      if (isolationMode == WorkspaceIsolationMode.worktree)
+        'yolo'
+      else
+        'auto_edit',
+      '--allowed-mcp-server-names',
+      'hive',
+      if (resultsDir != null && resultsDir.isNotEmpty) ...<String>[
+        '--include-directories',
+        resultsDir,
+      ],
+      if (resolved.allowed.isNotEmpty) ...<String>[
+        '--allowed-tools',
+        ...resolved.allowed,
+      ],
+    ];
+  }
+
+  @override
   ProcessInvocation buildInvocation({
     required HarnessNodeConfig config,
     required String workingDirectory,
     required String prompt,
     String? mcpConfigPath,
     Map<String, String> environment = const <String, String>{},
+    WorkspaceIsolationMode isolationMode = WorkspaceIsolationMode.direct,
+    String? resultsDir,
+    List<String> allowedTools = const <String>[],
+    List<String> deniedTools = const <String>[],
+    String? runId,
   }) => ProcessInvocation(
     executable: 'gemini',
     arguments: <String>[
@@ -158,6 +315,13 @@ final class GeminiCliNode extends HeadlessHarnessNode {
       '',
       '--output-format',
       'stream-json',
+      ...buildPermissionArgs(
+        isolationMode: isolationMode,
+        resultsDir: resultsDir,
+        allowedTools: allowedTools,
+        deniedTools: deniedTools,
+        runId: runId,
+      ),
       ...config.extraArgs,
     ],
     workingDirectory: workingDirectory,
@@ -205,12 +369,59 @@ final class AntigravityNode extends HeadlessHarnessNode {
   String get typeId => NodeTypeId.antigravity;
 
   @override
+  List<String> buildPermissionArgs({
+    required WorkspaceIsolationMode isolationMode,
+    String? resultsDir,
+    List<String> allowedTools = const <String>[],
+    List<String> deniedTools = const <String>[],
+    String? runId,
+  }) {
+    final resolved = HeadlessHarnessNode.resolveToolLists(
+      allowedTools: allowedTools,
+      deniedTools: deniedTools,
+    );
+    if (resolved.allowed.isNotEmpty) {
+      logPolicyGapOnce(
+        runId: runId,
+        gapKey: 'allowed_tools',
+        message:
+            'Antigravity CLI (`agy`) has no per-tool allow flag; ignoring '
+            'agent allowed_tools: ${resolved.allowed.join(', ')} (ADR 0021).',
+      );
+    }
+    if (resolved.denied.isNotEmpty) {
+      logPolicyGapOnce(
+        runId: runId,
+        gapKey: 'denied_tools',
+        message:
+            'Antigravity CLI (`agy`) has no per-tool deny flag; ignoring '
+            'agent denied_tools: ${resolved.denied.join(', ')} (ADR 0021).',
+      );
+    }
+
+    return <String>[
+      if (isolationMode == WorkspaceIsolationMode.worktree)
+        '--dangerously-skip-permissions'
+      else ...<String>['--mode', 'accept-edits'],
+      if (resultsDir != null && resultsDir.isNotEmpty) ...<String>[
+        '--add-dir',
+        resultsDir,
+      ],
+    ];
+  }
+
+  @override
   ProcessInvocation buildInvocation({
     required HarnessNodeConfig config,
     required String workingDirectory,
     required String prompt,
     String? mcpConfigPath,
     Map<String, String> environment = const <String, String>{},
+    WorkspaceIsolationMode isolationMode = WorkspaceIsolationMode.direct,
+    String? resultsDir,
+    List<String> allowedTools = const <String>[],
+    List<String> deniedTools = const <String>[],
+    String? runId,
   }) => ProcessInvocation(
     executable: 'agy',
     arguments: <String>[
@@ -218,6 +429,13 @@ final class AntigravityNode extends HeadlessHarnessNode {
       'stream-json',
       '--output-format',
       'stream-json',
+      ...buildPermissionArgs(
+        isolationMode: isolationMode,
+        resultsDir: resultsDir,
+        allowedTools: allowedTools,
+        deniedTools: deniedTools,
+        runId: runId,
+      ),
       ...config.extraArgs,
     ],
     workingDirectory: workingDirectory,

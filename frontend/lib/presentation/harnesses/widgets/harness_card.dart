@@ -13,6 +13,8 @@ class HarnessCard extends StatelessWidget {
     required this.isGlobalRefreshing,
     required this.onRecheck,
     required this.onCopyPath,
+    this.isInstallingMcp = false,
+    this.onInstallMcp,
     super.key,
   });
 
@@ -25,11 +27,18 @@ class HarnessCard extends StatelessWidget {
   /// Whether a global refresh is currently in flight.
   final bool isGlobalRefreshing;
 
+  /// Whether installing or updating the Hive MCP server is in flight for this
+  /// card.
+  final bool isInstallingMcp;
+
   /// Called when the user triggers an individual re-check.
   final VoidCallback onRecheck;
 
   /// Called when the user copies [HarnessInfo.executablePath].
   final ValueChanged<String> onCopyPath;
+
+  /// Called when the user triggers Hive MCP installation or update.
+  final VoidCallback? onInstallMcp;
 
   @override
   Widget build(BuildContext context) {
@@ -188,6 +197,13 @@ class HarnessCard extends StatelessWidget {
               ),
             ),
           ],
+          SizedBox(height: spacing.space2),
+          _McpStatusSection(
+            harness: harness,
+            isBusy: isRefreshing || isGlobalRefreshing || isInstallingMcp,
+            isInstallingMcp: isInstallingMcp,
+            onInstallMcp: onInstallMcp,
+          ),
           if (guidance != null) ...<Widget>[
             SizedBox(height: spacing.space2),
             DecoratedBox(
@@ -292,4 +308,138 @@ class HarnessCard extends StatelessWidget {
         HarnessStatus.authError || HarnessStatus.outdated => colors.warning,
         HarnessStatus.unavailable => colors.danger,
       };
+}
+
+class _McpStatusSection extends StatelessWidget {
+  const new({
+    required this.harness,
+    required this.isBusy,
+    required this.isInstallingMcp,
+    required this.onInstallMcp,
+  });
+
+  final HarnessInfo harness;
+  final bool isBusy;
+  final bool isInstallingMcp;
+  final VoidCallback? onInstallMcp;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final colors = context.hiveColors;
+    final spacing = context.hiveSpacing;
+    final typography = context.hiveTypography;
+
+    final cliNotInstalled = harness.status == HarnessStatus.notInstalled;
+    final mcpSpec = _mcpStatusSpec(harness.mcpStatus, cliNotInstalled, l10n);
+    final showAction =
+        !cliNotInstalled &&
+        (harness.mcpStatus == HarnessMcpStatus.notInstalled ||
+            harness.mcpStatus == HarnessMcpStatus.outdated);
+    final mcpMessage = harness.mcpMessage;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surface2,
+        borderRadius: context.hiveRadii.card,
+        border: Border.all(
+          color: colors.borderSubtle,
+          width: context.hiveElevation.hairline,
+        ),
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: spacing.space2,
+          vertical: spacing.space1,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: HiveBadge(
+                      label: mcpSpec.label,
+                      tone: mcpSpec.tone,
+                      icon: mcpSpec.icon,
+                    ),
+                  ),
+                ),
+                if (showAction) ...<Widget>[
+                  SizedBox(width: spacing.space1),
+                  HiveButton(
+                    key: ValueKey<String>(
+                      'harness_mcp_install_${harness.id.wireName}',
+                    ),
+                    label: harness.mcpStatus == HarnessMcpStatus.outdated
+                        ? l10n.harnessesMcpUpdate
+                        : l10n.harnessesMcpInstall,
+                    variant: HiveButtonVariant.secondary,
+                    size: HiveButtonSize.small,
+                    loading: isInstallingMcp,
+                    onPressed: isBusy ? null : onInstallMcp,
+                  ),
+                ],
+              ],
+            ),
+            if (!cliNotInstalled &&
+                mcpMessage != null &&
+                mcpMessage.isNotEmpty) ...<Widget>[
+              SizedBox(height: spacing.space1),
+              Text(
+                mcpMessage,
+                style: typography.bodySmall.copyWith(
+                  color: colors.onSurfaceMuted,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  ({String label, HiveBadgeTone tone, HiveIconData icon}) _mcpStatusSpec(
+    HarnessMcpStatus status,
+    bool cliNotInstalled,
+    AppLocalizations l10n,
+  ) {
+    if (cliNotInstalled) {
+      return (
+        label: l10n.harnessesMcpStatusNotApplicable,
+        tone: HiveBadgeTone.neutral,
+        icon: HiveIcons.close,
+      );
+    }
+    return switch (status) {
+      HarnessMcpStatus.installed => (
+        label: l10n.harnessesMcpStatusInstalled,
+        tone: HiveBadgeTone.success,
+        icon: HiveIcons.check,
+      ),
+      HarnessMcpStatus.notInstalled => (
+        label: l10n.harnessesMcpStatusNotInstalled,
+        tone: HiveBadgeTone.warning,
+        icon: HiveIcons.close,
+      ),
+      HarnessMcpStatus.outdated => (
+        label: l10n.harnessesMcpStatusOutdated,
+        tone: HiveBadgeTone.warning,
+        icon: HiveIcons.alert,
+      ),
+      HarnessMcpStatus.unsupported => (
+        label: l10n.harnessesMcpStatusUnsupported,
+        tone: HiveBadgeTone.neutral,
+        icon: HiveIcons.info,
+      ),
+      HarnessMcpStatus.unknown => (
+        label: l10n.harnessesMcpStatusUnknown,
+        tone: HiveBadgeTone.neutral,
+        icon: HiveIcons.info,
+      ),
+    };
+  }
 }

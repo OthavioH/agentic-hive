@@ -66,6 +66,8 @@ final class TerminalHarnessNode extends HarnessNode {
     String? resultFilePath,
     Future<ResultContractReport>? onMcpReportAccepted,
     Map<String, String> environment = const <String, String>{},
+    List<String> allowedTools = const <String>[],
+    List<String> deniedTools = const <String>[],
   }) async {
     final config = TerminalHarnessNodeConfig.fromJson(context.config);
     final configuredCommand = config.command?.trim();

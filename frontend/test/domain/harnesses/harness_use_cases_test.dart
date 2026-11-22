@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/get_harnesses_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/harness_repository.dart';
+import 'package:agentic_hive_frontend/domain/harnesses/install_harness_mcp_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/refresh_harness_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/refresh_harnesses_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/watch_harness_updates_use_case.dart';
@@ -15,12 +16,16 @@ final class _FakeHarnessRepository implements HarnessRepository {
   Result<HarnessInfo> refreshOneResult = const FailureResult<HarnessInfo>(
     NotFoundFailure('missing'),
   );
+  Result<HarnessInfo> installMcpResult = const FailureResult<HarnessInfo>(
+    NotFoundFailure('missing'),
+  );
   final StreamController<HarnessInfo> updates =
       StreamController<HarnessInfo>.broadcast();
 
   int getCalls = 0;
   int refreshAllCalls = 0;
   final List<HarnessId> refreshedIds = <HarnessId>[];
+  final List<HarnessId> installedMcpIds = <HarnessId>[];
 
   @override
   Future<Result<List<HarnessInfo>>> getHarnesses() async {
@@ -38,6 +43,12 @@ final class _FakeHarnessRepository implements HarnessRepository {
   Future<Result<HarnessInfo>> refreshHarness(HarnessId id) async {
     refreshedIds.add(id);
     return refreshOneResult;
+  }
+
+  @override
+  Future<Result<HarnessInfo>> installMcp(HarnessId id) async {
+    installedMcpIds.add(id);
+    return installMcpResult;
   }
 
   @override
@@ -84,6 +95,17 @@ void main() {
       final result = await RefreshHarnessUseCase(repo)(HarnessId.claudeCode);
       expect(repo.refreshedIds, <HarnessId>[HarnessId.claudeCode]);
       expect(result.valueOrNull, sample);
+    });
+
+    test('InstallHarnessMcpUseCase passes HarnessId to repository', () async {
+      final installed = sample.copyWith(mcpStatus: HarnessMcpStatus.installed);
+      final repo = _FakeHarnessRepository()
+        ..installMcpResult = Success(installed);
+      addTearDown(repo.dispose);
+
+      final result = await InstallHarnessMcpUseCase(repo)(HarnessId.claudeCode);
+      expect(repo.installedMcpIds, <HarnessId>[HarnessId.claudeCode]);
+      expect(result.valueOrNull, installed);
     });
 
     test(

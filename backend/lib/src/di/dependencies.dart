@@ -14,6 +14,10 @@ import 'package:agentic_hive_backend/src/config/platform_paths.dart';
 import 'package:agentic_hive_backend/src/data/agents/agent_directory_watcher.dart';
 import 'package:agentic_hive_backend/src/data/agents/local_agent_repository.dart';
 import 'package:agentic_hive_backend/src/data/agents/repository_agent_prompt_resolver.dart';
+import 'package:agentic_hive_backend/src/data/harnesses/antigravity_mcp_installer.dart';
+import 'package:agentic_hive_backend/src/data/harnesses/claude_code_mcp_installer.dart';
+import 'package:agentic_hive_backend/src/data/harnesses/codex_mcp_installer.dart';
+import 'package:agentic_hive_backend/src/data/harnesses/gemini_cli_mcp_installer.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/io_process_runner.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/os_executable_locator.dart';
 import 'package:agentic_hive_backend/src/data/nodes/dart_process_runner.dart';
@@ -41,6 +45,7 @@ import 'package:agentic_hive_backend/src/domain/agents/agent_service.dart';
 import 'package:agentic_hive_backend/src/domain/engine/graph_engine.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/executable_locator.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_detector.dart';
+import 'package:agentic_hive_backend/src/domain/harnesses/harness_mcp_installer.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_service.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
@@ -160,8 +165,26 @@ Future<void> registerDependencies(
         processRunner: di<ProcessRunner>(),
       ),
     ])
+    ..registerSingleton<HiveMcpLocator>(
+      HiveMcpLocator(pathContext: platformPaths.context),
+    )
+    ..registerSingleton<HarnessMcpInstallerRegistry>(
+      HarnessMcpInstallerRegistry([
+        ClaudeCodeMcpInstaller(processRunner: di<ProcessRunner>()),
+        CodexMcpInstaller(
+          processRunner: di<ProcessRunner>(),
+          pathContext: platformPaths.context,
+        ),
+        GeminiCliMcpInstaller(processRunner: di<ProcessRunner>()),
+        AntigravityMcpInstaller(processRunner: di<ProcessRunner>()),
+      ]),
+    )
     ..registerSingleton<HarnessService>(
-      DefaultHarnessService(detectors: di<List<HarnessDetector>>()),
+      DefaultHarnessService(
+        detectors: di<List<HarnessDetector>>(),
+        mcpInstallers: di<HarnessMcpInstallerRegistry>(),
+        mcpLocator: di<HiveMcpLocator>(),
+      ),
       dispose: (service) => service.dispose(),
     )
     ..registerSingleton<HarnessesHandler>(
@@ -210,9 +233,6 @@ Future<void> registerDependencies(
           gateway.dispose();
         }
       },
-    )
-    ..registerSingleton<HiveMcpLocator>(
-      HiveMcpLocator(pathContext: platformPaths.context),
     )
     ..registerSingleton<ResultContract>(
       HiveResultContract(

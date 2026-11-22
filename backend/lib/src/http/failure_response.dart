@@ -39,6 +39,14 @@ HttpFailureMapping mapFailureToHttp(Failure failure, {String? requestId}) =>
           requestId: requestId,
         ),
       ),
+      HarnessMcpInstallFailure(:final message) => (
+        statusCode: 500,
+        error: ApiError(
+          code: ApiErrorCode.internalError,
+          message: message,
+          requestId: requestId,
+        ),
+      ),
       PersistenceFailure() ||
       UnexpectedFailure() ||
       HarnessAuthenticationFailure() ||

@@ -12,10 +12,14 @@ final class _FakeHarnessRepository implements HarnessRepository {
   Completer<Result<List<HarnessInfo>>>? pendingGet;
   Completer<Result<List<HarnessInfo>>>? pendingRefreshAll;
   Completer<Result<HarnessInfo>>? pendingRefreshOne;
+  Completer<Result<HarnessInfo>>? pendingInstallMcp;
 
   Result<List<HarnessInfo>> getResult = const Success(<HarnessInfo>[]);
   Result<List<HarnessInfo>> refreshAllResult = const Success(<HarnessInfo>[]);
   Result<HarnessInfo> refreshOneResult = const FailureResult<HarnessInfo>(
+    NotFoundFailure('missing'),
+  );
+  Result<HarnessInfo> installMcpResult = const FailureResult<HarnessInfo>(
     NotFoundFailure('missing'),
   );
   final StreamController<HarnessInfo> updates =
@@ -34,6 +38,11 @@ final class _FakeHarnessRepository implements HarnessRepository {
   Future<Result<HarnessInfo>> refreshHarness(HarnessId id) =>
       pendingRefreshOne?.future ??
       Future<Result<HarnessInfo>>.value(refreshOneResult);
+
+  @override
+  Future<Result<HarnessInfo>> installMcp(HarnessId id) =>
+      pendingInstallMcp?.future ??
+      Future<Result<HarnessInfo>>.value(installMcpResult);
 
   @override
   Stream<HarnessInfo> watchHarnessUpdates() => updates.stream;
@@ -208,6 +217,65 @@ void main() {
         container.read(harnessesControllerProvider).value?.harnesses,
         <HarnessInfo>[claudeReady, updatedCodex],
       );
+    });
+
+    test('installMcp isolates per-card loading, updates target on success, and '
+        'preserves state on failure', () async {
+      final pending = Completer<Result<HarnessInfo>>();
+      final claudeNotInstalledMcp = claudeReady.copyWith(
+        mcpStatus: HarnessMcpStatus.notInstalled,
+      );
+      final repo = _FakeHarnessRepository()
+        ..getResult = Success(<HarnessInfo>[
+          claudeNotInstalledMcp,
+          codexAuthError,
+        ])
+        ..pendingInstallMcp = pending;
+      addTearDown(repo.dispose);
+
+      final container = ProviderContainer.test(
+        overrides: [harnessRepositoryProvider.overrideWithValue(repo)],
+      );
+      final sub = container.listen(harnessesControllerProvider, (_, _) {});
+      addTearDown(sub.close);
+
+      await container.read(harnessesControllerProvider.future);
+
+      final future = container
+          .read(harnessesControllerProvider.notifier)
+          .installMcp(HarnessId.claudeCode);
+
+      expect(
+        container.read(harnessesControllerProvider).value?.installingMcpIds,
+        <HarnessId>{HarnessId.claudeCode},
+      );
+
+      final claudeInstalled = claudeNotInstalledMcp.copyWith(
+        mcpStatus: HarnessMcpStatus.installed,
+      );
+      pending.complete(Success(claudeInstalled));
+
+      final okResult = await future;
+      expect(okResult.isSuccess, isTrue);
+      final afterOk = container.read(harnessesControllerProvider).value!;
+      expect(afterOk.installingMcpIds, isEmpty);
+      expect(afterOk.harnesses, <HarnessInfo>[claudeInstalled, codexAuthError]);
+
+      repo
+        ..pendingInstallMcp = null
+        ..installMcpResult = const FailureResult(
+          BackendFailure('CLI exited with 1', statusCode: 500),
+        );
+      final errResult = await container
+          .read(harnessesControllerProvider.notifier)
+          .installMcp(HarnessId.codex);
+      expect(errResult.failureOrNull, isA<BackendFailure>());
+      final afterErr = container.read(harnessesControllerProvider).value!;
+      expect(afterErr.installingMcpIds, isEmpty);
+      expect(afterErr.harnesses, <HarnessInfo>[
+        claudeInstalled,
+        codexAuthError,
+      ]);
     });
   });
 }

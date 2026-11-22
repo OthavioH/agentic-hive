@@ -20,6 +20,15 @@ final class RepositoryAgentPromptResolver implements AgentPromptResolver {
 
   @override
   Future<Result<String>> resolvePrompt(String agentId) async {
+    final result = await resolveAgent(agentId);
+    return switch (result) {
+      Success<ResolvedAgent>(:final value) => Success(value.prompt),
+      FailureResult<ResolvedAgent>(:final failure) => FailureResult(failure),
+    };
+  }
+
+  @override
+  Future<Result<ResolvedAgent>> resolveAgent(String agentId) async {
     final result = await _repository.getById(agentId);
     if (result case FailureResult<AgentDetail>(:final failure)) {
       return FailureResult(failure);
@@ -39,6 +48,12 @@ final class RepositoryAgentPromptResolver implements AgentPromptResolver {
       );
     }
 
-    return Success(detail.prompt);
+    return Success(
+      ResolvedAgent(
+        prompt: detail.prompt,
+        allowedTools: detail.allowedTools,
+        deniedTools: detail.deniedTools,
+      ),
+    );
   }
 }

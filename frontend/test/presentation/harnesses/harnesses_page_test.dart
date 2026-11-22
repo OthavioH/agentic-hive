@@ -16,10 +16,14 @@ final class _FakeHarnessRepository implements HarnessRepository {
   Completer<Result<List<HarnessInfo>>>? pendingGet;
   Completer<Result<List<HarnessInfo>>>? pendingRefreshAll;
   Completer<Result<HarnessInfo>>? pendingRefreshOne;
+  Completer<Result<HarnessInfo>>? pendingInstallMcp;
 
   Result<List<HarnessInfo>> getResult = const Success(<HarnessInfo>[]);
   Result<List<HarnessInfo>> refreshAllResult = const Success(<HarnessInfo>[]);
   Result<HarnessInfo> refreshOneResult = const FailureResult<HarnessInfo>(
+    NotFoundFailure('missing'),
+  );
+  Result<HarnessInfo> installMcpResult = const FailureResult<HarnessInfo>(
     NotFoundFailure('missing'),
   );
   final StreamController<HarnessInfo> updates =
@@ -38,6 +42,11 @@ final class _FakeHarnessRepository implements HarnessRepository {
   Future<Result<HarnessInfo>> refreshHarness(HarnessId id) =>
       pendingRefreshOne?.future ??
       Future<Result<HarnessInfo>>.value(refreshOneResult);
+
+  @override
+  Future<Result<HarnessInfo>> installMcp(HarnessId id) =>
+      pendingInstallMcp?.future ??
+      Future<Result<HarnessInfo>>.value(installMcpResult);
 
   @override
   Stream<HarnessInfo> watchHarnessUpdates() => updates.stream;
@@ -350,6 +359,201 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text(l10n.harnessStatusReady), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'renders all HarnessMcpStatus states and hides button when CLI is not '
+      'installed',
+      (tester) async {
+        await tester.binding.setSurfaceSize(desktopSize);
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final harnesses = <HarnessInfo>[
+          HarnessInfo(
+            id: HarnessId.claudeCode,
+            displayName: 'Claude Code',
+            status: HarnessStatus.ready,
+            mcpStatus: HarnessMcpStatus.installed,
+            checkedAt: now,
+          ),
+          HarnessInfo(
+            id: HarnessId.codex,
+            displayName: 'Codex',
+            status: HarnessStatus.ready,
+            mcpStatus: HarnessMcpStatus.notInstalled,
+            checkedAt: now,
+          ),
+          HarnessInfo(
+            id: HarnessId.antigravity,
+            displayName: 'Antigravity',
+            status: HarnessStatus.ready,
+            mcpStatus: HarnessMcpStatus.outdated,
+            mcpMessage: 'Points to old checkout',
+            checkedAt: now,
+          ),
+          HarnessInfo(
+            id: HarnessId.geminiCli,
+            displayName: 'Gemini CLI',
+            status: HarnessStatus.notInstalled,
+            mcpStatus: HarnessMcpStatus.notInstalled,
+            checkedAt: now,
+          ),
+        ];
+
+        final repo = _FakeHarnessRepository()
+          ..getResult = Success(<HarnessInfo>[...harnesses]);
+        addTearDown(repo.dispose);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [harnessRepositoryProvider.overrideWithValue(repo)],
+            child: _buildTestApp(),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final l10n = AppLocalizations.of(
+          tester.element(find.byType(HarnessesPage)),
+        )!;
+
+        expect(find.text(l10n.harnessesMcpStatusInstalled), findsOneWidget);
+        expect(find.text(l10n.harnessesMcpStatusNotInstalled), findsOneWidget);
+        expect(find.text(l10n.harnessesMcpStatusOutdated), findsOneWidget);
+        expect(find.text('Points to old checkout'), findsOneWidget);
+        expect(find.text(l10n.harnessesMcpStatusNotApplicable), findsOneWidget);
+
+        // Actionable buttons: Install for Codex, Update for Antigravity,
+        // none for Claude Code (installed) or Gemini CLI (CLI not installed).
+        expect(
+          find.byKey(const ValueKey<String>('harness_mcp_install_codex')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey<String>('harness_mcp_install_antigravity')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey<String>('harness_mcp_install_claude_code')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey<String>('harness_mcp_install_gemini_cli')),
+          findsNothing,
+        );
+
+        // Also verify unsupported and unknown statuses render their badges.
+        repo.updates
+          ..add(harnesses[0].copyWith(mcpStatus: HarnessMcpStatus.unsupported))
+          ..add(harnesses[1].copyWith(mcpStatus: HarnessMcpStatus.unknown));
+        await tester.pumpAndSettle();
+
+        expect(find.text(l10n.harnessesMcpStatusUnsupported), findsOneWidget);
+        expect(find.text(l10n.harnessesMcpStatusUnknown), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'installMcp shows loading, updates card and shows success toast, and '
+      'shows error toast on failure',
+      (tester) async {
+        await tester.binding.setSurfaceSize(desktopSize);
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final pending = Completer<Result<HarnessInfo>>();
+        final codexNotInstalled = HarnessInfo(
+          id: HarnessId.codex,
+          displayName: 'Codex',
+          status: HarnessStatus.ready,
+          mcpStatus: HarnessMcpStatus.notInstalled,
+          checkedAt: now,
+        );
+        final agyOutdated = HarnessInfo(
+          id: HarnessId.antigravity,
+          displayName: 'Antigravity',
+          status: HarnessStatus.ready,
+          mcpStatus: HarnessMcpStatus.outdated,
+          checkedAt: now,
+        );
+
+        final repo = _FakeHarnessRepository()
+          ..getResult = Success(<HarnessInfo>[codexNotInstalled, agyOutdated])
+          ..pendingInstallMcp = pending;
+        addTearDown(repo.dispose);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [harnessRepositoryProvider.overrideWithValue(repo)],
+            child: _buildTestApp(),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final l10n = AppLocalizations.of(
+          tester.element(find.byType(HarnessesPage)),
+        )!;
+
+        // Tap Install on Codex.
+        await tester.tap(
+          find.byKey(const ValueKey<String>('harness_mcp_install_codex')),
+        );
+        await tester.pump();
+
+        expect(
+          tester
+              .widget<HiveButton>(
+                find.byKey(const ValueKey<String>('harness_mcp_install_codex')),
+              )
+              .loading,
+          isTrue,
+        );
+        expect(
+          tester
+              .widget<HiveButton>(
+                find.byKey(
+                  const ValueKey<String>('harness_mcp_install_antigravity'),
+                ),
+              )
+              .loading,
+          isFalse,
+        );
+
+        pending.complete(
+          Success(
+            codexNotInstalled.copyWith(mcpStatus: HarnessMcpStatus.installed),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(HiveMotionTokens.standard.medium);
+
+        expect(find.text(l10n.harnessesMcpStatusInstalled), findsOneWidget);
+        expect(
+          find.text(l10n.harnessesMcpInstallSuccess('Codex')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey<String>('harness_mcp_install_codex')),
+          findsNothing,
+        );
+
+        // Tap Update on Antigravity and simulate failure.
+        repo
+          ..pendingInstallMcp = null
+          ..installMcpResult = const FailureResult(
+            BackendFailure('codex mcp add exited with 1', statusCode: 500),
+          );
+        await tester.tap(
+          find.byKey(const ValueKey<String>('harness_mcp_install_antigravity')),
+        );
+        await tester.pump();
+        await tester.pump(HiveMotionTokens.standard.medium);
+
+        expect(
+          find.text(
+            l10n.harnessesMcpInstallError('codex mcp add exited with 1'),
+          ),
+          findsOneWidget,
+        );
       },
     );
   });
