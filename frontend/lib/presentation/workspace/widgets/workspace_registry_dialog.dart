@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/workspace/controllers/workspace_registry_controller.dart';
+import 'package:agentic_hive_frontend/presentation/workspace/widgets/workspace_settings_dialog.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -279,6 +280,24 @@ class _WorkspaceRegistryDialogState
                                         ),
                                       ),
                                     ],
+                                    SizedBox(width: spacing.space1),
+                                    HiveIconButton(
+                                      key: Key(
+                                        'workspace_settings_button_'
+                                        '${workspace.id}',
+                                      ),
+                                      icon: HiveIcons.settings,
+                                      semanticLabel: l10n
+                                          .workspaceSettingsTooltip(
+                                            workspace.name,
+                                          ),
+                                      onPressed: () => unawaited(
+                                        WorkspaceSettingsDialog.show(
+                                          context,
+                                          workspace,
+                                        ),
+                                      ),
+                                    ),
                                     SizedBox(width: spacing.space1),
                                     HiveIconButton(
                                       key: Key(
