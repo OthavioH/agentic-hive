@@ -10,6 +10,7 @@ void main() {
 
       expect(platform.executableFileName('server'), 'server.exe');
       expect(platform.sqliteLibraryFileName, 'sqlite3.dll');
+      expect(platform.aotLibraryFileName('server'), isNull);
       expect(platform.context.style, p.Style.windows);
     });
 
@@ -20,6 +21,11 @@ void main() {
 
         expect(platform.executableFileName('server'), 'server');
         expect(platform.sqliteLibraryFileName, 'libsqlite3.so');
+        expect(platform.aotLibraryFileName('server'), 'libdartaotserver.so');
+        expect(
+          platform.aotLibraryFileName('hive_mcp'),
+          'libdartaothive_mcp.so',
+        );
         expect(platform.context.style, p.Style.posix);
       },
     );
@@ -29,6 +35,7 @@ void main() {
 
       expect(platform.executableFileName('server'), 'server');
       expect(platform.sqliteLibraryFileName, 'libsqlite3.dylib');
+      expect(platform.aotLibraryFileName('server'), 'libdartaotserver.dylib');
       expect(platform.context.style, p.Style.posix);
     });
 

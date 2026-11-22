@@ -11,6 +11,14 @@ abstract interface class BundlePlatform {
 
   /// File name of the SQLite library that `dart build cli` puts in `lib/`.
   String get sqliteLibraryFileName;
+
+  /// File name of the compiled program of [entryPoint] that `dart build cli`
+  /// puts in `lib/`, or `null` when the executable is self-contained.
+  ///
+  /// On Linux `bin/<entryPoint>` is a small runtime that loads
+  /// `../lib/libdartaot<entryPoint>.so` by its own file name, so executables
+  /// must not be renamed.
+  String? aotLibraryFileName(String entryPoint);
 }
 
 /// Creates the [BundlePlatform] for [operatingSystem] (a
@@ -36,6 +44,10 @@ final class WindowsBundlePlatform implements BundlePlatform {
 
   @override
   String get sqliteLibraryFileName => 'sqlite3.dll';
+
+  @override
+  // `dart build cli` makes self-contained `.exe` files on Windows.
+  String? aotLibraryFileName(String entryPoint) => null;
 }
 
 /// [BundlePlatform] for Linux.
@@ -51,6 +63,9 @@ final class LinuxBundlePlatform implements BundlePlatform {
 
   @override
   String get sqliteLibraryFileName => 'libsqlite3.so';
+
+  @override
+  String? aotLibraryFileName(String entryPoint) => 'libdartaot$entryPoint.so';
 }
 
 /// [BundlePlatform] for macOS.
@@ -68,4 +83,9 @@ final class MacOSBundlePlatform implements BundlePlatform {
 
   @override
   String get sqliteLibraryFileName => 'libsqlite3.dylib';
+
+  @override
+  // Not verified: macOS is built in CI but not released.
+  String? aotLibraryFileName(String entryPoint) =>
+      'libdartaot$entryPoint.dylib';
 }

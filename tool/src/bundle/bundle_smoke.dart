@@ -5,12 +5,17 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import 'bundle_layout.dart';
+import 'mcp_handshake.dart';
 import 'output_tail.dart';
 import 'server_info.dart';
 import 'smoke_result.dart';
 
 /// Starts the bundled backend from [layout] with a temporary data folder and
 /// checks it.
+///
+/// The smoke config is empty, so the backend spawns no child processes; keep
+/// it that way: on a timeout [Process.kill] (SIGTERM on POSIX) reaches only
+/// the direct child process.
 final class BundleSmoke {
   /// Creates a [BundleSmoke] runner for [layout].
   new({
@@ -46,11 +51,7 @@ final class BundleSmoke {
     }
     log('layout: ok (${layout.root})');
 
-    final temp = Directory.systemTemp.createTempSync('hive_smoke_');
-    final dataDir = p.join(temp.path, 'data');
-    final configFile = File(p.join(temp.path, 'config.yaml'))
-      ..writeAsStringSync('');
-    final serverInfoPath = p.join(dataDir, 'server.json');
+    Directory? temp;
 
     SmokeResult? failure;
     void recordFailure(SmokeResult next) {
@@ -64,6 +65,12 @@ final class BundleSmoke {
     HttpClient? client;
 
     try {
+      temp = Directory.systemTemp.createTempSync('hive_smoke_');
+      final dataDir = p.join(temp.path, 'data');
+      final configFile = File(p.join(temp.path, 'config.yaml'))
+        ..writeAsStringSync('');
+      final serverInfoPath = p.join(dataDir, 'server.json');
+
       final tail = OutputTail();
       try {
         process = await Process.start(layout.serverPath, [
@@ -99,6 +106,11 @@ final class BundleSmoke {
       final healthFailure = await _checkHealth(client);
       if (healthFailure != null) {
         recordFailure(healthFailure);
+      } else {
+        final mcpFailure = await _checkMcpProxy(info.socketPath);
+        if (mcpFailure != null) {
+          recordFailure(mcpFailure);
+        }
       }
     } finally {
       if (process != null) {
@@ -114,10 +126,100 @@ final class BundleSmoke {
       client?.close(force: true);
       await stdoutSub?.cancel();
       await stderrSub?.cancel();
-      await _cleanupTempDir(temp);
+      if (temp != null) {
+        await _cleanupTempDir(temp);
+      }
     }
 
     return failure ?? SmokePassed(stopwatch.elapsed);
+  }
+
+  Future<SmokeFailure?> _checkMcpProxy(String socketPath) async {
+    final Process mcp;
+    try {
+      mcp = await Process.start(
+        layout.hiveMcpPath,
+        ['--socket', socketPath],
+        environment: const {
+          'HIVE_SOCKET_PATH': '',
+          'HIVE_RUN_ID': '',
+          'HIVE_NODE_ID': '',
+          'HIVE_ATTEMPT': '',
+        },
+      );
+    } on ProcessException catch (e) {
+      return McpProxyFailure(
+        'could not start ${layout.hiveMcpPath}: ${e.message}',
+        '',
+      );
+    }
+
+    final tail = OutputTail();
+    unawaited(mcp.stdin.done.catchError((Object _) {}));
+    final stderrSub = mcp.stderr
+        .transform(const Utf8Decoder(allowMalformed: true))
+        .listen(tail.add);
+    final reply = mcp.stdout
+        .transform(const Utf8Decoder(allowMalformed: true))
+        .transform(const LineSplitter())
+        .map((line) {
+          tail.add('$line\n');
+          return decodeJsonRpcLine(line);
+        })
+        .firstWhere(
+          (m) => m != null && isInitializeReply(m),
+          orElse: () => null,
+        );
+
+    try {
+      mcp.stdin.writeln(mcpInitializeRequestLine());
+      try {
+        await mcp.stdin.flush();
+      } on SocketException {
+        // The process already exited; the reply future reports it.
+      }
+      final Map<String, Object?>? message;
+      try {
+        message = await reply.timeout(requestTimeout);
+      } on TimeoutException {
+        return McpProxyFailure(
+          'no reply within ${requestTimeout.inSeconds}s',
+          tail.text,
+        );
+      }
+      if (message == null) {
+        final code = await mcp.exitCode.timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => -1,
+        );
+        return McpProxyFailure(
+          'exited with code $code before answering',
+          tail.text,
+        );
+      }
+      final problem = initializeReplyProblem(message);
+      if (problem != null) {
+        return McpProxyFailure(problem, tail.text);
+      }
+      final info = (message['result']! as Map)['serverInfo'];
+      log(
+        'mcp: initialize -> '
+        '${info is Map ? '${info['name']} ${info['version']}' : 'ok'}',
+      );
+      return null;
+    } finally {
+      try {
+        await mcp.stdin.close();
+      } on SocketException {
+        // Already closed by the exit.
+      }
+      try {
+        await mcp.exitCode.timeout(const Duration(seconds: 5));
+      } on TimeoutException {
+        mcp.kill();
+      }
+      await stderrSub.cancel();
+    }
   }
 
   Future<ServerInfo?> _waitForServerInfo({

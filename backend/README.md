@@ -86,10 +86,12 @@ It runs `dart build cli` for `bin/server.dart` and `bin/hive_mcp.dart` and merge
 backend/
 ├── bin/server(.exe)      # the backend
 ├── bin/hive_mcp(.exe)    # MCP stdio proxy for harnesses (ADR 0015)
-└── lib/sqlite3.dll | libsqlite3.so | libsqlite3.dylib
+└── lib/
+    ├── sqlite3.dll | libsqlite3.so | libsqlite3.dylib
+    └── libdartaotserver.so, libdartaothive_mcp.so   # Linux only: the compiled programs
 ```
 
-Ship the **whole folder**: the executables load SQLite from `../lib`, and harnesses find `hive_mcp` next to `server`. Build on each target OS.
+Ship the **whole folder**: the executables load SQLite (and, on Linux, their compiled program, found by the executable's own name) from `../lib`, and harnesses find `hive_mcp` next to `server`. Do not rename the executables. Build on each target OS; a cross-built Linux backend has a different layout.
 
 The compiled executable runs in production mode: it logs at `INFO` and, unless `--data-dir` or `--config` say otherwise, uses the OS data folder below.
 
@@ -101,13 +103,13 @@ Releases are built by `.github/workflows/release.yml` (ADR 0023) for Windows and
 dart run tool/smoke_bundle.dart <bundle-dir>
 ```
 
-The smoke test checks that the app executable, `backend/bin/server`, `backend/bin/hive_mcp` and the SQLite library exist, starts the bundled backend with a temporary data folder and calls `GET /health` over its socket.
+The smoke test checks that the app executable, `backend/bin/server`, `backend/bin/hive_mcp` and the SQLite library exist, starts the bundled backend with a temporary data folder and calls `GET /health` over its socket, then sends an MCP `initialize` request to `backend/bin/hive_mcp` over stdio.
 
-Pushing a tag `vX.Y.Z` on `master` publishes a GitHub pre-release with `agentic-hive-<version>-windows-x64.zip`, `agentic-hive-<version>-linux-x64.tar.gz` and `SHA256SUMS`. The tag must equal the version in `frontend/pubspec.yaml`. Running the workflow by hand (`workflow_dispatch`) is a dry run: it uploads the archives as workflow artifacts and publishes nothing. Builds are not signed yet.
+Pushing a tag `vX.Y.Z` on `master` publishes a GitHub pre-release with `agentic-hive-<version>-windows-x64.zip`, `agentic-hive-<version>-linux-x64.tar.gz` and `SHA256SUMS`. The tag must equal the version in `frontend/pubspec.yaml`. Running the workflow by hand (`workflow_dispatch`) is a dry run: it uploads the archives as workflow artifacts and publishes nothing. Builds are not signed yet. Releases stay pre-releases until builds are signed.
 
-### How the backend gets started (planned)
+### How the backend gets started
 
-> Not implemented yet. This is the intended behavior; the frontend and the installer do not exist yet.
+> The app side is implemented: `ProcessBackendLauncher` (`frontend/lib/core/lifecycle/backend_launcher.dart`) starts `backend/bin/server` next to the app executable (ADR 0016, ADR 0023), or the path in `AGENTIC_HIVE_BACKEND_BIN`. The installer and the terminal command below are still pending.
 
 **By the app (normal case).** The user never starts the backend by hand:
 
