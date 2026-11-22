@@ -3,7 +3,6 @@ name: Release
 on:
   push:
     tags: ['v*']
-    branches: ['OthavioH/rel-95-workflow']   # TEMPORARY: lets the workflow run once before it exists on master; remove before merge
   workflow_dispatch:
 
 permissions:
