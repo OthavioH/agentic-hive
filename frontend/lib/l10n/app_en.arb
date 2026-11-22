@@ -2286,5 +2286,167 @@
         "type": "String"
       }
     }
+  },
+  "overviewPageSubtitle": "Live operational status across active runs, agents, and pending pauses.",
+  "@overviewPageSubtitle": {
+    "description": "Subtitle on the Overview page header."
+  },
+  "overviewRefreshAction": "Refresh",
+  "@overviewRefreshAction": {
+    "description": "Button label to refresh the Overview dashboard."
+  },
+  "overviewViewAllAction": "View all",
+  "@overviewViewAllAction": {
+    "description": "Ghost button label linking from an Overview section to its full list page."
+  },
+  "overviewEmptyCta": "Browse workflows",
+  "@overviewEmptyCta": {
+    "description": "Primary call-to-action button on the Overview empty state to open Workflows."
+  },
+  "overviewSectionActiveRuns": "Active Runs",
+  "@overviewSectionActiveRuns": {
+    "description": "Section header for currently active runs on Overview."
+  },
+  "overviewSectionActiveNodes": "Active Agents & Nodes",
+  "@overviewSectionActiveNodes": {
+    "description": "Section header for currently executing or paused nodes and agents on Overview."
+  },
+  "overviewSectionPendingPauses": "Pending Pauses",
+  "@overviewSectionPendingPauses": {
+    "description": "Section header for pending human-in-the-loop pauses on Overview."
+  },
+  "overviewSectionMetrics": "Overview Metrics",
+  "@overviewSectionMetrics": {
+    "description": "Section header for operational metric tiles on Overview."
+  },
+  "overviewSectionRecentRuns": "Recent Runs",
+  "@overviewSectionRecentRuns": {
+    "description": "Section header for recent non-active runs on Overview."
+  },
+  "overviewActiveRunsEmpty": "No active runs right now.",
+  "@overviewActiveRunsEmpty": {
+    "description": "Inline empty message when no runs are active while other sections have content."
+  },
+  "overviewActiveNodesEmpty": "No nodes executing right now.",
+  "@overviewActiveNodesEmpty": {
+    "description": "Inline empty message when no nodes are active while other sections have content."
+  },
+  "overviewPendingPausesEmpty": "No pending pauses.",
+  "@overviewPendingPausesEmpty": {
+    "description": "Inline empty message when no pauses are pending while other sections have content."
+  },
+  "overviewActiveNodeCount": "{count, plural, =0{0 active nodes} =1{1 active node} other{{count} active nodes}}",
+  "@overviewActiveNodeCount": {
+    "description": "Active node count shown on an active run card.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "overviewOpenRunSemanticLabel": "Open run for {workflowName}",
+  "@overviewOpenRunSemanticLabel": {
+    "description": "Semantics label for clicking an active or recent run card on Overview.",
+    "placeholders": {
+      "workflowName": {
+        "type": "String"
+      }
+    }
+  },
+  "overviewOpenNodeRunSemanticLabel": "Open run for {nodeName} in {workflowName}",
+  "@overviewOpenNodeRunSemanticLabel": {
+    "description": "Semantics label for clicking an active node/agent card on Overview.",
+    "placeholders": {
+      "nodeName": {
+        "type": "String"
+      },
+      "workflowName": {
+        "type": "String"
+      }
+    }
+  },
+  "overviewApproveAction": "Approve",
+  "@overviewApproveAction": {
+    "description": "Inline approve button label on a simple human-approval pause card."
+  },
+  "overviewRejectAction": "Reject",
+  "@overviewRejectAction": {
+    "description": "Inline reject button label on a simple human-approval pause card."
+  },
+  "overviewOpenPauseAction": "Respond in Pauses",
+  "@overviewOpenPauseAction": {
+    "description": "Navigation button label on pause cards that require feedback or an answer."
+  },
+  "overviewMetricActiveRuns": "Active runs",
+  "@overviewMetricActiveRuns": {
+    "description": "Label for the focal active runs metric tile."
+  },
+  "overviewMetricActiveNodes": "Active nodes",
+  "@overviewMetricActiveNodes": {
+    "description": "Label for the active nodes metric tile."
+  },
+  "overviewMetricPendingPauses": "Pending pauses",
+  "@overviewMetricPendingPauses": {
+    "description": "Label for the pending pauses metric tile."
+  },
+  "overviewMetricSucceeded24h": "24h succeeded",
+  "@overviewMetricSucceeded24h": {
+    "description": "Label for the 24-hour succeeded runs metric tile."
+  },
+  "overviewMetricFailed24h": "24h failed",
+  "@overviewMetricFailed24h": {
+    "description": "Label for the 24-hour failed runs metric tile."
+  },
+  "overviewMetricNeedsAttentionSemantic": "{label}: {count}, needs attention",
+  "@overviewMetricNeedsAttentionSemantic": {
+    "description": "Semantics label for metric tiles with a warning or danger count.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "overviewLoadErrorTitle": "Failed to load overview",
+  "@overviewLoadErrorTitle": {
+    "description": "Title shown when the initial Overview snapshot load fails."
+  },
+  "overviewRetryAction": "Retry",
+  "@overviewRetryAction": {
+    "description": "Button label to retry loading Overview."
+  },
+  "overviewDismissAction": "Dismiss",
+  "@overviewDismissAction": {
+    "description": "Semantics label to dismiss an inline error banner on Overview."
+  },
+  "overviewPauseActionErrorTitle": "Could not submit decision",
+  "@overviewPauseActionErrorTitle": {
+    "description": "Title of the inline error banner on a pause card when Approve or Reject fails."
+  },
+  "overviewFailureNetwork": "Could not reach the local backend. Check the connection and try again.",
+  "@overviewFailureNetwork": {
+    "description": "Localized error message when an Overview request fails due to a network/socket error."
+  },
+  "overviewFailureNotFound": "The requested pause or run could not be found.",
+  "@overviewFailureNotFound": {
+    "description": "Localized error message when a resource is not found."
+  },
+  "overviewFailureValidation": "The request could not be validated.",
+  "@overviewFailureValidation": {
+    "description": "Localized error message when an Overview request fails validation."
+  },
+  "overviewFailureConflict": "This pause was already resolved or cancelled.",
+  "@overviewFailureConflict": {
+    "description": "Localized error message when an inline pause decision returns 409 Conflict."
+  },
+  "overviewFailureBackend": "The local backend encountered an error.",
+  "@overviewFailureBackend": {
+    "description": "Localized error message when the backend returns an unexpected error."
+  },
+  "overviewFailureUnexpected": "An unexpected error occurred.",
+  "@overviewFailureUnexpected": {
+    "description": "Fallback localized error message on Overview."
   }
 }
