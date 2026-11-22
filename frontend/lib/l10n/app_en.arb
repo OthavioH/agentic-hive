@@ -1573,17 +1573,38 @@
   "@nodeConfigUnknownType": {
     "description": "Fallback message in the inspector when a node has an unregistered type."
   },
-  "nodeConfigAgentIdLabel": "Agent ID",
+  "nodeConfigAgentIdLabel": "Agent",
   "@nodeConfigAgentIdLabel": {
-    "description": "Text field label for specifying an agent identifier."
+    "description": "Select field label for choosing an agent from the Agent Library."
   },
-  "nodeConfigAgentIdHint": "e.g. code-reviewer",
-  "@nodeConfigAgentIdHint": {
-    "description": "Placeholder hint for the agent ID input."
+  "nodeConfigAgentSelectHint": "Select an agent",
+  "@nodeConfigAgentSelectHint": {
+    "description": "Placeholder hint for the agent library select."
   },
-  "nodeConfigAgentIdHelper": "Enter an agent ID manually until the Agent Library is connected.",
-  "@nodeConfigAgentIdHelper": {
-    "description": "Helper text under the agent ID field."
+  "nodeConfigAgentLoadingHint": "Loading agents...",
+  "@nodeConfigAgentLoadingHint": {
+    "description": "Placeholder hint while the Agent Library is loading."
+  },
+  "nodeConfigAgentLoadError": "Could not load agents from the Agent Library.",
+  "@nodeConfigAgentLoadError": {
+    "description": "Error text when loading the Agent Library fails."
+  },
+  "nodeConfigAgentEmptyHint": "No agents yet. Create one on the Agents page.",
+  "@nodeConfigAgentEmptyHint": {
+    "description": "Placeholder or helper hint when the Agent Library has no agents."
+  },
+  "nodeConfigAgentMissingError": "Agent \"{agentId}\" was not found in the Agent Library.",
+  "@nodeConfigAgentMissingError": {
+    "description": "Warning/error text when a node references an agent ID that no longer exists in the Agent Library.",
+    "placeholders": {
+      "agentId": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeConfigAgentNoneOption": "None",
+  "@nodeConfigAgentNoneOption": {
+    "description": "Option label in the agent select to clear the selected agent."
   },
   "nodeConfigAdditionalInstructionsLabel": "Additional instructions",
   "@nodeConfigAdditionalInstructionsLabel": {

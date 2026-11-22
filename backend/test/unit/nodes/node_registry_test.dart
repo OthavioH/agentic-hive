@@ -1,7 +1,6 @@
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_shell_provider.dart';
-import 'package:agentic_hive_backend/src/data/nodes/unconfigured_node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/command_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/headless_harness_nodes.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/human_approval_node.dart';
@@ -23,6 +22,42 @@ final class _NoopProcessRunner implements NodeProcessRunner {
   }) async => const Success(ProcessExecutionResult(exitCode: 0));
 }
 
+final class _FakePtyRunner implements PtyRunner {
+  const new();
+
+  @override
+  Future<Result<ProcessExecutionResult>> run(
+    PtyInvocation invocation, {
+    NodeOutputCallback? onOutput,
+  }) async => const Success(ProcessExecutionResult(exitCode: 0));
+}
+
+final class _FakeResultContract implements ResultContract {
+  const new();
+
+  @override
+  Future<Result<ResultContractSession>> openSession(
+    NodeExecutionContext context,
+  ) async => const FailureResult(NodeExecutionFailure('unused'));
+
+  @override
+  String instructionsFor(NodeExecutionContext context) => '';
+
+  @override
+  Future<Result<ResultContractReport?>> readReport(
+    NodeExecutionContext context,
+  ) async => const Success(null);
+}
+
+final class _FakeHumanApprovalPort implements HumanApprovalPort {
+  const new();
+
+  @override
+  Future<Result<HumanApprovalResponse>> requestApproval(
+    HumanApprovalRequest request,
+  ) async => const FailureResult(NodeExecutionFailure('unused'));
+}
+
 final class _FakeAgentPromptResolver implements AgentPromptResolver {
   const new();
 
@@ -38,10 +73,10 @@ void main() {
     setUp(() {
       registry = NodeRegistry.withDefaults(
         processRunner: const _NoopProcessRunner(),
-        ptyRunner: const UnconfiguredPtyRunner(),
+        ptyRunner: const _FakePtyRunner(),
         defaultShellProvider: const PosixShellProvider(),
-        resultContract: const UnconfiguredResultContract(),
-        approvalPort: const UnconfiguredHumanApprovalPort(),
+        resultContract: const _FakeResultContract(),
+        approvalPort: const _FakeHumanApprovalPort(),
         agentPromptResolver: const _FakeAgentPromptResolver(),
       );
     });
