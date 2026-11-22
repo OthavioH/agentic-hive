@@ -41,6 +41,7 @@ final class ClaudeCodeNode extends HeadlessHarnessNode {
       '-p',
       '--output-format',
       'stream-json',
+      if (!config.extraArgs.contains('--verbose')) '--verbose',
       if (mcpConfigPath != null) ...<String>['--mcp-config', mcpConfigPath],
       ...config.extraArgs,
     ],
