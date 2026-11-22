@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:agentic_hive_frontend/core/backend/backend_connection.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/app_lifecycle_controller.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/tray_service.dart';
+import 'package:agentic_hive_frontend/core/lifecycle/window_title_provider.dart';
 import 'package:agentic_hive_frontend/core/theme/theme_preference_controller.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
@@ -66,11 +67,22 @@ class _LifecycleBridge extends ConsumerStatefulWidget {
 class _LifecycleBridgeState extends ConsumerState<_LifecycleBridge> {
   bool _dialogOpen = false;
   TrayMenuLabels? _lastPublishedLabels;
+  String? _lastPublishedTitle;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _publishWindowTitle();
     _publishTrayLabels(ref.read(backendConnectionProvider));
+  }
+
+  void _publishWindowTitle() {
+    final l10n = AppLocalizations.of(context);
+    if (l10n == null) return;
+    final title = l10n.appTitle;
+    if (title == _lastPublishedTitle) return;
+    _lastPublishedTitle = title;
+    ref.read(windowTitleSetterProvider)(title);
   }
 
   void _publishTrayLabels(BackendConnectionState connection) {
