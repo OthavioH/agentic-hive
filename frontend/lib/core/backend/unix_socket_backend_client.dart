@@ -18,6 +18,8 @@ final class UnixSocketBackendClient implements BackendClient {
     required this._platformPaths,
     this.connectTimeout = defaultConnectTimeout,
     this.handshakeTimeout = defaultHandshakeTimeout,
+    this.requestTimeout = defaultRequestTimeout,
+    this._httpClientFactory,
   });
 
   static const int _connectTimeoutSeconds = 2;
@@ -48,6 +50,11 @@ final class UnixSocketBackendClient implements BackendClient {
 
   /// Timeout applied when waiting for `server.hello` after WebSocket upgrade.
   final Duration handshakeTimeout;
+
+  /// Timeout applied to feature HTTP JSON requests.
+  final Duration requestTimeout;
+
+  final HttpClient Function(String socketPath)? _httpClientFactory;
 
   HttpClient? _httpClient;
   String? _activeSocketPath;
@@ -184,7 +191,7 @@ final class UnixSocketBackendClient implements BackendClient {
       return FailureResult(failure);
     }
     final client = (clientResult as Success<HttpClient>).value;
-    final effectiveTimeout = timeout ?? defaultRequestTimeout;
+    final effectiveTimeout = timeout ?? requestTimeout;
 
     try {
       final response = await () async {
@@ -375,12 +382,12 @@ final class UnixSocketBackendClient implements BackendClient {
         request.headers.contentType = ContentType.json;
         request.write(payload);
         return await request.close();
-      }().timeout(connectTimeout);
+      }().timeout(requestTimeout);
 
       final body = await response
           .transform(utf8.decoder)
           .join()
-          .timeout(connectTimeout);
+          .timeout(requestTimeout);
 
       if (response.statusCode == HttpStatus.conflict) {
         return FailureResult(
@@ -480,12 +487,12 @@ final class UnixSocketBackendClient implements BackendClient {
           request.write(jsonEncode(body));
         }
         return await request.close();
-      }().timeout(connectTimeout);
+      }().timeout(requestTimeout);
 
       final rawBody = await response
           .transform(utf8.decoder)
           .join()
-          .timeout(connectTimeout);
+          .timeout(requestTimeout);
 
       final decoded = rawBody.trim().isEmpty
           ? <String, Object?>{}
@@ -611,15 +618,17 @@ final class UnixSocketBackendClient implements BackendClient {
     }
 
     _resetHttpClient();
-    final client = HttpClient()
-      ..connectionTimeout = connectTimeout
-      ..connectionFactory = (uri, proxyHost, proxyPort) {
-        final address = InternetAddress(
-          socketPath,
-          type: InternetAddressType.unix,
-        );
-        return Socket.startConnect(address, 0);
-      };
+    final client =
+        _httpClientFactory?.call(socketPath) ??
+        (HttpClient()
+          ..connectionTimeout = connectTimeout
+          ..connectionFactory = (uri, proxyHost, proxyPort) {
+            final address = InternetAddress(
+              socketPath,
+              type: InternetAddressType.unix,
+            );
+            return Socket.startConnect(address, 0);
+          });
     _httpClient = client;
     _activeSocketPath = socketPath;
     return Success(client);
