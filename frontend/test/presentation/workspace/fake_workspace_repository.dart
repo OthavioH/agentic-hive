@@ -21,7 +21,10 @@ final class FakeWorkspaceRepository implements WorkspaceRepository {
        snapshots = snapshots ?? <Snapshot>[];
 
   List<Workspace> workspaces;
+  Map<String, List<Worktree>> worktreesByWorkspaceId =
+      <String, List<Worktree>>{};
   Failure? listWorkspacesFailure;
+  Failure? listWorktreesFailure;
   Result<Workspace>? createWorkspaceResult;
   Result<Workspace>? renameWorkspaceResult;
   Result<void>? unregisterWorkspaceResult;
@@ -33,6 +36,9 @@ final class FakeWorkspaceRepository implements WorkspaceRepository {
 
   /// When set, `listSnapshots` waits for it, keeping the panel loading.
   Completer<void>? listGate;
+
+  /// When set, `listWorkspaces` waits for it, keeping the tree loading.
+  Completer<void>? listWorkspacesGate;
   Failure? listFailure;
 
   final List<String> restoreCalls = <String>[];
@@ -46,6 +52,7 @@ final class FakeWorkspaceRepository implements WorkspaceRepository {
 
   @override
   Future<Result<List<Workspace>>> listWorkspaces() async {
+    await listWorkspacesGate?.future;
     final failure = listWorkspacesFailure;
     if (failure != null) return FailureResult<List<Workspace>>(failure);
     return Success<List<Workspace>>(List<Workspace>.of(workspaces));
@@ -116,6 +123,17 @@ final class FakeWorkspaceRepository implements WorkspaceRepository {
     }
     workspaces = workspaces.where((w) => w.id != id).toList();
     return const Success<void>(null);
+  }
+
+  @override
+  Future<Result<List<Worktree>>> listWorktrees(String workspaceId) async {
+    final failure = listWorktreesFailure;
+    if (failure != null) return FailureResult<List<Worktree>>(failure);
+    return Success<List<Worktree>>(
+      List<Worktree>.of(
+        worktreesByWorkspaceId[workspaceId] ?? const <Worktree>[],
+      ),
+    );
   }
 
   @override
@@ -194,6 +212,23 @@ Workspace makeWorkspace({
   createdAt: DateTime.utc(2026, 11, 22, 10),
   updatedAt: DateTime.utc(2026, 11, 22, 10),
   activeRunCount: activeRunCount,
+);
+
+/// Builds a [Worktree] for tests.
+Worktree makeWorktree({
+  String id = 'primary',
+  String name = 'primary',
+  String path = '/tmp/ws-1',
+  bool isPrimary = true,
+  bool hasUncommittedChanges = false,
+  String? branch = 'main',
+}) => Worktree(
+  id: id,
+  name: name,
+  path: path,
+  isPrimary: isPrimary,
+  hasUncommittedChanges: hasUncommittedChanges,
+  branch: branch,
 );
 
 /// Builds a [Snapshot] for tests.

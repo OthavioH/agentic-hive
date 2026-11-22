@@ -249,4 +249,37 @@ void main() {
     expect(client.lastPath, '/api/v1/workspaces/ws-1');
     expect(result.isSuccess, isTrue);
   });
+
+  test('listWorktrees GETs /api/v1/workspaces/:id/worktrees', () async {
+    client.nextResponse = const Success(<String, Object?>{
+      'items': <Object?>[
+        <String, Object?>{
+          'id': 'primary',
+          'name': 'primary',
+          'path': '/tmp/repo-one',
+          'isPrimary': true,
+          'hasUncommittedChanges': false,
+          'branch': 'main',
+        },
+        <String, Object?>{
+          'id': 'feat-a',
+          'name': 'feat-a',
+          'path': '/data/worktrees/ws-1/feat-a',
+          'isPrimary': false,
+          'hasUncommittedChanges': true,
+          'branch': 'feature/a',
+        },
+      ],
+    });
+    final result = await container
+        .read(workspaceRepositoryProvider)
+        .listWorktrees('ws-1');
+    expect(client.lastMethod, 'GET');
+    expect(client.lastPath, '/api/v1/workspaces/ws-1/worktrees');
+    final items = result.valueOrNull;
+    expect(items, hasLength(2));
+    expect(items![0].isPrimary, isTrue);
+    expect(items[0].branch, 'main');
+    expect(items[1].hasUncommittedChanges, isTrue);
+  });
 }

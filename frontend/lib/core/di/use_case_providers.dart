@@ -58,6 +58,7 @@ import 'package:agentic_hive_frontend/domain/workspace/use_cases/get_snapshot_di
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/get_workspace_capabilities.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/list_run_snapshots.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/list_workspaces.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/list_worktrees.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/load_last_workspace_id.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/rename_workspace.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/restore_snapshot.dart';
@@ -318,3 +319,8 @@ LoadLastWorkspaceId loadLastWorkspaceId(Ref ref) =>
 @riverpod
 SaveLastWorkspaceId saveLastWorkspaceId(Ref ref) =>
     SaveLastWorkspaceId(ref.watch(workspaceSelectionStoreProvider));
+
+/// Provides [ListWorktrees].
+@riverpod
+ListWorktrees listWorktrees(Ref ref) =>
+    ListWorktrees(ref.watch(workspaceRepositoryProvider));

@@ -18,6 +18,9 @@ abstract interface class WorkspaceRepository {
   /// Unregisters workspace [id] without deleting any files.
   Future<Result<void>> unregisterWorkspace(String id);
 
+  /// Lists checkouts for workspace [workspaceId], primary checkout first.
+  Future<Result<List<Worktree>>> listWorktrees(String workspaceId);
+
   /// Reports git availability and, when [path] is given, whether it is a git
   /// repository with commits.
   Future<Result<WorkspaceCapabilities>> getCapabilities({String? path});

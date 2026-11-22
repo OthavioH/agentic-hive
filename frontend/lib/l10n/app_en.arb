@@ -2736,5 +2736,125 @@
   "workspaceErrorUnexpected": "Could not complete the workspace action.",
   "@workspaceErrorUnexpected": {
     "description": "Fallback error message for workspace operations."
+  },
+  "sideRailTreeTitle": "Workspaces",
+  "@sideRailTreeTitle": {
+    "description": "Header title of the side rail workspace/worktree/run tree."
+  },
+  "sideRailTreeRefreshTooltip": "Refresh workspace tree",
+  "@sideRailTreeRefreshTooltip": {
+    "description": "Tooltip and semantic label for refreshing the side rail tree."
+  },
+  "sideRailTreeLoadErrorTitle": "Could not load workspace tree",
+  "@sideRailTreeLoadErrorTitle": {
+    "description": "Error title when loading the side rail tree fails."
+  },
+  "sideRailTreeRetryAction": "Retry",
+  "@sideRailTreeRetryAction": {
+    "description": "Button label to retry loading the side rail tree."
+  },
+  "sideRailTreeEmptyTitle": "No workspaces yet",
+  "@sideRailTreeEmptyTitle": {
+    "description": "Empty state title in the side rail tree when no workspaces are registered."
+  },
+  "sideRailTreeEmptyMessage": "Register a workspace to see its worktrees and runs.",
+  "@sideRailTreeEmptyMessage": {
+    "description": "Empty state message in the side rail tree."
+  },
+  "sideRailTreePrimaryLabel": "primary",
+  "@sideRailTreePrimaryLabel": {
+    "description": "Label for the primary checkout item in the side rail tree."
+  },
+  "sideRailTreePrimaryBadge": "primary",
+  "@sideRailTreePrimaryBadge": {
+    "description": "Badge label on the primary checkout row."
+  },
+  "sideRailTreeDirtyBadge": "uncommitted",
+  "@sideRailTreeDirtyBadge": {
+    "description": "Badge label when a worktree has uncommitted changes."
+  },
+  "sideRailTreeDetachedHead": "detached HEAD",
+  "@sideRailTreeDetachedHead": {
+    "description": "Subtitle shown when a git worktree has a detached HEAD."
+  },
+  "sideRailTreeStartRunTooltip": "Start run in {target}",
+  "@sideRailTreeStartRunTooltip": {
+    "description": "Semantic label for the Start Run button on a worktree row.",
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "sideRailTreeSeeAll": "See all ({count} more)",
+  "@sideRailTreeSeeAll": {
+    "description": "Action row to expand more than 3 runs in a worktree group.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sideRailTreeShowLess": "Show less",
+  "@sideRailTreeShowLess": {
+    "description": "Action row to collapse an expanded run list back to 3 items."
+  },
+  "sideRailTreeNoRuns": "No active or recent runs",
+  "@sideRailTreeNoRuns": {
+    "description": "Muted row shown when a worktree has no active or 24h runs."
+  },
+  "sideRailTreeActiveRunsSemantic": "{count, plural, =1{1 active run} other{{count} active runs}}",
+  "@sideRailTreeActiveRunsSemantic": {
+    "description": "Accessibility label for the active runs badge on a workspace row.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sideRailTreePendingPausesSemantic": "{count, plural, =1{1 pending pause} other{{count} pending pauses}}",
+  "@sideRailTreePendingPausesSemantic": {
+    "description": "Accessibility label for the pending pauses badge on a workspace row.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sideRailTreeExpandWorkspace": "Expand {name}",
+  "@sideRailTreeExpandWorkspace": {
+    "description": "Accessibility label for expanding a workspace row.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sideRailTreeCollapseWorkspace": "Collapse {name}",
+  "@sideRailTreeCollapseWorkspace": {
+    "description": "Accessibility label for collapsing a workspace row.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sideRailTreeExpandWorktree": "Expand {name}",
+  "@sideRailTreeExpandWorktree": {
+    "description": "Accessibility label for expanding a worktree row.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sideRailTreeCollapseWorktree": "Collapse {name}",
+  "@sideRailTreeCollapseWorktree": {
+    "description": "Accessibility label for collapsing a worktree row.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   }
 }
