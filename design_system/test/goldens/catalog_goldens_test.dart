@@ -267,6 +267,59 @@ void main() {
           size: const Size(720, 80),
         );
       });
+
+      testWidgets('HiveTitleBar caption button states', (tester) async {
+        Widget row(Set<WidgetState> states) {
+          WidgetStatesController seeded() {
+            final controller = WidgetStatesController(states);
+            addTearDown(controller.dispose);
+            return controller;
+          }
+
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 4,
+            children: <Widget>[
+              HiveIconButton(
+                icon: HiveIcons.minimize,
+                semanticLabel: 'Minimize',
+                size: HiveButtonSize.small,
+                statesController: seeded(),
+                onPressed: () {},
+              ),
+              HiveIconButton(
+                icon: HiveIcons.maximize,
+                semanticLabel: 'Maximize',
+                size: HiveButtonSize.small,
+                statesController: seeded(),
+                onPressed: () {},
+              ),
+              HiveIconButton.dangerHover(
+                icon: HiveIcons.close,
+                semanticLabel: 'Close to tray',
+                size: HiveButtonSize.small,
+                statesController: seeded(),
+                onPressed: () {},
+              ),
+            ],
+          );
+        }
+
+        await pumpAndMatch(
+          tester,
+          'hive_title_bar_caption_states',
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 16,
+            children: <Widget>[
+              row(<WidgetState>{WidgetState.hovered}),
+              row(<WidgetState>{WidgetState.focused}),
+              row(<WidgetState>{WidgetState.pressed}),
+            ],
+          ),
+          size: const Size(240, 200),
+        );
+      });
     });
   }
 }
