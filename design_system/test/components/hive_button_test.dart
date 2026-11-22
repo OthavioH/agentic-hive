@@ -286,6 +286,98 @@ void main() {
       expect(iconWidget().color, colors.onDanger);
     });
 
+    testWidgets('dangerHover uses light theme danger/onDanger on hover', (
+      tester,
+    ) async {
+      final controller = WidgetStatesController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        hiveTestApp(
+          theme: HiveTheme.light(),
+          child: HiveIconButton.dangerHover(
+            icon: HiveIcons.close,
+            semanticLabel: 'Close window',
+            statesController: controller,
+            onPressed: () {},
+          ),
+        ),
+      );
+
+      const colors = HiveColors.light;
+      ShapeDecoration decoration() =>
+          tester
+                  .widget<AnimatedContainer>(
+                    find.descendant(
+                      of: find.byType(HiveIconButton),
+                      matching: find.byType(AnimatedContainer),
+                    ),
+                  )
+                  .decoration!
+              as ShapeDecoration;
+
+      HiveIcon iconWidget() => tester.widget<HiveIcon>(
+        find.descendant(
+          of: find.byType(HiveIconButton),
+          matching: find.byType(HiveIcon),
+        ),
+      );
+
+      expect(decoration().color, colors.background.withValues(alpha: 0));
+      expect(iconWidget().color, colors.onSurface);
+
+      controller.update(WidgetState.hovered, true);
+      await tester.pump();
+      expect(decoration().color, colors.danger);
+      expect(iconWidget().color, colors.onDanger);
+    });
+
+    testWidgets('dangerHover keeps ghost look when disabled', (tester) async {
+      final controller = WidgetStatesController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        hiveTestApp(
+          child: HiveIconButton.dangerHover(
+            icon: HiveIcons.close,
+            semanticLabel: 'Close disabled',
+            statesController: controller,
+            onPressed: null,
+          ),
+        ),
+      );
+
+      const colors = HiveColors.dark;
+      ShapeDecoration decoration() =>
+          tester
+                  .widget<AnimatedContainer>(
+                    find.descendant(
+                      of: find.byType(HiveIconButton),
+                      matching: find.byType(AnimatedContainer),
+                    ),
+                  )
+                  .decoration!
+              as ShapeDecoration;
+
+      HiveIcon iconWidget() => tester.widget<HiveIcon>(
+        find.descendant(
+          of: find.byType(HiveIconButton),
+          matching: find.byType(HiveIcon),
+        ),
+      );
+
+      expect(find.bySemanticsLabel('Close disabled'), findsOneWidget);
+      expect(decoration().color, colors.background.withValues(alpha: 0));
+      expect(iconWidget().color, colors.onSurface);
+
+      controller
+        ..update(WidgetState.hovered, true)
+        ..update(WidgetState.pressed, true);
+      await tester.pump();
+      expect(decoration().color, colors.background.withValues(alpha: 0));
+      expect(iconWidget().color, colors.onSurface);
+    });
+
     testWidgets('window caption icons render and are listed in interface', (
       tester,
     ) async {

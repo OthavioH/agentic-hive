@@ -12,6 +12,8 @@ The close button keeps the meaning set in ADR 0016: it hides the app to the tray
 
 The app is named **Agentic Hive** everywhere the user sees it (window title, `ProductName`/`FileDescription`, GTK title). The technical identifiers are `agentic_hive` (binary name) and `dev.othavioh.agentic_hive` (Linux application ID). The Dart package `agentic_hive_frontend` keeps its internal name.
 
+The app icon on every OS is the Hive hex mark. It is generated from the same geometry and color tokens as `HiveHexMark` by the design system's icon generator, the one that already produces the tray icons, so the logo has a single source. On Windows and Linux it is the hexagon on a transparent background. On macOS the hexagon sits on a dark rounded-square tile, following platform convention.
+
 ## Consequences
 
 - We lose the Windows 11 Snap Layouts flyout that appears on hovering the native maximize button; Win+Z still works. Getting it back would need Windows-only native code in the runner.

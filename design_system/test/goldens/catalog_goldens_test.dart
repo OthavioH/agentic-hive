@@ -136,6 +136,34 @@ void main() {
         );
       });
 
+      testWidgets('HiveIconButton dangerHover', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_icon_button_danger_hover',
+          HiveIconButton.dangerHover(
+            icon: HiveIcons.close,
+            semanticLabel: 'Close',
+            onPressed: () {},
+          ),
+        );
+      });
+
+      testWidgets('Window caption icons', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'window_caption_icons',
+          const Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 16,
+            children: <Widget>[
+              HiveIcon(HiveIcons.minimize, semanticLabel: 'Minimize'),
+              HiveIcon(HiveIcons.maximize, semanticLabel: 'Maximize'),
+              HiveIcon(HiveIcons.restore, semanticLabel: 'Restore'),
+            ],
+          ),
+        );
+      });
+
       testWidgets('HiveCard', (tester) async {
         await pumpAndMatch(
           tester,

@@ -8,6 +8,7 @@ import 'package:agentic_hive_frontend/core/backend/backend_web_socket_session.da
 import 'package:agentic_hive_frontend/core/lifecycle/backend_launcher.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/tray_service.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/window_lifecycle_service.dart';
+import 'package:agentic_hive_frontend/core/lifecycle/window_title_provider.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/core/theme/app_theme_preference.dart';
 import 'package:agentic_hive_frontend/core/theme/theme_preference_store.dart';
@@ -440,6 +441,36 @@ void main() {
     );
 
     testWidgets(
+      'sets runtime window title from localized appTitle on startup',
+      (tester) async {
+        configureDesktopWindow(tester);
+        final fakeClient = _FakeBackendClient(statusResult: okStatus);
+        final recordedTitles = <String>[];
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              backendClientProvider.overrideWithValue(fakeClient),
+              backendLauncherProvider.overrideWithValue(_FakeBackendLauncher()),
+              windowLifecycleServiceProvider.overrideWithValue(
+                _FakeWindowLifecycleService(),
+              ),
+              trayServiceProvider.overrideWithValue(_FakeTrayService()),
+              themePreferenceStoreProvider.overrideWithValue(
+                _FakeThemePreferenceStore(),
+              ),
+              windowTitleSetterProvider.overrideWithValue(recordedTitles.add),
+            ],
+            child: const HiveApp(),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(recordedTitles, <String>['Agentic Hive']);
+      },
+    );
+
+    testWidgets(
       'mounts custom title bar on shell route, wires actions, and tracks '
       'external maximize changes',
       (tester) async {
@@ -462,7 +493,6 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-
         final l10n = l10nFrom(tester);
         expect(find.byType(HiveTitleBar), findsOneWidget);
 
