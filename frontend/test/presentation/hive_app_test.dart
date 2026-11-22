@@ -509,6 +509,9 @@ void main() {
           tester.widget<HiveIconButton>(captionButtons().at(1)).semanticLabel,
           l10n.windowMaximize,
         );
+        final initialMaximizeIcon = tester
+            .widget<HiveIconButton>(captionButtons().at(1))
+            .icon;
         expect(
           tester.widget<HiveIconButton>(captionButtons().at(2)).semanticLabel,
           l10n.windowCloseToTray,
@@ -524,12 +527,20 @@ void main() {
           tester.widget<HiveIconButton>(captionButtons().at(1)).semanticLabel,
           l10n.windowRestore,
         );
+        expect(
+          tester.widget<HiveIconButton>(captionButtons().at(1)).icon,
+          isNot(equals(initialMaximizeIcon)),
+        );
 
         windowService.maximized = false;
         await tester.pump();
         expect(
           tester.widget<HiveIconButton>(captionButtons().at(1)).semanticLabel,
           l10n.windowMaximize,
+        );
+        expect(
+          tester.widget<HiveIconButton>(captionButtons().at(1)).icon,
+          equals(initialMaximizeIcon),
         );
 
         await tester.tap(captionButtons().at(2));
