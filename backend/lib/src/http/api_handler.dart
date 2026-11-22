@@ -1,5 +1,6 @@
 import 'package:agentic_hive_backend/src/api/agents/agents_handler.dart';
 import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
+import 'package:agentic_hive_backend/src/api/overview/overview_handler.dart';
 import 'package:agentic_hive_backend/src/api/pauses/pauses_handler.dart';
 import 'package:agentic_hive_backend/src/api/result_contract/result_contract_handler.dart';
 import 'package:agentic_hive_backend/src/api/runs/runs_handler.dart';
@@ -34,6 +35,7 @@ Handler buildApiHandler({
   ResultContractHandler? resultContractHandler,
   RunsHandler? runsHandler,
   PausesHandler? pausesHandler,
+  OverviewHandler? overviewHandler,
   WorkspaceHandler? workspaceHandler,
   SettingsHandler? settingsHandler,
 }) {
@@ -42,6 +44,9 @@ Handler buildApiHandler({
     ..get('/api/v1/status', statusHandler.call)
     ..post('/api/v1/shutdown', shutdownHandler.call)
     ..get('/ws', webSocketHandler);
+  if (overviewHandler != null) {
+    router.get('/api/v1/overview', overviewHandler.call);
+  }
   if (workflowHandler != null) {
     router.mount('/api/v1/workflows', workflowHandler.call);
   }

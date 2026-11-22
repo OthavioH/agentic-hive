@@ -95,6 +95,122 @@ WidgetbookComponent badgeComponent() {
   );
 }
 
+/// `HiveMetricTile`: both sizes, every tone, both surfaces, long text and an
+/// Overview-style row with one focal number.
+WidgetbookComponent metricTileComponent() {
+  WidgetbookUseCase useCase(String name, HiveMetricTile tile) {
+    return WidgetbookUseCase(
+      name: name,
+      builder: (context) => UseCaseFrame(child: tile),
+    );
+  }
+
+  return WidgetbookComponent(
+    name: 'HiveMetricTile',
+    useCases: <WidgetbookUseCase>[
+      useCase(
+        'Focal',
+        const HiveMetricTile(
+          value: '12',
+          label: 'Active runs',
+          size: HiveMetricTileSize.focal,
+        ),
+      ),
+      useCase(
+        'Compact',
+        const HiveMetricTile(value: '48', label: 'Runs this week'),
+      ),
+      for (final tone in HiveFeedbackTone.values) ...<WidgetbookUseCase>[
+        useCase(
+          'Focal, ${tone.name} tone',
+          HiveMetricTile(
+            value: '3',
+            label: 'Pending pauses',
+            size: HiveMetricTileSize.focal,
+            tone: tone,
+          ),
+        ),
+        useCase(
+          'Compact, ${tone.name} tone',
+          HiveMetricTile(value: '3', label: 'Pending pauses', tone: tone),
+        ),
+      ],
+      WidgetbookUseCase(
+        name: 'On surface2',
+        builder: (context) => const UseCaseFrame(
+          child: HiveCard(
+            child: HiveMetricTile(
+              value: '7',
+              label: 'Failed runs',
+              tone: HiveFeedbackTone.danger,
+              surface: HiveCardSurface.surface2,
+              semanticLabel: 'Failed runs: 7, needs attention',
+            ),
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Long value and label',
+        builder: (context) => UseCaseFrame(
+          child: SizedBox(
+            width: context.hiveSpacing.space8 * 3,
+            child: const HiveMetricTile(
+              value: '1,284,356',
+              label: 'Harness output lines streamed in the last seven days',
+              size: HiveMetricTileSize.focal,
+            ),
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Overview row',
+        builder: (context) {
+          final spacing = context.hiveSpacing;
+          return UseCaseFrame(
+            child: IntrinsicHeight(
+              child: Row(
+                spacing: spacing.space2,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: const <Widget>[
+                  Expanded(
+                    flex: 2,
+                    child: HiveMetricTile(
+                      value: '12',
+                      label: 'Active runs',
+                      size: HiveMetricTileSize.focal,
+                    ),
+                  ),
+                  Expanded(
+                    child: HiveMetricTile(
+                      value: '3',
+                      label: 'Pending pauses',
+                      tone: HiveFeedbackTone.warning,
+                    ),
+                  ),
+                  Expanded(
+                    child: HiveMetricTile(
+                      value: '1',
+                      label: 'Failed today',
+                      tone: HiveFeedbackTone.danger,
+                    ),
+                  ),
+                  Expanded(
+                    child: HiveMetricTile(
+                      value: '41',
+                      label: 'Succeeded today',
+                      tone: HiveFeedbackTone.success,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    ],
+  );
+}
+
 /// `HiveDiffStat`: typical, zero counts, only one kind, large counts.
 WidgetbookComponent diffStatComponent() {
   WidgetbookUseCase useCase(String name, HiveDiffStat stat) {

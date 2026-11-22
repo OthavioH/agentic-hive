@@ -48,6 +48,22 @@ final class InMemoryRunRepository implements RunRepository {
   );
 
   @override
+  Future<Result<int>> countByStatusFinishedSince(
+    RunStatus status, {
+    required DateTime finishedSince,
+  }) async {
+    final cutoff = finishedSince.toUtc();
+    return Success(
+      runs.values.where((r) {
+        final finishedAt = r.finishedAt;
+        return r.status == status &&
+            finishedAt != null &&
+            !finishedAt.toUtc().isBefore(cutoff);
+      }).length,
+    );
+  }
+
+  @override
   Future<Result<Run>> updateStatus(
     String id, {
     required RunStatus status,
@@ -211,6 +227,27 @@ final class InMemoryRunEventRepository implements RunEventRepository {
       items: items,
       lastSequence: items.isEmpty ? (afterSequence ?? 0) : items.last.sequence,
     ));
+  }
+
+  @override
+  Future<Result<Map<String, Map<String, DateTime>>>> findExecutingNodesForRuns(
+    List<String> runIds,
+  ) async {
+    final runIdSet = runIds.toSet();
+    final result = <String, Map<String, DateTime>>{};
+    for (final event in events) {
+      if (!runIdSet.contains(event.runId)) continue;
+      final nodeId = event.nodeId;
+      if (nodeId == null || nodeId.isEmpty) continue;
+      if (event.type == RunEventType.nodeStarted) {
+        result.putIfAbsent(event.runId, () => <String, DateTime>{})[nodeId] =
+            event.createdAt;
+      } else if (event.type == RunEventType.nodeCompleted ||
+          event.type == RunEventType.nodeFailed) {
+        result[event.runId]?.remove(nodeId);
+      }
+    }
+    return Success(result);
   }
 }
 

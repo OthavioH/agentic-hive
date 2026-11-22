@@ -4,6 +4,7 @@
 // depend on domain use cases without importing data implementations.
 import 'package:agentic_hive_frontend/data/agents/agent_providers.dart';
 import 'package:agentic_hive_frontend/data/harnesses/harness_repository_impl.dart';
+import 'package:agentic_hive_frontend/data/overview/overview_providers.dart';
 import 'package:agentic_hive_frontend/data/pauses/pause_providers.dart';
 import 'package:agentic_hive_frontend/data/runs/run_providers.dart';
 import 'package:agentic_hive_frontend/data/settings/file_picker_repository_impl.dart';
@@ -20,6 +21,8 @@ import 'package:agentic_hive_frontend/domain/harnesses/get_harnesses_use_case.da
 import 'package:agentic_hive_frontend/domain/harnesses/refresh_harness_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/refresh_harnesses_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/watch_harness_updates_use_case.dart';
+import 'package:agentic_hive_frontend/domain/overview/use_cases/get_overview_use_case.dart';
+import 'package:agentic_hive_frontend/domain/overview/use_cases/watch_overview_events_use_case.dart';
 import 'package:agentic_hive_frontend/domain/pauses/use_cases/answer_pause_use_case.dart';
 import 'package:agentic_hive_frontend/domain/pauses/use_cases/list_pending_pauses_use_case.dart';
 import 'package:agentic_hive_frontend/domain/pauses/use_cases/watch_pause_events_use_case.dart';
@@ -263,3 +266,13 @@ WatchPendingPausesCountUseCase watchPendingPausesCountUseCase(Ref ref) =>
 @riverpod
 WatchPauseEventsUseCase watchPauseEventsUseCase(Ref ref) =>
     WatchPauseEventsUseCase(ref.watch(pauseRepositoryProvider));
+
+/// Provides [GetOverviewUseCase].
+@riverpod
+GetOverviewUseCase getOverviewUseCase(Ref ref) =>
+    GetOverviewUseCase(ref.watch(overviewRepositoryProvider));
+
+/// Provides [WatchOverviewEventsUseCase].
+@riverpod
+WatchOverviewEventsUseCase watchOverviewEventsUseCase(Ref ref) =>
+    WatchOverviewEventsUseCase(ref.watch(overviewRepositoryProvider));

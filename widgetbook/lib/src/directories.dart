@@ -112,6 +112,7 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
       WidgetbookFolder(
         name: 'Data',
         children: <WidgetbookNode>[
+          metricTileComponent(),
           codeBlockComponent(),
           logStreamViewerComponent(),
           terminalViewComponent(),

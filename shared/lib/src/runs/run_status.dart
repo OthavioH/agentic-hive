@@ -29,6 +29,12 @@ enum RunStatus {
   /// Whether this run is still active (`running`, `paused`, or `cancelling`).
   bool get isActive => this == running || this == paused || this == cancelling;
 
+  /// Whether this run is `running` or `paused`.
+  ///
+  /// Overview uses this to partition active runs (`running` and `paused`) from
+  /// recent runs (all other statuses, including `cancelling`).
+  bool get isRunningOrPaused => this == running || this == paused;
+
   /// Whether processes of this run may still be executing and writing to the
   /// workspace (`running` or `cancelling`).
   ///

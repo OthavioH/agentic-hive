@@ -54,6 +54,8 @@ const Map<String, String> _useCases = <String, String>{
   'Interactive · Taken over': 'Hand back',
   'Ended': 'Session ended',
   'ANSI palette': 'Take over',
+  'Overview row': 'Succeeded today',
+  'Long value and label': '1,284,356',
 };
 
 void main() {

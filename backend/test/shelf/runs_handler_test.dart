@@ -121,6 +121,12 @@ final class _FakeRunRepository implements RunRepository {
   }
 
   @override
+  Future<Result<int>> countByStatusFinishedSince(
+    RunStatus status, {
+    required DateTime finishedSince,
+  }) => throw UnimplementedError();
+
+  @override
   Future<Result<Run>> updateStatus(
     String id, {
     required RunStatus status,
@@ -243,6 +249,11 @@ final class _FakeRunEventRepository implements RunEventRepository {
         : (afterSequence ?? 0);
     return Success((items: matching, lastSequence: lastSeq));
   }
+
+  @override
+  Future<Result<Map<String, Map<String, DateTime>>>> findExecutingNodesForRuns(
+    List<String> runIds,
+  ) => throw UnimplementedError();
 }
 
 void main() {

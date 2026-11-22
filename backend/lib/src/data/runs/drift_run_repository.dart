@@ -159,6 +159,43 @@ final class DriftRunRepository implements RunRepository {
   }
 
   @override
+  Future<Result<int>> countByStatusFinishedSince(
+    RunStatus status, {
+    required DateTime finishedSince,
+  }) async {
+    try {
+      // Strip trailing 'Z' so 3-digit (.000Z) and 6-digit (.000000Z) UTC
+      // ISO-8601 timestamps compare accurately in SQLite.
+      final cutoffBare = finishedSince.toUtc().toIso8601String().replaceFirst(
+        RegExp(r'Z$'),
+        '',
+      );
+      final trimmedFinishedAt = FunctionCallExpression<String>('rtrim', [
+        _db.runs.finishedAt,
+        const Variable('Z'),
+      ]);
+      final countExpr = _db.runs.id.count();
+      final row =
+          await (_db.selectOnly(_db.runs)
+                ..addColumns([countExpr])
+                ..where(
+                  _db.runs.status.equals(status.name) &
+                      _db.runs.finishedAt.isNotNull() &
+                      trimmedFinishedAt.isBiggerOrEqualValue(cutoffBare),
+                ))
+              .getSingle();
+      return Success(row.read(countExpr) ?? 0);
+    } on Object catch (error) {
+      return FailureResult(
+        PersistenceFailure(
+          'Failed to count runs with status "${status.name}".',
+          cause: error,
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Result<Run>> updateStatus(
     String id, {
     required RunStatus status,
