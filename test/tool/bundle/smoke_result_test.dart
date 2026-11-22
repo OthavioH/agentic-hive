@@ -9,6 +9,7 @@ void main() {
 
       expect(result.exitCode, 0);
       expect(result.message, startsWith('PASSED'));
+      expect(result.message, contains('MCP initialize'));
       expect(result.message, contains('3.3s'));
     });
 
@@ -24,6 +25,10 @@ void main() {
         ),
         const InvalidServerInfoFailure('/t/server.json', 'bad'),
         const HealthCheckFailure(500, 'boom'),
+        const McpProxyFailure(
+          'exited with code 255 before answering',
+          'Usage: dartvm',
+        ),
         const StopFailure('killed'),
       ];
 
@@ -94,6 +99,20 @@ void main() {
         failure.message,
         'FAILED at stop: the server did not stop cleanly: killed',
       );
+    });
+
+    test('McpProxyFailure formats step, reason, and output', () {
+      const failure = McpProxyFailure(
+        'exited with code 255 before answering',
+        'Usage: dartvm',
+      );
+
+      expect(failure.message, contains('FAILED at mcp'));
+      expect(failure.message, contains('exited with code 255 before answering'));
+      expect(failure.message, contains('Usage: dartvm'));
+
+      const emptyOutput = McpProxyFailure('x', '');
+      expect(emptyOutput.message, contains('(no output)'));
     });
   });
 }

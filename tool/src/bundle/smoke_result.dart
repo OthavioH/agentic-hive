@@ -25,7 +25,7 @@ final class SmokePassed extends SmokeResult {
   String get message {
     final secs = (elapsed.inMilliseconds / 1000).toStringAsFixed(1);
     return 'PASSED: the bundled backend started, answered GET /health and '
-        'stopped (${secs}s).';
+        'stopped, and hive_mcp answered MCP initialize (${secs}s).';
   }
 }
 
@@ -181,4 +181,26 @@ final class StopFailure extends SmokeFailure {
 
   @override
   String get detail => 'the server did not stop cleanly: $reason';
+}
+
+/// `backend/bin/hive_mcp` did not answer an MCP `initialize` request.
+final class McpProxyFailure extends SmokeFailure {
+  /// Creates a [McpProxyFailure].
+  const new(this.reason, this.output);
+
+  /// What went wrong.
+  final String reason;
+
+  /// Captured hive_mcp stdout and stderr.
+  final String output;
+
+  @override
+  String get step => 'mcp';
+
+  @override
+  String get detail {
+    final out = output.isEmpty ? '(no output)' : output;
+    return 'hive_mcp did not answer MCP initialize: $reason.\n'
+        'hive_mcp output:\n$out';
+  }
 }
