@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' show Offset;
 
+import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:flutter/foundation.dart';
 import 'package:nativeapi/nativeapi.dart' as na;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -17,8 +18,15 @@ abstract interface class WindowLifecycleService {
   /// Whether this platform renders the app's custom title bar.
   bool get hasCustomTitleBar;
 
+  /// Whether the custom title bar's system menu opens on secondary pointer
+  /// release (`true`, as on Windows) rather than press (`false`).
+  bool get showSystemMenuOnRelease;
+
   /// Whether the main window is currently maximized.
   ValueListenable<bool> get isMaximized;
+
+  /// Applies the platform title bar style before the window is first shown.
+  void configureTitleBar();
 
   /// Registers native window and application quit listeners and configures
   /// the window title bar style.
@@ -26,6 +34,9 @@ abstract interface class WindowLifecycleService {
     required VoidCallback onCloseRequested,
     VoidCallback? onQuitRequested,
   });
+
+  /// Updates the OS window title.
+  Future<Result<void>> setTitle(String title);
 
   /// Minimizes the main window.
   Future<void> minimize();
@@ -69,12 +80,16 @@ WindowLifecycleService currentWindowLifecycleService() =>
 abstract base class NativeWindowLifecycleService
     implements WindowLifecycleService {
   /// Creates a [NativeWindowLifecycleService].
-  new({this.quitRunner});
+  new({this.quitRunner, @visibleForTesting this.currentWindow});
 
   /// Optional test hook invoked with the exit code instead of calling native
   /// `Application.quit` or `exit`.
   @visibleForTesting
   final void Function(int exitCode)? quitRunner;
+
+  /// Optional test hook overriding `WindowManager.instance.getCurrent`.
+  @visibleForTesting
+  final Window? Function()? currentWindow;
   Window? _window;
   ListenerId? _windowListenerId;
   na.ListenerId? _appListenerId;
@@ -98,16 +113,40 @@ abstract base class NativeWindowLifecycleService
   /// Whether a native GUI display session is available for window/app hooks.
   bool get hasDisplay => true;
 
+  Window? _activeWindow() {
+    if (_disposed || !hasDisplay) return null;
+    return _window ?? (currentWindow ?? WindowManager.instance.getCurrent)();
+  }
+
+  T? _withWindow<T>(T Function(Window window) action) {
+    final window = _activeWindow();
+    if (window == null) return null;
+    return action(window);
+  }
+
+  /// Applies the OS-specific title bar configuration to [window].
+  @protected
+  void applyTitleBarStyle(Window window) {
+    window.titleBarStyle = TitleBarStyle.hidden;
+  }
+
+  @override
+  void configureTitleBar() {
+    try {
+      _withWindow(applyTitleBarStyle);
+    } on Object catch (error, stackTrace) {
+      debugPrint('Failed to configure window title bar: $error\n$stackTrace');
+    }
+  }
+
   @override
   Future<void> initialize({
     required VoidCallback onCloseRequested,
     VoidCallback? onQuitRequested,
   }) async {
-    if (_disposed || !hasDisplay) return;
-
-    final window = WindowManager.instance.getCurrent();
+    final window = _activeWindow();
     if (window != null) {
-      window.titleBarStyle = TitleBarStyle.hidden;
+      applyTitleBarStyle(window);
       _isMaximized.value = window.isMaximized;
       if (_windowListenerId == null) {
         _window = window;
@@ -124,7 +163,10 @@ abstract base class NativeWindowLifecycleService
       }
     }
 
-    if (onQuitRequested != null && _appListenerId == null) {
+    if (!_disposed &&
+        hasDisplay &&
+        onQuitRequested != null &&
+        _appListenerId == null) {
       _appListenerId = na.Application.instance.addListener((event) {
         if (event is na.ApplicationQuitRequestedEvent) {
           handleQuitRequestedEvent(event, onQuitRequested);
@@ -148,70 +190,75 @@ abstract base class NativeWindowLifecycleService
   }
 
   @override
+  Future<Result<void>> setTitle(String title) async {
+    try {
+      _withWindow((window) => window.title = title);
+      return const Success<void>(null);
+    } on Object catch (error, stackTrace) {
+      debugPrint('Failed to set window title: $error\n$stackTrace');
+      return FailureResult<void>(
+        UnexpectedFailure('Failed to set window title', cause: error),
+      );
+    }
+  }
+
+  @override
   Future<void> minimize() async {
-    if (_disposed || !hasDisplay) return;
-    final window = _window ?? WindowManager.instance.getCurrent();
-    if (window == null) return;
-    window.minimize();
+    _withWindow((window) => window.minimize());
   }
 
   @override
   Future<void> toggleMaximize() async {
-    if (_disposed || !hasDisplay) return;
-    final window = _window ?? WindowManager.instance.getCurrent();
-    if (window == null) return;
-    if (window.isMaximized) {
-      window.unmaximize();
-    } else {
-      window.maximize();
-    }
-    _isMaximized.value = window.isMaximized;
+    _withWindow((window) {
+      if (window.isMaximized) {
+        window.unmaximize();
+      } else {
+        window.maximize();
+      }
+      _isMaximized.value = window.isMaximized;
+    });
   }
 
   @override
   Future<void> startDragging() async {
-    if (_disposed || !hasDisplay) return;
-    final window = _window ?? WindowManager.instance.getCurrent();
-    if (window == null) return;
-    window.startDragging();
+    _withWindow((window) => window.startDragging());
   }
 
   @override
   Future<void> showSystemMenu(Offset globalPosition) async {
-    if (_disposed || !hasDisplay) return;
-    final window = _window ?? WindowManager.instance.getCurrent();
-    if (window == null) return;
-    window.showSystemMenu(na.Point(x: globalPosition.dx, y: globalPosition.dy));
+    _withWindow(
+      (window) => window.showSystemMenu(
+        na.Point(x: globalPosition.dx, y: globalPosition.dy),
+      ),
+    );
   }
 
   @override
   Future<void> hideToTray() async {
-    if (_disposed || !hasDisplay) return;
-    final window = _window ?? WindowManager.instance.getCurrent();
-    if (window == null) return;
-    window.hide();
-    if (hideFromTaskbarWhenHidden) {
-      window.isVisibleInTaskbar = false;
-    }
+    _withWindow((window) {
+      window.hide();
+      if (hideFromTaskbarWhenHidden) {
+        window.isVisibleInTaskbar = false;
+      }
+    });
   }
 
   @override
   Future<void> showAndFocus() async {
-    if (_disposed || !hasDisplay) return;
-    final window = _window ?? WindowManager.instance.getCurrent();
-    if (window == null) return;
-    if (hideFromTaskbarWhenHidden) {
-      window.isVisibleInTaskbar = true;
-    }
-    if (window.isMinimized) {
-      window.restore();
-    }
-    window
-      ..show()
-      ..focus();
-    if (activateAppOnShow) {
-      na.Application.instance.show();
-    }
+    _withWindow((window) {
+      if (hideFromTaskbarWhenHidden) {
+        window.isVisibleInTaskbar = true;
+      }
+      if (window.isMinimized) {
+        window.restore();
+      }
+      window
+        ..show()
+        ..focus();
+      if (activateAppOnShow) {
+        na.Application.instance.show();
+      }
+    });
   }
 
   @override
@@ -239,14 +286,18 @@ abstract base class NativeWindowLifecycleService
     if (windowListenerId != null) {
       try {
         _window?.removeListener(windowListenerId);
-      } on Object catch (_) {}
+      } on Object catch (error, stackTrace) {
+        debugPrint('Failed to remove window listener: $error\n$stackTrace');
+      }
     }
     final appListenerId = _appListenerId;
     _appListenerId = null;
     if (appListenerId != null) {
       try {
         na.Application.instance.removeListener(appListenerId);
-      } on Object catch (_) {}
+      } on Object catch (error, stackTrace) {
+        debugPrint('Failed to remove app listener: $error\n$stackTrace');
+      }
     }
     _window = null;
     _isMaximized.dispose();
@@ -256,10 +307,13 @@ abstract base class NativeWindowLifecycleService
 /// Windows implementation of [WindowLifecycleService].
 final class WindowsWindowLifecycleService extends NativeWindowLifecycleService {
   /// Creates a [WindowsWindowLifecycleService].
-  new({super.quitRunner});
+  new({super.quitRunner, super.currentWindow});
 
   @override
   bool get hasCustomTitleBar => true;
+
+  @override
+  bool get showSystemMenuOnRelease => true;
 
   @override
   bool get hideFromTaskbarWhenHidden => true;
@@ -271,7 +325,7 @@ final class WindowsWindowLifecycleService extends NativeWindowLifecycleService {
 /// Linux implementation of [WindowLifecycleService].
 final class LinuxWindowLifecycleService extends NativeWindowLifecycleService {
   /// Creates a [LinuxWindowLifecycleService].
-  new({super.quitRunner, this.environment});
+  new({super.quitRunner, super.currentWindow, this.environment});
 
   /// Optional environment map override for testing display detection.
   @visibleForTesting
@@ -279,6 +333,9 @@ final class LinuxWindowLifecycleService extends NativeWindowLifecycleService {
 
   @override
   bool get hasCustomTitleBar => true;
+
+  @override
+  bool get showSystemMenuOnRelease => false;
 
   @override
   bool get hideFromTaskbarWhenHidden => true;
@@ -297,16 +354,31 @@ final class LinuxWindowLifecycleService extends NativeWindowLifecycleService {
 /// macOS implementation of [WindowLifecycleService].
 final class MacOSWindowLifecycleService extends NativeWindowLifecycleService {
   /// Creates a [MacOSWindowLifecycleService].
-  new({super.quitRunner});
+  new({super.quitRunner, super.currentWindow});
 
   @override
   bool get hasCustomTitleBar => false;
+
+  @override
+  bool get showSystemMenuOnRelease => false;
 
   @override
   bool get hideFromTaskbarWhenHidden => false;
 
   @override
   bool get activateAppOnShow => true;
+
+  @override
+  void applyTitleBarStyle(Window window) {
+    // Keep the native traffic-light buttons visible while hiding the title
+    // text (ADR 0023). nativeapi has no standalone titleVisibility API;
+    // TitleBarStyle.hidden hides the title text and sets
+    // titlebarAppearsTransparent, then isWindowControlButtonsVisible = true
+    // restores the traffic-light buttons.
+    window
+      ..titleBarStyle = TitleBarStyle.hidden
+      ..isWindowControlButtonsVisible = true;
+  }
 }
 
 /// Provides the OS-appropriate [WindowLifecycleService].

@@ -18,13 +18,12 @@ class HiveIconButton extends StatelessWidget {
     required this.onPressed,
     this.variant = HiveButtonVariant.ghost,
     this.size = HiveButtonSize.medium,
-    this.dangerHover = false,
     this.loading = false,
     this.statesController,
     this.focusNode,
     this.autofocus = false,
     super.key,
-  });
+  }) : _dangerHover = false;
 
   /// Creates a ghost icon button whose hover and pressed states use the
   /// `danger` color role with `onDanger` foreground, for window close buttons.
@@ -39,7 +38,7 @@ class HiveIconButton extends StatelessWidget {
     this.autofocus = false,
     super.key,
   }) : variant = HiveButtonVariant.ghost,
-       dangerHover = true;
+       _dangerHover = true;
 
   /// The icon.
   final HiveIconData icon;
@@ -56,9 +55,7 @@ class HiveIconButton extends StatelessWidget {
   /// Size; the diameter equals [HiveButtonSize.height].
   final HiveButtonSize size;
 
-  /// Whether hover and pressed states use the `danger` color role with
-  /// `onDanger` foreground.
-  final bool dangerHover;
+  final bool _dangerHover;
 
   /// Shows a spinner in place of the icon and ignores activation.
   final bool loading;
@@ -90,7 +87,7 @@ class HiveIconButton extends StatelessWidget {
       autofocus: autofocus,
       builder: (context, states) {
         final isDangerActive =
-            dangerHover &&
+            _dangerHover &&
             !states.contains(WidgetState.disabled) &&
             (states.contains(WidgetState.hovered) ||
                 states.contains(WidgetState.pressed));

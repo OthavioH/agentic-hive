@@ -29,15 +29,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from generate_tray_icons import (
     ACCENT,
     CLEAR,
+    DARK_TILE_BG,
+    DARK_TILE_BORDER,
     ON_ACCENT,
     _cell_ring,
     _hexagon,
     render,
 )
-
-# `HiveColors.dark.background` and `HiveColors.dark.borderSubtle`.
-DARK_TILE_BG = (0x05, 0x07, 0x06, 255)
-DARK_TILE_BORDER = (0x26, 0x30, 0x2A, 255)
 
 REPO_ROOT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..")

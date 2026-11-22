@@ -99,7 +99,17 @@ final class _FakeWindowLifecycleService implements WindowLifecycleService {
   bool get hasCustomTitleBar => true;
 
   @override
+  bool get showSystemMenuOnRelease => false;
+
+  @override
   ValueListenable<bool> get isMaximized => _isMaximized;
+
+  @override
+  void configureTitleBar() {}
+
+  @override
+  Future<Result<void>> setTitle(String title) async =>
+      const Success<void>(null);
 
   @override
   Future<void> initialize({

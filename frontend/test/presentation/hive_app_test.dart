@@ -8,7 +8,6 @@ import 'package:agentic_hive_frontend/core/backend/backend_web_socket_session.da
 import 'package:agentic_hive_frontend/core/lifecycle/backend_launcher.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/tray_service.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/window_lifecycle_service.dart';
-import 'package:agentic_hive_frontend/core/lifecycle/window_title_provider.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/core/theme/app_theme_preference.dart';
 import 'package:agentic_hive_frontend/core/theme/theme_preference_store.dart';
@@ -129,7 +128,11 @@ final class _FakeWindowLifecycleService implements WindowLifecycleService {
   @override
   final bool hasCustomTitleBar;
 
+  @override
+  bool get showSystemMenuOnRelease => false;
+
   final ValueNotifier<bool> _isMaximized;
+  final List<String> recordedTitles = <String>[];
   int minimizeCount = 0;
   int toggleMaximizeCount = 0;
   int hideToTrayCount = 0;
@@ -147,10 +150,19 @@ final class _FakeWindowLifecycleService implements WindowLifecycleService {
   }
 
   @override
+  void configureTitleBar() {}
+
+  @override
   Future<void> initialize({
     required VoidCallback onCloseRequested,
     VoidCallback? onQuitRequested,
   }) async {}
+
+  @override
+  Future<Result<void>> setTitle(String title) async {
+    recordedTitles.add(title);
+    return const Success<void>(null);
+  }
 
   @override
   Future<void> minimize() async {
@@ -445,28 +457,25 @@ void main() {
       (tester) async {
         configureDesktopWindow(tester);
         final fakeClient = _FakeBackendClient(statusResult: okStatus);
-        final recordedTitles = <String>[];
+        final windowService = _FakeWindowLifecycleService();
 
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
               backendClientProvider.overrideWithValue(fakeClient),
               backendLauncherProvider.overrideWithValue(_FakeBackendLauncher()),
-              windowLifecycleServiceProvider.overrideWithValue(
-                _FakeWindowLifecycleService(),
-              ),
+              windowLifecycleServiceProvider.overrideWithValue(windowService),
               trayServiceProvider.overrideWithValue(_FakeTrayService()),
               themePreferenceStoreProvider.overrideWithValue(
                 _FakeThemePreferenceStore(),
               ),
-              windowTitleSetterProvider.overrideWithValue(recordedTitles.add),
             ],
             child: const HiveApp(),
           ),
         );
         await tester.pumpAndSettle();
 
-        expect(recordedTitles, <String>['Agentic Hive']);
+        expect(windowService.recordedTitles, <String>['Agentic Hive']);
       },
     );
 

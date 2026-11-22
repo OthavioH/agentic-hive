@@ -12,6 +12,7 @@ import '../helpers/hive_test_harness.dart';
 void main() {
   Widget buildTitleBar({
     bool isMaximized = false,
+    bool showSystemMenuOnRelease = false,
     VoidCallback? onMinimize,
     VoidCallback? onToggleMaximize,
     VoidCallback? onClose,
@@ -25,10 +26,13 @@ void main() {
         alignment: Alignment.topCenter,
         child: HiveTitleBar(
           isMaximized: isMaximized,
-          minimizeLabel: 'Minimize',
-          maximizeLabel: 'Maximize',
-          restoreLabel: 'Restore',
-          closeLabel: 'Close to tray',
+          showSystemMenuOnRelease: showSystemMenuOnRelease,
+          labels: const HiveTitleBarLabels(
+            minimize: 'Minimize',
+            maximize: 'Maximize',
+            restore: 'Restore',
+            close: 'Close to tray',
+          ),
           onMinimize: onMinimize ?? () {},
           onToggleMaximize: onToggleMaximize ?? () {},
           onClose: onClose ?? () {},
@@ -174,5 +178,59 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
       expect(menuPosition, dragPoint);
     });
+
+    testWidgets(
+      'showSystemMenuOnRelease fires on secondary pointer release only',
+      (tester) async {
+        Offset? menuPosition;
+
+        await tester.pumpWidget(
+          buildTitleBar(
+            showSystemMenuOnRelease: true,
+            onSystemMenu: (pos) => menuPosition = pos,
+          ),
+        );
+
+        final barTopLeft = tester.getTopLeft(find.byType(HiveTitleBar));
+        final dragPoint = barTopLeft + const Offset(40, 16);
+        final gesture = await tester.startGesture(
+          dragPoint,
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await tester.pump();
+        expect(menuPosition, isNull);
+
+        await gesture.up();
+        await tester.pump();
+        expect(menuPosition, dragPoint);
+      },
+    );
+
+    testWidgets(
+      'showSystemMenuOnRelease false fires on secondary pointer press',
+      (tester) async {
+        Offset? menuPosition;
+
+        await tester.pumpWidget(
+          buildTitleBar(onSystemMenu: (pos) => menuPosition = pos),
+        );
+
+        final barTopLeft = tester.getTopLeft(find.byType(HiveTitleBar));
+        final dragPoint = barTopLeft + const Offset(40, 16);
+        final gesture = await tester.startGesture(
+          dragPoint,
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await tester.pump();
+        expect(menuPosition, dragPoint);
+
+        menuPosition = null;
+        await gesture.up();
+        await tester.pump();
+        expect(menuPosition, isNull);
+      },
+    );
   });
 }

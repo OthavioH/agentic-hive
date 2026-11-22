@@ -1,10 +1,9 @@
 import 'dart:async';
 
 import 'package:agentic_hive_frontend/core/backend/backend_connection.dart';
+import 'package:agentic_hive_frontend/core/di/use_case_providers.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/app_lifecycle_controller.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/tray_service.dart';
-import 'package:agentic_hive_frontend/core/lifecycle/window_lifecycle_service.dart';
-import 'package:agentic_hive_frontend/core/lifecycle/window_title_provider.dart';
 import 'package:agentic_hive_frontend/core/theme/theme_preference_controller.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
@@ -84,7 +83,7 @@ class _LifecycleBridgeState extends ConsumerState<_LifecycleBridge> {
     final title = l10n.appTitle;
     if (title == _lastPublishedTitle) return;
     _lastPublishedTitle = title;
-    ref.read(windowTitleSetterProvider)(title);
+    unawaited(ref.read(setWindowTitleUseCaseProvider)(title));
   }
 
   void _publishTrayLabels(BackendConnectionState connection) {
@@ -173,9 +172,9 @@ class _LifecycleBridgeState extends ConsumerState<_LifecycleBridge> {
         }
       });
 
-    final windowService = ref.watch(windowLifecycleServiceProvider);
+    final chrome = ref.watch(getWindowChromeUseCaseProvider)();
     final l10n = AppLocalizations.of(context);
-    if (!windowService.hasCustomTitleBar || l10n == null) {
+    if (!chrome.hasCustomTitleBar || l10n == null) {
       return widget.child;
     }
 
@@ -187,21 +186,33 @@ class _LifecycleBridgeState extends ConsumerState<_LifecycleBridge> {
             children: <Widget>[
               FocusTraversalOrder(
                 order: const NumericFocusOrder(2),
-                child: ValueListenableBuilder<bool>(
-                  valueListenable: windowService.isMaximized,
-                  builder: (context, isMaximized, _) => HiveTitleBar(
-                    isMaximized: isMaximized,
-                    minimizeLabel: l10n.windowMinimize,
-                    maximizeLabel: l10n.windowMaximize,
-                    restoreLabel: l10n.windowRestore,
-                    closeLabel: l10n.windowCloseToTray,
-                    onMinimize: () => unawaited(windowService.minimize()),
-                    onToggleMaximize: () =>
-                        unawaited(windowService.toggleMaximize()),
-                    onClose: () => unawaited(windowService.hideToTray()),
-                    onDragStart: () => unawaited(windowService.startDragging()),
-                    onSystemMenu: (position) =>
-                        unawaited(windowService.showSystemMenu(position)),
+                child: StreamBuilder<bool>(
+                  initialData: chrome.isMaximized,
+                  stream: ref.watch(watchWindowMaximizedUseCaseProvider)(),
+                  builder: (context, snapshot) => HiveTitleBar(
+                    isMaximized: snapshot.data ?? chrome.isMaximized,
+                    showSystemMenuOnRelease: chrome.showSystemMenuOnRelease,
+                    labels: HiveTitleBarLabels(
+                      minimize: l10n.windowMinimize,
+                      maximize: l10n.windowMaximize,
+                      restore: l10n.windowRestore,
+                      close: l10n.windowCloseToTray,
+                    ),
+                    onMinimize: () =>
+                        unawaited(ref.read(minimizeWindowUseCaseProvider)()),
+                    onToggleMaximize: () => unawaited(
+                      ref.read(toggleMaximizeWindowUseCaseProvider)(),
+                    ),
+                    onClose: () =>
+                        unawaited(ref.read(hideWindowToTrayUseCaseProvider)()),
+                    onDragStart: () =>
+                        unawaited(ref.read(startWindowDragUseCaseProvider)()),
+                    onSystemMenu: (position) => unawaited(
+                      ref.read(showWindowSystemMenuUseCaseProvider)(
+                        x: position.dx,
+                        y: position.dy,
+                      ),
+                    ),
                   ),
                 ),
               ),

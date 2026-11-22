@@ -19,6 +19,9 @@ from PIL import Image, ImageDraw
 
 ACCENT = (0xC6, 0xEF, 0x4E, 255)
 ON_ACCENT = (0x0B, 0x0F, 0x0C, 255)
+# `HiveColors.dark.background` and `HiveColors.dark.borderSubtle`.
+DARK_TILE_BG = (0x05, 0x07, 0x06, 255)
+DARK_TILE_BORDER = (0x26, 0x30, 0x2A, 255)
 BLACK = (0, 0, 0, 255)
 CLEAR = (0, 0, 0, 0)
 SUPERSAMPLE = 16

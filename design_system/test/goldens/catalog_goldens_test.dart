@@ -234,10 +234,12 @@ void main() {
             alignment: Alignment.topCenter,
             child: HiveTitleBar(
               isMaximized: false,
-              minimizeLabel: 'Minimize',
-              maximizeLabel: 'Maximize',
-              restoreLabel: 'Restore',
-              closeLabel: 'Close to tray',
+              labels: const HiveTitleBarLabels(
+                minimize: 'Minimize',
+                maximize: 'Maximize',
+                restore: 'Restore',
+                close: 'Close to tray',
+              ),
               onMinimize: () {},
               onToggleMaximize: () {},
               onClose: () {},
@@ -255,10 +257,12 @@ void main() {
             alignment: Alignment.topCenter,
             child: HiveTitleBar(
               isMaximized: true,
-              minimizeLabel: 'Minimize',
-              maximizeLabel: 'Maximize',
-              restoreLabel: 'Restore',
-              closeLabel: 'Close to tray',
+              labels: const HiveTitleBarLabels(
+                minimize: 'Minimize',
+                maximize: 'Maximize',
+                restore: 'Restore',
+                close: 'Close to tray',
+              ),
               onMinimize: () {},
               onToggleMaximize: () {},
               onClose: () {},
