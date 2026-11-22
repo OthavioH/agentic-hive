@@ -19,6 +19,10 @@ final class _FakeAgentPromptResolver implements AgentPromptResolver {
   @override
   Future<Result<String>> resolvePrompt(String agentId) async =>
       FailureResult(NotFoundFailure('Agent "$agentId" not found.'));
+
+  @override
+  Future<Result<ResolvedAgent>> resolveAgent(String agentId) async =>
+      FailureResult(NotFoundFailure('Agent "$agentId" not found.'));
 }
 
 final class _FakeProcessRunner implements NodeProcessRunner {
