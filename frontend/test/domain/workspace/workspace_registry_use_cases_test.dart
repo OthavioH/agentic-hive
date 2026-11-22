@@ -1,6 +1,7 @@
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/create_workspace.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/list_workspaces.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/list_worktrees.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/rename_workspace.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/unregister_workspace.dart';
 import 'package:agentic_hive_frontend/domain/workspace/workspace_repository.dart';
@@ -60,6 +61,12 @@ final class _FakeWorkspaceRepository implements WorkspaceRepository {
   }
 
   @override
+  Future<Result<List<Worktree>>> listWorktrees(String workspaceId) async {
+    lastId = workspaceId;
+    return const Success(<Worktree>[]);
+  }
+
+  @override
   Future<Result<WorkspaceCapabilities>> getCapabilities({String? path}) =>
       throw UnimplementedError();
 
@@ -112,6 +119,10 @@ void main() {
 
       final removed = await UnregisterWorkspace(repo)('ws-1');
       expect(removed.isSuccess, isTrue);
+
+      final worktrees = await ListWorktrees(repo)('ws-1');
+      expect(repo.lastId, 'ws-1');
+      expect(worktrees.valueOrNull, isEmpty);
     },
   );
 }

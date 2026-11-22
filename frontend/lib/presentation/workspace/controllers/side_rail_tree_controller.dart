@@ -1,0 +1,443 @@
+import 'package:agentic_hive_frontend/core/di/use_case_providers.dart';
+import 'package:agentic_hive_frontend/core/result/result.dart';
+import 'package:agentic_hive_frontend/presentation/workspace/controllers/workspace_registry_controller.dart';
+import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+import 'package:flutter/foundation.dart' show immutable;
+import 'package:path/path.dart' as p;
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+part 'side_rail_tree_controller.g.dart';
+
+/// Clock provider returning the current UTC timestamp for 24h run filtering.
+@riverpod
+DateTime Function() sideRailTreeClock(Ref ref) =>
+    () => DateTime.now().toUtc();
+
+/// One worktree branch (or primary checkout) inside a [SideRailWorkspaceNode].
+@immutable
+final class SideRailWorktreeNode {
+  /// Creates a [SideRailWorktreeNode].
+  const new({
+    required this.worktree,
+    required this.activeRuns,
+    required this.recentRuns,
+    this.expanded = true,
+    this.showAllActive = false,
+    this.showAllRecent = false,
+  });
+
+  /// Underlying worktree metadata.
+  final Worktree worktree;
+
+  /// Active runs (`running`, `paused`, `cancelling`) in this worktree.
+  final List<RunSummary> activeRuns;
+
+  /// Runs in this worktree finished within the last 24 hours.
+  final List<RunSummary> recentRuns;
+
+  /// Whether this worktree branch is expanded in the tree.
+  final bool expanded;
+
+  /// Whether all [activeRuns] are shown instead of capping at 3.
+  final bool showAllActive;
+
+  /// Whether all [recentRuns] are shown instead of capping at 3.
+  final bool showAllRecent;
+
+  /// Returns a copy with updated fields.
+  SideRailWorktreeNode copyWith({
+    Worktree? worktree,
+    List<RunSummary>? activeRuns,
+    List<RunSummary>? recentRuns,
+    bool? expanded,
+    bool? showAllActive,
+    bool? showAllRecent,
+  }) => SideRailWorktreeNode(
+    worktree: worktree ?? this.worktree,
+    activeRuns: activeRuns ?? this.activeRuns,
+    recentRuns: recentRuns ?? this.recentRuns,
+    expanded: expanded ?? this.expanded,
+    showAllActive: showAllActive ?? this.showAllActive,
+    showAllRecent: showAllRecent ?? this.showAllRecent,
+  );
+}
+
+/// One workspace node inside [SideRailTreeState].
+@immutable
+final class SideRailWorkspaceNode {
+  /// Creates a [SideRailWorkspaceNode].
+  const new({
+    required this.workspace,
+    required this.worktrees,
+    required this.pendingPauseCount,
+    this.expanded = true,
+  });
+
+  /// Registered workspace metadata.
+  final Workspace workspace;
+
+  /// Worktrees belonging to [workspace], primary checkout first.
+  final List<SideRailWorktreeNode> worktrees;
+
+  /// Number of pending pauses belonging to runs in [workspace].
+  final int pendingPauseCount;
+
+  /// Whether this workspace node is expanded in the tree.
+  final bool expanded;
+
+  /// Total active runs in [workspace].
+  int get activeRunCount {
+    var count = 0;
+    for (final wt in worktrees) {
+      count += wt.activeRuns.length;
+    }
+    return count > workspace.activeRunCount ? count : workspace.activeRunCount;
+  }
+
+  /// Returns a copy with updated fields.
+  SideRailWorkspaceNode copyWith({
+    Workspace? workspace,
+    List<SideRailWorktreeNode>? worktrees,
+    int? pendingPauseCount,
+    bool? expanded,
+  }) => SideRailWorkspaceNode(
+    workspace: workspace ?? this.workspace,
+    worktrees: worktrees ?? this.worktrees,
+    pendingPauseCount: pendingPauseCount ?? this.pendingPauseCount,
+    expanded: expanded ?? this.expanded,
+  );
+}
+
+/// Immutable state for the side rail workspace/worktree/run tree.
+@immutable
+final class SideRailTreeState {
+  /// Creates a [SideRailTreeState].
+  const new({
+    required this.workspaces,
+    required this.currentWorkspaceId,
+    required this.pendingPauseRunIds,
+    this.isRefreshing = false,
+    this.refreshFailure,
+  });
+
+  /// Workspace nodes in display order.
+  final List<SideRailWorkspaceNode> workspaces;
+
+  /// Currently selected workspace ID, or null when none is selected.
+  final String? currentWorkspaceId;
+
+  /// Set of run IDs that currently have at least one pending pause.
+  final Set<String> pendingPauseRunIds;
+
+  /// Whether a background refresh is currently running.
+  final bool isRefreshing;
+
+  /// Transient failure from the last [SideRailTreeController.refresh] call.
+  final Failure? refreshFailure;
+
+  /// Returns a copy with updated fields.
+  SideRailTreeState copyWith({
+    List<SideRailWorkspaceNode>? workspaces,
+    String? Function()? currentWorkspaceId,
+    Set<String>? pendingPauseRunIds,
+    bool? isRefreshing,
+    Failure? Function()? refreshFailure,
+  }) => SideRailTreeState(
+    workspaces: workspaces ?? this.workspaces,
+    currentWorkspaceId: currentWorkspaceId != null
+        ? currentWorkspaceId()
+        : this.currentWorkspaceId,
+    pendingPauseRunIds: pendingPauseRunIds ?? this.pendingPauseRunIds,
+    isRefreshing: isRefreshing ?? this.isRefreshing,
+    refreshFailure: refreshFailure != null
+        ? refreshFailure()
+        : this.refreshFailure,
+  );
+}
+
+/// Manages the side rail tree: workspaces, worktrees, and active/recent runs.
+@riverpod
+class SideRailTreeController extends _$SideRailTreeController {
+  /// Maximum runs displayed per group (active / last 24h) before "See all".
+  static const int maxRunsPerGroup = 3;
+
+  /// Window in hours for finished runs shown in the tree.
+  static const int recentWindowHours = 24;
+
+  static const int _runsFetchLimit = 200;
+
+  final Map<String, bool> _workspaceExpanded = <String, bool>{};
+  final Map<String, bool> _worktreeExpanded = <String, bool>{};
+  final Map<String, bool> _showAllActive = <String, bool>{};
+  final Map<String, bool> _showAllRecent = <String, bool>{};
+
+  @override
+  Future<SideRailTreeState> build() async {
+    final registryState = await ref.watch(
+      workspaceRegistryControllerProvider.future,
+    );
+    return await _loadTree(registryState);
+  }
+
+  /// Reloads workspaces, worktrees, runs, and pending pauses.
+  Future<void> refresh() async {
+    final current = state.asData?.value;
+    if (current != null) {
+      state = AsyncData<SideRailTreeState>(
+        current.copyWith(isRefreshing: true, refreshFailure: () => null),
+      );
+    }
+    try {
+      await ref.read(workspaceRegistryControllerProvider.notifier).refresh();
+      if (!ref.mounted) return;
+      final registryState = await ref.read(
+        workspaceRegistryControllerProvider.future,
+      );
+      if (!ref.mounted) return;
+      final loaded = await _loadTree(registryState);
+      if (!ref.mounted) return;
+      state = AsyncData<SideRailTreeState>(loaded);
+    } on Failure catch (failure, stackTrace) {
+      if (!ref.mounted) return;
+      if (current != null) {
+        state = AsyncData<SideRailTreeState>(
+          current.copyWith(isRefreshing: false, refreshFailure: () => failure),
+        );
+      } else {
+        state = AsyncError<SideRailTreeState>(failure, stackTrace);
+      }
+    }
+  }
+
+  /// Marks [workspaceId] as the current workspace.
+  Future<void> selectWorkspace(String workspaceId) => ref
+      .read(workspaceRegistryControllerProvider.notifier)
+      .selectWorkspace(workspaceId);
+
+  /// Toggles expand/collapse for workspace [workspaceId].
+  void toggleWorkspaceExpanded(String workspaceId) {
+    final current = state.asData?.value;
+    if (current == null) return;
+    final next = !(_workspaceExpanded[workspaceId] ?? true);
+    _workspaceExpanded[workspaceId] = next;
+    state = AsyncData<SideRailTreeState>(
+      current.copyWith(
+        workspaces: <SideRailWorkspaceNode>[
+          for (final ws in current.workspaces)
+            if (ws.workspace.id == workspaceId)
+              ws.copyWith(expanded: next)
+            else
+              ws,
+        ],
+      ),
+    );
+  }
+
+  /// Toggles expand/collapse for [worktreeId] inside [workspaceId].
+  void toggleWorktreeExpanded(String workspaceId, String worktreeId) {
+    final current = state.asData?.value;
+    if (current == null) return;
+    final key = _worktreeKey(workspaceId, worktreeId);
+    final next = !(_worktreeExpanded[key] ?? true);
+    _worktreeExpanded[key] = next;
+    _updateWorktree(current, workspaceId, worktreeId, (wt) {
+      return wt.copyWith(expanded: next);
+    });
+  }
+
+  /// Toggles showing all active runs for [worktreeId] inside [workspaceId].
+  void toggleShowAllActive(String workspaceId, String worktreeId) {
+    final current = state.asData?.value;
+    if (current == null) return;
+    final key = _worktreeKey(workspaceId, worktreeId);
+    final next = !(_showAllActive[key] ?? false);
+    _showAllActive[key] = next;
+    _updateWorktree(current, workspaceId, worktreeId, (wt) {
+      return wt.copyWith(showAllActive: next);
+    });
+  }
+
+  /// Toggles showing all recent runs for [worktreeId] inside [workspaceId].
+  void toggleShowAllRecent(String workspaceId, String worktreeId) {
+    final current = state.asData?.value;
+    if (current == null) return;
+    final key = _worktreeKey(workspaceId, worktreeId);
+    final next = !(_showAllRecent[key] ?? false);
+    _showAllRecent[key] = next;
+    _updateWorktree(current, workspaceId, worktreeId, (wt) {
+      return wt.copyWith(showAllRecent: next);
+    });
+  }
+
+  void _updateWorktree(
+    SideRailTreeState current,
+    String workspaceId,
+    String worktreeId,
+    SideRailWorktreeNode Function(SideRailWorktreeNode node) transform,
+  ) {
+    state = AsyncData<SideRailTreeState>(
+      current.copyWith(
+        workspaces: <SideRailWorkspaceNode>[
+          for (final ws in current.workspaces)
+            if (ws.workspace.id == workspaceId)
+              ws.copyWith(
+                worktrees: <SideRailWorktreeNode>[
+                  for (final wt in ws.worktrees)
+                    if (wt.worktree.id == worktreeId) transform(wt) else wt,
+                ],
+              )
+            else
+              ws,
+        ],
+      ),
+    );
+  }
+
+  Future<SideRailTreeState> _loadTree(
+    WorkspaceRegistryState registryState,
+  ) async {
+    final workspaces = registryState.workspaces;
+    final listWorktrees = ref.read(listWorktreesProvider);
+    final listRuns = ref.read(listRunsProvider);
+    final listPauses = ref.read(listPendingPausesUseCaseProvider);
+    final now = ref.read(sideRailTreeClockProvider)();
+
+    final worktreeFutures = <Future<Result<List<Worktree>>>>[
+      for (final ws in workspaces) listWorktrees(ws.id),
+    ];
+    final runsFuture = listRuns(limit: _runsFetchLimit, offset: 0);
+    final pausesFuture = listPauses();
+
+    final worktreeResults = await Future.wait<Result<List<Worktree>>>(
+      worktreeFutures,
+    );
+    final runsResult = await runsFuture;
+    final pausesResult = await pausesFuture;
+
+    final allRuns = switch (runsResult) {
+      Success<RunsListResponse>(:final value) => value.items,
+      FailureResult<RunsListResponse>(:final failure) =>
+        Error.throwWithStackTrace(failure, StackTrace.current),
+    };
+
+    final pendingPauseRunIds = <String>{
+      if (pausesResult case Success<List<Pause>>(:final value))
+        for (final pause in value)
+          if (pause.status == PauseStatus.pending) pause.runId,
+    };
+
+    final nodes = <SideRailWorkspaceNode>[];
+    for (var i = 0; i < workspaces.length; i++) {
+      final ws = workspaces[i];
+      final rawWorktrees = switch (worktreeResults[i]) {
+        Success<List<Worktree>>(:final value) => value,
+        FailureResult<List<Worktree>>() => const <Worktree>[],
+      };
+
+      final effectiveWorktrees = rawWorktrees.isNotEmpty
+          ? _orderPrimaryFirst(rawWorktrees)
+          : <Worktree>[
+              Worktree(
+                id: 'primary',
+                name: 'primary',
+                path: ws.rootPath,
+                isPrimary: true,
+                hasUncommittedChanges: false,
+              ),
+            ];
+
+      final wsRuns = allRuns.where((r) => r.workspaceId == ws.id).toList();
+      var wsPendingPauseCount = 0;
+      for (final run in wsRuns) {
+        if (pendingPauseRunIds.contains(run.id)) {
+          wsPendingPauseCount++;
+        }
+      }
+
+      final worktreeNodes = <SideRailWorktreeNode>[
+        for (final wt in effectiveWorktrees)
+          _buildWorktreeNode(ws.id, wt, wsRuns, now),
+      ];
+
+      nodes.add(
+        SideRailWorkspaceNode(
+          workspace: ws,
+          worktrees: worktreeNodes,
+          pendingPauseCount: wsPendingPauseCount,
+          expanded: _workspaceExpanded[ws.id] ?? true,
+        ),
+      );
+    }
+
+    return SideRailTreeState(
+      workspaces: nodes,
+      currentWorkspaceId: registryState.currentWorkspaceId,
+      pendingPauseRunIds: pendingPauseRunIds,
+    );
+  }
+
+  SideRailWorktreeNode _buildWorktreeNode(
+    String workspaceId,
+    Worktree worktree,
+    List<RunSummary> workspaceRuns,
+    DateTime now,
+  ) {
+    final matching = workspaceRuns
+        .where((run) => _matchesWorktree(run, worktree))
+        .toList();
+
+    final active = <RunSummary>[];
+    final recent = <RunSummary>[];
+    for (final run in matching) {
+      if (run.status.isActive) {
+        active.add(run);
+      } else {
+        final referenceTime = run.finishedAt ?? run.startedAt;
+        final age = now.difference(referenceTime);
+        if (!age.isNegative && age.inMinutes <= recentWindowHours * 60) {
+          recent.add(run);
+        }
+      }
+    }
+
+    active.sort((a, b) => b.startedAt.compareTo(a.startedAt));
+    recent.sort(
+      (a, b) =>
+          (b.finishedAt ?? b.startedAt).compareTo(a.finishedAt ?? a.startedAt),
+    );
+
+    final key = _worktreeKey(workspaceId, worktree.id);
+    return SideRailWorktreeNode(
+      worktree: worktree,
+      activeRuns: active,
+      recentRuns: recent,
+      expanded: _worktreeExpanded[key] ?? true,
+      showAllActive: _showAllActive[key] ?? false,
+      showAllRecent: _showAllRecent[key] ?? false,
+    );
+  }
+
+  static List<Worktree> _orderPrimaryFirst(List<Worktree> worktrees) {
+    final primary = <Worktree>[];
+    final others = <Worktree>[];
+    for (final wt in worktrees) {
+      if (wt.isPrimary) {
+        primary.add(wt);
+      } else {
+        others.add(wt);
+      }
+    }
+    return <Worktree>[...primary, ...others];
+  }
+
+  static bool _matchesWorktree(RunSummary run, Worktree worktree) {
+    final runPath = run.worktreePath;
+    if (runPath == null || runPath.isEmpty) {
+      return worktree.isPrimary;
+    }
+    return p.equals(p.normalize(runPath), p.normalize(worktree.path));
+  }
+
+  static String _worktreeKey(String workspaceId, String worktreeId) =>
+      '$workspaceId::$worktreeId';
+}

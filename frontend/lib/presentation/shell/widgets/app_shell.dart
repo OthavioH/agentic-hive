@@ -1,5 +1,6 @@
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/pauses/controllers/pending_pauses_count_provider.dart';
+import 'package:agentic_hive_frontend/presentation/workspace/widgets/side_rail_tree.dart';
 import 'package:agentic_hive_frontend/presentation/workspace/widgets/workspace_switcher_bar.dart';
 import 'package:agentic_hive_frontend/routes/app_routes.dart';
 import 'package:design_system/design_system.dart';
@@ -119,6 +120,11 @@ class AppShell extends ConsumerWidget {
                 markLabel: l10n.appTitle,
                 expandLabel: l10n.railExpandTooltip,
                 collapseLabel: l10n.railCollapseTooltip,
+              ),
+              SizedBox(width: spacing.space2),
+              SizedBox(
+                width: spacing.space8 * 5 + spacing.space2,
+                child: SideRailTree(currentLocation: location),
               ),
               SizedBox(width: spacing.space2),
               Expanded(

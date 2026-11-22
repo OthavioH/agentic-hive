@@ -14,20 +14,47 @@ import 'package:material_ui/material_ui.dart';
 /// Returns the created [Run] on success, or `null` when dismissed.
 class StartRunDialog extends ConsumerStatefulWidget {
   /// Creates a [StartRunDialog].
-  const new({this.initialWorkflowId, super.key});
+  const new({
+    this.initialWorkflowId,
+    this.initialWorkspaceId,
+    this.initialWorktreeId,
+    this.initialWorkspacePath,
+    super.key,
+  });
 
   /// Optional workflow ID to pre-select (for example when launched from a
   /// workflow card or the workflow editor).
   final String? initialWorkflowId;
 
+  /// Optional workspace ID to pre-select (for example when launched from the
+  /// side rail tree).
+  final String? initialWorkspaceId;
+
+  /// Optional worktree ID to pre-select (`primary` or a worktree ID).
+  final String? initialWorktreeId;
+
+  /// Optional workspace or worktree folder path to pre-fill.
+  final String? initialWorkspacePath;
+
   /// Shows the [StartRunDialog] and returns the created [Run], or `null` if
   /// cancelled.
-  static Future<Run?> show(BuildContext context, {String? initialWorkflowId}) {
+  static Future<Run?> show(
+    BuildContext context, {
+    String? initialWorkflowId,
+    String? initialWorkspaceId,
+    String? initialWorktreeId,
+    String? initialWorkspacePath,
+  }) {
     final l10n = AppLocalizations.of(context)!;
     return HiveDialog.show<Run>(
       context: context,
       barrierLabel: l10n.runsCancelAction,
-      builder: (_) => StartRunDialog(initialWorkflowId: initialWorkflowId),
+      builder: (_) => StartRunDialog(
+        initialWorkflowId: initialWorkflowId,
+        initialWorkspaceId: initialWorkspaceId,
+        initialWorktreeId: initialWorktreeId,
+        initialWorkspacePath: initialWorkspacePath,
+      ),
     );
   }
 
@@ -63,6 +90,14 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
   void initState() {
     super.initState();
     _selectedWorkflowId = widget.initialWorkflowId;
+    final initialPath = widget.initialWorkspacePath;
+    if (initialPath != null && initialPath.isNotEmpty) {
+      _workspaceController.text = initialPath;
+    }
+    final initialWorktreeId = widget.initialWorktreeId;
+    if (initialWorktreeId != null && initialWorktreeId != 'primary') {
+      _isolationMode = WorkspaceIsolationMode.worktree;
+    }
     unawaited(_loadInitial());
   }
 
