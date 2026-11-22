@@ -43,9 +43,8 @@ Future<void> main(List<String> arguments) async {
     platform: bundlePlatformFor(Platform.operatingSystem),
   );
   Directory(layout.root).createSync(recursive: true);
-  final buildRootDir = Directory(
-    p.dirname(layout.root),
-  ).createTempSync('hive_backend_build_');
+  final buildRootDir = Directory(p.dirname(layout.root))
+      .createTempSync('hive_backend_build_');
   try {
     for (final name in BundleLayout.backendEntryPoints) {
       final process = await Process.start(

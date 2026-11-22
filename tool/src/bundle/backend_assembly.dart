@@ -21,7 +21,8 @@ List<String> assembleBackend({
   if (backendDir.existsSync()) {
     backendDir.deleteSync(recursive: true);
   }
-  Directory(p.join(buildRoot, 'server', 'bundle')).renameSync(layout.backendDir);
+  Directory(p.join(buildRoot, 'server', 'bundle'))
+      .renameSync(layout.backendDir);
 
   final problems = <String>[];
   for (final entry in BundleLayout.backendEntryPoints.skip(1)) {

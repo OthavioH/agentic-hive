@@ -108,7 +108,10 @@ void main() {
       );
 
       expect(failure.message, contains('FAILED at mcp'));
-      expect(failure.message, contains('exited with code 255 before answering'));
+      expect(
+        failure.message,
+        contains('exited with code 255 before answering'),
+      );
       expect(failure.message, contains('Usage: dartvm'));
 
       const emptyOutput = McpProxyFailure('x', '');

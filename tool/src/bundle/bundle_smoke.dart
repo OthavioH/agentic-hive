@@ -177,8 +177,6 @@ final class BundleSmoke {
         await mcp.stdin.flush();
       } on SocketException {
         // The process already exited; the reply future reports it.
-      } on StateError {
-        // StreamSink is already closed.
       }
       final Map<String, Object?>? message;
       try {
@@ -214,8 +212,6 @@ final class BundleSmoke {
         await mcp.stdin.close();
       } on SocketException {
         // Already closed by the exit.
-      } on StateError {
-        // Already closed.
       }
       try {
         await mcp.exitCode.timeout(const Duration(seconds: 5));

@@ -8,7 +8,7 @@ import '../../../tool/src/bundle/bundle_layout.dart';
 import '../../../tool/src/bundle/bundle_platform.dart';
 
 final class _AotPlatform implements BundlePlatform {
-  const _AotPlatform();
+  const new();
 
   @override
   p.Context get context => p.context;
@@ -41,10 +41,7 @@ void main() {
     tempDir.deleteSync(recursive: true);
   });
 
-  void writeBuild(
-    String entry,
-    Map<String, String> libFiles,
-  ) {
+  void writeBuild(String entry, Map<String, String> libFiles) {
     final binDir = Directory(p.join(buildRoot, entry, 'bundle', 'bin'))
       ..createSync(recursive: true);
     File(p.join(binDir.path, entry)).writeAsStringSync('stub');
@@ -69,12 +66,9 @@ void main() {
       final problems = assembleBackend(layout: layout, buildRoot: buildRoot);
 
       expect(problems, isEmpty);
-      final libNames =
-          Directory(p.join(layout.backendDir, 'lib'))
-              .listSync()
-              .map((e) => p.basename(e.path))
-              .toList()
-            ..sort();
+      final libNames = Directory(
+        p.join(layout.backendDir, 'lib'),
+      ).listSync().map((e) => p.basename(e.path)).toList()..sort();
       expect(libNames, [
         'libdartaothive_mcp.so',
         'libdartaotserver.so',
@@ -147,12 +141,10 @@ void main() {
         'libdartaothive_mcp.so': 'mcp-aot',
         'libsqlite3.so': 'sqlite',
       });
-      Directory(
-        p.join(buildRoot, 'hive_mcp', 'bundle', 'lib', 'sub'),
-      ).createSync(recursive: true);
-      File(
-        p.join(buildRoot, 'hive_mcp', 'bundle', 'lib', 'sub', 'x'),
-      ).writeAsStringSync('x');
+      Directory(p.join(buildRoot, 'hive_mcp', 'bundle', 'lib', 'sub'))
+          .createSync(recursive: true);
+      File(p.join(buildRoot, 'hive_mcp', 'bundle', 'lib', 'sub', 'x'))
+          .writeAsStringSync('x');
 
       final problems = assembleBackend(layout: layout, buildRoot: buildRoot);
 

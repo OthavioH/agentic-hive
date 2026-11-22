@@ -33,15 +33,26 @@ void main() {
   group('isInitializeReply', () {
     test('matches only messages with the initialize request id', () {
       expect(
-        isInitializeReply({'jsonrpc': '2.0', 'id': 1, 'result': <String, Object?>{}}),
+        isInitializeReply({
+          'jsonrpc': '2.0',
+          'id': 1,
+          'result': <String, Object?>{},
+        }),
         isTrue,
       );
       expect(
-        isInitializeReply({'jsonrpc': '2.0', 'id': 2, 'result': <String, Object?>{}}),
+        isInitializeReply({
+          'jsonrpc': '2.0',
+          'id': 2,
+          'result': <String, Object?>{},
+        }),
         isFalse,
       );
       expect(
-        isInitializeReply({'jsonrpc': '2.0', 'method': 'notifications/initialized'}),
+        isInitializeReply({
+          'jsonrpc': '2.0',
+          'method': 'notifications/initialized',
+        }),
         isFalse,
       );
     });
