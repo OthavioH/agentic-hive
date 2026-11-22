@@ -13,13 +13,13 @@ import 'package:agentic_hive_backend/src/config/app_config.dart';
 import 'package:agentic_hive_backend/src/config/platform_paths.dart';
 import 'package:agentic_hive_backend/src/data/agents/agent_directory_watcher.dart';
 import 'package:agentic_hive_backend/src/data/agents/local_agent_repository.dart';
+import 'package:agentic_hive_backend/src/data/agents/repository_agent_prompt_resolver.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/io_process_runner.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/os_executable_locator.dart';
 import 'package:agentic_hive_backend/src/data/nodes/dart_process_runner.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_process_platform.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_shell_provider.dart';
 import 'package:agentic_hive_backend/src/data/nodes/pty_runner_factory.dart';
-import 'package:agentic_hive_backend/src/data/nodes/unconfigured_node_ports.dart';
 import 'package:agentic_hive_backend/src/data/overview/repository_overview_repository.dart';
 import 'package:agentic_hive_backend/src/data/pauses/drift_pause_repository.dart';
 import 'package:agentic_hive_backend/src/data/result_contract/hive_result_contract.dart';
@@ -232,8 +232,15 @@ Future<void> registerDependencies(
       ),
     )
     ..registerSingleton<HumanApprovalPort>(const PausingHumanApprovalPort())
+    ..registerSingleton<LocalAgentRepository>(
+      LocalAgentRepository(
+        agentsDir: config.agentsDir,
+        pathContext: platformPaths.context,
+      ),
+    )
+    ..registerSingleton<AgentRepository>(di<LocalAgentRepository>())
     ..registerSingleton<AgentPromptResolver>(
-      const UnconfiguredAgentPromptResolver(),
+      RepositoryAgentPromptResolver(di<AgentRepository>()),
     )
     ..registerSingleton<NodeRegistry>(
       NodeRegistry.withDefaults(
@@ -415,13 +422,6 @@ Future<void> registerDependencies(
       dependsOn: [OverviewService],
     )
     ..registerSingleton<ConnectionRegistry>(ConnectionRegistry())
-    ..registerSingleton<LocalAgentRepository>(
-      LocalAgentRepository(
-        agentsDir: config.agentsDir,
-        pathContext: platformPaths.context,
-      ),
-    )
-    ..registerSingleton<AgentRepository>(di<LocalAgentRepository>())
     ..registerSingleton<AgentService>(AgentService(di<AgentRepository>()))
     ..registerSingleton<AgentsHandler>(AgentsHandler(di<AgentService>()))
     ..registerSingletonAsync<AgentDirectoryWatcher>(() async {
