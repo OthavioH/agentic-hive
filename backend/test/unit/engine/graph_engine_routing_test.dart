@@ -356,5 +356,26 @@ void main() {
         hasLength(1),
       );
     });
+
+    test(
+      'passes run.input only to the entry node, never to later nodes',
+      () async {
+        final workflow = buildWorkflow(
+          nodeIds: ['a', 'b', 'c'],
+          entry: 'b',
+          edges: [edge('b', NodeOutput.onSuccess, 'c')],
+        );
+        await h.createRun(workflow, input: 'Audit auth middleware');
+
+        final result = await h.engine.start(runId);
+
+        expect(result.valueOrNull?.status, RunStatus.succeeded);
+        expect(h.script.startOrder, ['b', 'c']);
+        final entryCtx = h.script.executions.firstWhere((c) => c.nodeId == 'b');
+        final nextCtx = h.script.executions.firstWhere((c) => c.nodeId == 'c');
+        expect(entryCtx.runInput, 'Audit auth middleware');
+        expect(nextCtx.runInput, isNull);
+      },
+    );
   });
 }

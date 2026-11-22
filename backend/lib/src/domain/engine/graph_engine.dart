@@ -1254,6 +1254,9 @@ final class GraphEngine {
           config: workflowNode.config,
           inputs: _inputsFor(x, id),
           humanAnswer: x.humanAnswers.remove(id),
+          runInput: id == x.run.workflowDefinition.entryNodeId
+              ? x.run.input
+              : null,
           onOutput: _logStore == null
               ? null
               : (stream, line) => _recordNodeOutput(

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:agentic_hive_backend/src/core/failure.dart';
@@ -45,6 +46,9 @@ final class RunService {
 
   /// Maximum page size allowed when querying run events.
   static const int maxEventsLimit = 1000;
+
+  /// Maximum UTF-8 byte length allowed for [StartRunRequest.input] (64 KiB).
+  static const int maxInputBytes = 64 * 1024;
 
   static final _log = Logger('run_service');
 
@@ -112,6 +116,17 @@ final class RunService {
     if (workspacePath.isEmpty) {
       return const FailureResult(
         ValidationFailure('Field "workspacePath" must not be blank.'),
+      );
+    }
+    final rawInput = request.input?.trim();
+    final runInput = (rawInput != null && rawInput.isNotEmpty)
+        ? rawInput
+        : null;
+    if (runInput != null && utf8.encode(runInput).length > maxInputBytes) {
+      return const FailureResult(
+        ValidationFailure(
+          'Field "input" must not exceed $maxInputBytes bytes.',
+        ),
       );
     }
 
@@ -216,6 +231,7 @@ final class RunService {
         isolationMode: prepared.isolationMode,
         worktreePath: prepared.worktreePath,
         worktreeBranch: prepared.worktreeBranch,
+        input: runInput,
       );
 
       final createResult = await _runs.create(run);

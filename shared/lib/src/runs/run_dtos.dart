@@ -18,6 +18,7 @@ sealed class StartRunRequest with _$StartRunRequest {
     required String workspacePath,
     WorkspaceIsolationMode? workspaceIsolationMode,
     List<String>? ignorePatterns,
+    String? input,
   }) = _StartRunRequest;
 
   /// Decodes a start-run request; throws a [FormatException] on a bad shape.

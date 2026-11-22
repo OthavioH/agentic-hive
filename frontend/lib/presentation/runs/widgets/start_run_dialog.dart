@@ -37,6 +37,7 @@ class StartRunDialog extends ConsumerStatefulWidget {
 
 class _StartRunDialogState extends ConsumerState<StartRunDialog> {
   final TextEditingController _workspaceController = TextEditingController();
+  final TextEditingController _inputController = TextEditingController();
 
   List<WorkflowSummary> _workflows = const <WorkflowSummary>[];
   bool _isLoadingInitial = true;
@@ -69,6 +70,7 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
   @override
   void dispose() {
     _workspaceController.dispose();
+    _inputController.dispose();
     super.dispose();
   }
 
@@ -180,6 +182,9 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
       _submitError = null;
     });
 
+    final rawInput = _inputController.text.trim();
+    final input = rawInput.isEmpty ? null : rawInput;
+
     final result = await ref
         .read(startRunProvider)
         .call(
@@ -187,6 +192,7 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
             workflowId: workflowId!,
             workspacePath: workspacePath,
             workspaceIsolationMode: _isolationMode,
+            input: input,
           ),
         );
     if (!mounted) return;
@@ -338,6 +344,17 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
                   style: typography.bodySmall.copyWith(
                     color: colors.onSurfaceMuted,
                   ),
+                ),
+                SizedBox(height: spacing.space3),
+                HiveTextArea(
+                  key: const Key('start_run_input_field'),
+                  label: l10n.startRunInputLabel,
+                  hintText: l10n.startRunInputHint,
+                  helperText: l10n.startRunInputHelper,
+                  controller: _inputController,
+                  minLines: 3,
+                  maxLines: 5,
+                  enabled: !_isSubmitting,
                 ),
                 if (_submitError != null) ...<Widget>[
                   SizedBox(height: spacing.space3),

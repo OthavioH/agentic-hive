@@ -70,6 +70,11 @@ abstract base class HarnessNode extends Node {
       sections.add(trimmedInstructions);
     }
 
+    final runInput = context.runInput?.trim();
+    if (runInput != null && runInput.isNotEmpty) {
+      sections.add('## Run input\n$runInput');
+    }
+
     final contextBuffer = StringBuffer()
       ..writeln('## Execution Context')
       ..writeln('- Run ID: ${context.runId}')

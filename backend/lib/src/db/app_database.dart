@@ -84,6 +84,9 @@ class Runs extends Table {
   /// Optional branch name (`hive/<runId>`) for an isolated git worktree.
   TextColumn get worktreeBranch => text().nullable()();
 
+  /// Optional free-text run input passed to the entry node.
+  TextColumn get input => text().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
@@ -313,7 +316,7 @@ class AppDatabase extends _$AppDatabase {
   static const installedAtKey = 'installed_at';
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -353,6 +356,11 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(pauses);
         await m.createIndex(idxPausesStatusCreatedAt);
         await m.createIndex(idxPausesRunStatus);
+      }
+      if (from < 7) {
+        if (from >= 3) {
+          await m.addColumn(runs, runs.input);
+        }
       }
     },
     beforeOpen: (details) async {

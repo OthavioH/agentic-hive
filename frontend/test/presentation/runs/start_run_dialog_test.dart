@@ -234,6 +234,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(StartRunDialog), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const Key('start_run_input_field')),
+        'Audit all handlers',
+      );
       await tester.tap(find.byKey(const Key('start_run_isolation_worktree')));
       await tester.pumpAndSettle();
 
@@ -242,6 +246,7 @@ void main() {
 
       expect(runsRepo.lastStartRequest?.workflowId, 'wf-1');
       expect(runsRepo.lastStartRequest?.workspacePath, '/projects/hive');
+      expect(runsRepo.lastStartRequest?.input, 'Audit all handlers');
       expect(
         runsRepo.lastStartRequest?.workspaceIsolationMode,
         WorkspaceIsolationMode.worktree,

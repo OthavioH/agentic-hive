@@ -272,6 +272,7 @@ final class ReviewValidatorNode extends ValidatorNode {
         config: delegatedConfig,
         inputs: context.inputs,
         resultJsonPath: context.resultJsonPath,
+        runInput: context.runInput,
         onOutput: context.onOutput,
       ),
     );

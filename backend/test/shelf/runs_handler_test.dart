@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:agentic_hive_backend/src/api/runs/runs_handler.dart';
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
@@ -553,6 +555,28 @@ void main() {
       expect(
         ApiError.fromJson(await readJson(resp)).code,
         ApiErrorCode.originNotAllowed,
+      );
+    });
+  });
+
+  group('POST /api/v1/runs', () {
+    test('rejects input exceeding 64 KiB with 400 bad_request', () async {
+      final oversized = 'a' * (RunService.maxInputBytes + 1);
+      final resp = await handler(
+        buildRequest(
+          '/api/v1/runs',
+          method: 'POST',
+          body: jsonEncode({
+            'workflowId': 'wf-1',
+            'workspacePath': '/tmp/ws',
+            'input': oversized,
+          }),
+        ),
+      );
+      expect(resp.statusCode, 400);
+      expect(
+        ApiError.fromJson(await readJson(resp)).code,
+        ApiErrorCode.badRequest,
       );
     });
   });
