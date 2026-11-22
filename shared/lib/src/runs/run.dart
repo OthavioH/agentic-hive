@@ -22,6 +22,7 @@ sealed class Run with _$Run {
     WorkspaceIsolationMode isolationMode,
     String? worktreePath,
     String? worktreeBranch,
+    String? workspaceId,
     String? workflowId,
     DateTime? finishedAt,
     String? errorMessage,

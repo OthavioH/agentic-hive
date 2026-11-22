@@ -13,6 +13,7 @@ import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.da
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/shadow_snapshot_service.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_preparation_service.dart';
+import 'package:agentic_hive_backend/src/domain/workspace/workspace_service.dart';
 import 'package:agentic_hive_backend/src/logging/log_event.dart';
 import 'package:agentic_hive_backend/src/util/ids.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
@@ -31,6 +32,7 @@ final class RunService {
     this._workspacePreparation,
     this._workflows,
     this._workflowValidator,
+    this._workspaces,
     this._engine,
     this._logStore,
     p.Context? pathContext,
@@ -57,6 +59,7 @@ final class RunService {
   final WorkspacePreparationService? _workspacePreparation;
   final WorkflowRepository? _workflows;
   final WorkflowValidator? _workflowValidator;
+  final WorkspaceService? _workspaces;
   final GraphEngine? _engine;
   final RunLogStore? _logStore;
   final p.Context _pathContext;
@@ -108,11 +111,35 @@ final class RunService {
         ValidationFailure('Field "workflowId" must not be blank.'),
       );
     }
-    final workspacePath = request.workspacePath.trim();
-    if (workspacePath.isEmpty) {
+    final workspaceId = request.workspaceId?.trim();
+    var workspacePath = request.workspacePath?.trim() ?? '';
+    if ((workspaceId == null || workspaceId.isEmpty) && workspacePath.isEmpty) {
       return const FailureResult(
-        ValidationFailure('Field "workspacePath" must not be blank.'),
+        ValidationFailure(
+          'Provide "workspaceId" (or the legacy "workspacePath").',
+        ),
       );
+    }
+    String? ownerWorkspaceId;
+    final workspaceService = _workspaces;
+    if (workspaceId != null && workspaceId.isNotEmpty) {
+      if (workspaceService == null) {
+        return const FailureResult(
+          UnexpectedFailure('Workspace registry is not configured.'),
+        );
+      }
+      final found = await workspaceService.get(workspaceId);
+      if (found case FailureResult<Workspace>(:final failure)) {
+        return FailureResult(failure);
+      }
+      ownerWorkspaceId = found.valueOrNull!.id;
+      workspacePath = found.valueOrNull!.rootPath;
+    } else if (workspaceService != null) {
+      final found = await workspaceService.findOrRegister(workspacePath);
+      if (found case FailureResult<Workspace>(:final failure)) {
+        return FailureResult(failure);
+      }
+      ownerWorkspaceId = found.valueOrNull!.id;
     }
 
     final workflows = _workflows;
@@ -211,6 +238,7 @@ final class RunService {
         workflowName: workflow.name,
         workflowDefinition: workflow,
         workspacePath: workspacePath,
+        workspaceId: ownerWorkspaceId,
         status: RunStatus.running,
         startedAt: _now().toUtc(),
         isolationMode: prepared.isolationMode,

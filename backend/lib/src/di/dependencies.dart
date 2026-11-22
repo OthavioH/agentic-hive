@@ -9,6 +9,7 @@ import 'package:agentic_hive_backend/src/api/runs/runs_handler.dart';
 import 'package:agentic_hive_backend/src/api/settings/settings_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/api/workspace/workspace_handler.dart';
+import 'package:agentic_hive_backend/src/api/workspace/workspaces_handler.dart';
 import 'package:agentic_hive_backend/src/config/app_config.dart';
 import 'package:agentic_hive_backend/src/config/platform_paths.dart';
 import 'package:agentic_hive_backend/src/data/agents/agent_directory_watcher.dart';
@@ -36,6 +37,7 @@ import 'package:agentic_hive_backend/src/data/settings/drift_settings_repository
 import 'package:agentic_hive_backend/src/data/settings/os_executable_validator.dart';
 import 'package:agentic_hive_backend/src/data/workflows/drift_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/data/workspace/drift_snapshot_repository.dart';
+import 'package:agentic_hive_backend/src/data/workspace/drift_workspace_repository.dart';
 import 'package:agentic_hive_backend/src/data/workspace/git_client.dart';
 import 'package:agentic_hive_backend/src/db/app_database.dart';
 import 'package:agentic_hive_backend/src/db/database_health_check.dart';
@@ -76,6 +78,8 @@ import 'package:agentic_hive_backend/src/domain/workspace/shadow_snapshot_servic
 import 'package:agentic_hive_backend/src/domain/workspace/snapshot_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_capabilities_service.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_preparation_service.dart';
+import 'package:agentic_hive_backend/src/domain/workspace/workspace_repository.dart';
+import 'package:agentic_hive_backend/src/domain/workspace/workspace_service.dart';
 import 'package:agentic_hive_backend/src/http/api_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/shutdown_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
@@ -324,6 +328,22 @@ Future<void> registerDependencies(
     ..registerSingleton<WorkspaceCapabilitiesService>(
       WorkspaceCapabilitiesService(di<GitClient>()),
     )
+    ..registerSingletonWithDependencies<WorkspaceRepository>(
+      () => DriftWorkspaceRepository(di<AppDatabase>()),
+      dependsOn: [AppDatabase],
+    )
+    ..registerSingletonWithDependencies<WorkspaceService>(
+      () => WorkspaceService(
+        workspaces: di<WorkspaceRepository>(),
+        capabilities: di<WorkspaceCapabilitiesService>(),
+        pathContext: platformPaths.context,
+      ),
+      dependsOn: [WorkspaceRepository],
+    )
+    ..registerSingletonWithDependencies<WorkspacesHandler>(
+      () => WorkspacesHandler(service: di<WorkspaceService>()),
+      dependsOn: [WorkspaceService],
+    )
     ..registerSingletonWithDependencies<SnapshotRepository>(
       () => DriftSnapshotRepository(di<AppDatabase>()),
       dependsOn: [AppDatabase],
@@ -393,6 +413,7 @@ Future<void> registerDependencies(
         workspacePreparation: di<WorkspacePreparationService>(),
         workflows: di<WorkflowRepository>(),
         workflowValidator: di<WorkflowValidator>(),
+        workspaces: di<WorkspaceService>(),
         engine: di<GraphEngine>(),
         logStore: di<RunLogStore>(),
         pathContext: platformPaths.context,
@@ -404,6 +425,7 @@ Future<void> registerDependencies(
         ShadowSnapshotService,
         WorkspacePreparationService,
         WorkflowRepository,
+        WorkspaceService,
         GraphEngine,
       ],
       dispose: (service) => service.dispose(),
@@ -522,6 +544,7 @@ Future<void> registerDependencies(
           pausesHandler: di<PausesHandler>(),
           overviewHandler: di<OverviewHandler>(),
           workspaceHandler: di<WorkspaceHandler>(),
+          workspacesHandler: di<WorkspacesHandler>(),
           settingsHandler: di<SettingsHandler>(),
         ),
         socket: LocalSocket(
@@ -540,6 +563,7 @@ Future<void> registerDependencies(
         PausesHandler,
         OverviewHandler,
         WorkspaceHandler,
+        WorkspacesHandler,
         SettingsHandler,
         WsGateway,
       ],

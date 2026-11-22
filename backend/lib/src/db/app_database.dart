@@ -1,7 +1,9 @@
 import 'dart:io';
 
+import 'package:agentic_hive_backend/src/util/ids.dart';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:path/path.dart' as p;
 
 part 'app_database.g.dart';
 
@@ -16,6 +18,37 @@ class AppMetadata extends Table {
 
   @override
   Set<Column<Object>> get primaryKey => {key};
+}
+
+/// Registered workspaces: a named entity with one unique root folder
+/// (ADR 0022).
+@DataClassName('WorkspaceRow')
+@TableIndex(
+  name: 'idx_workspaces_root_path',
+  columns: {#rootPath},
+  unique: true,
+)
+class Workspaces extends Table {
+  /// Unique workspace identifier.
+  TextColumn get id => text()();
+
+  /// Human-readable workspace name (defaults to the folder name).
+  TextColumn get name => text()();
+
+  /// Normalized absolute path of the workspace root folder; unique.
+  TextColumn get rootPath => text()();
+
+  /// Whether the root folder was a git repository when registered.
+  BoolColumn get isGit => boolean()();
+
+  /// UTC ISO-8601 creation timestamp.
+  TextColumn get createdAt => text()();
+
+  /// UTC ISO-8601 last-updated timestamp.
+  TextColumn get updatedAt => text()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
 }
 
 /// Saved workflow definitions (graph recipes).
@@ -46,6 +79,7 @@ class Workflows extends Table {
 
 /// Execution runs of saved workflows.
 @DataClassName('RunRow')
+@TableIndex(name: 'idx_runs_workspace_id', columns: {#workspaceId})
 class Runs extends Table {
   /// Unique run identifier.
   TextColumn get id => text()();
@@ -61,6 +95,14 @@ class Runs extends Table {
 
   /// Path to the workspace folder used by this run.
   TextColumn get workspacePath => text()();
+
+  /// Owning [Workspaces] row. Nullable only because migration 6 to 7 adds the
+  /// column and back-fills it; every new run sets it.
+  TextColumn get workspaceId => text().nullable().references(
+    Workspaces,
+    #id,
+    onDelete: KeyAction.cascade,
+  )();
 
   /// Current run status name.
   TextColumn get status => text()();
@@ -298,6 +340,7 @@ class Pauses extends Table {
     Settings,
     Snapshots,
     Pauses,
+    Workspaces,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -313,7 +356,7 @@ class AppDatabase extends _$AppDatabase {
   static const installedAtKey = 'installed_at';
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -354,9 +397,58 @@ class AppDatabase extends _$AppDatabase {
         await m.createIndex(idxPausesStatusCreatedAt);
         await m.createIndex(idxPausesRunStatus);
       }
+      if (from < 7) {
+        await m.createTable(workspaces);
+        await m.createIndex(idxWorkspacesRootPath);
+        if (from >= 3) {
+          await m.addColumn(runs, runs.workspaceId);
+        }
+        await m.createIndex(idxRunsWorkspaceId);
+        await _attachRunsToWorkspaces();
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
+
+  /// Migration 6 to 7: creates one workspace per distinct run
+  /// `workspace_path` (named after the folder) and attaches those runs to it
+  /// (ADR 0022).
+  Future<void> _attachRunsToWorkspaces() async {
+    final rows = await customSelect(
+      'SELECT workspace_path, MIN(started_at) AS first_started '
+      'FROM runs GROUP BY workspace_path ORDER BY first_started ASC',
+    ).get();
+    final workspaceIdByKey = <String, String>{};
+    final now = DateTime.now().toUtc().toIso8601String();
+    for (final row in rows) {
+      final path = row.read<String>('workspace_path');
+      final key = p.canonicalize(path);
+      var id = workspaceIdByKey[key];
+      if (id == null) {
+        id = randomId();
+        workspaceIdByKey[key] = id;
+        final rootPath = p.normalize(path);
+        final name = p.basename(rootPath);
+        await into(workspaces).insert(
+          WorkspacesCompanion.insert(
+            id: id,
+            name: name.isEmpty ? rootPath : name,
+            rootPath: rootPath,
+            isGit:
+                FileSystemEntity.typeSync(p.join(rootPath, '.git')) !=
+                FileSystemEntityType.notFound,
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+      }
+      await customUpdate(
+        'UPDATE runs SET workspace_id = ? WHERE workspace_path = ?',
+        variables: [Variable<String>(id), Variable<String>(path)],
+        updates: {runs},
+      );
+    }
+  }
 }

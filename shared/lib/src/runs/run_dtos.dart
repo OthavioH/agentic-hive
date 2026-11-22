@@ -10,12 +10,18 @@ part 'run_dtos.freezed.dart';
 part 'run_dtos.g.dart';
 
 /// Request body for `POST /api/v1/runs`.
+///
+/// The run belongs to a workspace (ADR 0022): pass [workspaceId] of a
+/// registered workspace. The legacy [workspacePath] is still accepted; the
+/// backend then finds or registers the workspace for that folder. At least one
+/// of the two is required, and [workspaceId] wins when both are present.
 @freezed
 sealed class StartRunRequest with _$StartRunRequest {
   /// Creates a start-run request.
   const factory({
     required String workflowId,
-    required String workspacePath,
+    String? workspaceId,
+    String? workspacePath,
     WorkspaceIsolationMode? workspaceIsolationMode,
     List<String>? ignorePatterns,
   }) = _StartRunRequest;

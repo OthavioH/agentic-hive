@@ -7,6 +7,7 @@ import 'package:agentic_hive_backend/src/api/runs/runs_handler.dart';
 import 'package:agentic_hive_backend/src/api/settings/settings_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/api/workspace/workspace_handler.dart';
+import 'package:agentic_hive_backend/src/api/workspace/workspaces_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/health_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/shutdown_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
@@ -37,6 +38,7 @@ Handler buildApiHandler({
   PausesHandler? pausesHandler,
   OverviewHandler? overviewHandler,
   WorkspaceHandler? workspaceHandler,
+  WorkspacesHandler? workspacesHandler,
   SettingsHandler? settingsHandler,
 }) {
   final router = Router(notFoundHandler: _notFound)
@@ -62,6 +64,9 @@ Handler buildApiHandler({
         '/api/v1/runs/<id>/snapshots/<snapshotId>/restore',
         workspaceHandler.restoreSnapshot,
       );
+  }
+  if (workspacesHandler != null) {
+    router.mount('/api/v1/workspaces', workspacesHandler.call);
   }
   if (runsHandler != null) {
     router.mount('/api/v1/runs', runsHandler.call);
