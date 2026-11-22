@@ -88,5 +88,5 @@ A published version of the product: a GitHub pre-release for a `vX.Y.Z` tag on `
 _Avoid_: build, drop, distribution (as a noun for one version)
 
 **Bundle**:
-The folder a user runs: the app executable with the backend's `dart build cli` output in a `backend/` folder next to it (`backend/bin/server`, `backend/bin/hive_mcp`, `backend/lib/`).
+The folder a user runs: the app executable with the backend's `dart build cli` output in a `backend/` folder next to it (`backend/bin/server`, `backend/bin/hive_mcp`, and `backend/lib/` with SQLite and, on Linux, the executables' compiled programs).
 _Avoid_: package, install folder, distribution
