@@ -59,6 +59,7 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
         children: <WidgetbookNode>[
           sideRailComponent(),
           railItemComponent(),
+          treeItemComponent(),
           hexMarkComponent(),
         ],
       ),
