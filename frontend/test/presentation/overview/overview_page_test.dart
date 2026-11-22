@@ -1,9 +1,15 @@
+import 'dart:async';
+
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/data/overview/overview_providers.dart';
 import 'package:agentic_hive_frontend/data/pauses/pause_providers.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/overview/controllers/overview_controller.dart';
 import 'package:agentic_hive_frontend/presentation/overview/pages/overview_page.dart';
+import 'package:agentic_hive_frontend/presentation/overview/widgets/overview_active_nodes_section.dart';
+import 'package:agentic_hive_frontend/presentation/overview/widgets/overview_active_runs_section.dart';
+import 'package:agentic_hive_frontend/presentation/overview/widgets/overview_metrics_section.dart';
+import 'package:agentic_hive_frontend/presentation/overview/widgets/overview_pending_pauses_section.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:cupertino_ui/cupertino_ui.dart';
@@ -297,4 +303,270 @@ void main() {
       expect(find.text('Stacked Workflow'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'only elapsed-duration text widgets rebuild on 1-second tick, not page, '
+    'metrics, or pause cards',
+    (tester) async {
+      configureSize(tester, desktopSize);
+      var currentTime = baseTime;
+      final periodicTimers = <_FakePeriodicTimer>[];
+      final overviewRepo = FakeOverviewRepository(
+        initialResult: Success<OverviewSnapshot>(
+          OverviewSnapshot(
+            metrics: const OverviewMetrics(
+              activeRunsCount: 1,
+              activeNodesCount: 1,
+              pendingPausesCount: 1,
+              succeededLast24hCount: 0,
+              failedLast24hCount: 0,
+            ),
+            activeRuns: <ActiveRunSummary>[
+              ActiveRunSummary(
+                runId: 'run-1',
+                workflowName: 'Ticker Workflow',
+                status: RunStatus.running,
+                startedAt: startedEarlier,
+                activeNodeCount: 1,
+              ),
+            ],
+            activeNodes: <ActiveNodeSummary>[
+              ActiveNodeSummary(
+                runId: 'run-1',
+                workflowName: 'Ticker Workflow',
+                nodeId: 'node-1',
+                nodeType: NodeTypeId.claudeCode,
+                nodeLabel: 'Build Step',
+                status: ActiveNodeStatus.running,
+                startedAt: startedEarlier,
+              ),
+            ],
+            pendingPauses: <PendingPauseSummary>[
+              PendingPauseSummary(
+                pauseId: 'pause-1',
+                runId: 'run-1',
+                workflowName: 'Ticker Workflow',
+                nodeId: 'node-approve',
+                nodeLabel: 'Approve Step',
+                pauseKind: PauseKind.humanApproval,
+                prompt: 'Continue?',
+                requiresFeedback: false,
+                createdAt: startedEarlier,
+              ),
+            ],
+            recentRuns: const <RunSummary>[],
+          ),
+        ),
+      );
+      final pauseRepo = FakePauseRepository();
+      addTearDown(() async {
+        await overviewRepo.dispose();
+        await pauseRepo.dispose();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            overviewRepositoryProvider.overrideWithValue(overviewRepo),
+            pauseRepositoryProvider.overrideWithValue(pauseRepo),
+            overviewClockConfigProvider.overrideWithValue(
+              OverviewClockConfig(
+                now: () => currentTime,
+                createPeriodicTimer: (_, callback) {
+                  final timer = _FakePeriodicTimer(callback);
+                  periodicTimers.add(timer);
+                  return timer;
+                },
+              ),
+            ),
+          ],
+          child: NodeVisualScope(
+            registry: createNodeVisualRegistry(),
+            child: MaterialApp(
+              theme: HiveTheme.dark(),
+              localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+                AppLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+              ],
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: const Scaffold(body: OverviewPage()),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(periodicTimers, hasLength(1));
+      expect(periodicTimers.single.isActive, isTrue);
+      expect(find.text('1m 0s'), findsNWidgets(2));
+
+      final metricsBefore = tester.widget<OverviewMetricsSection>(
+        find.byType(OverviewMetricsSection),
+      );
+      final pausesBefore = tester.widget<OverviewPendingPausesSection>(
+        find.byType(OverviewPendingPausesSection),
+      );
+      final activeRunsBefore = tester.widget<OverviewActiveRunsSection>(
+        find.byType(OverviewActiveRunsSection),
+      );
+      final activeNodesBefore = tester.widget<OverviewActiveNodesSection>(
+        find.byType(OverviewActiveNodesSection),
+      );
+
+      // Fire a 1-second tick.
+      currentTime = baseTime.add(OverviewClockConfig.defaultTickInterval);
+      periodicTimers.single.fire();
+      await tester.pump();
+
+      expect(find.text('1m 1s'), findsNWidgets(2));
+      expect(
+        identical(
+          tester.widget<OverviewMetricsSection>(
+            find.byType(OverviewMetricsSection),
+          ),
+          metricsBefore,
+        ),
+        isTrue,
+      );
+      expect(
+        identical(
+          tester.widget<OverviewPendingPausesSection>(
+            find.byType(OverviewPendingPausesSection),
+          ),
+          pausesBefore,
+        ),
+        isTrue,
+      );
+      expect(
+        identical(
+          tester.widget<OverviewActiveRunsSection>(
+            find.byType(OverviewActiveRunsSection),
+          ),
+          activeRunsBefore,
+        ),
+        isTrue,
+      );
+      expect(
+        identical(
+          tester.widget<OverviewActiveNodesSection>(
+            find.byType(OverviewActiveNodesSection),
+          ),
+          activeNodesBefore,
+        ),
+        isTrue,
+      );
+    },
+  );
+
+  testWidgets(
+    'pending-pauses live region is absent on first build and announces on '
+    'count change',
+    (tester) async {
+      configureSize(tester, desktopSize);
+      final overviewRepo = FakeOverviewRepository(
+        initialResult: const Success<OverviewSnapshot>(
+          OverviewSnapshot(
+            metrics: OverviewMetrics(
+              activeRunsCount: 0,
+              activeNodesCount: 0,
+              pendingPausesCount: 0,
+              succeededLast24hCount: 0,
+              failedLast24hCount: 0,
+            ),
+            activeRuns: <ActiveRunSummary>[],
+            activeNodes: <ActiveNodeSummary>[],
+            pendingPauses: <PendingPauseSummary>[],
+            recentRuns: <RunSummary>[],
+          ),
+        ),
+      );
+      final pauseRepo = FakePauseRepository();
+      addTearDown(() async {
+        await overviewRepo.dispose();
+        await pauseRepo.dispose();
+      });
+
+      await pumpOverviewPage(tester, overviewRepo, pauseRepo);
+      await tester.pumpAndSettle();
+
+      // Not present / not announcing on first build.
+      expect(
+        find.byKey(const Key('overview_metric_pending_pauses_live_region')),
+        findsNothing,
+      );
+
+      // Update snapshot so pendingPausesCount changes from 0 -> 1.
+      overviewRepo.nextResult = Success<OverviewSnapshot>(
+        OverviewSnapshot(
+          metrics: const OverviewMetrics(
+            activeRunsCount: 1,
+            activeNodesCount: 0,
+            pendingPausesCount: 1,
+            succeededLast24hCount: 0,
+            failedLast24hCount: 0,
+          ),
+          activeRuns: <ActiveRunSummary>[
+            ActiveRunSummary(
+              runId: 'run-1',
+              workflowName: 'Release Pipeline',
+              status: RunStatus.paused,
+              startedAt: startedEarlier,
+              activeNodeCount: 0,
+            ),
+          ],
+          activeNodes: const <ActiveNodeSummary>[],
+          pendingPauses: <PendingPauseSummary>[
+            PendingPauseSummary(
+              pauseId: 'pause-1',
+              runId: 'run-1',
+              workflowName: 'Release Pipeline',
+              nodeId: 'node-approve',
+              nodeLabel: 'Approve',
+              pauseKind: PauseKind.humanApproval,
+              prompt: 'Ship?',
+              requiresFeedback: false,
+              createdAt: startedEarlier,
+            ),
+          ],
+          recentRuns: const <RunSummary>[],
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('overview_refresh_button')));
+      await tester.pumpAndSettle();
+
+      final liveRegionFinder = find.byKey(
+        const Key('overview_metric_pending_pauses_live_region'),
+      );
+      expect(liveRegionFinder, findsOneWidget);
+      final semantics = tester.getSemantics(liveRegionFinder);
+      expect(semantics.flagsCollection.isLiveRegion, isTrue);
+      expect(semantics.label, contains('Pending pauses: 1'));
+    },
+  );
+}
+
+final class _FakePeriodicTimer implements Timer {
+  new(this._callback);
+
+  final void Function(Timer) _callback;
+  bool _active = true;
+
+  void fire() {
+    if (!_active) return;
+    _callback(this);
+  }
+
+  @override
+  void cancel() {
+    _active = false;
+  }
+
+  @override
+  bool get isActive => _active;
+
+  @override
+  int get tick => 0;
 }

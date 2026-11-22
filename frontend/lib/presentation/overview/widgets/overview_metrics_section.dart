@@ -8,20 +8,47 @@ import 'package:material_ui/material_ui.dart';
 /// [HiveMetricTile]s.
 class OverviewMetricsSection extends StatelessWidget {
   /// Creates an [OverviewMetricsSection].
-  const new({required this.metrics, super.key});
+  const new({
+    required this.metrics,
+    this.announcePendingPauses = false,
+    super.key,
+  });
 
   /// Aggregate operational counts from the overview snapshot.
   final OverviewMetrics metrics;
+
+  /// Whether to mount the pending-pauses accessibility live region.
+  ///
+  /// Kept `false` on first build so screen readers do not announce initial
+  /// metrics, and enabled once [OverviewMetrics.pendingPausesCount] changes.
+  final bool announcePendingPauses;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final spacing = context.hiveSpacing;
+    final pendingPausesAttentionLabel = metrics.pendingPausesCount > 0
+        ? l10n.overviewMetricNeedsAttentionSemantic(
+            l10n.overviewMetricPendingPauses,
+            metrics.pendingPausesCount,
+          )
+        : null;
+    final pendingPausesLiveLabel =
+        pendingPausesAttentionLabel ??
+        '${l10n.overviewMetricPendingPauses}: ${metrics.pendingPausesCount}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         OverviewSectionHeader(title: l10n.overviewSectionMetrics),
+        if (announcePendingPauses)
+          Semantics(
+            key: const Key('overview_metric_pending_pauses_live_region'),
+            container: true,
+            liveRegion: true,
+            label: pendingPausesLiveLabel,
+            child: const SizedBox.shrink(),
+          ),
         HiveMetricTile(
           key: const Key('overview_metric_active_runs'),
           value: '${metrics.activeRunsCount}',
@@ -47,12 +74,7 @@ class OverviewMetricsSection extends StatelessWidget {
                 tone: metrics.pendingPausesCount > 0
                     ? HiveFeedbackTone.warning
                     : null,
-                semanticLabel: metrics.pendingPausesCount > 0
-                    ? l10n.overviewMetricNeedsAttentionSemantic(
-                        l10n.overviewMetricPendingPauses,
-                        metrics.pendingPausesCount,
-                      )
-                    : null,
+                semanticLabel: pendingPausesAttentionLabel,
               ),
             ),
           ],

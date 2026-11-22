@@ -52,33 +52,77 @@ final class OverviewClockConfig {
   final Duration resyncDebounce;
 }
 
-/// Provides [OverviewClockConfig] for [OverviewController].
+/// Provides [OverviewClockConfig] for [OverviewController] and [OverviewNow].
 @Riverpod(keepAlive: true)
 OverviewClockConfig overviewClockConfig(Ref ref) => const OverviewClockConfig();
 
+/// Provides the current UTC timestamp for live elapsed-duration widgets on
+/// `/overview`.
+///
+/// The 1-second periodic timer runs only while active runs or active nodes
+/// exist and is cancelled in `ref.onDispose`.
+@riverpod
+class OverviewNow extends _$OverviewNow {
+  Timer? _timer;
+  bool _isActive = false;
+
+  @override
+  DateTime build() {
+    _timer?.cancel();
+    _timer = null;
+    _isActive = false;
+    final clock = ref.watch(overviewClockConfigProvider);
+    ref.onDispose(() {
+      _timer?.cancel();
+      _timer = null;
+      _isActive = false;
+    });
+    return clock.now();
+  }
+
+  /// Starts or stops the 1-second periodic ticker based on [hasActive].
+  void setActive({required bool hasActive}) {
+    if (_isActive == hasActive) return;
+    _isActive = hasActive;
+    if (hasActive) {
+      final clock = ref.read(overviewClockConfigProvider);
+      state = clock.now();
+      _timer?.cancel();
+      _timer = clock.createPeriodicTimer(clock.tickInterval, (_) {
+        if (!ref.mounted) return;
+        state = ref.read(overviewClockConfigProvider).now();
+      });
+    } else {
+      _timer?.cancel();
+      _timer = null;
+    }
+  }
+}
+
 /// Manages the `/overview` operational dashboard: initial snapshot load,
 /// live WebSocket updates (`run.*`, `node.*`, `pause.*`) and reconnect resync,
-/// a local 1-second elapsed-duration timer active only while runs or nodes are
-/// active, and inline simple pause approvals/rejections.
+/// and inline simple pause approvals/rejections.
 @riverpod
 class OverviewController extends _$OverviewController {
   StreamSubscription<OverviewEvent>? _eventsSub;
-  Timer? _elapsedTimer;
   Timer? _resyncTimer;
   int _loadToken = 0;
+  int _eventEpoch = 0;
+  int? _initialPendingPausesCount;
 
   OverviewClockConfig get _clock => ref.read(overviewClockConfigProvider);
 
   @override
   OverviewState build() {
     unawaited(_eventsSub?.cancel());
-    _elapsedTimer?.cancel();
-    _elapsedTimer = null;
     _resyncTimer?.cancel();
     _resyncTimer = null;
     _loadToken = 0;
+    _eventEpoch = 0;
+    _initialPendingPausesCount = null;
 
-    final clock = ref.watch(overviewClockConfigProvider);
+    ref.watch(overviewClockConfigProvider);
+    ref.listen(overviewNowProvider, (_, _) {});
     _eventsSub = ref
         .read(watchOverviewEventsUseCaseProvider)()
         .listen(_handleOverviewEvent);
@@ -86,17 +130,12 @@ class OverviewController extends _$OverviewController {
     ref.onDispose(() {
       unawaited(_eventsSub?.cancel());
       _eventsSub = null;
-      _elapsedTimer?.cancel();
-      _elapsedTimer = null;
       _resyncTimer?.cancel();
       _resyncTimer = null;
     });
 
     unawaited(Future.microtask(loadOverview));
-    return OverviewState(
-      snapshot: const AsyncLoading<OverviewSnapshot>(),
-      now: clock.now(),
-    );
+    return const OverviewState(snapshot: AsyncLoading<OverviewSnapshot>());
   }
 
   /// Fetches the latest [OverviewSnapshot] from the backend.
@@ -106,6 +145,7 @@ class OverviewController extends _$OverviewController {
   /// [OverviewState.refreshFailure] instead of replacing the dashboard.
   Future<void> loadOverview({bool showLoading = true}) async {
     final token = ++_loadToken;
+    final startEpoch = _eventEpoch;
     final hasExistingData = state.snapshot.hasValue;
     if (showLoading && !hasExistingData) {
       state = state.copyWith(
@@ -119,14 +159,20 @@ class OverviewController extends _$OverviewController {
 
     final result = await ref.read(getOverviewUseCaseProvider)();
     if (!ref.mounted || token != _loadToken) return;
+    if (_eventEpoch != startEpoch) {
+      unawaited(
+        loadOverview(showLoading: showLoading && !state.snapshot.hasValue),
+      );
+      return;
+    }
 
     switch (result) {
       case Success<OverviewSnapshot>(:final value):
         state = state.copyWith(
           snapshot: AsyncData<OverviewSnapshot>(value),
-          now: _clock.now(),
           isRefreshing: false,
           refreshFailure: () => null,
+          hasPendingPausesChanged: _trackPendingPausesChanged(value),
         );
         _syncElapsedTimer(value);
       case FailureResult<OverviewSnapshot>(:final failure):
@@ -210,6 +256,9 @@ class OverviewController extends _$OverviewController {
               ? AsyncData<OverviewSnapshot>(updatedSnapshot)
               : state.snapshot,
           submittingPauses: clearedSubmitting,
+          hasPendingPausesChanged: updatedSnapshot != null
+              ? _trackPendingPausesChanged(updatedSnapshot)
+              : state.hasPendingPausesChanged,
         );
         if (updatedSnapshot != null) {
           _syncElapsedTimer(updatedSnapshot);
@@ -229,6 +278,7 @@ class OverviewController extends _$OverviewController {
 
   void _handleOverviewEvent(OverviewEvent event) {
     if (!ref.mounted) return;
+    _eventEpoch++;
     switch (event) {
       case OverviewRunEventReceived() || OverviewPauseCreatedEvent():
         _scheduleResync();
@@ -242,6 +292,7 @@ class OverviewController extends _$OverviewController {
           state = state.copyWith(
             snapshot: AsyncData<OverviewSnapshot>(updated),
             pauseErrors: nextErrors,
+            hasPendingPausesChanged: _trackPendingPausesChanged(updated),
           );
           _syncElapsedTimer(updated);
         }
@@ -262,19 +313,21 @@ class OverviewController extends _$OverviewController {
     });
   }
 
+  bool _trackPendingPausesChanged(OverviewSnapshot snapshot) {
+    final count = snapshot.metrics.pendingPausesCount;
+    final initial = _initialPendingPausesCount;
+    if (initial == null) {
+      _initialPendingPausesCount = count;
+      return false;
+    }
+    return state.hasPendingPausesChanged || count != initial;
+  }
+
   void _syncElapsedTimer(OverviewSnapshot? snapshot) {
     final hasActive =
         snapshot != null &&
         (snapshot.activeRuns.isNotEmpty || snapshot.activeNodes.isNotEmpty);
-    if (hasActive && _elapsedTimer == null) {
-      _elapsedTimer = _clock.createPeriodicTimer(_clock.tickInterval, (_) {
-        if (!ref.mounted) return;
-        state = state.copyWith(now: _clock.now());
-      });
-    } else if (!hasActive && _elapsedTimer != null) {
-      _elapsedTimer?.cancel();
-      _elapsedTimer = null;
-    }
+    ref.read(overviewNowProvider.notifier).setActive(hasActive: hasActive);
   }
 
   OverviewSnapshot _removePauseFromSnapshot(

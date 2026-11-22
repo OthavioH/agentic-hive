@@ -1,26 +1,20 @@
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
+import 'package:agentic_hive_frontend/presentation/overview/controllers/overview_controller.dart';
 import 'package:agentic_hive_frontend/presentation/overview/utils/overview_l10n.dart';
 import 'package:agentic_hive_frontend/presentation/overview/widgets/overview_section_header.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// Active Agents & Nodes section on the Overview dashboard.
 class OverviewActiveNodesSection extends StatelessWidget {
   /// Creates an [OverviewActiveNodesSection].
-  const new({
-    required this.nodes,
-    required this.now,
-    required this.onOpenRun,
-    super.key,
-  });
+  const new({required this.nodes, required this.onOpenRun, super.key});
 
   /// Executing or paused nodes belonging to active runs.
   final List<ActiveNodeSummary> nodes;
-
-  /// Current timestamp for live elapsed duration formatting.
-  final DateTime now;
 
   /// Called when an active node card is pressed to open its run.
   final ValueChanged<String> onOpenRun;
@@ -54,7 +48,6 @@ class OverviewActiveNodesSection extends StatelessWidget {
               for (final node in nodes)
                 _ActiveNodeCard(
                   node: node,
-                  now: now,
                   onPressed: () => onOpenRun(node.runId),
                 ),
             ],
@@ -65,10 +58,9 @@ class OverviewActiveNodesSection extends StatelessWidget {
 }
 
 class _ActiveNodeCard extends StatelessWidget {
-  const new({required this.node, required this.now, required this.onPressed});
+  const new({required this.node, required this.onPressed});
 
   final ActiveNodeSummary node;
-  final DateTime now;
   final VoidCallback onPressed;
 
   @override
@@ -91,7 +83,6 @@ class _ActiveNodeCard extends StatelessWidget {
       l10n,
       node.status,
     );
-    final elapsed = OverviewL10n.formatElapsed(node.startedAt, now);
 
     return HiveCard(
       key: ValueKey<String>(
@@ -139,12 +130,26 @@ class _ActiveNodeCard extends StatelessWidget {
             label: statusLabel,
             tone: OverviewL10n.nodeBadgeToneFor(node.status),
           ),
-          Text(
-            elapsed,
-            style: typography.mono.copyWith(color: colors.onSurfaceMuted),
-          ),
+          _ActiveNodeElapsedText(startedAt: node.startedAt),
         ],
       ),
+    );
+  }
+}
+
+class _ActiveNodeElapsedText extends ConsumerWidget {
+  const new({required this.startedAt});
+
+  final DateTime startedAt;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final now = ref.watch(overviewNowProvider);
+    final colors = context.hiveColors;
+    final typography = context.hiveTypography;
+    return Text(
+      OverviewL10n.formatElapsed(startedAt, now),
+      style: typography.mono.copyWith(color: colors.onSurfaceMuted),
     );
   }
 }

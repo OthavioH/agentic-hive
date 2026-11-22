@@ -273,10 +273,18 @@ void main() {
     expect(periodicTimers.length, 1);
     expect(periodicTimers.single.isActive, isTrue);
 
-    // Tick updates `now` without polling the backend.
+    // Tick updates `overviewNowProvider` without polling the backend or
+    // rebuilding `overviewControllerProvider`.
+    var controllerUpdates = 0;
+    final countSub = container.listen(overviewControllerProvider, (_, _) {
+      controllerUpdates++;
+    });
+    addTearDown(countSub.close);
+
     currentTime = tickedAt;
     periodicTimers.single.fire();
-    expect(container.read(overviewControllerProvider).now, currentTime);
+    expect(container.read(overviewNowProvider), currentTime);
+    expect(controllerUpdates, 0);
     expect(overviewRepo.getOverviewCalls, 2);
 
     // Transition back to empty -> cancels timer.
@@ -356,5 +364,103 @@ void main() {
     final afterState = container.read(overviewControllerProvider);
     expect(afterState.submittingActionFor('pause-1'), isNull);
     expect(afterState.snapshot.asData?.value.pendingPauses, isEmpty);
+  });
+
+  test('does not overwrite local pause removal with a stale in-flight fetch '
+      'and re-runs load when an event arrives during fetch', () async {
+    final pauseSummary = makePendingPause();
+    final staleSnapshot = makeSnapshot(
+      pendingPauses: <PendingPauseSummary>[pauseSummary],
+    );
+    final freshSnapshot = makeSnapshot();
+
+    final overviewRepo = FakeOverviewRepository(
+      initialResult: Success<OverviewSnapshot>(staleSnapshot),
+    );
+    final pauseRepo = FakePauseRepository();
+    addTearDown(() async {
+      await overviewRepo.dispose();
+      await pauseRepo.dispose();
+    });
+
+    final container = ProviderContainer.test(
+      overrides: [
+        overviewRepositoryProvider.overrideWithValue(overviewRepo),
+        pauseRepositoryProvider.overrideWithValue(pauseRepo),
+        overviewClockConfigProvider.overrideWithValue(
+          OverviewClockConfig(
+            now: () => baseTime,
+            createOneShotTimer: (_, callback) => _FakeOneShotTimer(callback),
+          ),
+        ),
+      ],
+    );
+
+    final sub = container.listen(overviewControllerProvider, (_, _) {});
+    addTearDown(sub.close);
+    final controller = container.read(overviewControllerProvider.notifier);
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      container
+          .read(overviewControllerProvider)
+          .snapshot
+          .asData
+          ?.value
+          .pendingPauses,
+      hasLength(1),
+    );
+
+    // Start a delayed fetch that will return the stale snapshot.
+    final staleCompleter = Completer<Result<OverviewSnapshot>>();
+    overviewRepo.pendingGetCompleter = staleCompleter;
+    final refreshFuture = controller.refresh();
+    expect(overviewRepo.getOverviewCalls, 2);
+
+    // While the fetch is in flight, a pause.resolved event arrives and removes
+    // the pause locally.
+    overviewRepo.emitPauseResolved(
+      makePauseModel().copyWith(status: PauseStatus.answered),
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      container
+          .read(overviewControllerProvider)
+          .snapshot
+          .asData
+          ?.value
+          .pendingPauses,
+      isEmpty,
+    );
+
+    // Prepare the re-run fetch and complete the stale fetch.
+    final freshCompleter = Completer<Result<OverviewSnapshot>>();
+    overviewRepo.pendingGetCompleter = freshCompleter;
+    staleCompleter.complete(Success<OverviewSnapshot>(staleSnapshot));
+    await refreshFuture;
+
+    // Stale snapshot must NOT overwrite the local pause removal, and a re-run
+    // fetch must have been triggered.
+    expect(
+      container
+          .read(overviewControllerProvider)
+          .snapshot
+          .asData
+          ?.value
+          .pendingPauses,
+      isEmpty,
+    );
+    expect(overviewRepo.getOverviewCalls, 3);
+
+    freshCompleter.complete(Success<OverviewSnapshot>(freshSnapshot));
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      container
+          .read(overviewControllerProvider)
+          .snapshot
+          .asData
+          ?.value
+          .pendingPauses,
+      isEmpty,
+    );
   });
 }

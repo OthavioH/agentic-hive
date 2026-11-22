@@ -18,18 +18,15 @@ final class OverviewState {
   /// Creates an [OverviewState].
   const new({
     required this.snapshot,
-    required this.now,
     this.isRefreshing = false,
     this.refreshFailure,
     this.submittingPauses = const <String, OverviewPauseAction>{},
     this.pauseErrors = const <String, Failure>{},
+    this.hasPendingPausesChanged = false,
   });
 
   /// Current aggregate operational snapshot.
   final AsyncValue<OverviewSnapshot> snapshot;
-
-  /// Current UTC timestamp used to format live elapsed durations.
-  final DateTime now;
 
   /// Whether a background refresh is in flight while keeping existing data.
   final bool isRefreshing;
@@ -43,6 +40,11 @@ final class OverviewState {
   /// Map of `pauseId` to the latest inline approval/rejection failure.
   final Map<String, Failure> pauseErrors;
 
+  /// Whether `metrics.pendingPausesCount` has changed since the first loaded
+  /// snapshot, used to gate the accessibility live region so it does not
+  /// announce on first build.
+  final bool hasPendingPausesChanged;
+
   /// Returns the in-flight action for [pauseId], or `null` when idle.
   OverviewPauseAction? submittingActionFor(String pauseId) =>
       submittingPauses[pauseId];
@@ -53,21 +55,22 @@ final class OverviewState {
   /// Returns a copy with updated fields.
   OverviewState copyWith({
     AsyncValue<OverviewSnapshot>? snapshot,
-    DateTime? now,
     bool? isRefreshing,
     Failure? Function()? refreshFailure,
     Map<String, OverviewPauseAction>? submittingPauses,
     Map<String, Failure>? pauseErrors,
+    bool? hasPendingPausesChanged,
   }) {
     return OverviewState(
       snapshot: snapshot ?? this.snapshot,
-      now: now ?? this.now,
       isRefreshing: isRefreshing ?? this.isRefreshing,
       refreshFailure: refreshFailure != null
           ? refreshFailure()
           : this.refreshFailure,
       submittingPauses: submittingPauses ?? this.submittingPauses,
       pauseErrors: pauseErrors ?? this.pauseErrors,
+      hasPendingPausesChanged:
+          hasPendingPausesChanged ?? this.hasPendingPausesChanged,
     );
   }
 }

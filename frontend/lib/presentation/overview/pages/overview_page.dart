@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/overview/controllers/overview_controller.dart';
-import 'package:agentic_hive_frontend/presentation/overview/controllers/overview_state.dart';
 import 'package:agentic_hive_frontend/presentation/overview/utils/overview_l10n.dart';
 import 'package:agentic_hive_frontend/presentation/overview/widgets/overview_active_nodes_section.dart';
 import 'package:agentic_hive_frontend/presentation/overview/widgets/overview_active_runs_section.dart';
@@ -26,7 +25,9 @@ class OverviewPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final spacing = context.hiveSpacing;
-    final state = ref.watch(overviewControllerProvider);
+    final snapshot = ref.watch(
+      overviewControllerProvider.select((s) => s.snapshot),
+    );
     final controller = ref.read(overviewControllerProvider.notifier);
 
     return SingleChildScrollView(
@@ -38,39 +39,51 @@ class OverviewPage extends ConsumerWidget {
             title: l10n.navOverview,
             subtitle: l10n.overviewPageSubtitle,
             actions: <Widget>[
-              HiveButton(
-                key: const Key('overview_refresh_button'),
-                label: l10n.overviewRefreshAction,
-                icon: HiveIcons.refresh,
-                variant: HiveButtonVariant.secondary,
-                loading: state.isRefreshing,
-                onPressed: () => unawaited(controller.refresh()),
+              Consumer(
+                builder: (context, ref, _) {
+                  final isRefreshing = ref.watch(
+                    overviewControllerProvider.select((s) => s.isRefreshing),
+                  );
+                  return HiveButton(
+                    key: const Key('overview_refresh_button'),
+                    label: l10n.overviewRefreshAction,
+                    icon: HiveIcons.refresh,
+                    variant: HiveButtonVariant.secondary,
+                    loading: isRefreshing,
+                    onPressed: () => unawaited(controller.refresh()),
+                  );
+                },
               ),
             ],
           ),
-          if (state.refreshFailure != null) ...<Widget>[
-            HiveBanner(
-              tone: HiveFeedbackTone.danger,
-              title: l10n.overviewLoadErrorTitle,
-              message: OverviewL10n.localizeFailure(
-                l10n,
-                state.refreshFailure!,
-              ),
-              actions: <Widget>[
-                HiveButton(
-                  label: l10n.overviewRetryAction,
-                  variant: HiveButtonVariant.secondary,
-                  size: HiveButtonSize.small,
-                  onPressed: () => unawaited(controller.refresh()),
+          Consumer(
+            builder: (context, ref, _) {
+              final refreshFailure = ref.watch(
+                overviewControllerProvider.select((s) => s.refreshFailure),
+              );
+              if (refreshFailure == null) return const SizedBox.shrink();
+              return Padding(
+                padding: EdgeInsets.only(bottom: spacing.space3),
+                child: HiveBanner(
+                  tone: HiveFeedbackTone.danger,
+                  title: l10n.overviewLoadErrorTitle,
+                  message: OverviewL10n.localizeFailure(l10n, refreshFailure),
+                  actions: <Widget>[
+                    HiveButton(
+                      label: l10n.overviewRetryAction,
+                      variant: HiveButtonVariant.secondary,
+                      size: HiveButtonSize.small,
+                      onPressed: () => unawaited(controller.refresh()),
+                    ),
+                  ],
+                  onDismiss: controller.dismissRefreshFailure,
+                  dismissSemanticLabel: l10n.overviewDismissAction,
+                  liveRegion: true,
                 ),
-              ],
-              onDismiss: controller.dismissRefreshFailure,
-              dismissSemanticLabel: l10n.overviewDismissAction,
-              liveRegion: true,
-            ),
-            SizedBox(height: spacing.space3),
-          ],
-          state.snapshot.when(
+              );
+            },
+          ),
+          snapshot.when(
             loading: () => Padding(
               padding: EdgeInsets.symmetric(vertical: spacing.space8),
               child: Center(
@@ -90,9 +103,8 @@ class OverviewPage extends ConsumerWidget {
                 onPressed: () => unawaited(controller.refresh()),
               ),
             ),
-            data: (snapshot) => _OverviewBody(
-              snapshot: snapshot,
-              state: state,
+            data: (data) => _OverviewBody(
+              snapshot: data,
               controller: controller,
               twoColumnBreakpoint: _twoColumnBreakpoint,
             ),
@@ -103,16 +115,14 @@ class OverviewPage extends ConsumerWidget {
   }
 }
 
-class _OverviewBody extends StatelessWidget {
+class _OverviewBody extends ConsumerWidget {
   const new({
     required this.snapshot,
-    required this.state,
     required this.controller,
     required this.twoColumnBreakpoint,
   });
 
   final OverviewSnapshot snapshot;
-  final OverviewState state;
   final OverviewController controller;
   final double twoColumnBreakpoint;
 
@@ -122,16 +132,22 @@ class _OverviewBody extends StatelessWidget {
       snapshot.pendingPauses.isEmpty;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final spacing = context.hiveSpacing;
+    final announcePendingPauses = ref.watch(
+      overviewControllerProvider.select((s) => s.hasPendingPausesChanged),
+    );
 
     if (_isEmptyOperationalState) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: spacing.space4,
         children: <Widget>[
-          OverviewMetricsSection(metrics: snapshot.metrics),
+          OverviewMetricsSection(
+            metrics: snapshot.metrics,
+            announcePendingPauses: announcePendingPauses,
+          ),
           HiveEmptyState(
             icon: HiveIcons.overview,
             title: l10n.overviewEmptyTitle,
@@ -154,13 +170,11 @@ class _OverviewBody extends StatelessWidget {
 
     final activeRunsSection = OverviewActiveRunsSection(
       runs: snapshot.activeRuns,
-      now: state.now,
       onViewAll: () => const RunsRoute().go(context),
       onOpenRun: (runId) => RunDetailRoute(id: runId).go(context),
     );
     final activeNodesSection = OverviewActiveNodesSection(
       nodes: snapshot.activeNodes,
-      now: state.now,
       onOpenRun: (runId) => RunDetailRoute(id: runId).go(context),
     );
     final recentRunsSection = snapshot.recentRuns.isNotEmpty
@@ -170,18 +184,32 @@ class _OverviewBody extends StatelessWidget {
             onOpenRun: (runId) => RunDetailRoute(id: runId).go(context),
           )
         : null;
-    final pendingPausesSection = OverviewPendingPausesSection(
-      pauses: snapshot.pendingPauses,
-      now: state.now,
-      submittingPauses: state.submittingPauses,
-      pauseErrors: state.pauseErrors,
-      onViewAll: () => const PausesRoute().go(context),
-      onApprove: (pauseId) => unawaited(controller.approvePause(pauseId)),
-      onReject: (pauseId) => unawaited(controller.rejectPause(pauseId)),
-      onOpenPauses: () => const PausesRoute().go(context),
-      onDismissError: controller.dismissPauseError,
+    final pendingPausesSection = Consumer(
+      builder: (context, ref, _) {
+        final submittingPauses = ref.watch(
+          overviewControllerProvider.select((s) => s.submittingPauses),
+        );
+        final pauseErrors = ref.watch(
+          overviewControllerProvider.select((s) => s.pauseErrors),
+        );
+        final now = ref.read(overviewClockConfigProvider).now();
+        return OverviewPendingPausesSection(
+          pauses: snapshot.pendingPauses,
+          now: now,
+          submittingPauses: submittingPauses,
+          pauseErrors: pauseErrors,
+          onViewAll: () => const PausesRoute().go(context),
+          onApprove: (pauseId) => unawaited(controller.approvePause(pauseId)),
+          onReject: (pauseId) => unawaited(controller.rejectPause(pauseId)),
+          onOpenPauses: () => const PausesRoute().go(context),
+          onDismissError: controller.dismissPauseError,
+        );
+      },
     );
-    final metricsSection = OverviewMetricsSection(metrics: snapshot.metrics);
+    final metricsSection = OverviewMetricsSection(
+      metrics: snapshot.metrics,
+      announcePendingPauses: announcePendingPauses,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
