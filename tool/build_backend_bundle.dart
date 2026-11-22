@@ -2,12 +2,15 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'src/bundle/backend_assembly.dart';
 import 'src/bundle/bundle_layout.dart';
 import 'src/bundle/bundle_platform.dart';
 
 // Builds the backend with `dart build cli` and assembles <bundle-dir>/backend/.
 // `dart build cli` builds one entry point per run and wipes its output folder,
 // so server and hive_mcp are built separately and merged.
+// Builds in a temporary folder next to <bundle-dir> and replaces
+// <bundle-dir>/backend/ only after both builds succeed.
 //
 //   dart run tool/build_backend_bundle.dart <bundle-dir>   # from the repo root
 
@@ -39,57 +42,48 @@ Future<void> main(List<String> arguments) async {
     p.absolute(arguments.single),
     platform: bundlePlatformFor(Platform.operatingSystem),
   );
-  final buildRoot = p.join(layout.root, '.backend-build');
-  final buildRootDir = Directory(buildRoot);
-  if (buildRootDir.existsSync()) {
-    buildRootDir.deleteSync(recursive: true);
-  }
-  final backendDir = Directory(layout.backendDir);
-  if (backendDir.existsSync()) {
-    backendDir.deleteSync(recursive: true);
-  }
-  buildRootDir.createSync(recursive: true);
+  Directory(layout.root).createSync(recursive: true);
+  final buildRootDir = Directory(
+    p.dirname(layout.root),
+  ).createTempSync('hive_backend_build_');
+  try {
+    for (final name in BundleLayout.backendEntryPoints) {
+      final process = await Process.start(
+        Platform.resolvedExecutable,
+        [
+          'build',
+          'cli',
+          '-t',
+          'bin/$name.dart',
+          '-o',
+          p.join(buildRootDir.path, name),
+        ],
+        workingDirectory: 'backend',
+        mode: ProcessStartMode.inheritStdio,
+      );
+      final code = await process.exitCode;
+      if (code != 0) {
+        stderr.writeln('dart build cli failed for $name (exit $code).');
+        exitCode = 1;
+        return;
+      }
+    }
 
-  for (final name in ['server', 'hive_mcp']) {
-    final process = await Process.start(
-      Platform.resolvedExecutable,
-      ['build', 'cli', '-t', 'bin/$name.dart', '-o', p.join(buildRoot, name)],
-      workingDirectory: 'backend',
-      mode: ProcessStartMode.inheritStdio,
+    final problems = assembleBackend(
+      layout: layout,
+      buildRoot: buildRootDir.path,
     );
-    final code = await process.exitCode;
-    if (code != 0) {
-      stderr.writeln('dart build cli failed for $name (exit $code).');
+    if (problems.isNotEmpty) {
+      problems.forEach(stderr.writeln);
       exitCode = 1;
       return;
     }
-  }
-
-  Directory(p.join(buildRoot, 'server', 'bundle'))
-      .renameSync(layout.backendDir);
-  File(
-    p.join(
-      buildRoot,
-      'hive_mcp',
-      'bundle',
-      'bin',
-      layout.platform.executableFileName('hive_mcp'),
-    ),
-  ).renameSync(layout.hiveMcpPath);
-  buildRootDir.deleteSync(recursive: true);
-
-  final missing = [
-    layout.serverPath,
-    layout.hiveMcpPath,
-    layout.sqliteLibraryPath,
-  ].where((file) => !File(file).existsSync()).toList();
-  if (missing.isNotEmpty) {
-    for (final path in missing) {
-      stderr.writeln('Missing built file: $path');
+    stdout.writeln('Backend bundle ready: ${layout.backendDir}');
+  } finally {
+    try {
+      buildRootDir.deleteSync(recursive: true);
+    } on FileSystemException catch (e) {
+      stderr.writeln('warning: could not delete ${buildRootDir.path}: $e');
     }
-    exitCode = 1;
-    return;
   }
-
-  stdout.writeln('Backend bundle ready: ${layout.backendDir}');
 }
