@@ -2147,6 +2147,18 @@
   "@runDetailTabOutput": {
     "description": "Inspector tab label for live node output logs."
   },
+  "runDetailTabOutputs": "Outputs",
+  "@runDetailTabOutputs": {
+    "description": "Inspector tab label for the chat-style list of node summaries."
+  },
+  "runDetailOutputsTitle": "Outputs",
+  "@runDetailOutputsTitle": {
+    "description": "Heading and empty-state title of the chat-style node outputs panel."
+  },
+  "runDetailOutputsEmpty": "No node has published a message yet.",
+  "@runDetailOutputsEmpty": {
+    "description": "Empty state of the Outputs panel when no node published a summary."
+  },
   "runDetailTabEvents": "Events",
   "@runDetailTabEvents": {
     "description": "Inspector tab label for the chronological run event log."

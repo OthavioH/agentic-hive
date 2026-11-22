@@ -75,6 +75,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('No checkpoints saved for this run.'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Snapshots'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Snapshots'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('snapshot_card_snap-1')), findsOneWidget);
@@ -100,6 +102,8 @@ void main() {
       runs: FakeRunRepository(status: RunStatus.running),
       workspace: FakeWorkspaceRepository(snapshots: <Snapshot>[makeSnapshot()]),
     );
+    await tester.ensureVisible(find.text('Snapshots'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Snapshots'));
     await tester.pumpAndSettle();
     final button = tester.widget<HiveButton>(

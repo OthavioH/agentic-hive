@@ -28,6 +28,7 @@ import 'package:agentic_hive_frontend/domain/pauses/use_cases/answer_pause_use_c
 import 'package:agentic_hive_frontend/domain/pauses/use_cases/list_pending_pauses_use_case.dart';
 import 'package:agentic_hive_frontend/domain/pauses/use_cases/watch_pause_events_use_case.dart';
 import 'package:agentic_hive_frontend/domain/pauses/use_cases/watch_pending_pauses_count_use_case.dart';
+import 'package:agentic_hive_frontend/domain/runs/use_cases/build_run_output_messages.dart';
 import 'package:agentic_hive_frontend/domain/runs/use_cases/cancel_run.dart';
 import 'package:agentic_hive_frontend/domain/runs/use_cases/delete_run.dart';
 import 'package:agentic_hive_frontend/domain/runs/use_cases/get_node_logs.dart';
@@ -168,6 +169,11 @@ GetRunEvents getRunEvents(Ref ref) =>
 @riverpod
 GetRunCheckpoints getRunCheckpoints(Ref ref) =>
     GetRunCheckpoints(ref.watch(runRepositoryProvider));
+
+/// Provides [BuildRunOutputMessages].
+@riverpod
+BuildRunOutputMessages buildRunOutputMessages(Ref ref) =>
+    const BuildRunOutputMessages();
 
 /// Provides [DeleteRun].
 @riverpod
