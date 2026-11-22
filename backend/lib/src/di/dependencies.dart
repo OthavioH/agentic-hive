@@ -10,6 +10,7 @@ import 'package:agentic_hive_backend/src/api/settings/settings_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/api/workspace/workspace_handler.dart';
 import 'package:agentic_hive_backend/src/api/workspace/workspaces_handler.dart';
+import 'package:agentic_hive_backend/src/api/worktrees/worktrees_handler.dart';
 import 'package:agentic_hive_backend/src/config/app_config.dart';
 import 'package:agentic_hive_backend/src/config/platform_paths.dart';
 import 'package:agentic_hive_backend/src/data/agents/agent_directory_watcher.dart';
@@ -39,6 +40,7 @@ import 'package:agentic_hive_backend/src/data/workflows/drift_workflow_repositor
 import 'package:agentic_hive_backend/src/data/workspace/drift_snapshot_repository.dart';
 import 'package:agentic_hive_backend/src/data/workspace/drift_workspace_repository.dart';
 import 'package:agentic_hive_backend/src/data/workspace/git_client.dart';
+import 'package:agentic_hive_backend/src/data/worktrees/run_repository_active_run_lookup.dart';
 import 'package:agentic_hive_backend/src/db/app_database.dart';
 import 'package:agentic_hive_backend/src/db/database_health_check.dart';
 import 'package:agentic_hive_backend/src/db/metadata_repository.dart';
@@ -80,6 +82,8 @@ import 'package:agentic_hive_backend/src/domain/workspace/workspace_capabilities
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_preparation_service.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_service.dart';
+import 'package:agentic_hive_backend/src/domain/worktrees/active_run_lookup.dart';
+import 'package:agentic_hive_backend/src/domain/worktrees/worktree_service.dart';
 import 'package:agentic_hive_backend/src/http/api_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/shutdown_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
@@ -344,6 +348,26 @@ Future<void> registerDependencies(
       () => WorkspacesHandler(service: di<WorkspaceService>()),
       dependsOn: [WorkspaceService],
     )
+    ..registerSingletonWithDependencies<ActiveRunLookup>(
+      () => RunRepositoryActiveRunLookup(di<RunRepository>()),
+      dependsOn: [RunRepository],
+    )
+    ..registerSingletonWithDependencies<WorktreeService>(
+      () => WorktreeService(
+        git: di<GitClient>(),
+        activeRuns: di<ActiveRunLookup>(),
+        worktreesDir: config.worktreesDir,
+        pathContext: platformPaths.context,
+      ),
+      dependsOn: [ActiveRunLookup],
+    )
+    ..registerSingletonWithDependencies<WorktreesHandler>(
+      () => WorktreesHandler(
+        workspaces: di<WorkspaceService>(),
+        worktrees: di<WorktreeService>(),
+      ),
+      dependsOn: [WorkspaceService, WorktreeService],
+    )
     ..registerSingletonWithDependencies<SnapshotRepository>(
       () => DriftSnapshotRepository(di<AppDatabase>()),
       dependsOn: [AppDatabase],
@@ -545,6 +569,7 @@ Future<void> registerDependencies(
           overviewHandler: di<OverviewHandler>(),
           workspaceHandler: di<WorkspaceHandler>(),
           workspacesHandler: di<WorkspacesHandler>(),
+          worktreesHandler: di<WorktreesHandler>(),
           settingsHandler: di<SettingsHandler>(),
         ),
         socket: LocalSocket(
@@ -564,6 +589,7 @@ Future<void> registerDependencies(
         OverviewHandler,
         WorkspaceHandler,
         WorkspacesHandler,
+        WorktreesHandler,
         SettingsHandler,
         WsGateway,
       ],

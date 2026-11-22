@@ -58,6 +58,7 @@ export 'src/workspace/workspace_capabilities.dart';
 export 'src/workspace/workspace_dtos.dart';
 export 'src/workspace/workspace_isolation_mode.dart';
 export 'src/workspace/workspace_registry_dtos.dart';
+export 'src/workspace/worktree.dart';
 export 'src/ws/agents_changed_payload.dart';
 export 'src/ws/harness_status_updated_payload.dart';
 export 'src/ws/pause_created_payload.dart';
