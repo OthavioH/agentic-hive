@@ -3,7 +3,6 @@ name: Release
 on:
   push:
     tags: ['v*']
-    branches: ['OthavioH/rel-fix-review']   # TEMPORARY: rehearsal of the review fixes; reverted before merge
   workflow_dispatch:
 
 permissions:
