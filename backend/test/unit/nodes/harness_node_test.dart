@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:agentic_hive_backend/src/core/failure.dart';
@@ -389,21 +390,83 @@ void main() {
       );
     });
 
-    test('AntigravityNode invokes agy -p with prompt via stdin', () async {
+    test(
+      'AntigravityNode invokes agy stream-json with NDJSON user event on stdin',
+      () async {
+        final node = AntigravityNode(
+          processRunner: processRunner,
+          resultContract: resultContract,
+          agentPromptResolver: agentResolver,
+        );
+
+        final result = await node.execute(
+          _context(
+            config: const {
+              'additionalInstructions': 'Implement feature X',
+              'extraArgs': ['--model', 'gemini-3-pro'],
+            },
+          ),
+        );
+        expect(result.isSuccess, isTrue);
+        final invocation = processRunner.lastInvocation!;
+        expect(invocation.executable, 'agy');
+        expect(invocation.arguments, [
+          '--input-format',
+          'stream-json',
+          '--output-format',
+          'stream-json',
+          '--model',
+          'gemini-3-pro',
+        ]);
+        expect(
+          invocation.arguments.join(' '),
+          isNot(contains('Implement feature X')),
+        );
+        expect(invocation.stdinContent, endsWith('\n'));
+
+        final payload =
+            jsonDecode(invocation.stdinContent!.trim()) as Map<String, Object?>;
+        expect(payload['event'], 'user');
+        final message = payload['message']! as Map<String, Object?>;
+        expect(message['role'], 'user');
+        expect(message['content'], contains('Implement feature X'));
+      },
+    );
+
+    test('AntigravityNode handles stream-json events without bypassing the '
+        'result contract', () async {
+      const streamJsonStdout = '''
+{"event":"init","conversation_id":"c1","init":{"cwd":"/tmp/ws","tools":["run_command","view_file"],"permission_mode":"request-review"}}
+{"event":"step_update","step_update":{"conversation_id":"c1","step_index":0,"state":"DONE","step_type":"user_input"}}
+{"event":"step_update","step_update":{"conversation_id":"c1","step_index":1,"state":"DONE","step_type":"agent_response","text_delta":"OK"}}
+{"event":"result","result":{"conversation_id":"c1","status":"SUCCESS","response":"OK"}}
+''';
+      final runner = _FakeProcessRunner(
+        const ProcessExecutionResult(exitCode: 0, stdout: streamJsonStdout),
+      );
       final node = AntigravityNode(
-        processRunner: processRunner,
-        resultContract: resultContract,
+        processRunner: runner,
+        resultContract: _FakeResultContract(),
         agentPromptResolver: agentResolver,
       );
 
-      final result = await node.execute(_context());
-      expect(result.isSuccess, isTrue);
-      expect(processRunner.lastInvocation!.executable, 'agy');
-      expect(processRunner.lastInvocation!.arguments, ['-p']);
+      final missingReportResult = await node.execute(_context());
+      expect(missingReportResult.isFailure, isTrue);
       expect(
-        processRunner.lastInvocation!.stdinContent,
-        contains('Implement feature X'),
+        missingReportResult.failureOrNull,
+        isA<NodeExecutionFailure>().having(
+          (f) => f.message,
+          'message',
+          contains('Exited 0 without report.'),
+        ),
       );
+
+      final analysis = node.parseOutput(
+        const ProcessExecutionResult(exitCode: 1, stdout: streamJsonStdout),
+      );
+      expect(analysis.isAuthenticationError, isFalse);
+      expect(analysis.isRateLimitError, isFalse);
+      expect(analysis.metadata['stdout'], streamJsonStdout);
     });
 
     test(

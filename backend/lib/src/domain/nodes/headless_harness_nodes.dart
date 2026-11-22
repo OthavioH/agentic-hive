@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:agentic_hive_backend/src/domain/nodes/harness_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
@@ -175,7 +177,7 @@ final class GeminiCliNode extends HeadlessHarnessNode {
       );
 }
 
-/// Antigravity CLI headless harness (`agy -p`).
+/// Antigravity CLI headless harness (`agy --input-format stream-json`).
 final class AntigravityNode extends HeadlessHarnessNode {
   /// Creates an Antigravity CLI harness node.
   const new({
@@ -211,10 +213,20 @@ final class AntigravityNode extends HeadlessHarnessNode {
     Map<String, String> environment = const <String, String>{},
   }) => ProcessInvocation(
     executable: 'agy',
-    arguments: <String>['-p', ...config.extraArgs],
+    arguments: <String>[
+      '--input-format',
+      'stream-json',
+      '--output-format',
+      'stream-json',
+      ...config.extraArgs,
+    ],
     workingDirectory: workingDirectory,
     environment: environment,
-    stdinContent: prompt,
+    stdinContent:
+        '${jsonEncode(<String, Object?>{
+          'event': 'user',
+          'message': <String, Object?>{'role': 'user', 'content': prompt},
+        })}\n',
     timeout: config.timeoutSeconds != null
         ? Duration(seconds: config.timeoutSeconds!)
         : null,
