@@ -22,6 +22,7 @@ const int _oCloexecMacos = 0x1000000;
 const int _posixSpawnSetsidLinux = 0x80;
 const int _posixSpawnSetsidMacos = 0x0400;
 const int _eintr = 4;
+const int _echild = 10;
 const int _fSetfd = 2;
 const int _fdCloexec = 1;
 const int _pollIn = 0x0001;
@@ -183,6 +184,15 @@ typedef _PosixSpawnFileActionsAddDup2Dart = int Function(
   int newfildes,
 );
 
+typedef _PosixSpawnFileActionsAddCloseNative = Int32 Function(
+  Pointer<Void> fileActions,
+  Int32 fildes,
+);
+typedef _PosixSpawnFileActionsAddCloseDart = int Function(
+  Pointer<Void> fileActions,
+  int fildes,
+);
+
 typedef _PosixSpawnFileActionsAddChdirNative = Int32 Function(
   Pointer<Void> fileActions,
   Pointer<Utf8> path,
@@ -264,6 +274,11 @@ final class _PosixLibc {
           _PosixSpawnFileActionsAddDup2Native,
           _PosixSpawnFileActionsAddDup2Dart
         >('posix_spawn_file_actions_adddup2', isLeaf: true);
+    posixSpawnFileActionsAddClose = lib
+        .lookupFunction<
+          _PosixSpawnFileActionsAddCloseNative,
+          _PosixSpawnFileActionsAddCloseDart
+        >('posix_spawn_file_actions_addclose', isLeaf: true);
     final addChdirSym =
         lib.providesSymbol('posix_spawn_file_actions_addchdir_np')
         ? 'posix_spawn_file_actions_addchdir_np'
@@ -301,6 +316,7 @@ final class _PosixLibc {
   late final _PosixSpawnFileActionsDestroyDart posixSpawnFileActionsDestroy;
   late final _PosixSpawnFileActionsAddOpenDart posixSpawnFileActionsAddOpen;
   late final _PosixSpawnFileActionsAddDup2Dart posixSpawnFileActionsAddDup2;
+  late final _PosixSpawnFileActionsAddCloseDart posixSpawnFileActionsAddClose;
   late final _PosixSpawnFileActionsAddChdirDart posixSpawnFileActionsAddChdir;
   late final _WaitpidDart waitpid;
   late final _KillDart kill;
@@ -450,14 +466,46 @@ void _posixWriterIsolate(({int fd, String errnoSymbol, SendPort port}) args) {
   }, onDone: cleanup);
 }
 
-int _waitpidIsolate(({int pid, String errnoSymbol}) args) {
+int _readExitCodeFromPipe(_PosixLibc libc, int fd) {
+  final buf = calloc<Uint8>(64);
+  final bytes = <int>[];
+  try {
+    while (true) {
+      final n = libc.read(fd, buf, 64);
+      if (n > 0) {
+        bytes.addAll(buf.asTypedList(n));
+        continue;
+      }
+      if (n == 0) {
+        break;
+      }
+      if (libc.errno == _eintr) {
+        continue;
+      }
+      return -1;
+    }
+  } finally {
+    calloc.free(buf);
+  }
+  if (bytes.isEmpty) {
+    return -1;
+  }
+  final text = utf8.decode(bytes, allowMalformed: true).trim();
+  return int.tryParse(text) ?? -1;
+}
+
+int _waitpidIsolate(({int pid, int exitReadFd, String errnoSymbol}) args) {
   final libc = _PosixLibc._(args.errnoSymbol);
   final statusPtr = calloc<Int32>();
   try {
     while (true) {
       final waited = libc.waitpid(args.pid, statusPtr, 0);
       if (waited == -1) {
-        if (libc.errno == _eintr) continue;
+        final err = libc.errno;
+        if (err == _eintr) continue;
+        if (err == _echild) {
+          return _readExitCodeFromPipe(libc, args.exitReadFd);
+        }
         return -1;
       }
       final status = statusPtr.value;
@@ -468,12 +516,19 @@ int _waitpidIsolate(({int pid, String errnoSymbol}) args) {
       return 128 + termSig;
     }
   } finally {
+    libc.close(args.exitReadFd);
     calloc.free(statusPtr);
   }
 }
 
-Future<int> _waitpidAsync(int pid, String errnoSymbol) =>
-    Isolate.run(() => _waitpidIsolate((pid: pid, errnoSymbol: errnoSymbol)));
+Future<int> _waitpidAsync(int pid, int exitReadFd, String errnoSymbol) =>
+    Isolate.run(
+      () => _waitpidIsolate((
+        pid: pid,
+        exitReadFd: exitReadFd,
+        errnoSymbol: errnoSymbol,
+      )),
+    );
 
 final class _PosixPtySessionHandle implements PtySessionHandle {
   new({
@@ -646,6 +701,9 @@ final class PosixPtyRunner implements PtyRunner {
     final stopPipeFds = calloc<Int32>(2);
     var stopReadFd = -1;
     var stopWriteFd = -1;
+    final exitPipeFds = calloc<Int32>(2);
+    var exitReadFd = -1;
+    var exitWriteFd = -1;
     var pid = -1;
 
     final pidPtr = calloc<Int32>();
@@ -656,6 +714,10 @@ final class PosixPtyRunner implements PtyRunner {
     var actionsInitialized = false;
 
     final argv = _allocStringArray(<String>[
+      '/bin/sh',
+      '-c',
+      r'"$@" 3>&-; c=$?; printf "%d" "$c" >&3; exit "$c"',
+      'agentic-hive-pty',
       resolvedExecutable,
       ...invocation.arguments,
     ]);
@@ -666,7 +728,7 @@ final class PosixPtyRunner implements PtyRunner {
     final envp = _allocStringArray(
       mergedEnv.entries.map((e) => '${e.key}=${e.value}').toList(),
     );
-    final execPtr = resolvedExecutable.toNativeUtf8();
+    final execPtr = '/bin/sh'.toNativeUtf8();
     final cwdPtr = invocation.workingDirectory.toNativeUtf8();
 
     try {
@@ -680,6 +742,15 @@ final class PosixPtyRunner implements PtyRunner {
       libc
         ..fcntl(stopReadFd, _fSetfd, _fdCloexec)
         ..fcntl(stopWriteFd, _fSetfd, _fdCloexec);
+
+      if (libc.pipe(exitPipeFds) != 0) {
+        return FailureResult(
+          NodeExecutionFailure('pipe() failed (errno ${libc.errno}).'),
+        );
+      }
+      exitReadFd = exitPipeFds[0];
+      exitWriteFd = exitPipeFds[1];
+      libc.fcntl(exitReadFd, _fSetfd, _fdCloexec);
 
       if (libc.grantpt(masterFd) != 0 || libc.unlockpt(masterFd) != 0) {
         return FailureResult(
@@ -754,15 +825,28 @@ final class PosixPtyRunner implements PtyRunner {
       }
       final addDup1Err = libc.posixSpawnFileActionsAddDup2(fileActions, 0, 1);
       final addDup2Err = libc.posixSpawnFileActionsAddDup2(fileActions, 0, 2);
+      final addDup3Err = libc.posixSpawnFileActionsAddDup2(
+        fileActions,
+        exitWriteFd,
+        3,
+      );
+      final addCloseExitWriteErr = exitWriteFd != 3
+          ? libc.posixSpawnFileActionsAddClose(fileActions, exitWriteFd)
+          : 0;
       final addChdirErr = libc.posixSpawnFileActionsAddChdir(
         fileActions,
         cwdPtr,
       );
-      if (addDup1Err != 0 || addDup2Err != 0 || addChdirErr != 0) {
+      if (addDup1Err != 0 ||
+          addDup2Err != 0 ||
+          addDup3Err != 0 ||
+          addCloseExitWriteErr != 0 ||
+          addChdirErr != 0) {
         return FailureResult(
           NodeExecutionFailure(
             'posix_spawn_file_actions setup failed '
-            '($addDup1Err, $addDup2Err, $addChdirErr).',
+            '($addDup1Err, $addDup2Err, $addDup3Err, '
+            '$addCloseExitWriteErr, $addChdirErr).',
           ),
         );
       }
@@ -781,6 +865,8 @@ final class PosixPtyRunner implements PtyRunner {
         );
       }
       pid = pidPtr.value;
+      libc.close(exitWriteFd);
+      exitWriteFd = -1;
     } finally {
       if (actionsInitialized) {
         libc.posixSpawnFileActionsDestroy(fileActions);
@@ -792,6 +878,7 @@ final class PosixPtyRunner implements PtyRunner {
       _freeStringArray(envp);
       calloc
         ..free(stopPipeFds)
+        ..free(exitPipeFds)
         ..free(pidPtr)
         ..free(winSize)
         ..free(spawnAttr)
@@ -802,6 +889,8 @@ final class PosixPtyRunner implements PtyRunner {
       if (pid <= 0) {
         if (stopReadFd >= 0) libc.close(stopReadFd);
         if (stopWriteFd >= 0) libc.close(stopWriteFd);
+        if (exitReadFd >= 0) libc.close(exitReadFd);
+        if (exitWriteFd >= 0) libc.close(exitWriteFd);
         libc.close(masterFd);
       }
     }
@@ -898,6 +987,7 @@ final class PosixPtyRunner implements PtyRunner {
     var timedOut = false;
     var waitTimedOutAfterKill = false;
     var exitCode = -1;
+    var exitReadFdOwnedByWaiter = false;
 
     try {
       await Isolate.spawn(_posixReaderIsolate, (
@@ -925,7 +1015,8 @@ final class PosixPtyRunner implements PtyRunner {
         }
       }
 
-      final waitFuture = _waitpidAsync(pid, config.errnoSymbol);
+      exitReadFdOwnedByWaiter = true;
+      final waitFuture = _waitpidAsync(pid, exitReadFd, config.errnoSymbol);
       final timeout = invocation.timeout;
       if (timeout != null) {
         exitCode = await waitFuture.timeout(
@@ -947,6 +1038,9 @@ final class PosixPtyRunner implements PtyRunner {
         exitCode = await waitFuture;
       }
     } finally {
+      if (!exitReadFdOwnedByWaiter && exitReadFd >= 0) {
+        libc.close(exitReadFd);
+      }
       if (!readerSpawned) {
         await terminateProcessTree();
       }
