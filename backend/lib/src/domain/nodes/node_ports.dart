@@ -300,11 +300,34 @@ abstract interface class HumanApprovalPort {
   );
 }
 
+/// Resolved agent prompt and tool permissions from an `agentId`.
+final class ResolvedAgent {
+  /// Creates a resolved agent payload.
+  const new({
+    required this.prompt,
+    this.allowedTools = const <String>[],
+    this.deniedTools = const <String>[],
+  });
+
+  /// Rendered prompt body for the agent.
+  final String prompt;
+
+  /// Tools explicitly allowed by the agent frontmatter.
+  final List<String> allowedTools;
+
+  /// Tools explicitly denied by the agent frontmatter.
+  final List<String> deniedTools;
+}
+
 /// Port for resolving an `agentId` to its prompt content without coupling
 /// nodes to F2's concrete agent repository.
 abstract interface class AgentPromptResolver {
   /// Resolves the prompt for [agentId], or returns `NotFoundFailure`.
   Future<Result<String>> resolvePrompt(String agentId);
+
+  /// Resolves the prompt and tool permissions for [agentId], or returns
+  /// `NotFoundFailure`.
+  Future<Result<ResolvedAgent>> resolveAgent(String agentId);
 }
 
 /// Port providing the OS-appropriate default interactive shell executable

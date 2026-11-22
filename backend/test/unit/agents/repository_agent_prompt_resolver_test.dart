@@ -31,6 +31,8 @@ final class _FakeAgentRepository implements AgentRepository {
 AgentDetail _detail({
   String id = 'reviewer',
   String prompt = 'Review the diff carefully.',
+  List<String> allowedTools = const <String>[],
+  List<String> deniedTools = const <String>[],
   String? parseError,
   String? rawContent,
 }) => AgentDetail(
@@ -38,6 +40,8 @@ AgentDetail _detail({
   name: 'Reviewer',
   contentHash: 'hash',
   updatedAt: DateTime.utc(2026),
+  allowedTools: allowedTools,
+  deniedTools: deniedTools,
   prompt: prompt,
   parseError: parseError,
   rawContent: rawContent,
@@ -120,5 +124,27 @@ void main() {
       final second = await resolver.resolvePrompt('dynamic');
       expect(second.valueOrNull, 'Updated prompt.');
     });
+
+    test(
+      'resolveAgent returns prompt alongside allowedTools and deniedTools',
+      () async {
+        repository.responses['sweeper'] = Success(
+          _detail(
+            id: 'sweeper',
+            prompt: 'Sweep the codebase.',
+            allowedTools: const <String>['Read', 'Edit'],
+            deniedTools: const <String>['Bash(rm *)'],
+          ),
+        );
+
+        final result = await resolver.resolveAgent('sweeper');
+
+        expect(result.isSuccess, isTrue);
+        final resolved = result.valueOrNull!;
+        expect(resolved.prompt, 'Sweep the codebase.');
+        expect(resolved.allowedTools, const <String>['Read', 'Edit']);
+        expect(resolved.deniedTools, const <String>['Bash(rm *)']);
+      },
+    );
   });
 }
