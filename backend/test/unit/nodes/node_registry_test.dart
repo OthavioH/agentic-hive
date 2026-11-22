@@ -23,6 +23,14 @@ final class _NoopProcessRunner implements NodeProcessRunner {
   }) async => const Success(ProcessExecutionResult(exitCode: 0));
 }
 
+final class _FakeAgentPromptResolver implements AgentPromptResolver {
+  const new();
+
+  @override
+  Future<Result<String>> resolvePrompt(String agentId) async =>
+      FailureResult(NotFoundFailure('Agent "$agentId" not found.'));
+}
+
 void main() {
   group('NodeRegistry', () {
     late NodeRegistry registry;
@@ -34,7 +42,7 @@ void main() {
         defaultShellProvider: const PosixShellProvider(),
         resultContract: const UnconfiguredResultContract(),
         approvalPort: const UnconfiguredHumanApprovalPort(),
-        agentPromptResolver: const UnconfiguredAgentPromptResolver(),
+        agentPromptResolver: const _FakeAgentPromptResolver(),
       );
     });
 

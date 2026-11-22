@@ -54,14 +54,3 @@ final class UnconfiguredHumanApprovalPort implements HumanApprovalPort {
     NodeExecutionFailure('HumanApprovalPort is not configured.'),
   );
 }
-
-/// Default [AgentPromptResolver] placeholder until F2 wires the agent
-/// repository.
-final class UnconfiguredAgentPromptResolver implements AgentPromptResolver {
-  /// Creates an unconfigured agent prompt resolver.
-  const new();
-
-  @override
-  Future<Result<String>> resolvePrompt(String agentId) async =>
-      FailureResult(NotFoundFailure('Agent "$agentId" could not be resolved.'));
-}

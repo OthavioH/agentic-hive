@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
-import 'package:agentic_hive_backend/src/data/nodes/unconfigured_node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/command_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/headless_harness_nodes.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/human_approval_node.dart';
@@ -13,6 +12,14 @@ import 'package:agentic_hive_backend/src/domain/nodes/validator_nodes.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+
+final class _FakeAgentPromptResolver implements AgentPromptResolver {
+  const new();
+
+  @override
+  Future<Result<String>> resolvePrompt(String agentId) async =>
+      FailureResult(NotFoundFailure('Agent "$agentId" not found.'));
+}
 
 final class _FakeProcessRunner implements NodeProcessRunner {
   new(this.onRun);
@@ -397,7 +404,7 @@ void main() {
           () => ClaudeCodeNode(
             processRunner: processRunner,
             resultContract: contract,
-            agentPromptResolver: const UnconfiguredAgentPromptResolver(),
+            agentPromptResolver: const _FakeAgentPromptResolver(),
           ),
         );
 
