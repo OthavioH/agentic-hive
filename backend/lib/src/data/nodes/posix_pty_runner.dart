@@ -750,7 +750,9 @@ final class PosixPtyRunner implements PtyRunner {
       }
       exitReadFd = exitPipeFds[0];
       exitWriteFd = exitPipeFds[1];
-      libc.fcntl(exitReadFd, _fSetfd, _fdCloexec);
+      libc
+        ..fcntl(exitReadFd, _fSetfd, _fdCloexec)
+        ..fcntl(exitWriteFd, _fSetfd, _fdCloexec);
 
       if (libc.grantpt(masterFd) != 0 || libc.unlockpt(masterFd) != 0) {
         return FailureResult(
