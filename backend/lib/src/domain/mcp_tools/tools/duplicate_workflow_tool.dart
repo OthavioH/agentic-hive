@@ -58,6 +58,15 @@ final class DuplicateWorkflowTool extends ScopedMcpTool {
           'see the ids, or pass workspace.',
         ),
       ),
+      FailureResult(failure: WorkflowDeletingFailure(:final operationId)) =>
+        FailureResult(
+          WorkflowDeletingFailure(
+            'Workflow "$id" is being deleted (operation $operationId), so it '
+            'cannot be duplicated. Nothing was created. Do not retry: the '
+            'deletion is running and will finish on its own.',
+            operationId: operationId,
+          ),
+        ),
       FailureResult(:final failure) => FailureResult(failure),
       Success(value: final response) => _success(id, response),
     };

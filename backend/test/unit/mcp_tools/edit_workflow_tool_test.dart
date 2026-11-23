@@ -6,6 +6,8 @@ import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/create_workflow_
 import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/edit_workflow_tool.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/workflow_patcher.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/workflow_text_formatter.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_operation.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_registry.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_events.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_revision.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_service.dart';
@@ -42,6 +44,7 @@ void main() {
   late MemoryWorkspaceWorkflows workspaceFiles;
   late MemoryWorkspaces workspaces;
   late WorkflowService service;
+  late WorkflowDeletionRegistry deletions;
   late EditWorkflowTool edit;
   late _Events events;
   final workspace = Workspace(
@@ -57,11 +60,13 @@ void main() {
     global = MemoryWorkflows();
     workspaceFiles = MemoryWorkspaceWorkflows();
     workspaces = MemoryWorkspaces([workspace]);
+    deletions = WorkflowDeletionRegistry();
     service = WorkflowService(
       repository: global,
       validator: const WorkflowValidator(),
       workspaceWorkflows: workspaceFiles,
       workspaces: workspaces,
+      deletions: deletions,
     );
     events = _Events();
     edit = EditWorkflowTool(
@@ -365,6 +370,33 @@ void main() {
       '"operations" must be a non-empty list of operation objects.',
     );
   });
+  test('a workflow being deleted answers the deleting text and says not to '
+      'retry', () async {
+    final before = await seed();
+    deletions.start(
+      WorkflowDeletionOperation(
+        id: 'op-7',
+        workflowId: before.workflow.id,
+        phase: WorkflowDeletionPhase.deletingRuns,
+        startedAt: DateTime.utc(2026, 11, 23, 10),
+      ),
+    );
+
+    final result = await call(before.workflow.id, before.revision!, [
+      {'op': 'update_node', 'id': 'plan', 'label': 'Changed'},
+    ]);
+
+    final failure = result.failureOrNull! as WorkflowDeletingFailure;
+    expect(failure.operationId, 'op-7');
+    expect(
+      failure.message,
+      'Workflow "${before.workflow.id}" is being deleted (operation op-7), so '
+      'it cannot be edited. Nothing was changed. Do not retry: the deletion '
+      'is running and will finish on its own.',
+    );
+    expect(events.calls, isEmpty);
+  });
+
   test('unknown workflow names the scope', () async {
     final r = await call('missing', 'rev', [
       {'op': 'set_meta', 'name': 'x'},

@@ -159,18 +159,8 @@ final class RunService implements WorkflowRunsDeleter {
         ValidationFailure('Field "workspaceId" must not be blank.'),
       );
     }
-    final deletions = _deletions;
-    final deleting =
-        deletions?.runningFor(workflowId, workspaceId: workspaceId) ??
-        deletions?.runningFor(workflowId);
-    if (deleting != null) {
-      return FailureResult(
-        WorkflowDeletingFailure(
-          'Workflow "$workflowId" is being deleted.',
-          operationId: deleting.id,
-        ),
-      );
-    }
+    final deleting = _deletingFailureFor(workflowId, workspaceId);
+    if (deleting != null) return FailureResult(deleting);
     final workspaceService = _workspaces;
     if (workspaceService == null) {
       return const FailureResult(
@@ -421,10 +411,41 @@ final class RunService implements WorkflowRunsDeleter {
 
   /// Resumes an `interrupted` run from its latest checkpoint.
   ///
-  /// Returns [ConflictFailure] (`409 Conflict`) when the run is `paused`, is
-  /// already being resumed, or is in any status other than `interrupted`.
-  Future<Result<Run>> resumeRun(String id) =>
-      _resumeWithStatus(id, expectedStatus: RunStatus.interrupted);
+  /// Returns [WorkflowDeletingFailure] (`409 workflow_deleting`) while the
+  /// run's workflow is being deleted (ADR 0027), and [ConflictFailure]
+  /// (`409 Conflict`) when the run is `paused`, is already being resumed, or
+  /// is in any status other than `interrupted`.
+  Future<Result<Run>> resumeRun(String id) async {
+    final runResult = await _runs.getById(id);
+    if (runResult case FailureResult<Run>(:final failure)) {
+      return FailureResult(failure);
+    }
+    final run = runResult.valueOrNull!;
+    final workflowId = run.workflowId;
+    final deleting = workflowId == null
+        ? null
+        : _deletingFailureFor(workflowId, run.workspaceId);
+    if (deleting != null) return FailureResult(deleting);
+    return await _resumeWithStatus(id, expectedStatus: RunStatus.interrupted);
+  }
+
+  /// The refusal for a run or start of [workflowId] in [workspaceId] while
+  /// that workflow is being deleted: the workspace's operation first, then the
+  /// global one with the same id (ADR 0027). Null when nothing is deleting.
+  WorkflowDeletingFailure? _deletingFailureFor(
+    String workflowId,
+    String? workspaceId,
+  ) {
+    final deletions = _deletions;
+    final deleting =
+        deletions?.runningFor(workflowId, workspaceId: workspaceId) ??
+        deletions?.runningFor(workflowId);
+    if (deleting == null) return null;
+    return WorkflowDeletingFailure(
+      'Workflow "$workflowId" is being deleted.',
+      operationId: deleting.id,
+    );
+  }
 
   /// Resumes a `paused` run with [input] (either an [ApprovalDecisionInput]
   /// or a post-restart [HumanAnswerInput]), or queues [input] into an active
