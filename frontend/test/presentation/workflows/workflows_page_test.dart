@@ -89,8 +89,13 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
     );
   }
 
+  Result<void>? deleteOverride;
+
   @override
   Future<Result<void>> deleteWorkflow(String id, {String? workspaceId}) async {
+    if (deleteOverride case final override?) {
+      return override;
+    }
     deletedIds.add(id);
     items.removeWhere((w) => w.id == id);
     return const Success<void>(null);
@@ -251,6 +256,90 @@ void main() {
 
       expect(repo.deletedIds, <String>['wf-2']);
       expect(find.text('Lint Check'), findsNothing);
+    },
+  );
+
+  testWidgets('WorkflowsPage delete dialog says run history is deleted '
+      'and files are kept', (tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final repo = _FakeWorkflowRepository()
+      ..items.add(
+        WorkflowSummary(
+          id: 'wf-1',
+          name: 'Release Flow',
+          nodeCount: 2,
+          edgeCount: 1,
+          hasValidationErrors: false,
+          updatedAt: DateTime.utc(2026, 11, 20, 12),
+        ),
+      );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+        child: _buildRouterHost(navigatedPaths: <String>[]),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('delete_workflow_wf-1')));
+    await tester.pumpAndSettle();
+
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(WorkflowsPage)),
+    )!;
+    final message = l10n.workflowsDeleteMessage('Release Flow');
+    expect(find.text(message), findsOneWidget);
+    expect(message, contains('run history is deleted too'));
+    expect(message, contains('Files and worktrees are kept'));
+  });
+
+  testWidgets(
+    'WorkflowsPage shows the active-runs message when delete is refused',
+    (tester) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final repo = _FakeWorkflowRepository()
+        ..items.add(
+          WorkflowSummary(
+            id: 'wf-1',
+            name: 'Release Flow',
+            nodeCount: 2,
+            edgeCount: 1,
+            hasValidationErrors: false,
+            updatedAt: DateTime.utc(2026, 11, 20, 12),
+          ),
+        )
+        ..deleteOverride = const FailureResult(
+          BackendFailure(
+            'x',
+            code: ApiErrorCode.workflowHasActiveRuns,
+            statusCode: 409,
+          ),
+        );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+          child: _buildRouterHost(navigatedPaths: <String>[]),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('delete_workflow_wf-1')));
+      await tester.pumpAndSettle();
+
+      final l10n = AppLocalizations.of(
+        tester.element(find.byType(WorkflowsPage)),
+      )!;
+      await tester.tap(find.text(l10n.workflowsDeleteConfirm));
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.workflowsFailureActiveRuns), findsOneWidget);
+      expect(find.text('Release Flow'), findsOneWidget);
     },
   );
 }

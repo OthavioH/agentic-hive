@@ -109,6 +109,12 @@ final class _FakeRunRepository implements RunRepository {
 
   @override
   Future<Result<void>> delete(String id) => throw UnimplementedError();
+
+  @override
+  Future<Result<List<String>>> deleteAllOfWorkflow(
+    String workflowId, {
+    String? workspaceId,
+  }) => throw UnimplementedError();
 }
 
 final class _FakeRunEventRepository implements RunEventRepository {

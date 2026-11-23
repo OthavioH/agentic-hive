@@ -111,3 +111,21 @@ sealed class WorkflowResponse with _$WorkflowResponse {
   /// Decodes a workflow response; throws a [FormatException] on a bad shape.
   factory fromJson(JsonMap json) => parseJson(json, _$WorkflowResponseFromJson);
 }
+
+/// Response body for `DELETE /api/v1/workflows/:id`.
+@freezed
+sealed class DeleteWorkflowResponse with _$DeleteWorkflowResponse {
+  /// Creates a delete-workflow response.
+  const factory({
+    /// Id of the deleted workflow.
+    required String id,
+
+    /// Number of runs of the workflow that were deleted with it.
+    required int deletedRuns,
+  }) = _DeleteWorkflowResponse;
+
+  /// Decodes a delete-workflow response; throws a [FormatException] on a bad
+  /// shape.
+  factory fromJson(JsonMap json) =>
+      parseJson(json, _$DeleteWorkflowResponseFromJson);
+}

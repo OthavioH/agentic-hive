@@ -348,4 +348,21 @@ void main() {
       expect(WorkflowResponse.fromJson(_overTheWire(encoded)), resp);
     });
   });
+
+  group('DeleteWorkflowResponse', () {
+    test('round-trips through JSON', () {
+      const resp = DeleteWorkflowResponse(id: 'wf-1', deletedRuns: 2);
+      final encoded = _overTheWire(resp.toJson());
+
+      expect(encoded, {'id': 'wf-1', 'deletedRuns': 2});
+      expect(DeleteWorkflowResponse.fromJson(encoded), resp);
+    });
+
+    test('throws FormatException when deletedRuns is missing', () {
+      expect(
+        () => DeleteWorkflowResponse.fromJson({'id': 'wf-1'}),
+        throwsA(isA<FormatException>()),
+      );
+    });
+  });
 }

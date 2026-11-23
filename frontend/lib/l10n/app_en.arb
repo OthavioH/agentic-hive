@@ -838,9 +838,9 @@
   "@workflowsDeleteTitle": {
     "description": "Title of the delete workflow confirmation dialog."
   },
-  "workflowsDeleteMessage": "Delete \"{name}\"? This action cannot be undone.",
+  "workflowsDeleteMessage": "Delete \"{name}\"? Its run history is deleted too. Files and worktrees are kept.",
   "@workflowsDeleteMessage": {
-    "description": "Message in the delete workflow confirmation dialog.",
+    "description": "Message in the delete workflow confirmation dialog. Says the run history is deleted and files and worktrees are kept.",
     "placeholders": {
       "name": {
         "type": "String"
@@ -1180,6 +1180,10 @@
   "workflowsFailureBackend": "The local backend rejected the workflow request.",
   "@workflowsFailureBackend": {
     "description": "Localized error message when a workflow operation fails with a BackendFailure."
+  },
+  "workflowsFailureActiveRuns": "This workflow has active runs. Stop them in Runs, then delete it again.",
+  "@workflowsFailureActiveRuns": {
+    "description": "Error shown when deleting a workflow is refused because some of its runs are running, paused or cancelling."
   },
   "workflowsFailureUnexpected": "An unexpected error occurred while processing the workflow.",
   "@workflowsFailureUnexpected": {

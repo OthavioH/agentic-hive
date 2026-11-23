@@ -2,6 +2,7 @@ import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_revision.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_runs_deleter.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workspace_workflow_repository.dart';
@@ -248,7 +249,7 @@ void main() {
 
     expect(
       await service.deleteWorkflow('deploy', workspaceId: 'ws-1'),
-      isA<Success<void>>(),
+      isA<Success<DeleteWorkflowResponse>>(),
     );
     expect(fileRepository.store, isEmpty);
     expect(globalRepository.store, hasLength(1));
@@ -320,4 +321,113 @@ void main() {
     expect(result.failureOrNull, isA<StaleRevisionFailure>());
     expect(fileRepository.store, hasLength(1));
   });
+
+  group('deleteWorkflow cascades to runs', () {
+    late _RecordingRunsDeleter deleter;
+    late WorkflowService cascadingService;
+
+    setUp(() {
+      deleter = _RecordingRunsDeleter();
+      cascadingService = WorkflowService(
+        repository: globalRepository,
+        validator: const WorkflowValidator(),
+        workspaceWorkflows: fileRepository,
+        workspaces: workspaces,
+        runsDeleter: deleter,
+        generateId: () => 'g1',
+        now: () => now,
+      );
+    });
+
+    test(
+      'global: deletes runs then the workflow and reports deletedRuns',
+      () async {
+        await cascadingService.createWorkflow(
+          const CreateWorkflowRequest(name: 'Global'),
+        );
+        deleter.result = const Success(3);
+
+        final result = await cascadingService.deleteWorkflow('g1');
+
+        expect(
+          result.valueOrNull,
+          const DeleteWorkflowResponse(id: 'g1', deletedRuns: 3),
+        );
+        expect(deleter.calls, [('g1', null)]);
+        expect(globalRepository.store.containsKey('g1'), isFalse);
+      },
+    );
+
+    test('workspace: passes workspaceId to the deleter', () async {
+      await cascadingService.createWorkflow(
+        const CreateWorkflowRequest(name: 'Review', workspaceId: 'ws-1'),
+      );
+      deleter.result = const Success(2);
+
+      final result = await cascadingService.deleteWorkflow(
+        'review',
+        workspaceId: 'ws-1',
+      );
+
+      expect(
+        result.valueOrNull,
+        const DeleteWorkflowResponse(id: 'review', deletedRuns: 2),
+      );
+      expect(deleter.calls, [('review', 'ws-1')]);
+      expect(fileRepository.store, isEmpty);
+    });
+
+    test('active runs: returns the failure and keeps the workflow', () async {
+      await cascadingService.createWorkflow(
+        const CreateWorkflowRequest(name: 'Global'),
+      );
+      const failure = WorkflowHasActiveRunsFailure(
+        'x',
+        activeRuns: {'r1': RunStatus.running},
+      );
+      deleter.result = const FailureResult(failure);
+
+      final result = await cascadingService.deleteWorkflow('g1');
+
+      expect(result.failureOrNull, same(failure));
+      expect(globalRepository.store.containsKey('g1'), isTrue);
+    });
+
+    test('missing workflow: 404 and the deleter is not called', () async {
+      final result = await cascadingService.deleteWorkflow('missing');
+
+      expect(result.failureOrNull, isA<NotFoundFailure>());
+      expect(deleter.calls, isEmpty);
+    });
+
+    test(
+      'without a deleter: deletes the workflow and reports 0 runs',
+      () async {
+        await service.createWorkflow(
+          const CreateWorkflowRequest(name: 'Global'),
+        );
+
+        final result = await service.deleteWorkflow('wf-1');
+
+        expect(
+          result.valueOrNull,
+          const DeleteWorkflowResponse(id: 'wf-1', deletedRuns: 0),
+        );
+      },
+    );
+  });
+}
+
+final class _RecordingRunsDeleter implements WorkflowRunsDeleter {
+  Result<int> result = const Success(0);
+  final List<(String, String?)> calls = <(String, String?)>[];
+
+  @override
+  Future<Result<int>> deleteRunsOfWorkflow(
+    String workflowId, {
+    String? workspaceId,
+  }) async {
+    calls.add((workflowId, workspaceId));
+    return result;
+  }
 }

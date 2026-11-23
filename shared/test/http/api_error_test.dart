@@ -98,5 +98,9 @@ void main() {
     test('revisionConflict code is revision_conflict', () {
       expect(ApiErrorCode.revisionConflict, 'revision_conflict');
     });
+
+    test('workflowHasActiveRuns code is workflow_has_active_runs', () {
+      expect(ApiErrorCode.workflowHasActiveRuns, 'workflow_has_active_runs');
+    });
   });
 }

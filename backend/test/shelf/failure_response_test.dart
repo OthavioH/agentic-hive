@@ -124,6 +124,21 @@ void main() {
         ),
       );
     });
+
+    test('maps WorkflowHasActiveRunsFailure to 409 workflow_has_active_runs '
+        'with run details', () {
+      final mapped = mapFailureToHttp(
+        const WorkflowHasActiveRunsFailure(
+          'msg',
+          activeRuns: {'r1': RunStatus.running, 'r2': RunStatus.paused},
+        ),
+      );
+
+      expect(mapped.statusCode, 409);
+      expect(mapped.error.code, ApiErrorCode.workflowHasActiveRuns);
+      expect(mapped.error.message, 'msg');
+      expect(mapped.error.details, {'r1': 'running', 'r2': 'paused'});
+    });
   });
 
   group('failureResponse', () {

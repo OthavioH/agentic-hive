@@ -11,6 +11,7 @@ import 'package:agentic_hive_backend/src/domain/runs/run_log_store.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
 import 'package:agentic_hive_backend/src/domain/settings/execution_settings_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_runs_deleter.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workspace_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/shadow_snapshot_service.dart';
@@ -26,7 +27,7 @@ import 'package:path/path.dart' as p;
 
 /// Domain service / coordinator for starting, querying, resuming, cancelling,
 /// and deleting [Run]s, [Checkpoint]s, [RunEvent]s, and node logs.
-final class RunService {
+final class RunService implements WorkflowRunsDeleter {
   /// Creates a run service.
   new({
     required this._runs,
@@ -782,6 +783,33 @@ final class RunService {
       return deleteResult;
     }
 
+    await _cleanUpRunArtifacts(id);
+    return deleteResult;
+  }
+
+  /// Deletes all runs of [workflowId] in [workspaceId]'s scope (`null` =
+  /// global workflow: runs in any workspace) and cleans their shadow
+  /// repositories and logs. Worktrees are kept (ADR 0025).
+  @override
+  Future<Result<int>> deleteRunsOfWorkflow(
+    String workflowId, {
+    String? workspaceId,
+  }) async {
+    final deleted = await _runs.deleteAllOfWorkflow(
+      workflowId,
+      workspaceId: workspaceId,
+    );
+    if (deleted case FailureResult<List<String>>(:final failure)) {
+      return FailureResult(failure);
+    }
+    final ids = deleted.valueOrNull!;
+    for (final id in ids) {
+      await _cleanUpRunArtifacts(id);
+    }
+    return Success(ids.length);
+  }
+
+  Future<void> _cleanUpRunArtifacts(String id) async {
     if (_snapshots != null) {
       _snapshots.configureRunExclusions(id, const []);
       await _snapshots.deleteShadowRepository(id);
@@ -789,6 +817,5 @@ final class RunService {
     if (_logStore != null) {
       await _logStore.deleteRunLogs(id);
     }
-    return deleteResult;
   }
 }
