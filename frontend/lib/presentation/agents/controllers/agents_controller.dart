@@ -35,7 +35,12 @@ class AgentsController extends _$AgentsController {
 
   @override
   AgentsState build() {
-    // Switching workspace rebuilds the controller, which reloads the list.
+    // Switching workspace or Global entry rebuilds the controller and reloads.
+    final isGlobalSelected = ref.watch(
+      workspaceRegistryControllerProvider.select(
+        (value) => value.value?.isGlobalSelected ?? false,
+      ),
+    );
     ref.watch(
       workspaceRegistryControllerProvider.select(
         (value) => value.value?.currentWorkspaceId,
@@ -51,7 +56,7 @@ class AgentsController extends _$AgentsController {
     });
 
     unawaited(Future.microtask(loadAgents));
-    return const AgentsState();
+    return AgentsState(globalOnly: isGlobalSelected);
   }
 
   /// Loads or refreshes the list of agents from the backend.
@@ -75,6 +80,9 @@ class AgentsController extends _$AgentsController {
     if (state.globalOnly == globalOnly) return;
     state = state.copyWith(globalOnly: globalOnly);
     clearSelection();
+    if (globalOnly) {
+      ref.read(workspaceRegistryControllerProvider.notifier).selectGlobal();
+    }
     await loadAgents();
   }
 

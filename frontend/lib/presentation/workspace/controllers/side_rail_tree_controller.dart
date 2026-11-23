@@ -139,6 +139,7 @@ final class SideRailTreeState {
     required this.workspaces,
     required this.currentWorkspaceId,
     required this.pendingPauseRunIds,
+    this.isGlobalSelected = false,
     this.isRefreshing = false,
     this.refreshFailure,
   });
@@ -152,6 +153,9 @@ final class SideRailTreeState {
   /// Set of run IDs that currently have at least one pending pause.
   final Set<String> pendingPauseRunIds;
 
+  /// Whether the fixed Global entry is selected.
+  final bool isGlobalSelected;
+
   /// Whether a background refresh is currently running.
   final bool isRefreshing;
 
@@ -163,6 +167,7 @@ final class SideRailTreeState {
     List<SideRailWorkspaceNode>? workspaces,
     String? Function()? currentWorkspaceId,
     Set<String>? pendingPauseRunIds,
+    bool? isGlobalSelected,
     bool? isRefreshing,
     Failure? Function()? refreshFailure,
   }) => SideRailTreeState(
@@ -171,6 +176,7 @@ final class SideRailTreeState {
         ? currentWorkspaceId()
         : this.currentWorkspaceId,
     pendingPauseRunIds: pendingPauseRunIds ?? this.pendingPauseRunIds,
+    isGlobalSelected: isGlobalSelected ?? this.isGlobalSelected,
     isRefreshing: isRefreshing ?? this.isRefreshing,
     refreshFailure: refreshFailure != null
         ? refreshFailure()
@@ -302,8 +308,11 @@ class SideRailTreeController extends _$SideRailTreeController {
       final loaded = await _loadTree(
         WorkspaceRegistryState(
           workspaces: workspaces,
-          currentWorkspaceId:
-              registry?.currentWorkspaceId ?? current.currentWorkspaceId,
+          currentWorkspaceId: current.isGlobalSelected
+              ? null
+              : (registry?.currentWorkspaceId ?? current.currentWorkspaceId),
+          isGlobalSelected:
+              registry?.isGlobalSelected ?? current.isGlobalSelected,
         ),
       );
       if (!ref.mounted) return;
@@ -320,6 +329,10 @@ class SideRailTreeController extends _$SideRailTreeController {
   Future<void> selectWorkspace(String workspaceId) => ref
       .read(workspaceRegistryControllerProvider.notifier)
       .selectWorkspace(workspaceId);
+
+  /// Selects the fixed Global entry so pages manage only global items.
+  void selectGlobal() =>
+      ref.read(workspaceRegistryControllerProvider.notifier).selectGlobal();
 
   /// Removes non-primary worktree [worktreeId] of [workspaceId] and refreshes
   /// the tree on success.
@@ -499,6 +512,7 @@ class SideRailTreeController extends _$SideRailTreeController {
       workspaces: nodes,
       currentWorkspaceId: registryState.currentWorkspaceId,
       pendingPauseRunIds: pendingPauseRunIds,
+      isGlobalSelected: registryState.isGlobalSelected,
     );
   }
 

@@ -583,17 +583,36 @@ void main() {
           .removeWorktree('ws-1', 'feat-a');
 
       expect(result.isSuccess, isTrue);
-      expect(workspaceRepo.removeWorktreeCalls, <({
-        String workspaceId,
-        String worktreeId,
-        bool force,
-      })>[
-        (workspaceId: 'ws-1', worktreeId: 'feat-a', force: false),
-      ]);
+      expect(
+        workspaceRepo.removeWorktreeCalls,
+        <({String workspaceId, String worktreeId, bool force})>[
+          (workspaceId: 'ws-1', worktreeId: 'feat-a', force: false),
+        ],
+      );
       final updated = await container.read(
         sideRailTreeControllerProvider.future,
       );
       expect(updated.workspaces.single.worktrees, hasLength(1));
+    });
+  });
+
+  group('selectGlobal', () {
+    test('selectGlobal sets isGlobalSelected=true and clears '
+        'currentWorkspaceId', () async {
+      workspaceRepo.workspaces = <Workspace>[makeWorkspace()];
+      final container = createContainer();
+      final sub = container.listen(sideRailTreeControllerProvider, (_, _) {});
+      addTearDown(sub.close);
+      final initial = await container.read(
+        sideRailTreeControllerProvider.future,
+      );
+      expect(initial.isGlobalSelected, isFalse);
+      expect(initial.currentWorkspaceId, 'ws-1');
+
+      container.read(sideRailTreeControllerProvider.notifier).selectGlobal();
+      final after = await container.read(sideRailTreeControllerProvider.future);
+      expect(after.isGlobalSelected, isTrue);
+      expect(after.currentWorkspaceId, isNull);
     });
   });
 }

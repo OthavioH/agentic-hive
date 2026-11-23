@@ -110,11 +110,7 @@ class SideRailTree extends ConsumerWidget {
         final message = failure.message.isNotEmpty
             ? failure.message
             : l10n.worktreeRemoveError;
-        HiveToast.show(
-          context,
-          tone: HiveToastTone.danger,
-          message: message,
-        );
+        HiveToast.show(context, tone: HiveToastTone.danger, message: message);
     }
   }
 
@@ -182,6 +178,7 @@ class SideRailTree extends ConsumerWidget {
                     currentLocation: currentLocation,
                     onSelectWorkspace: (id) =>
                         unawaited(controller.selectWorkspace(id)),
+                    onSelectGlobal: controller.selectGlobal,
                     onToggleWorkspace: controller.toggleWorkspaceExpanded,
                     onToggleWorktree: controller.toggleWorktreeExpanded,
                     onToggleShowAllActive: controller.toggleShowAllActive,
@@ -207,6 +204,7 @@ class _SideRailTreeContent extends ConsumerWidget {
     required this.state,
     required this.currentLocation,
     required this.onSelectWorkspace,
+    required this.onSelectGlobal,
     required this.onToggleWorkspace,
     required this.onToggleWorktree,
     required this.onToggleShowAllActive,
@@ -219,6 +217,7 @@ class _SideRailTreeContent extends ConsumerWidget {
   final SideRailTreeState state;
   final String currentLocation;
   final ValueChanged<String> onSelectWorkspace;
+  final VoidCallback onSelectGlobal;
   final ValueChanged<String> onToggleWorkspace;
   final void Function(String workspaceId, String worktreeId) onToggleWorktree;
   final void Function(String workspaceId, String worktreeId)
@@ -244,14 +243,6 @@ class _SideRailTreeContent extends ConsumerWidget {
               ref.read(sideRailTreeClockProvider)()
         : ref.read(sideRailTreeClockProvider)();
 
-    if (state.workspaces.isEmpty) {
-      return HiveEmptyState(
-        icon: HiveIcons.folder,
-        title: l10n.sideRailTreeEmptyTitle,
-        message: l10n.sideRailTreeEmptyMessage,
-      );
-    }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -263,47 +254,69 @@ class _SideRailTreeContent extends ConsumerWidget {
           ),
           SizedBox(height: spacing.space2),
         ],
-        Expanded(
-          child: ListView(
-            children: <Widget>[
-              for (final wsNode in state.workspaces) ...<Widget>[
-                HiveTreeItem(
-                  key: Key('tree_workspace_${wsNode.workspace.id}'),
-                  label: wsNode.workspace.name,
-                  leading: HiveIcon(
-                    HiveIcons.folder,
-                    size: spacing.space2,
-                    color: colors.onSurfaceMuted,
-                  ),
-                  expanded: wsNode.expanded,
-                  expandSemanticLabel: wsNode.expanded
-                      ? l10n.sideRailTreeCollapseWorkspace(
-                          wsNode.workspace.name,
-                        )
-                      : l10n.sideRailTreeExpandWorkspace(wsNode.workspace.name),
-                  onToggleExpand: () => onToggleWorkspace(wsNode.workspace.id),
-                  selected: wsNode.workspace.id == state.currentWorkspaceId,
-                  highlighted: wsNode.pendingPauseCount > 0,
-                  trailing: _WorkspaceTrailingBadges(
-                    activeRunCount: wsNode.activeRunCount,
-                    pendingPauseCount: wsNode.pendingPauseCount,
-                  ),
-                  onPressed: () => onSelectWorkspace(wsNode.workspace.id),
-                ),
-                if (wsNode.expanded)
-                  for (final wtNode in wsNode.worktrees)
-                    ..._buildWorktreeSection(
-                      context,
-                      l10n,
-                      spacing,
-                      colors,
-                      wsNode.workspace,
-                      wtNode,
-                      now,
-                    ),
-              ],
-            ],
+        HiveTreeItem(
+          key: const Key('tree_global_entry'),
+          label: l10n.sideRailTreeGlobalLabel,
+          leading: HiveIcon(
+            HiveIcons.settings,
+            size: spacing.space2,
+            color: colors.onSurfaceMuted,
           ),
+          selected: state.isGlobalSelected,
+          onPressed: onSelectGlobal,
+        ),
+        SizedBox(height: spacing.space1),
+        Expanded(
+          child: state.workspaces.isEmpty
+              ? HiveEmptyState(
+                  icon: HiveIcons.folder,
+                  title: l10n.sideRailTreeEmptyTitle,
+                  message: l10n.sideRailTreeEmptyMessage,
+                )
+              : ListView(
+                  children: <Widget>[
+                    for (final wsNode in state.workspaces) ...<Widget>[
+                      HiveTreeItem(
+                        key: Key('tree_workspace_${wsNode.workspace.id}'),
+                        label: wsNode.workspace.name,
+                        leading: HiveIcon(
+                          HiveIcons.folder,
+                          size: spacing.space2,
+                          color: colors.onSurfaceMuted,
+                        ),
+                        expanded: wsNode.expanded,
+                        expandSemanticLabel: wsNode.expanded
+                            ? l10n.sideRailTreeCollapseWorkspace(
+                                wsNode.workspace.name,
+                              )
+                            : l10n.sideRailTreeExpandWorkspace(
+                                wsNode.workspace.name,
+                              ),
+                        onToggleExpand: () =>
+                            onToggleWorkspace(wsNode.workspace.id),
+                        selected:
+                            wsNode.workspace.id == state.currentWorkspaceId,
+                        highlighted: wsNode.pendingPauseCount > 0,
+                        trailing: _WorkspaceTrailingBadges(
+                          activeRunCount: wsNode.activeRunCount,
+                          pendingPauseCount: wsNode.pendingPauseCount,
+                        ),
+                        onPressed: () => onSelectWorkspace(wsNode.workspace.id),
+                      ),
+                      if (wsNode.expanded)
+                        for (final wtNode in wsNode.worktrees)
+                          ..._buildWorktreeSection(
+                            context,
+                            l10n,
+                            spacing,
+                            colors,
+                            wsNode.workspace,
+                            wtNode,
+                            now,
+                          ),
+                    ],
+                  ],
+                ),
         ),
       ],
     );

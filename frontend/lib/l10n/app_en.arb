@@ -3100,5 +3100,9 @@
   "runsGlobalEmptyDescription": "Select a workspace in the side rail to view its runs. Only workflows and agents can be global.",
   "@runsGlobalEmptyDescription": {
     "description": "Empty state description on the Runs page when Global is selected."
+  },
+  "sideRailTreeGlobalLabel": "Global",
+  "@sideRailTreeGlobalLabel": {
+    "description": "Label for the fixed Global entry in the side rail tree."
   }
 }

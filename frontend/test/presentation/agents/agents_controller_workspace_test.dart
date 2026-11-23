@@ -322,4 +322,35 @@ void main() {
 
     expect(agents.listCalls.last, 'ws-2');
   });
+
+  test('selectGlobal reconciles AgentsController to globalOnly=true', () async {
+    agents.global['planner'] = _detail('planner', AgentScope.global);
+    agents.workspace['only-ws'] = _detail('only-ws', AgentScope.workspace);
+    final container = await boot();
+
+    container.read(workspaceRegistryControllerProvider.notifier).selectGlobal();
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+
+    final state = container.read(agentsControllerProvider);
+    expect(state.globalOnly, isTrue);
+    expect(agents.listCalls.last, isNull);
+    expect(state.agents.value!.map((a) => a.id), ['planner']);
+  });
+
+  test(
+    'setGlobalOnly(true) reconciles WorkspaceRegistryController to Global',
+    () async {
+      final container = await boot();
+      await container
+          .read(agentsControllerProvider.notifier)
+          .setGlobalOnly(true);
+
+      final registry = container
+          .read(workspaceRegistryControllerProvider)
+          .requireValue;
+      expect(registry.isGlobalSelected, isTrue);
+      expect(registry.currentWorkspaceId, isNull);
+    },
+  );
 }
