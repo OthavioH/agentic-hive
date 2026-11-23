@@ -1,4 +1,5 @@
 import 'package:agentic_hive_backend/src/api/agents/agents_handler.dart';
+import 'package:agentic_hive_backend/src/api/agents/agents_migration_handler.dart';
 import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
 import 'package:agentic_hive_backend/src/api/overview/overview_handler.dart';
 import 'package:agentic_hive_backend/src/api/pauses/pauses_handler.dart';
@@ -33,6 +34,7 @@ Handler buildApiHandler({
   required ShutdownHandler shutdownHandler,
   required Handler webSocketHandler,
   AgentsHandler? agentsHandler,
+  AgentsMigrationHandler? agentsMigrationHandler,
   HarnessesHandler? harnessesHandler,
   WorkflowHandler? workflowHandler,
   ResultContractHandler? resultContractHandler,
@@ -107,6 +109,15 @@ Handler buildApiHandler({
       ..post('/api/v1/harnesses/refresh', harnessesHandler.refreshAll)
       ..post('/api/v1/harnesses/<id>/refresh', harnessesHandler.refreshOne)
       ..post('/api/v1/harnesses/<id>/mcp/install', harnessesHandler.installMcp);
+  }
+
+  if (agentsMigrationHandler != null) {
+    router
+      ..get('/api/v1/agent-library/migration', agentsMigrationHandler.get)
+      ..post(
+        '/api/v1/agent-library/migration/dismiss',
+        agentsMigrationHandler.dismiss,
+      );
   }
 
   if (agentsHandler != null) {

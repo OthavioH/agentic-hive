@@ -47,7 +47,7 @@ final class Backend {
     await Directory(config.dataDir).create(recursive: true);
     await paths.restrictToOwner(config.dataDir);
     await Directory(config.agentsDir).create(recursive: true);
-    await AgentsDirectoryMigration(
+    final agentsMigration = await AgentsDirectoryMigration(
       legacyDir: config.legacyAgentsDir,
       targetDir: config.agentsDir,
     ).run();
@@ -68,6 +68,7 @@ final class Backend {
         startedAt: startedAt,
         onShutdown: backend.stop,
         consoleOut: consoleOut,
+        agentsMigrationConflicts: agentsMigration.conflicts,
       );
       await container<SettingsService>().applyPersistedSettings();
       final recovery = await container<RunRecoveryService>()
