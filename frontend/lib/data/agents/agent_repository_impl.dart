@@ -13,26 +13,29 @@ final class AgentRepositoryImpl implements AgentRepository {
   final Stream<AgentsChangedPayload> _changesStream;
 
   @override
-  Future<Result<List<AgentSummary>>> listAgents() =>
-      _remoteDataSource.listAgents();
+  Future<Result<List<AgentSummary>>> listAgents({String? workspaceId}) =>
+      _remoteDataSource.listAgents(workspaceId: workspaceId);
 
   @override
-  Future<Result<AgentDetail>> getAgent(String id) =>
-      _remoteDataSource.getAgent(id);
+  Future<Result<AgentDetail>> getAgent(String id, {String? workspaceId}) =>
+      _remoteDataSource.getAgent(id, workspaceId: workspaceId);
 
   @override
-  Future<Result<AgentDetail>> createAgent(CreateAgentRequest request) =>
-      _remoteDataSource.createAgent(request);
+  Future<Result<AgentDetail>> createAgent(
+    CreateAgentRequest request, {
+    String? workspaceId,
+  }) => _remoteDataSource.createAgent(request, workspaceId: workspaceId);
 
   @override
   Future<Result<AgentDetail>> updateAgent(
     String id,
-    UpdateAgentRequest request,
-  ) => _remoteDataSource.updateAgent(id, request);
+    UpdateAgentRequest request, {
+    String? workspaceId,
+  }) => _remoteDataSource.updateAgent(id, request, workspaceId: workspaceId);
 
   @override
-  Future<Result<void>> deleteAgent(String id) =>
-      _remoteDataSource.deleteAgent(id);
+  Future<Result<void>> deleteAgent(String id, {String? workspaceId}) =>
+      _remoteDataSource.deleteAgent(id, workspaceId: workspaceId);
 
   @override
   Stream<AgentsChangedPayload> watchAgentChanges() => _changesStream;

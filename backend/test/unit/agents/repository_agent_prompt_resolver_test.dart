@@ -48,6 +48,7 @@ AgentDetail _detail({
 );
 
 void main() {
+  _workspaceScopedTests();
   late _FakeAgentRepository repository;
   late RepositoryAgentPromptResolver resolver;
 
@@ -146,5 +147,87 @@ void main() {
         expect(resolved.deniedTools, const <String>['Bash(rm *)']);
       },
     );
+  });
+}
+
+void _workspaceScopedTests() {
+  group('RepositoryAgentPromptResolver with a workspace root', () {
+    late _FakeAgentRepository global;
+    late _FakeAgentRepository workspace;
+    late RepositoryAgentPromptResolver resolver;
+    String? requestedRoot;
+
+    setUp(() {
+      global = _FakeAgentRepository();
+      workspace = _FakeAgentRepository();
+      requestedRoot = null;
+      resolver = RepositoryAgentPromptResolver(
+        global,
+        workspaceAgents: (root) {
+          requestedRoot = root;
+          return workspace;
+        },
+      );
+    });
+
+    test(
+      'workspace agent overrides the global agent with the same id',
+      () async {
+        global.responses['reviewer'] = Success(_detail(prompt: 'global'));
+        workspace.responses['reviewer'] = Success(_detail(prompt: 'workspace'));
+
+        final result = await resolver.resolvePrompt(
+          'reviewer',
+          workspaceRoot: '/repo',
+        );
+
+        expect(result.valueOrNull, 'workspace');
+        expect(requestedRoot, '/repo');
+      },
+    );
+
+    test(
+      'falls back to the global agent when the workspace has none',
+      () async {
+        global.responses['reviewer'] = Success(_detail(prompt: 'global'));
+
+        final result = await resolver.resolveAgent(
+          'reviewer',
+          workspaceRoot: '/repo',
+        );
+
+        expect(result.valueOrNull!.prompt, 'global');
+      },
+    );
+
+    test(
+      'a broken workspace override is an error, not a silent fallback',
+      () async {
+        global.responses['reviewer'] = Success(_detail(prompt: 'global'));
+        workspace.responses['reviewer'] = Success(
+          _detail(parseError: 'bad yaml', rawContent: '---'),
+        );
+
+        final result = await resolver.resolvePrompt(
+          'reviewer',
+          workspaceRoot: '/repo',
+        );
+
+        expect(
+          (result as FailureResult<String>).failure,
+          isA<ValidationFailure>(),
+        );
+      },
+    );
+
+    test('without a workspace root only the global library is used', () async {
+      global.responses['reviewer'] = Success(_detail(prompt: 'global'));
+      workspace.responses['reviewer'] = Success(_detail(prompt: 'workspace'));
+
+      final result = await resolver.resolvePrompt('reviewer');
+
+      expect(result.valueOrNull, 'global');
+      expect(requestedRoot, isNull);
+    });
   });
 }

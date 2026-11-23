@@ -13,9 +13,16 @@ final class AgentsHandler {
 
   final AgentService _service;
 
-  /// `GET /api/v1/agents` — lists all `.md` files in the agents library.
+  /// The `workspaceId` query parameter, or `null` for the global library.
+  String? _workspaceId(Request request) {
+    final value = request.url.queryParameters['workspaceId']?.trim();
+    return value == null || value.isEmpty ? null : value;
+  }
+
+  /// `GET /api/v1/agents` — lists the global agents, or with `?workspaceId=`
+  /// the workspace agents plus the global ones (ADR 0022).
   Future<Response> list(Request request) async {
-    final result = await _service.list();
+    final result = await _service.list(workspaceId: _workspaceId(request));
     return result.fold<Response>(
       onSuccess: (agents) =>
           jsonResponse(200, AgentListResponse(agents: agents)),
@@ -34,7 +41,10 @@ final class AgentsHandler {
         message: 'Invalid URL-encoded agent id.',
       );
     }
-    final result = await _service.getById(decodedId);
+    final result = await _service.getById(
+      decodedId,
+      workspaceId: _workspaceId(request),
+    );
     return result.fold<Response>(
       onSuccess: (detail) => jsonResponse(200, detail),
       onFailure: (failure) => failureResponse(request, failure),
@@ -58,7 +68,10 @@ final class AgentsHandler {
       );
     }
 
-    final result = await _service.create(body);
+    final result = await _service.create(
+      body,
+      workspaceId: _workspaceId(request),
+    );
     return result.fold<Response>(
       onSuccess: (detail) => jsonResponse(201, detail),
       onFailure: (failure) => failureResponse(request, failure),
@@ -91,7 +104,11 @@ final class AgentsHandler {
       );
     }
 
-    final result = await _service.update(decodedId, body);
+    final result = await _service.update(
+      decodedId,
+      body,
+      workspaceId: _workspaceId(request),
+    );
     return result.fold<Response>(
       onSuccess: (detail) => jsonResponse(200, detail),
       onFailure: (failure) => failureResponse(request, failure),
@@ -109,7 +126,10 @@ final class AgentsHandler {
         message: 'Invalid URL-encoded agent id.',
       );
     }
-    final result = await _service.delete(decodedId);
+    final result = await _service.delete(
+      decodedId,
+      workspaceId: _workspaceId(request),
+    );
     return result.fold<Response>(
       onSuccess: (_) => jsonResponse(200, {'id': decodedId, 'deleted': true}),
       onFailure: (failure) => failureResponse(request, failure),

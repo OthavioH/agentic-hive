@@ -323,11 +323,19 @@ final class ResolvedAgent {
 /// nodes to F2's concrete agent repository.
 abstract interface class AgentPromptResolver {
   /// Resolves the prompt for [agentId], or returns `NotFoundFailure`.
-  Future<Result<String>> resolvePrompt(String agentId);
+  ///
+  /// With a [workspaceRoot], `<root>/.agents/agents` is searched first and the
+  /// global library second (ADR 0022).
+  Future<Result<String>> resolvePrompt(String agentId, {String? workspaceRoot});
 
   /// Resolves the prompt and tool permissions for [agentId], or returns
   /// `NotFoundFailure`.
-  Future<Result<ResolvedAgent>> resolveAgent(String agentId);
+  ///
+  /// [workspaceRoot] has the same meaning as in [resolvePrompt].
+  Future<Result<ResolvedAgent>> resolveAgent(
+    String agentId, {
+    String? workspaceRoot,
+  });
 }
 
 /// Port providing the OS-appropriate default interactive shell executable

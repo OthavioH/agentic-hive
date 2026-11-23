@@ -211,6 +211,7 @@ abstract final class AgentMarkdownCodec {
     tags: detail.tags,
     contentHash: detail.contentHash,
     updatedAt: detail.updatedAt,
+    scope: detail.scope,
     parseError: detail.parseError,
   );
 }

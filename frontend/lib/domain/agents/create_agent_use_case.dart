@@ -9,7 +9,10 @@ final class CreateAgentUseCase {
 
   final AgentRepository _repository;
 
-  /// Persists a new agent described by [request].
-  Future<Result<AgentDetail>> call(CreateAgentRequest request) =>
-      _repository.createAgent(request);
+  /// Persists a new agent described by [request], in the workspace folder
+  /// when [workspaceId] is set and in the global library otherwise.
+  Future<Result<AgentDetail>> call(
+    CreateAgentRequest request, {
+    String? workspaceId,
+  }) => _repository.createAgent(request, workspaceId: workspaceId);
 }

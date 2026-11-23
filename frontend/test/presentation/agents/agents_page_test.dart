@@ -27,24 +27,25 @@ final class _FakeAgentRepository implements AgentRepository {
   bool triggerConflictOnNextUpdate = false;
 
   @override
-  Future<Result<List<AgentSummary>>> listAgents() async => Success(
-    _store.values
-        .map(
-          (d) => AgentSummary(
-            id: d.id,
-            name: d.name,
-            description: d.description,
-            tags: d.tags,
-            contentHash: d.contentHash,
-            updatedAt: d.updatedAt,
-            parseError: d.parseError,
-          ),
-        )
-        .toList(),
-  );
+  Future<Result<List<AgentSummary>>> listAgents({String? workspaceId}) async =>
+      Success(
+        _store.values
+            .map(
+              (d) => AgentSummary(
+                id: d.id,
+                name: d.name,
+                description: d.description,
+                tags: d.tags,
+                contentHash: d.contentHash,
+                updatedAt: d.updatedAt,
+                parseError: d.parseError,
+              ),
+            )
+            .toList(),
+      );
 
   @override
-  Future<Result<AgentDetail>> getAgent(String id) async {
+  Future<Result<AgentDetail>> getAgent(String id, {String? workspaceId}) async {
     final found = _store[id];
     if (found == null) {
       return const FailureResult(NotFoundFailure('Not found'));
@@ -53,7 +54,10 @@ final class _FakeAgentRepository implements AgentRepository {
   }
 
   @override
-  Future<Result<AgentDetail>> createAgent(CreateAgentRequest request) async {
+  Future<Result<AgentDetail>> createAgent(
+    CreateAgentRequest request, {
+    String? workspaceId,
+  }) async {
     final detail = AgentDetail(
       id: request.id,
       name: request.name,
@@ -74,8 +78,9 @@ final class _FakeAgentRepository implements AgentRepository {
   @override
   Future<Result<AgentDetail>> updateAgent(
     String id,
-    UpdateAgentRequest request,
-  ) async {
+    UpdateAgentRequest request, {
+    String? workspaceId,
+  }) async {
     if (triggerConflictOnNextUpdate) {
       triggerConflictOnNextUpdate = false;
       return const FailureResult(
@@ -103,7 +108,7 @@ final class _FakeAgentRepository implements AgentRepository {
   }
 
   @override
-  Future<Result<void>> deleteAgent(String id) async {
+  Future<Result<void>> deleteAgent(String id, {String? workspaceId}) async {
     _store.remove(id);
     return const Success(null);
   }

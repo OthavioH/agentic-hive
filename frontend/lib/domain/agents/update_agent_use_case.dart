@@ -13,5 +13,6 @@ final class UpdateAgentUseCase {
   Future<Result<AgentDetail>> call({
     required String id,
     required UpdateAgentRequest request,
-  }) => _repository.updateAgent(id, request);
+    String? workspaceId,
+  }) => _repository.updateAgent(id, request, workspaceId: workspaceId);
 }

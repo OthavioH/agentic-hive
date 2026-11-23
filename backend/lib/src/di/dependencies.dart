@@ -16,7 +16,9 @@ import 'package:agentic_hive_backend/src/config/app_config.dart';
 import 'package:agentic_hive_backend/src/config/platform_paths.dart';
 import 'package:agentic_hive_backend/src/data/agents/agent_directory_watcher.dart';
 import 'package:agentic_hive_backend/src/data/agents/local_agent_repository.dart';
+import 'package:agentic_hive_backend/src/data/agents/local_workspace_agent_repositories.dart';
 import 'package:agentic_hive_backend/src/data/agents/repository_agent_prompt_resolver.dart';
+import 'package:agentic_hive_backend/src/data/agents/workspace_agent_watchers.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/antigravity_mcp_installer.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/claude_code_mcp_installer.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/codex_mcp_installer.dart';
@@ -48,6 +50,7 @@ import 'package:agentic_hive_backend/src/db/database_health_check.dart';
 import 'package:agentic_hive_backend/src/db/metadata_repository.dart';
 import 'package:agentic_hive_backend/src/domain/agents/agent_repository.dart';
 import 'package:agentic_hive_backend/src/domain/agents/agent_service.dart';
+import 'package:agentic_hive_backend/src/domain/agents/workspace_agent_repositories.dart';
 import 'package:agentic_hive_backend/src/domain/engine/graph_engine.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/executable_locator.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_detector.dart';
@@ -271,8 +274,17 @@ Future<void> registerDependencies(
       ),
     )
     ..registerSingleton<AgentRepository>(di<LocalAgentRepository>())
+    ..registerSingleton<WorkspaceAgentRepositories>(
+      LocalWorkspaceAgentRepositories(
+        findWorkspace: (id) => di<WorkspaceService>().get(id),
+        pathContext: platformPaths.context,
+      ),
+    )
     ..registerSingleton<AgentPromptResolver>(
-      RepositoryAgentPromptResolver(di<AgentRepository>()),
+      RepositoryAgentPromptResolver(
+        di<AgentRepository>(),
+        workspaceAgents: di<WorkspaceAgentRepositories>().forRoot,
+      ),
     )
     ..registerSingleton<NodeRegistry>(
       NodeRegistry.withDefaults(
@@ -349,7 +361,10 @@ Future<void> registerDependencies(
       dependsOn: [WorkspaceRepository],
     )
     ..registerSingletonWithDependencies<WorkspacesHandler>(
-      () => WorkspacesHandler(service: di<WorkspaceService>()),
+      () => WorkspacesHandler(
+        service: di<WorkspaceService>(),
+        onChanged: () => di<WorkspaceAgentWatchers>().sync(),
+      ),
       dependsOn: [WorkspaceService],
     )
     ..registerSingletonWithDependencies<SettingsRepository>(
@@ -516,8 +531,24 @@ Future<void> registerDependencies(
       dependsOn: [OverviewService],
     )
     ..registerSingleton<ConnectionRegistry>(ConnectionRegistry())
-    ..registerSingleton<AgentService>(AgentService(di<AgentRepository>()))
+    ..registerSingleton<AgentService>(
+      AgentService(
+        di<AgentRepository>(),
+        workspaces: di<WorkspaceAgentRepositories>(),
+        onWorkspaceAgentsChanged: () => di<WorkspaceAgentWatchers>().sync(),
+      ),
+    )
     ..registerSingleton<AgentsHandler>(AgentsHandler(di<AgentService>()))
+    ..registerSingletonWithDependencies<WorkspaceAgentWatchers>(
+      () => WorkspaceAgentWatchers(
+        listWorkspaces: () => di<WorkspaceService>().list(),
+        repositoryFor: di<WorkspaceAgentRepositories>().forRoot,
+        registry: di<ConnectionRegistry>(),
+        pathContext: platformPaths.context,
+      ),
+      dependsOn: [WorkspaceService],
+      dispose: (watchers) => watchers.close(),
+    )
     ..registerSingletonAsync<AgentDirectoryWatcher>(() async {
       final watcher = AgentDirectoryWatcher(
         agentsDir: config.agentsDir,
@@ -623,4 +654,5 @@ Future<void> registerDependencies(
     );
 
   await di.allReady();
+  await di<WorkspaceAgentWatchers>().sync();
 }

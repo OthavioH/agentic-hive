@@ -133,6 +133,7 @@ final class AgentsState {
     this.isPreviewMode = false,
     this.saveError,
     this.externalNotice = ExternalChangeNotice.none,
+    this.globalOnly = false,
   });
 
   /// Loaded list of agent summaries.
@@ -173,6 +174,10 @@ final class AgentsState {
 
   /// External modification or deletion notice for the open agent.
   final ExternalChangeNotice externalNotice;
+
+  /// Whether the page manages only the global library (the fixed Global
+  /// entry) instead of the current workspace plus global agents.
+  final bool globalOnly;
 
   /// Whether the current [draft] differs from [baselineDraft].
   bool get isDirty => draft != null && draft != baselineDraft;
@@ -222,6 +227,7 @@ final class AgentsState {
     bool? isPreviewMode,
     AgentSaveError? Function()? saveError,
     ExternalChangeNotice? externalNotice,
+    bool? globalOnly,
   }) => AgentsState(
     agents: agents ?? this.agents,
     searchQuery: searchQuery ?? this.searchQuery,
@@ -238,5 +244,6 @@ final class AgentsState {
     isPreviewMode: isPreviewMode ?? this.isPreviewMode,
     saveError: saveError != null ? saveError() : this.saveError,
     externalNotice: externalNotice ?? this.externalNotice,
+    globalOnly: globalOnly ?? this.globalOnly,
   );
 }

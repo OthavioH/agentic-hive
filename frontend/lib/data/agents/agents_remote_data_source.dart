@@ -11,41 +11,56 @@ final class AgentsRemoteDataSource {
 
   final BackendClient _client;
 
-  /// Fetches all agent summaries (`GET /api/v1/agents`).
-  Future<Result<List<AgentSummary>>> listAgents() async {
-    final result = await _client.getJson(_basePath);
+  /// Appends the `workspaceId` query parameter when [workspaceId] is set.
+  ///
+  /// Without it the backend serves the global library only.
+  static String _scoped(String path, String? workspaceId) => workspaceId == null
+      ? path
+      : '$path?workspaceId=${Uri.encodeComponent(workspaceId)}';
+
+  /// Fetches agent summaries (`GET /api/v1/agents`): the global library, or
+  /// with [workspaceId] that workspace's agents plus the global ones.
+  Future<Result<List<AgentSummary>>> listAgents({String? workspaceId}) async {
+    final result = await _client.getJson(_scoped(_basePath, workspaceId));
     return result.flatMap(_decodeList);
   }
 
   /// Fetches full detail for agent [id] (`GET /api/v1/agents/<id>`).
-  Future<Result<AgentDetail>> getAgent(String id) async {
+  Future<Result<AgentDetail>> getAgent(String id, {String? workspaceId}) async {
     final result = await _client.getJson(
-      '$_basePath/${Uri.encodeComponent(id)}',
+      _scoped('$_basePath/${Uri.encodeComponent(id)}', workspaceId),
     );
     return result.flatMap(_decodeDetail);
   }
 
   /// Creates an agent (`POST /api/v1/agents`).
-  Future<Result<AgentDetail>> createAgent(CreateAgentRequest request) async {
-    final result = await _client.postJson(_basePath, body: request.toJson());
+  Future<Result<AgentDetail>> createAgent(
+    CreateAgentRequest request, {
+    String? workspaceId,
+  }) async {
+    final result = await _client.postJson(
+      _scoped(_basePath, workspaceId),
+      body: request.toJson(),
+    );
     return result.flatMap(_decodeDetail);
   }
 
   /// Updates an agent (`PUT /api/v1/agents/<id>`).
   Future<Result<AgentDetail>> updateAgent(
     String id,
-    UpdateAgentRequest request,
-  ) async {
+    UpdateAgentRequest request, {
+    String? workspaceId,
+  }) async {
     final result = await _client.putJson(
-      '$_basePath/${Uri.encodeComponent(id)}',
+      _scoped('$_basePath/${Uri.encodeComponent(id)}', workspaceId),
       request.toJson(),
     );
     return result.flatMap(_decodeDetail);
   }
 
   /// Deletes an agent (`DELETE /api/v1/agents/<id>`).
-  Future<Result<void>> deleteAgent(String id) =>
-      _client.delete('$_basePath/${Uri.encodeComponent(id)}');
+  Future<Result<void>> deleteAgent(String id, {String? workspaceId}) => _client
+      .delete(_scoped('$_basePath/${Uri.encodeComponent(id)}', workspaceId));
 
   Result<List<AgentSummary>> _decodeList(JsonMap json) {
     try {
