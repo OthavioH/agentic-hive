@@ -484,8 +484,8 @@ class SideRailTreeController extends _$SideRailTreeController {
           ? _orderPrimaryFirst(rawWorktrees)
           : <Worktree>[
               Worktree(
-                id: 'primary',
-                name: 'primary',
+                id: primaryWorktreeId,
+                name: primaryWorktreeId,
                 path: ws.rootPath,
                 isPrimary: true,
                 hasUncommittedChanges: false,

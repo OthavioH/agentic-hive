@@ -202,7 +202,7 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
     if (!_appliedInitialWorktree) {
       _appliedInitialWorktree = true;
       final initialWorktreeId = widget.initialWorktreeId;
-      if (initialWorktreeId == 'primary') {
+      if (initialWorktreeId == primaryWorktreeId) {
         nextKind = _RunTargetKind.primary;
       } else if (initialWorktreeId != null &&
           canWorktree &&
