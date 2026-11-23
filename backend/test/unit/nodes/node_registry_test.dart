@@ -62,12 +62,16 @@ final class _FakeAgentPromptResolver implements AgentPromptResolver {
   const new();
 
   @override
-  Future<Result<String>> resolvePrompt(String agentId) async =>
-      FailureResult(NotFoundFailure('Agent "$agentId" not found.'));
+  Future<Result<String>> resolvePrompt(
+    String agentId, {
+    String? workspaceRoot,
+  }) async => FailureResult(NotFoundFailure('Agent "$agentId" not found.'));
 
   @override
-  Future<Result<ResolvedAgent>> resolveAgent(String agentId) async =>
-      FailureResult(NotFoundFailure('Agent "$agentId" not found.'));
+  Future<Result<ResolvedAgent>> resolveAgent(
+    String agentId, {
+    String? workspaceRoot,
+  }) async => FailureResult(NotFoundFailure('Agent "$agentId" not found.'));
 }
 
 void main() {

@@ -3,6 +3,7 @@ library;
 
 export 'src/agents/agent_detail.dart';
 export 'src/agents/agent_list_response.dart';
+export 'src/agents/agent_scope.dart';
 export 'src/agents/agent_summary.dart';
 export 'src/agents/create_agent_request.dart';
 export 'src/agents/update_agent_request.dart';

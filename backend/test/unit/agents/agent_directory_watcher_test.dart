@@ -85,6 +85,55 @@ void main() {
     },
   );
 
+  test('tags workspace events with workspaceId and workspace scope', () async {
+    final workspaceDir = Directory(p.join(tempDir.path, 'ws-agents'));
+    await workspaceDir.create();
+    final workspaceWatcher = AgentDirectoryWatcher(
+      agentsDir: workspaceDir.path,
+      repository: LocalAgentRepository(
+        agentsDir: workspaceDir.path,
+        scope: AgentScope.workspace,
+      ),
+      registry: registry,
+      workspaceId: 'ws-1',
+      debounceDuration: const Duration(milliseconds: 30),
+    );
+    addTearDown(workspaceWatcher.close);
+    await workspaceWatcher.start();
+
+    final events = <AgentsChangedPayload>[];
+    final sub = channel.outgoing.listen((frame) {
+      final envelope = WsEnvelope.decode(frame! as String);
+      if (envelope.type == WsMessageType.agentsChanged) {
+        events.add(AgentsChangedPayload.fromJson(envelope.payload));
+      }
+    });
+    addTearDown(sub.cancel);
+
+    await File(p.join(workspaceDir.path, 'planner.md'))
+        .writeAsString('---\nname: Planner\n---\nPlan.');
+    await _waitFor(() => events.isNotEmpty);
+
+    expect(events.single.workspaceId, 'ws-1');
+    expect(events.single.agent?.scope, AgentScope.workspace);
+  });
+
+  test('global events carry no workspaceId', () async {
+    final events = <AgentsChangedPayload>[];
+    final sub = channel.outgoing.listen((frame) {
+      final envelope = WsEnvelope.decode(frame! as String);
+      if (envelope.type == WsMessageType.agentsChanged) {
+        events.add(AgentsChangedPayload.fromJson(envelope.payload));
+      }
+    });
+    addTearDown(sub.cancel);
+    await File(p.join(tempDir.path, 'a.md'))
+        .writeAsString('---\nname: A\n---\nx');
+    await _waitFor(() => events.isNotEmpty);
+    expect(events.single.workspaceId, isNull);
+    expect(events.single.agent?.scope, AgentScope.global);
+  });
+
   test('ignores non-md files and subdirectories', () async {
     final events = <AgentsChangedPayload>[];
     final sub = channel.outgoing.listen((frame) {

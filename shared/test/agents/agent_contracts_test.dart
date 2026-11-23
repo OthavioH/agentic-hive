@@ -175,4 +175,78 @@ void main() {
       expect(decoded, response);
     });
   });
+
+  group('Agent scope (ADR 0022)', () {
+    test('summary defaults to global scope and not overridden', () {
+      final summary = AgentSummary(
+        id: 'a',
+        name: 'A',
+        contentHash: 'h',
+        updatedAt: updatedAt,
+      );
+
+      expect(summary.scope, AgentScope.global);
+      expect(summary.overridden, isFalse);
+      expect(summary.toJson()['scope'], 'global');
+    });
+
+    test('summary round-trips workspace scope and overridden flag', () {
+      final summary = AgentSummary(
+        id: 'a',
+        name: 'A',
+        contentHash: 'h',
+        updatedAt: updatedAt,
+        scope: AgentScope.workspace,
+        overridden: true,
+      );
+
+      final decoded = AgentSummary.fromJson(_overTheWire(summary.toJson()));
+
+      expect(decoded, summary);
+      expect(decoded.scope, AgentScope.workspace);
+    });
+
+    test('summary without scope decodes as global', () {
+      final decoded = AgentSummary.fromJson({
+        'id': 'a',
+        'name': 'A',
+        'contentHash': 'h',
+        'updatedAt': updatedAt.toIso8601String(),
+      });
+
+      expect(decoded.scope, AgentScope.global);
+    });
+
+    test('detail round-trips workspace scope', () {
+      final detail = AgentDetail(
+        id: 'a',
+        name: 'A',
+        contentHash: 'h',
+        updatedAt: updatedAt,
+        scope: AgentScope.workspace,
+      );
+
+      final decoded = AgentDetail.fromJson(_overTheWire(detail.toJson()));
+
+      expect(decoded.scope, AgentScope.workspace);
+    });
+
+    test('changed payload carries the workspace id, null meaning global', () {
+      const global = AgentsChangedPayload(
+        kind: AgentChangeKind.updated,
+        id: 'a',
+      );
+      const scoped = AgentsChangedPayload(
+        kind: AgentChangeKind.created,
+        id: 'a',
+        workspaceId: 'ws-1',
+      );
+
+      expect(global.workspaceId, isNull);
+      expect(
+        AgentsChangedPayload.fromJson(_overTheWire(scoped.toJson())),
+        scoped,
+      );
+    });
+  });
 }
