@@ -797,6 +797,18 @@
   "@workflowsDuplicateAction": {
     "description": "Semantic label and tooltip for duplicating a workflow."
   },
+  "workflowsScopeWorkspaceBadge": "Workspace",
+  "@workflowsScopeWorkspaceBadge": {
+    "description": "Badge on a workflow stored in the current workspace folder."
+  },
+  "workflowsScopeGlobalBadge": "Global",
+  "@workflowsScopeGlobalBadge": {
+    "description": "Badge on a workflow shared by every workspace, and the Global option when creating one."
+  },
+  "workflowsScopeControlLabel": "Workflow scope",
+  "@workflowsScopeControlLabel": {
+    "description": "Accessibility label of the control choosing where a new workflow is stored."
+  },
   "workflowsDeleteAction": "Delete workflow",
   "@workflowsDeleteAction": {
     "description": "Semantic label and tooltip for deleting a workflow."

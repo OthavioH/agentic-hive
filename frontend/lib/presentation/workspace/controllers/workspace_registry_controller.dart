@@ -14,6 +14,7 @@ final class WorkspaceRegistryState {
     required this.workspaces,
     required this.currentWorkspaceId,
     this.isSubmitting = false,
+    this.isGlobalSelected = false,
   });
 
   /// All registered workspaces.
@@ -24,6 +25,10 @@ final class WorkspaceRegistryState {
 
   /// Whether a create, rename, or unregister mutation is in flight.
   final bool isSubmitting;
+
+  /// Whether the fixed Global entry is selected: no workspace is current and
+  /// pages manage only global items (ADR 0022). Not persisted across restarts.
+  final bool isGlobalSelected;
 
   /// Currently selected [Workspace], or null when [currentWorkspaceId] is
   /// unset or not present in [workspaces].
@@ -41,12 +46,14 @@ final class WorkspaceRegistryState {
     List<Workspace>? workspaces,
     String? Function()? currentWorkspaceId,
     bool? isSubmitting,
+    bool? isGlobalSelected,
   }) => WorkspaceRegistryState(
     workspaces: workspaces ?? this.workspaces,
     currentWorkspaceId: currentWorkspaceId != null
         ? currentWorkspaceId()
         : this.currentWorkspaceId,
     isSubmitting: isSubmitting ?? this.isSubmitting,
+    isGlobalSelected: isGlobalSelected ?? this.isGlobalSelected,
   );
 }
 
@@ -89,13 +96,19 @@ class WorkspaceRegistryController extends _$WorkspaceRegistryController {
   /// current selection if it still exists.
   Future<void> refresh() async {
     final currentId = state.asData?.value.currentWorkspaceId;
+    final keepGlobal = state.asData?.value.isGlobalSelected ?? false;
     final result = await ref.read(listWorkspacesProvider)();
     if (!ref.mounted) return;
     switch (result) {
       case Success<List<Workspace>>(:final value):
-        final nextId = _resolveSelectedId(value, currentId);
         state = AsyncData<WorkspaceRegistryState>(
-          WorkspaceRegistryState(workspaces: value, currentWorkspaceId: nextId),
+          WorkspaceRegistryState(
+            workspaces: value,
+            currentWorkspaceId: keepGlobal
+                ? null
+                : _resolveSelectedId(value, currentId),
+            isGlobalSelected: keepGlobal,
+          ),
         );
       case FailureResult<List<Workspace>>(:final failure):
         state = AsyncError<WorkspaceRegistryState>(failure, StackTrace.current);
@@ -108,9 +121,18 @@ class WorkspaceRegistryController extends _$WorkspaceRegistryController {
     if (current == null) return;
     if (!current.workspaces.any((w) => w.id == id)) return;
     state = AsyncData<WorkspaceRegistryState>(
-      current.copyWith(currentWorkspaceId: () => id),
+      current.copyWith(currentWorkspaceId: () => id, isGlobalSelected: false),
     );
     await ref.read(saveLastWorkspaceIdProvider)(id);
+  }
+
+  /// Selects the fixed Global entry, so pages manage only global items.
+  void selectGlobal() {
+    final current = state.asData?.value;
+    if (current == null) return;
+    state = AsyncData<WorkspaceRegistryState>(
+      current.copyWith(currentWorkspaceId: () => null, isGlobalSelected: true),
+    );
   }
 
   /// Opens the native folder picker for selecting a workspace root folder.
@@ -216,6 +238,7 @@ class WorkspaceRegistryController extends _$WorkspaceRegistryController {
             WorkspaceRegistryState(
               workspaces: remaining,
               currentWorkspaceId: nextId,
+              isGlobalSelected: latest.isGlobalSelected,
             ),
           );
           if (latest.currentWorkspaceId == id) {

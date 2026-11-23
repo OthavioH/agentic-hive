@@ -85,6 +85,30 @@ void main() {
     expect(selectionStore.savedId, 'ws-2');
   });
 
+  test('selectGlobal clears the workspace, survives a refresh and is left '
+      'by selecting a workspace', () async {
+    final ws1 = makeWorkspace(name: 'One');
+    repo.workspaces = [ws1];
+    final container = createContainer();
+    await container.read(workspaceRegistryControllerProvider.future);
+    final notifier = container.read(
+      workspaceRegistryControllerProvider.notifier,
+    )..selectGlobal();
+    var state = container.read(workspaceRegistryControllerProvider).value!;
+    expect(state.isGlobalSelected, isTrue);
+    expect(state.currentWorkspaceId, isNull);
+
+    await notifier.refresh();
+    state = container.read(workspaceRegistryControllerProvider).value!;
+    expect(state.isGlobalSelected, isTrue);
+    expect(state.currentWorkspaceId, isNull);
+
+    await notifier.selectWorkspace('ws-1');
+    state = container.read(workspaceRegistryControllerProvider).value!;
+    expect(state.isGlobalSelected, isFalse);
+    expect(state.currentWorkspaceId, 'ws-1');
+  });
+
   test('addWorkspace registers, selects, and persists new workspace', () async {
     final container = createContainer();
     await container.read(workspaceRegistryControllerProvider.future);

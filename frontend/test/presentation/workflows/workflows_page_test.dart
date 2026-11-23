@@ -18,7 +18,9 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   Result<List<WorkflowSummary>>? listOverride;
 
   @override
-  Future<Result<List<WorkflowSummary>>> listWorkflows() async {
+  Future<Result<List<WorkflowSummary>>> listWorkflows({
+    String? workspaceId,
+  }) async {
     if (listOverride != null) return listOverride!;
     return Success(List<WorkflowSummary>.from(items));
   }
@@ -59,6 +61,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
+    String? workspaceId,
   }) async {
     duplicatedIds.add(id);
     final source = items.firstWhere((w) => w.id == id);
@@ -87,21 +90,24 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   }
 
   @override
-  Future<Result<void>> deleteWorkflow(String id) async {
+  Future<Result<void>> deleteWorkflow(String id, {String? workspaceId}) async {
     deletedIds.add(id);
     items.removeWhere((w) => w.id == id);
     return const Success<void>(null);
   }
 
   @override
-  Future<Result<WorkflowResponse>> getWorkflow(String id) async =>
-      const FailureResult(NotFoundFailure('unused'));
+  Future<Result<WorkflowResponse>> getWorkflow(
+    String id, {
+    String? workspaceId,
+  }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
-    UpdateWorkflowRequest request,
-  ) async => const FailureResult(NotFoundFailure('unused'));
+    UpdateWorkflowRequest request, {
+    String? workspaceId,
+  }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Future<Result<WorkflowValidationResult>> validateWorkflow(
