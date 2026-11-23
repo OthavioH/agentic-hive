@@ -2,6 +2,7 @@ import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/data/runs/run_providers.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_providers.dart';
+import 'package:agentic_hive_frontend/data/workspace/workspace_settings_providers.dart';
 import 'package:agentic_hive_frontend/domain/runs/run_repository.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
@@ -15,6 +16,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../workspace/fake_workspace_repository.dart';
+import '../workspace/fake_workspace_settings_repository.dart';
 
 final class _FakeRunRepository implements RunRepository {
   final DateTime now = DateTime.utc(2026, 11, 21, 4, 30);
@@ -555,4 +557,164 @@ void main() {
       expect(runsRepo.lastStartRequest?.target, const RunTarget.primary());
     },
   );
+
+  group('default target from the effective settings', () {
+    Future<_FakeRunRepository> openDialog(
+      WidgetTester tester, {
+      required FakeWorkspaceSettingsRepository settings,
+      String? initialWorktreeId,
+      bool isGit = true,
+    }) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final runsRepo = _FakeRunRepository();
+      final workspaceRepo =
+          FakeWorkspaceRepository(
+              workspaces: <Workspace>[
+                makeWorkspace(rootPath: '/projects/hive', isGit: isGit),
+              ],
+            )
+            ..worktreesByWorkspaceId['ws-1'] = <Worktree>[
+              makeWorktree(),
+              makeWorktree(
+                id: 'feat-ui',
+                name: 'feat-ui',
+                path: '/worktrees/ws-1/feat-ui',
+                isPrimary: false,
+                branch: 'feature/ui',
+              ),
+            ];
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            runRepositoryProvider.overrideWithValue(runsRepo),
+            workflowRepositoryProvider.overrideWithValue(
+              _FakeWorkflowRepository(),
+            ),
+            workspaceRepositoryProvider.overrideWithValue(workspaceRepo),
+            workspaceSettingsRepositoryProvider.overrideWithValue(settings),
+          ],
+          child: MaterialApp(
+            theme: HiveTheme.light(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: HiveButton(
+                  label: 'Open',
+                  onPressed: () => StartRunDialog.show(
+                    context,
+                    initialWorktreeId: initialWorktreeId,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      return runsRepo;
+    }
+
+    bool chipSelected(WidgetTester tester, String key) =>
+        tester.widget<HiveFilterChip>(find.byKey(Key(key))).selected;
+
+    testWidgets('worktree mode preselects a new worktree in a git workspace', (
+      tester,
+    ) async {
+      final settings = FakeWorkspaceSettingsRepository();
+      final runsRepo = await openDialog(tester, settings: settings);
+
+      expect(settings.getCalls, <String>['ws-1']);
+      expect(chipSelected(tester, 'start_run_target_new_worktree'), isTrue);
+      expect(chipSelected(tester, 'start_run_target_primary'), isFalse);
+
+      await tester.tap(find.byKey(const Key('start_run_confirm_button')));
+      await tester.pumpAndSettle();
+
+      expect(runsRepo.lastStartRequest?.target, const RunTarget.newWorktree());
+      expect(runsRepo.lastStartRequest?.workspaceIsolationMode, isNull);
+    });
+
+    testWidgets('direct mode preselects the primary checkout', (tester) async {
+      final settings = FakeWorkspaceSettingsRepository(
+        global: const EffectiveExecutionSettings(
+          defaultIsolationMode: WorkspaceIsolationMode.direct,
+          ignorePatterns: <String>[],
+          defaultShell: 'cmd.exe',
+        ),
+      );
+      final runsRepo = await openDialog(tester, settings: settings);
+
+      expect(chipSelected(tester, 'start_run_target_primary'), isTrue);
+
+      await tester.tap(find.byKey(const Key('start_run_confirm_button')));
+      await tester.pumpAndSettle();
+
+      expect(runsRepo.lastStartRequest?.target, const RunTarget.primary());
+      expect(runsRepo.lastStartRequest?.workspaceIsolationMode, isNull);
+    });
+
+    testWidgets('a per-workspace override wins over the global default', (
+      tester,
+    ) async {
+      final settings = FakeWorkspaceSettingsRepository(
+        overrides: const ExecutionSettings(
+          defaultIsolationMode: WorkspaceIsolationMode.direct,
+        ),
+      );
+      await openDialog(tester, settings: settings);
+
+      expect(chipSelected(tester, 'start_run_target_primary'), isTrue);
+    });
+
+    testWidgets('the tree context still wins over the worktree default', (
+      tester,
+    ) async {
+      final settings = FakeWorkspaceSettingsRepository();
+      final runsRepo = await openDialog(
+        tester,
+        settings: settings,
+        initialWorktreeId: primaryWorktreeId,
+      );
+
+      expect(chipSelected(tester, 'start_run_target_primary'), isTrue);
+
+      await tester.tap(find.byKey(const Key('start_run_confirm_button')));
+      await tester.pumpAndSettle();
+
+      expect(runsRepo.lastStartRequest?.target, const RunTarget.primary());
+    });
+
+    testWidgets('falls back to the primary checkout when settings fail', (
+      tester,
+    ) async {
+      final settings = FakeWorkspaceSettingsRepository()
+        ..getFailure = const BackendFailure('boom');
+      await openDialog(tester, settings: settings);
+
+      expect(chipSelected(tester, 'start_run_target_primary'), isTrue);
+    });
+
+    testWidgets('a non-git workspace runs in the primary checkout', (
+      tester,
+    ) async {
+      final settings = FakeWorkspaceSettingsRepository();
+      final runsRepo = await openDialog(
+        tester,
+        settings: settings,
+        isGit: false,
+      );
+
+      await tester.tap(find.byKey(const Key('start_run_confirm_button')));
+      await tester.pumpAndSettle();
+
+      expect(runsRepo.lastStartRequest?.target, const RunTarget.primary());
+    });
+  });
 }
