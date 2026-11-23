@@ -147,7 +147,6 @@ final class RunService {
     var ignorePatterns = request.ignorePatterns;
     final executionSettings = _executionSettings;
     if (executionSettings != null &&
-        ownerWorkspaceId != null &&
         (request.workspaceIsolationMode == null || ignorePatterns == null)) {
       final effective = await executionSettings.effectiveFor(ownerWorkspaceId);
       if (effective case FailureResult<EffectiveExecutionSettings>(
