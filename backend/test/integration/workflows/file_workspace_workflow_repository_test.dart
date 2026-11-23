@@ -103,6 +103,39 @@ void main() {
   });
 
   test(
+    'getById is NotFound, not a persistence failure, when the file is deleted '
+    'between the lookup and the read (background deletion, ADR 0027)',
+    () async {
+      await repository.create(root.path, sample('deploy'));
+      final racing = FileWorkspaceWorkflowRepository(
+        beforeRead: (file) async => file.deleteSync(),
+      );
+
+      final result = await racing.getById(root.path, 'deploy');
+
+      expect(result.failureOrNull, isA<NotFoundFailure>());
+    },
+  );
+
+  test(
+    'listAll skips a file deleted after it was listed instead of failing',
+    () async {
+      await repository.create(root.path, sample('a', name: 'A'));
+      await repository.create(root.path, sample('b', name: 'B'));
+      final racing = FileWorkspaceWorkflowRepository(
+        beforeRead: (file) async {
+          if (file.path.endsWith('a.json')) file.deleteSync();
+        },
+      );
+
+      final result = await racing.listAll(root.path);
+
+      expect(result.failureOrNull, isNull);
+      expect(result.valueOrNull!.map((w) => w.id), ['b']);
+    },
+  );
+
+  test(
     'a file edited externally is picked up with the file basename as id',
     () async {
       await repository.create(root.path, sample('deploy'));
