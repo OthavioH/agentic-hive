@@ -57,16 +57,23 @@ class StartRunDialog extends ConsumerStatefulWidget {
   ConsumerState<StartRunDialog> createState() => _StartRunDialogState();
 }
 
+enum _RunTargetKind { primary, existingWorktree, newWorktree }
+
 class _StartRunDialogState extends ConsumerState<StartRunDialog> {
+  final TextEditingController _branchController = TextEditingController();
+
   List<WorkflowSummary> _workflows = const <WorkflowSummary>[];
   List<Workspace> _workspaces = const <Workspace>[];
+  List<Worktree> _worktrees = const <Worktree>[];
   bool _isLoadingInitial = true;
   bool _isCheckingCapabilities = false;
   bool _isSubmitting = false;
+  bool _appliedInitialWorktree = false;
 
   String? _selectedWorkflowId;
   String? _selectedWorkspaceId;
-  WorkspaceIsolationMode _isolationMode = WorkspaceIsolationMode.direct;
+  _RunTargetKind _targetKind = _RunTargetKind.primary;
+  String? _selectedWorktreeId;
   WorkspaceCapabilities? _capabilities;
 
   String? _workflowError;
@@ -74,21 +81,30 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
 
   int _capabilitiesToken = 0;
 
-  bool get _worktreeAvailable =>
-      _capabilities != null &&
-      _capabilities!.gitAvailable &&
-      _capabilities!.isGitRepo &&
-      _capabilities!.hasCommits;
+  List<Worktree> get _existingWorktrees =>
+      _worktrees.where((w) => !w.isPrimary).toList();
+
+  bool get _worktreeAvailable {
+    final workspace = _selectedWorkspace;
+    if (workspace == null || !workspace.isGit) return false;
+    final caps = _capabilities;
+    return caps != null &&
+        caps.gitAvailable &&
+        caps.isGitRepo &&
+        caps.hasCommits;
+  }
 
   @override
   void initState() {
     super.initState();
     _selectedWorkflowId = widget.initialWorkflowId;
-    final initialWorktreeId = widget.initialWorktreeId;
-    if (initialWorktreeId != null && initialWorktreeId != 'primary') {
-      _isolationMode = WorkspaceIsolationMode.worktree;
-    }
     unawaited(_loadInitial());
+  }
+
+  @override
+  void dispose() {
+    _branchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadInitial() async {
@@ -124,7 +140,7 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
       _isLoadingInitial = false;
     });
 
-    await _checkCapabilities(_selectedWorkspace?.rootPath);
+    await _loadWorkspaceContext(_selectedWorkspace);
   }
 
   /// The workspace the dialog opens on: the one it was launched for, else the
@@ -153,35 +169,85 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
     return null;
   }
 
-  Future<void> _checkCapabilities(String? rawPath) async {
-    final path = rawPath?.trim() ?? '';
+  Future<void> _loadWorkspaceContext(Workspace? workspace) async {
     final token = ++_capabilitiesToken;
-    if (path.isEmpty) {
+    if (workspace == null || !workspace.isGit) {
       setState(() {
         _capabilities = null;
+        _worktrees = const <Worktree>[];
         _isCheckingCapabilities = false;
-        _isolationMode = WorkspaceIsolationMode.direct;
+        _targetKind = _RunTargetKind.primary;
+        _selectedWorktreeId = null;
       });
       return;
     }
 
     setState(() => _isCheckingCapabilities = true);
-    final result = await ref
+    final capsFuture = ref
         .read(getWorkspaceCapabilitiesProvider)
-        .call(path: path);
+        .call(path: workspace.rootPath);
+    final worktreesFuture = ref.read(listWorktreesProvider).call(workspace.id);
+
+    final capsResult = await capsFuture;
+    final worktreesResult = await worktreesFuture;
     if (!mounted || token != _capabilitiesToken) return;
 
-    final caps = result.valueOrNull;
+    final caps = capsResult.valueOrNull;
+    final worktrees = worktreesResult.valueOrNull ?? const <Worktree>[];
+    final existing = worktrees.where((w) => !w.isPrimary).toList();
     final canWorktree =
         caps != null && caps.gitAvailable && caps.isGitRepo && caps.hasCommits;
 
+    var nextKind = _targetKind;
+    var nextWorktreeId = _selectedWorktreeId;
+
+    if (!_appliedInitialWorktree) {
+      _appliedInitialWorktree = true;
+      final initialWorktreeId = widget.initialWorktreeId;
+      if (initialWorktreeId == 'primary') {
+        nextKind = _RunTargetKind.primary;
+      } else if (initialWorktreeId != null &&
+          canWorktree &&
+          existing.any((w) => w.id == initialWorktreeId)) {
+        nextKind = _RunTargetKind.existingWorktree;
+        nextWorktreeId = initialWorktreeId;
+      }
+    }
+
+    if (nextWorktreeId == null ||
+        !existing.any((w) => w.id == nextWorktreeId)) {
+      nextWorktreeId = existing.isNotEmpty ? existing.first.id : null;
+    }
+
+    if (!canWorktree ||
+        (nextKind == _RunTargetKind.existingWorktree && existing.isEmpty)) {
+      nextKind = _RunTargetKind.primary;
+    }
+
     setState(() {
       _capabilities = caps;
+      _worktrees = worktrees;
       _isCheckingCapabilities = false;
-      if (!canWorktree && _isolationMode == WorkspaceIsolationMode.worktree) {
-        _isolationMode = WorkspaceIsolationMode.direct;
-      }
+      _targetKind = nextKind;
+      _selectedWorktreeId = nextWorktreeId;
     });
+  }
+
+  RunTarget _buildTarget() {
+    if (!_worktreeAvailable) {
+      return const RunTarget.primary();
+    }
+    return switch (_targetKind) {
+      _RunTargetKind.primary => const RunTarget.primary(),
+      _RunTargetKind.existingWorktree => RunTarget.worktree(
+        worktreeId: _selectedWorktreeId!,
+      ),
+      _RunTargetKind.newWorktree => RunTarget.newWorktree(
+        branch: _branchController.text.trim().isEmpty
+            ? null
+            : _branchController.text.trim(),
+      ),
+    };
   }
 
   Future<void> _submit() async {
@@ -210,7 +276,7 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
           StartRunRequest(
             workflowId: workflowId!,
             workspaceId: workspaceId,
-            workspaceIsolationMode: _isolationMode,
+            target: _buildTarget(),
           ),
         );
     if (!mounted) return;
@@ -228,17 +294,29 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
     }
   }
 
-  String _worktreeHelperText(AppLocalizations l10n) {
-    if (_isCheckingCapabilities) return l10n.startRunCheckingCapabilities;
+  String _targetHelperText(AppLocalizations l10n) {
+    return switch (_targetKind) {
+      _RunTargetKind.primary => l10n.startRunTargetPrimaryDescription,
+      _RunTargetKind.existingWorktree =>
+        l10n.startRunTargetExistingWorktreeDescription,
+      _RunTargetKind.newWorktree => l10n.startRunTargetNewWorktreeDescription,
+    };
+  }
+
+  String _nonGitExplanation(AppLocalizations l10n) {
     final caps = _capabilities;
-    if (caps == null) return l10n.startRunIsolationDirectDescription;
-    if (!caps.gitAvailable) return l10n.startRunWorktreeUnavailableNoGit;
-    if (!caps.isGitRepo || !caps.hasCommits) {
-      return l10n.startRunWorktreeUnavailableNotRepo;
+    if (caps != null && !caps.gitAvailable) {
+      return l10n.startRunWorktreeUnavailableNoGit;
     }
-    return _isolationMode == WorkspaceIsolationMode.worktree
-        ? l10n.startRunIsolationWorktreeDescription
-        : l10n.startRunIsolationDirectDescription;
+    return l10n.startRunNonGitExplanation;
+  }
+
+  String _worktreeLabel(Worktree worktree) {
+    final branch = worktree.branch;
+    if (branch == null || branch.isEmpty || branch == worktree.name) {
+      return worktree.name;
+    }
+    return '${worktree.name} ($branch)';
   }
 
   @override
@@ -256,6 +334,15 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
     final workspaceOptions = <HiveSelectOption<String>>[
       for (final workspace in _workspaces)
         HiveSelectOption<String>(value: workspace.id, label: workspace.name),
+    ];
+
+    final existingWorktrees = _existingWorktrees;
+    final worktreeOptions = <HiveSelectOption<String>>[
+      for (final worktree in existingWorktrees)
+        HiveSelectOption<String>(
+          value: worktree.id,
+          label: _worktreeLabel(worktree),
+        ),
     ];
 
     return HiveDialog(
@@ -314,52 +401,113 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
                               _submitError = null;
                             });
                             unawaited(
-                              _checkCapabilities(_selectedWorkspace?.rootPath),
+                              _loadWorkspaceContext(_selectedWorkspace),
                             );
                           },
                   ),
-                SizedBox(height: spacing.space3),
-                Text(
-                  l10n.startRunIsolationLabel,
-                  style: typography.label.copyWith(color: colors.onSurface),
-                ),
-                SizedBox(height: spacing.space1),
-                Wrap(
-                  spacing: spacing.space2,
-                  runSpacing: spacing.space1,
-                  children: <Widget>[
-                    HiveFilterChip(
-                      key: const Key('start_run_isolation_direct'),
-                      label: l10n.startRunIsolationDirect,
-                      selected: _isolationMode == WorkspaceIsolationMode.direct,
-                      onSelected: _isSubmitting
-                          ? null
-                          : (_) => setState(() {
-                              _isolationMode = WorkspaceIsolationMode.direct;
-                              _submitError = null;
-                            }),
+                if (_selectedWorkspace != null) ...<Widget>[
+                  SizedBox(height: spacing.space3),
+                  if (_isCheckingCapabilities)
+                    Text(
+                      l10n.startRunCheckingCapabilities,
+                      style: typography.bodySmall.copyWith(
+                        color: colors.onSurfaceMuted,
+                      ),
+                    )
+                  else if (!_worktreeAvailable)
+                    HiveBanner(
+                      key: const Key('start_run_non_git_banner'),
+                      tone: HiveFeedbackTone.info,
+                      title: _nonGitExplanation(l10n),
+                    )
+                  else ...<Widget>[
+                    Text(
+                      l10n.startRunTargetLabel,
+                      style: typography.label.copyWith(color: colors.onSurface),
                     ),
-                    HiveFilterChip(
-                      key: const Key('start_run_isolation_worktree'),
-                      label: l10n.startRunIsolationWorktree,
-                      selected:
-                          _isolationMode == WorkspaceIsolationMode.worktree,
-                      onSelected: (!_isSubmitting && _worktreeAvailable)
-                          ? (_) => setState(() {
-                              _isolationMode = WorkspaceIsolationMode.worktree;
-                              _submitError = null;
-                            })
-                          : null,
+                    SizedBox(height: spacing.space1),
+                    Wrap(
+                      spacing: spacing.space2,
+                      runSpacing: spacing.space1,
+                      children: <Widget>[
+                        HiveFilterChip(
+                          key: const Key('start_run_target_primary'),
+                          label: l10n.startRunTargetPrimary,
+                          selected: _targetKind == _RunTargetKind.primary,
+                          onSelected: _isSubmitting
+                              ? null
+                              : (_) => setState(() {
+                                  _targetKind = _RunTargetKind.primary;
+                                  _submitError = null;
+                                }),
+                        ),
+                        HiveFilterChip(
+                          key: const Key('start_run_target_existing_worktree'),
+                          label: l10n.startRunTargetExistingWorktree,
+                          selected:
+                              _targetKind == _RunTargetKind.existingWorktree,
+                          onSelected:
+                              (!_isSubmitting && existingWorktrees.isNotEmpty)
+                              ? (_) => setState(() {
+                                  _targetKind = _RunTargetKind.existingWorktree;
+                                  _submitError = null;
+                                })
+                              : null,
+                        ),
+                        HiveFilterChip(
+                          key: const Key('start_run_target_new_worktree'),
+                          label: l10n.startRunTargetNewWorktree,
+                          selected: _targetKind == _RunTargetKind.newWorktree,
+                          onSelected: _isSubmitting
+                              ? null
+                              : (_) => setState(() {
+                                  _targetKind = _RunTargetKind.newWorktree;
+                                  _submitError = null;
+                                }),
+                        ),
+                      ],
                     ),
+                    SizedBox(height: spacing.space1),
+                    Text(
+                      _targetHelperText(l10n),
+                      style: typography.bodySmall.copyWith(
+                        color: colors.onSurfaceMuted,
+                      ),
+                    ),
+                    if (_targetKind ==
+                        _RunTargetKind.existingWorktree) ...<Widget>[
+                      SizedBox(height: spacing.space3),
+                      HiveSelect<String>(
+                        key: const Key('start_run_worktree_select'),
+                        label: l10n.startRunExistingWorktreeLabel,
+                        hint: l10n.startRunExistingWorktreeHint,
+                        options: worktreeOptions,
+                        value: _selectedWorktreeId,
+                        onChanged: _isSubmitting
+                            ? null
+                            : (value) => setState(() {
+                                _selectedWorktreeId = value;
+                                _submitError = null;
+                              }),
+                      ),
+                    ],
+                    if (_targetKind == _RunTargetKind.newWorktree) ...<Widget>[
+                      SizedBox(height: spacing.space3),
+                      HiveTextField(
+                        key: const Key('start_run_branch_field'),
+                        label: l10n.startRunNewWorktreeBranchLabel,
+                        hint: l10n.startRunNewWorktreeBranchHint,
+                        controller: _branchController,
+                        enabled: !_isSubmitting,
+                        onChanged: (_) {
+                          if (_submitError != null) {
+                            setState(() => _submitError = null);
+                          }
+                        },
+                      ),
+                    ],
                   ],
-                ),
-                SizedBox(height: spacing.space1),
-                Text(
-                  _worktreeHelperText(l10n),
-                  style: typography.bodySmall.copyWith(
-                    color: colors.onSurfaceMuted,
-                  ),
-                ),
+                ],
                 if (_submitError != null) ...<Widget>[
                   SizedBox(height: spacing.space3),
                   HiveBanner(
