@@ -73,14 +73,14 @@ void main() {
   });
 
   group('run linkage', () {
-    test('StartRunRequest accepts workspaceId without workspacePath', () {
+    test('StartRunRequest carries only workspaceId', () {
       final request = StartRunRequest.fromJson({
         'workflowId': 'wf-1',
         'workspaceId': 'ws-1',
       });
 
       expect(request.workspaceId, 'ws-1');
-      expect(request.workspacePath, isNull);
+      expect(request.toJson().containsKey('workspacePath'), isFalse);
     });
   });
 }

@@ -135,7 +135,6 @@ class _SettingsForm extends ConsumerStatefulWidget {
 
 class _SettingsFormState extends ConsumerState<_SettingsForm> {
   late final TextEditingController _agentsDirController;
-  late final TextEditingController _workspaceDirController;
   late final Map<HarnessId, TextEditingController> _harnessControllers;
 
   @override
@@ -143,9 +142,6 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
     super.initState();
     _agentsDirController = TextEditingController(
       text: widget.state.agentsDirDraft,
-    );
-    _workspaceDirController = TextEditingController(
-      text: widget.state.defaultWorkspaceDirDraft,
     );
     _harnessControllers = <HarnessId, TextEditingController>{
       for (final id in HarnessId.values)
@@ -159,10 +155,6 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
   void didUpdateWidget(covariant _SettingsForm oldWidget) {
     super.didUpdateWidget(oldWidget);
     _syncController(_agentsDirController, widget.state.agentsDirDraft);
-    _syncController(
-      _workspaceDirController,
-      widget.state.defaultWorkspaceDirDraft,
-    );
     for (final id in HarnessId.values) {
       _syncController(
         _harnessControllers[id]!,
@@ -182,7 +174,6 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
   @override
   void dispose() {
     _agentsDirController.dispose();
-    _workspaceDirController.dispose();
     for (final controller in _harnessControllers.values) {
       controller.dispose();
     }
@@ -217,15 +208,10 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
               _PathsSection(
                 state: state,
                 agentsDirController: _agentsDirController,
-                workspaceDirController: _workspaceDirController,
                 onAgentsDirChanged: controller.setAgentsDir,
                 onBrowseAgentsDir: () =>
                     unawaited(controller.browseAgentsDir()),
                 onResetAgentsDir: controller.resetAgentsDirToDefault,
-                onWorkspaceDirChanged: controller.setDefaultWorkspaceDir,
-                onBrowseWorkspaceDir: () =>
-                    unawaited(controller.browseDefaultWorkspaceDir()),
-                onClearWorkspaceDir: controller.clearDefaultWorkspaceDir,
               ),
               SizedBox(height: spacing.space3),
               _HarnessesSection(
@@ -335,24 +321,16 @@ class _PathsSection extends StatelessWidget {
   const new({
     required this.state,
     required this.agentsDirController,
-    required this.workspaceDirController,
     required this.onAgentsDirChanged,
     required this.onBrowseAgentsDir,
     required this.onResetAgentsDir,
-    required this.onWorkspaceDirChanged,
-    required this.onBrowseWorkspaceDir,
-    required this.onClearWorkspaceDir,
   });
 
   final SettingsState state;
   final TextEditingController agentsDirController;
-  final TextEditingController workspaceDirController;
   final ValueChanged<String> onAgentsDirChanged;
   final VoidCallback onBrowseAgentsDir;
   final VoidCallback onResetAgentsDir;
-  final ValueChanged<String> onWorkspaceDirChanged;
-  final VoidCallback onBrowseWorkspaceDir;
-  final VoidCallback onClearWorkspaceDir;
 
   @override
   Widget build(BuildContext context) {
@@ -361,8 +339,6 @@ class _PathsSection extends StatelessWidget {
     final enabled = !state.isSaving;
     final canResetAgents =
         enabled && state.agentsDirDraft.trim() != state.saved.defaultAgentsDir;
-    final canClearWorkspace =
-        enabled && state.defaultWorkspaceDirDraft.trim().isNotEmpty;
 
     return HiveCard(
       child: Column(
@@ -406,41 +382,6 @@ class _PathsSection extends StatelessWidget {
                   variant: HiveButtonVariant.ghost,
                   size: HiveButtonSize.small,
                   onPressed: canResetAgents ? onResetAgentsDir : null,
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: spacing.space2),
-          HiveTextField(
-            key: const ValueKey<String>('settings_workspace_dir_field'),
-            label: l10n.settingsDefaultWorkspaceLabel,
-            controller: workspaceDirController,
-            hintText: l10n.settingsDefaultWorkspaceHint,
-            errorText: state.fieldErrors['defaultWorkspaceDir'],
-            enabled: enabled,
-            onChanged: onWorkspaceDirChanged,
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                HiveButton(
-                  key: const ValueKey<String>(
-                    'settings_workspace_dir_browse_button',
-                  ),
-                  label: l10n.settingsBrowse,
-                  icon: HiveIcons.folder,
-                  variant: HiveButtonVariant.ghost,
-                  size: HiveButtonSize.small,
-                  onPressed: enabled ? onBrowseWorkspaceDir : null,
-                ),
-                SizedBox(width: spacing.space1),
-                HiveButton(
-                  key: const ValueKey<String>(
-                    'settings_workspace_dir_clear_button',
-                  ),
-                  label: l10n.settingsClear,
-                  variant: HiveButtonVariant.ghost,
-                  size: HiveButtonSize.small,
-                  onPressed: canClearWorkspace ? onClearWorkspaceDir : null,
                 ),
               ],
             ),

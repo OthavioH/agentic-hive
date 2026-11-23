@@ -96,7 +96,6 @@ void main() {
       expect(settings.agentsDir, isNull);
       expect(settings.effectiveAgentsDir, p.join(tempDir.path, 'agents'));
       expect(settings.defaultAgentsDir, p.join(tempDir.path, 'agents'));
-      expect(settings.defaultWorkspaceDir, isNull);
       expect(settings.harnessOverrides, isEmpty);
     });
 
@@ -106,17 +105,13 @@ void main() {
         _jsonRequest(
           '/api/v1/settings',
           method: 'PUT',
-          body: UpdateSettingsRequest(
-            agentsDir: customDir.path,
-            defaultWorkspaceDir: tempDir.path,
-          ).toJson(),
+          body: UpdateSettingsRequest(agentsDir: customDir.path).toJson(),
         ),
       );
       expect(response.statusCode, 200);
       final settings = AppSettings.fromJson(await readJson(response));
       expect(settings.agentsDir, customDir.path);
       expect(settings.effectiveAgentsDir, customDir.path);
-      expect(settings.defaultWorkspaceDir, tempDir.path);
     });
 
     test(
@@ -126,10 +121,8 @@ void main() {
           _jsonRequest(
             '/api/v1/settings',
             method: 'PUT',
-            body: const UpdateSettingsRequest(
-              agentsDir: 'relative/path',
-              defaultWorkspaceDir: 'another/relative',
-            ).toJson(),
+            body: const UpdateSettingsRequest(agentsDir: 'relative/path')
+                .toJson(),
           ),
         );
 
@@ -137,10 +130,7 @@ void main() {
         final error = ApiError.fromJson(await readJson(response));
         expect(error.code, ApiErrorCode.badRequest);
         expect(error.details, isNotNull);
-        expect(
-          error.details!.keys,
-          unorderedEquals(['agentsDir', 'defaultWorkspaceDir']),
-        );
+        expect(error.details!.keys, unorderedEquals(['agentsDir']));
       },
     );
 

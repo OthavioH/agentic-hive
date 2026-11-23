@@ -33,7 +33,6 @@ class SideRailTree extends ConsumerWidget {
       context,
       initialWorkspaceId: workspace.id,
       initialWorktreeId: worktree.id,
-      initialWorkspacePath: worktree.path,
     );
     if (created != null && context.mounted) {
       RunDetailRoute(id: created.id).go(context);

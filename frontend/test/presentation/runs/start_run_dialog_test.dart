@@ -1,14 +1,8 @@
-import 'dart:async';
-
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/data/runs/run_providers.dart';
-import 'package:agentic_hive_frontend/data/settings/file_picker_repository_impl.dart';
-import 'package:agentic_hive_frontend/data/settings/settings_repository_impl.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_providers.dart';
 import 'package:agentic_hive_frontend/domain/runs/run_repository.dart';
-import 'package:agentic_hive_frontend/domain/settings/file_picker_repository.dart';
-import 'package:agentic_hive_frontend/domain/settings/settings_repository.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/runs/pages/runs_page.dart';
@@ -67,7 +61,8 @@ final class _FakeRunRepository implements RunRepository {
           createdAt: now,
           updatedAt: now,
         ),
-        workspacePath: request.workspacePath ?? '',
+        workspacePath: '/projects/hive',
+        workspaceId: request.workspaceId,
         status: RunStatus.running,
         startedAt: now,
         isolationMode:
@@ -142,35 +137,6 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   ) async => const Success(WorkflowValidationResult(isValid: true));
 }
 
-final class _FakeSettingsRepository implements SettingsRepository {
-  @override
-  Future<Result<AppSettings>> getSettings() async => const Success(
-    AppSettings(
-      effectiveAgentsDir: '/agents',
-      defaultAgentsDir: '/agents',
-      defaultWorkspaceDir: '/projects/hive',
-    ),
-  );
-
-  @override
-  Future<Result<AppSettings>> updateSettings(
-    UpdateSettingsRequest request,
-  ) async => const FailureResult(NotFoundFailure('unused'));
-
-  @override
-  Stream<AppSettings> watchSettingsUpdates() =>
-      const Stream<AppSettings>.empty();
-}
-
-final class _FakeFilePickerRepository implements FilePickerRepository {
-  @override
-  Future<String?> pickDirectory({String? initialDirectory}) async =>
-      '/picked/repo';
-
-  @override
-  Future<String?> pickFile({String? initialDirectory}) async => null;
-}
-
 void main() {
   testWidgets(
     'StartRunDialog checks capabilities, submits worktree run, and navigates',
@@ -181,6 +147,10 @@ void main() {
 
       final runsRepo = _FakeRunRepository();
       final workspaceRepo = FakeWorkspaceRepository(
+        workspaces: <Workspace>[
+          makeWorkspace(rootPath: '/projects/hive'),
+          makeWorkspace(id: 'ws-2', name: 'Second', rootPath: '/projects/two'),
+        ],
         capabilities: const Success(
           WorkspaceCapabilities(
             gitAvailable: true,
@@ -212,12 +182,6 @@ void main() {
             workflowRepositoryProvider.overrideWithValue(
               _FakeWorkflowRepository(),
             ),
-            settingsRepositoryProvider.overrideWithValue(
-              _FakeSettingsRepository(),
-            ),
-            filePickerRepositoryProvider.overrideWithValue(
-              _FakeFilePickerRepository(),
-            ),
             workspaceRepositoryProvider.overrideWithValue(workspaceRepo),
           ],
           child: MaterialApp.router(
@@ -234,6 +198,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(StartRunDialog), findsOneWidget);
+      expect(find.byKey(const Key('start_run_workspace_field')), findsNothing);
+      expect(find.byKey(const Key('start_run_browse_button')), findsNothing);
+      expect(
+        find.byKey(const Key('start_run_workspace_select')),
+        findsOneWidget,
+      );
       await tester.tap(find.byKey(const Key('start_run_isolation_worktree')));
       await tester.pumpAndSettle();
 
@@ -241,7 +211,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(runsRepo.lastStartRequest?.workflowId, 'wf-1');
-      expect(runsRepo.lastStartRequest?.workspacePath, '/projects/hive');
+      expect(runsRepo.lastStartRequest?.workspaceId, 'ws-1');
+      expect(workspaceRepo.capabilityPaths, contains('/projects/hive'));
       expect(
         runsRepo.lastStartRequest?.workspaceIsolationMode,
         WorkspaceIsolationMode.worktree,
@@ -262,6 +233,10 @@ void main() {
           BackendFailure('Conflict', statusCode: 409),
         );
       final workspaceRepo = FakeWorkspaceRepository(
+        workspaces: <Workspace>[
+          makeWorkspace(rootPath: '/projects/hive'),
+          makeWorkspace(id: 'ws-2', name: 'Second', rootPath: '/projects/two'),
+        ],
         capabilities: const Success(
           WorkspaceCapabilities(
             gitAvailable: true,
@@ -277,12 +252,6 @@ void main() {
             runRepositoryProvider.overrideWithValue(runsRepo),
             workflowRepositoryProvider.overrideWithValue(
               _FakeWorkflowRepository(),
-            ),
-            settingsRepositoryProvider.overrideWithValue(
-              _FakeSettingsRepository(),
-            ),
-            filePickerRepositoryProvider.overrideWithValue(
-              _FakeFilePickerRepository(),
             ),
             workspaceRepositoryProvider.overrideWithValue(workspaceRepo),
           ],
@@ -321,4 +290,103 @@ void main() {
       );
     },
   );
+
+  testWidgets('StartRunDialog preselects initialWorkspaceId and sends it', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final runsRepo = _FakeRunRepository();
+    final workspaceRepo = FakeWorkspaceRepository(
+      workspaces: <Workspace>[
+        makeWorkspace(rootPath: '/projects/hive'),
+        makeWorkspace(id: 'ws-2', name: 'Second', rootPath: '/projects/two'),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          runRepositoryProvider.overrideWithValue(runsRepo),
+          workflowRepositoryProvider.overrideWithValue(
+            _FakeWorkflowRepository(),
+          ),
+          workspaceRepositoryProvider.overrideWithValue(workspaceRepo),
+        ],
+        child: MaterialApp(
+          theme: HiveTheme.light(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: HiveButton(
+                label: 'Open',
+                onPressed: () =>
+                    StartRunDialog.show(context, initialWorkspaceId: 'ws-2'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Second'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('start_run_confirm_button')));
+    await tester.pumpAndSettle();
+
+    expect(runsRepo.lastStartRequest?.workspaceId, 'ws-2');
+    expect(workspaceRepo.capabilityPaths, contains('/projects/two'));
+  });
+
+  testWidgets('StartRunDialog warns and disables start with no workspace', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          runRepositoryProvider.overrideWithValue(_FakeRunRepository()),
+          workflowRepositoryProvider.overrideWithValue(
+            _FakeWorkflowRepository(),
+          ),
+          workspaceRepositoryProvider.overrideWithValue(
+            FakeWorkspaceRepository(),
+          ),
+        ],
+        child: MaterialApp(
+          theme: HiveTheme.light(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: HiveButton(
+                label: 'Open',
+                onPressed: () => StartRunDialog.show(context),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('start_run_no_workspaces_banner')),
+      findsOneWidget,
+    );
+    final confirm = tester.widget<HiveButton>(
+      find.byKey(const Key('start_run_confirm_button')),
+    );
+    expect(confirm.onPressed, isNull);
+  });
 }

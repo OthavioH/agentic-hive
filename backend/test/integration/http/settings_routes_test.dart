@@ -47,17 +47,13 @@ void main() {
     final putRes = await client.put(
       '/api/v1/settings',
       body: jsonEncode(
-        UpdateSettingsRequest(
-          agentsDir: customAgentsDir.path,
-          defaultWorkspaceDir: tempDir.path,
-        ).toJson(),
+        UpdateSettingsRequest(agentsDir: customAgentsDir.path).toJson(),
       ),
     );
     expect(putRes.statusCode, 200);
     final updated = AppSettings.fromJson(putRes.json);
     expect(updated.agentsDir, customAgentsDir.path);
     expect(updated.effectiveAgentsDir, customAgentsDir.path);
-    expect(updated.defaultWorkspaceDir, tempDir.path);
 
     final events = [await ws.next(), await ws.next()];
     final agentsChanged = events.firstWhere(

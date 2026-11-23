@@ -14,7 +14,6 @@ sealed class AppSettings with _$AppSettings {
     required String effectiveAgentsDir,
     required String defaultAgentsDir,
     String? agentsDir,
-    String? defaultWorkspaceDir,
     @Default(<HarnessId, String>{}) Map<HarnessId, String> harnessOverrides,
   }) = _AppSettings;
 

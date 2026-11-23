@@ -1422,14 +1422,6 @@
       }
     }
   },
-  "settingsDefaultWorkspaceLabel": "Default workspace",
-  "@settingsDefaultWorkspaceLabel": {
-    "description": "Label for the Default workspace text field."
-  },
-  "settingsDefaultWorkspaceHint": "Optional default workspace folder",
-  "@settingsDefaultWorkspaceHint": {
-    "description": "Placeholder text for the Default workspace text field."
-  },
   "settingsBrowse": "Browse",
   "@settingsBrowse": {
     "description": "Button label to open the native file or folder picker."
@@ -2023,17 +2015,13 @@
   "@startRunNoWorkflowsMessage": {
     "description": "Message shown in the Start Run dialog when no workflows exist."
   },
-  "startRunWorkspaceLabel": "Workspace folder",
+  "startRunWorkspaceLabel": "Workspace",
   "@startRunWorkspaceLabel": {
     "description": "Label for the workspace folder path input in the Start Run dialog."
   },
-  "startRunWorkspaceHint": "Path to workspace folder",
-  "@startRunWorkspaceHint": {
-    "description": "Placeholder hint for the workspace folder path input."
-  },
-  "startRunBrowseAction": "Browse",
-  "@startRunBrowseAction": {
-    "description": "Button label to open the folder picker in the Start Run dialog."
+  "startRunNoWorkspacesMessage": "Register a workspace before starting a run.",
+  "@startRunNoWorkspacesMessage": {
+    "description": "Warning shown in the Start run dialog when no workspace is registered."
   },
   "startRunIsolationLabel": "Workspace isolation",
   "@startRunIsolationLabel": {
@@ -2070,10 +2058,6 @@
   "startRunValidationWorkflowRequired": "Select a workflow.",
   "@startRunValidationWorkflowRequired": {
     "description": "Validation error when submitting Start Run without a workflow."
-  },
-  "startRunValidationWorkspaceRequired": "Choose a workspace folder.",
-  "@startRunValidationWorkspaceRequired": {
-    "description": "Validation error when submitting Start Run without a workspace folder."
   },
   "startRunConfirmAction": "Start run",
   "@startRunConfirmAction": {

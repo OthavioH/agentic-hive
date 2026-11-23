@@ -82,29 +82,6 @@ void main() {
     expect(run.workspacePath, workspace.rootPath);
   });
 
-  test('a run started with only workspacePath registers the folder as a '
-      'workspace and attaches the run', () async {
-    final workflow = await createWorkflow();
-
-    final response = await http.post(
-      '/api/v1/runs',
-      body: jsonEncode(
-        StartRunRequest(
-          workflowId: workflow.id,
-          workspacePath: workspaceDir.path,
-          workspaceIsolationMode: WorkspaceIsolationMode.direct,
-        ).toJson(),
-      ),
-    );
-
-    expect(response.statusCode, 201);
-    final run = Run.fromJson(response.json);
-    expect(run.workspaceId, isNotNull);
-    final list = await http.get('/api/v1/workspaces');
-    final items = WorkspaceListResponse.fromJson(list.json).items;
-    expect(items.map((w) => w.id), [run.workspaceId]);
-  });
-
   test('a run started with an unknown workspaceId returns 404', () async {
     final workflow = await createWorkflow();
 
@@ -121,16 +98,21 @@ void main() {
     expect(response.statusCode, 404);
   });
 
-  test('a run started with neither workspaceId nor workspacePath returns '
-      '400', () async {
+  test('a run started without workspaceId returns 400, even with a legacy '
+      'workspacePath', () async {
     final workflow = await createWorkflow();
 
     final response = await http.post(
       '/api/v1/runs',
-      body: jsonEncode(StartRunRequest(workflowId: workflow.id).toJson()),
+      body: jsonEncode(<String, Object?>{
+        'workflowId': workflow.id,
+        'workspacePath': workspaceDir.path,
+      }),
     );
 
     expect(response.statusCode, 400);
+    final list = await http.get('/api/v1/workspaces');
+    expect(WorkspaceListResponse.fromJson(list.json).items, isEmpty);
   });
 
   test('the run list and run detail expose workspaceId', () async {

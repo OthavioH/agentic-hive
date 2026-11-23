@@ -111,36 +111,24 @@ final class RunService {
         ValidationFailure('Field "workflowId" must not be blank.'),
       );
     }
-    final workspaceId = request.workspaceId?.trim();
-    var workspacePath = request.workspacePath?.trim() ?? '';
-    if ((workspaceId == null || workspaceId.isEmpty) && workspacePath.isEmpty) {
+    final workspaceId = request.workspaceId.trim();
+    if (workspaceId.isEmpty) {
       return const FailureResult(
-        ValidationFailure(
-          'Provide "workspaceId" (or the legacy "workspacePath").',
-        ),
+        ValidationFailure('Field "workspaceId" must not be blank.'),
       );
     }
-    String? ownerWorkspaceId;
     final workspaceService = _workspaces;
-    if (workspaceId != null && workspaceId.isNotEmpty) {
-      if (workspaceService == null) {
-        return const FailureResult(
-          UnexpectedFailure('Workspace registry is not configured.'),
-        );
-      }
-      final found = await workspaceService.get(workspaceId);
-      if (found case FailureResult<Workspace>(:final failure)) {
-        return FailureResult(failure);
-      }
-      ownerWorkspaceId = found.valueOrNull!.id;
-      workspacePath = found.valueOrNull!.rootPath;
-    } else if (workspaceService != null) {
-      final found = await workspaceService.findOrRegister(workspacePath);
-      if (found case FailureResult<Workspace>(:final failure)) {
-        return FailureResult(failure);
-      }
-      ownerWorkspaceId = found.valueOrNull!.id;
+    if (workspaceService == null) {
+      return const FailureResult(
+        UnexpectedFailure('Workspace registry is not configured.'),
+      );
     }
+    final found = await workspaceService.get(workspaceId);
+    if (found case FailureResult<Workspace>(:final failure)) {
+      return FailureResult(failure);
+    }
+    final ownerWorkspaceId = found.valueOrNull!.id;
+    final workspacePath = found.valueOrNull!.rootPath;
 
     final workflows = _workflows;
     final engine = _engine;
