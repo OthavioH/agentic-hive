@@ -2047,6 +2047,54 @@
   "@startRunIsolationLabel": {
     "description": "Label for the workspace isolation mode selector."
   },
+  "startRunTargetLabel": "Where to run",
+  "@startRunTargetLabel": {
+    "description": "Label for the run target selector in the Start Run dialog."
+  },
+  "startRunTargetPrimary": "Primary checkout",
+  "@startRunTargetPrimary": {
+    "description": "Option label to run in the workspace's primary checkout."
+  },
+  "startRunTargetPrimaryDescription": "Run directly in the workspace's primary checkout.",
+  "@startRunTargetPrimaryDescription": {
+    "description": "Helper description for running in the primary checkout."
+  },
+  "startRunTargetExistingWorktree": "Existing worktree",
+  "@startRunTargetExistingWorktree": {
+    "description": "Option label to run in an existing git worktree."
+  },
+  "startRunTargetExistingWorktreeDescription": "Run inside an existing persistent worktree.",
+  "@startRunTargetExistingWorktreeDescription": {
+    "description": "Helper description for running in an existing worktree."
+  },
+  "startRunTargetNewWorktree": "New worktree",
+  "@startRunTargetNewWorktree": {
+    "description": "Option label to create and run in a new git worktree."
+  },
+  "startRunTargetNewWorktreeDescription": "Create a new worktree on a dedicated branch.",
+  "@startRunTargetNewWorktreeDescription": {
+    "description": "Helper description for creating a new worktree."
+  },
+  "startRunExistingWorktreeLabel": "Worktree",
+  "@startRunExistingWorktreeLabel": {
+    "description": "Label for the existing worktree dropdown in the Start Run dialog."
+  },
+  "startRunExistingWorktreeHint": "Select a worktree",
+  "@startRunExistingWorktreeHint": {
+    "description": "Placeholder for the existing worktree dropdown."
+  },
+  "startRunNewWorktreeBranchLabel": "Branch name",
+  "@startRunNewWorktreeBranchLabel": {
+    "description": "Label for the new worktree branch name input in the Start Run dialog."
+  },
+  "startRunNewWorktreeBranchHint": "Optional (defaults to hive/<runId>)",
+  "@startRunNewWorktreeBranchHint": {
+    "description": "Placeholder for the new worktree branch name input."
+  },
+  "startRunNonGitExplanation": "This workspace is not a git repository, so worktree options are hidden. Runs use the primary checkout directly with shadow snapshots.",
+  "@startRunNonGitExplanation": {
+    "description": "Explanation shown in the Start Run dialog when worktree options are hidden for a non-git workspace."
+  },
   "startRunIsolationDirect": "Direct",
   "@startRunIsolationDirect": {
     "description": "Option label for direct workspace isolation mode."
