@@ -3,6 +3,7 @@ import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_deletion_update.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflow_delete_controller.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflows_list_controller.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -304,6 +305,49 @@ void main() {
       await pumpEventQueue();
 
       expect(state().notice, isA<WorkflowDeletedNotice>());
+    },
+  );
+
+  test(
+    'recreated workflow with the same id is removed from list on second deletion',
+    () async {
+      container.listen(workflowsListControllerProvider, (_, _) {});
+      await container.read(workflowsListControllerProvider.future);
+      expect(
+        container.read(workflowsListControllerProvider).value!.workflows.map((w) => w.id),
+        contains(wf1.id),
+      );
+
+      final first = start(wf1);
+      repo.live.last
+        ..add(const WorkflowDeletionStarted(operationId: 'op-1'))
+        ..add(const WorkflowDeletionSucceeded());
+      await first;
+      await pumpEventQueue();
+
+      expect(
+        container.read(workflowsListControllerProvider).value!.workflows.map((w) => w.id),
+        isNot(contains(wf1.id)),
+      );
+
+      // Recreate the workflow with the same id and refresh the list.
+      repo.items.add(wf1);
+      await container.read(workflowsListControllerProvider.notifier).refresh();
+      expect(
+        container.read(workflowsListControllerProvider).value!.workflows.map((w) => w.id),
+        contains(wf1.id),
+      );
+
+      // Second deletion (e.g. 404 or polling completion emitting Succeeded).
+      final second = start(wf1);
+      repo.live.last.add(const WorkflowDeletionSucceeded());
+      await second;
+      await pumpEventQueue();
+
+      expect(
+        container.read(workflowsListControllerProvider).value!.workflows.map((w) => w.id),
+        isNot(contains(wf1.id)),
+      );
     },
   );
 }

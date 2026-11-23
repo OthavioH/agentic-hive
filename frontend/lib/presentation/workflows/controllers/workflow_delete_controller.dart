@@ -172,6 +172,7 @@ class WorkflowDeleteController extends _$WorkflowDeleteController {
     final first = Completer<WorkflowDeleteOutcome>();
     state = state.copyWith(
       progress: {...state.progress, key: const WorkflowDeletionProgressView()},
+      removed: {...state.removed}..remove(key),
       notice: () => null,
     );
     late final StreamSubscription<WorkflowDeletionUpdate> subscription;
