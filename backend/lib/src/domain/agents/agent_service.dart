@@ -1,6 +1,5 @@
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
-import 'package:agentic_hive_backend/src/data/agents/layered_agent_repository.dart';
 import 'package:agentic_hive_backend/src/domain/agents/agent_repository.dart';
 import 'package:agentic_hive_backend/src/domain/agents/agent_slug.dart';
 import 'package:agentic_hive_backend/src/domain/agents/workspace_agent_repositories.dart';
@@ -10,7 +9,7 @@ import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 ///
 /// Without a `workspaceId` every operation targets the global library. With
 /// one, reads see the workspace folder layered over the global library
-/// (workspace overrides global by id, ADR 0022) and writes only touch the
+/// (workspace overrides global by `name`, ADR 0022) and writes only touch the
 /// workspace folder.
 final class AgentService {
   /// Creates an agent service backed by the global library and, optionally,
@@ -18,10 +17,19 @@ final class AgentService {
   ///
   /// `onWorkspaceAgentsChanged` runs after a workspace folder is read or
   /// written so file watchers can pick up a folder that did not exist before.
-  const new(this._global, {this._workspaces, this._onWorkspaceAgentsChanged});
+  new(
+    this._global, {
+    this._workspaces,
+    this._layer,
+    this._onWorkspaceAgentsChanged,
+  }) : assert(
+         _workspaces == null || _layer != null,
+         'Workspace-scoped agents need a layering.',
+       );
 
   final AgentRepository _global;
   final WorkspaceAgentRepositories? _workspaces;
+  final LayerAgentRepositories? _layer;
   final Future<void> Function()? _onWorkspaceAgentsChanged;
 
   Future<Result<AgentRepository>> _workspaceRepository(String workspaceId) {
@@ -55,8 +63,7 @@ final class AgentService {
     if (workspaceId == null) return _global.list();
     return _inWorkspace(
       workspaceId,
-      (workspace) =>
-          LayeredAgentRepository(global: _global, workspace: workspace).list(),
+      (workspace) => _layer!(global: _global, workspace: workspace).list(),
     );
   }
 
@@ -70,10 +77,7 @@ final class AgentService {
     if (workspaceId == null) return _global.getById(id);
     return _inWorkspace(
       workspaceId,
-      (workspace) => LayeredAgentRepository(
-        global: _global,
-        workspace: workspace,
-      ).getById(id),
+      (workspace) => _layer!(global: _global, workspace: workspace).getById(id),
     );
   }
 

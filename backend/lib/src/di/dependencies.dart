@@ -16,6 +16,7 @@ import 'package:agentic_hive_backend/src/api/worktrees/worktrees_handler.dart';
 import 'package:agentic_hive_backend/src/config/app_config.dart';
 import 'package:agentic_hive_backend/src/config/platform_paths.dart';
 import 'package:agentic_hive_backend/src/data/agents/agent_directory_watcher.dart';
+import 'package:agentic_hive_backend/src/data/agents/layered_agent_repository.dart';
 import 'package:agentic_hive_backend/src/data/agents/local_agent_repository.dart';
 import 'package:agentic_hive_backend/src/data/agents/local_workspace_agent_repositories.dart';
 import 'package:agentic_hive_backend/src/data/agents/repository_agent_prompt_resolver.dart';
@@ -561,6 +562,7 @@ Future<void> registerDependencies(
       AgentService(
         di<AgentRepository>(),
         workspaces: di<WorkspaceAgentRepositories>(),
+        layer: LayeredAgentRepository.new,
         onWorkspaceAgentsChanged: () => di<WorkspaceAgentWatchers>().sync(),
       ),
     )

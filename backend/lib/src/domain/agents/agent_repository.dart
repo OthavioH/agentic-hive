@@ -1,6 +1,14 @@
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
+/// Builds the read view of a workspace agent library layered over the global
+/// one (ADR 0022): workspace agents override global agents with the same
+/// `name`. Reads follow the layering; writes go to [workspace] only.
+typedef LayerAgentRepositories = AgentRepository Function({
+  required AgentRepository global,
+  required AgentRepository workspace,
+});
+
 /// Persistence boundary for the agent `.md` file library.
 abstract interface class AgentRepository {
   /// Lists all `.md` files at the root of the agents folder.

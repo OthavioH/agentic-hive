@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:agentic_hive_backend/src/api/agents/agents_handler.dart';
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/data/agents/layered_agent_repository.dart';
 import 'package:agentic_hive_backend/src/data/agents/local_agent_repository.dart';
 import 'package:agentic_hive_backend/src/data/agents/local_workspace_agent_repositories.dart';
 import 'package:agentic_hive_backend/src/domain/agents/agent_service.dart';
@@ -48,6 +49,7 @@ void main() {
     syncCount = 0;
     final service = AgentService(
       LocalAgentRepository(agentsDir: globalDir.path),
+      layer: LayeredAgentRepository.new,
       workspaces: LocalWorkspaceAgentRepositories(
         findWorkspace: (id) async => id == 'ws-1'
             ? Success(
