@@ -22,6 +22,18 @@ final class HiveMcpToolsClient implements HiveMcpToolForwarder {
       'Agentic Hive is not running. Start the Agentic Hive app, then call '
       'again.';
 
+  /// Forward timeout of tools without a longer entry.
+  static const defaultTimeout = Duration(seconds: 15);
+
+  /// Longer timeouts: delete_workflow waits up to 20 s for its operation.
+  static const _longTimeouts = <String, Duration>{
+    'delete_workflow': Duration(seconds: 30),
+  };
+
+  /// Timeout used when forwarding the tool [name].
+  static Duration timeoutFor(String name) =>
+      _longTimeouts[name] ?? defaultTimeout;
+
   final HiveMcpSocketClient? _socket;
   final String _cwd;
 
@@ -40,7 +52,7 @@ final class HiveMcpToolsClient implements HiveMcpToolForwarder {
     final response = await socket.postJson(
       '/api/v1/internal/mcp/tools/${Uri.encodeComponent(name)}',
       McpToolCallRequest(arguments: arguments, cwd: _cwd).toJson(),
-      timeout: const Duration(seconds: 15),
+      timeout: timeoutFor(name),
     );
     if (response.backendUnreachable) {
       return const BackendToolCallResponse(

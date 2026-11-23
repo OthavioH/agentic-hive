@@ -169,6 +169,24 @@ abstract final class HiveMcpToolCatalog {
       ),
     ),
     Tool(
+      name: 'delete_workflow',
+      description:
+          'Delete a workflow and its runs. Needs the revision you read. '
+          'Refuses while runs are active; never stops runs.',
+      inputSchema: ObjectSchema(
+        properties: <String, Schema>{
+          'id': StringSchema(description: 'Workflow id from list_workflows.'),
+          'revision': StringSchema(
+            description:
+                'Revision from your last get_workflow or list_workflows.',
+          ),
+          'workspace': _workspace,
+        },
+        required: const <String>['id', 'revision'],
+        additionalProperties: false,
+      ),
+    ),
+    Tool(
       name: 'list_building_blocks',
       description:
           'List the node types (config fields, outputs) and agents a workflow '
