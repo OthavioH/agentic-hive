@@ -9,6 +9,7 @@ import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart'
 import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_log_store.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
+import 'package:agentic_hive_backend/src/domain/settings/execution_settings_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/shadow_snapshot_service.dart';
@@ -33,6 +34,7 @@ final class RunService {
     this._workflows,
     this._workflowValidator,
     this._workspaces,
+    this._executionSettings,
     this._engine,
     this._logStore,
     p.Context? pathContext,
@@ -60,6 +62,7 @@ final class RunService {
   final WorkflowRepository? _workflows;
   final WorkflowValidator? _workflowValidator;
   final WorkspaceService? _workspaces;
+  final ExecutionSettingsService? _executionSettings;
   final GraphEngine? _engine;
   final RunLogStore? _logStore;
   final p.Context _pathContext;
@@ -139,8 +142,24 @@ final class RunService {
       );
     }
 
-    final requestedMode =
+    var requestedMode =
         request.workspaceIsolationMode ?? WorkspaceIsolationMode.worktree;
+    var ignorePatterns = request.ignorePatterns;
+    final executionSettings = _executionSettings;
+    if (executionSettings != null &&
+        ownerWorkspaceId != null &&
+        (request.workspaceIsolationMode == null || ignorePatterns == null)) {
+      final effective = await executionSettings.effectiveFor(ownerWorkspaceId);
+      if (effective case FailureResult<EffectiveExecutionSettings>(
+        :final failure,
+      )) {
+        return FailureResult(failure);
+      }
+      final settings = effective.valueOrNull!;
+      requestedMode =
+          request.workspaceIsolationMode ?? settings.defaultIsolationMode;
+      ignorePatterns ??= settings.ignorePatterns;
+    }
     final normalizedWorkspace = _canonicalizeWorkspace(workspacePath);
     var reservedDirect = false;
     if (requestedMode == WorkspaceIsolationMode.direct) {
@@ -215,7 +234,6 @@ final class RunService {
         if (conflict != null) return FailureResult(conflict);
       }
 
-      final ignorePatterns = request.ignorePatterns;
       if (ignorePatterns != null && ignorePatterns.isNotEmpty) {
         _snapshots?.configureRunExclusions(runId, ignorePatterns);
       }
