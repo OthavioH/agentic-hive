@@ -357,6 +357,19 @@ final class RunService implements WorkflowRunsDeleter {
         input: runInput,
       );
 
+      if (_deletingFailureFor(workflowId, workspace.id)
+          case final deletingFailure?) {
+        _snapshots?.configureRunExclusions(runId, const []);
+        if (createdWorktreePath != null) {
+          await workspacePreparation.cleanupWorktree(
+            workspacePath: workspacePath,
+            worktreePath: createdWorktreePath,
+            branchName: createdWorktreeBranch,
+          );
+        }
+        return FailureResult(deletingFailure);
+      }
+
       final createResult = await _runs.create(run);
       if (createResult case FailureResult<Run>(:final failure)) {
         _snapshots?.configureRunExclusions(runId, const []);
