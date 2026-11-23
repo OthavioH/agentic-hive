@@ -59,6 +59,10 @@ const Map<String, String> _useCases = <String, String>{
   'Long value and label': '1,284,356',
   'Title bar · Restored': '',
   'Title bar · Maximized': '',
+  'Busy · Deleting': 'Deleting…',
+  'Busy · Stopping runs': 'Deleting… (stopping 2 of 3 runs)',
+  'Busy · with disabled actions': 'Release checklist',
+  'Disabled · With reason': '',
 };
 
 void main() {

@@ -78,6 +78,9 @@ final class ScriptedWorkflowRepository implements WorkflowRepository {
     );
   }
 
+  /// Optional gate that pauses [duplicateWorkflow] until completed.
+  Completer<void>? duplicateGate;
+
   @override
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
@@ -85,6 +88,9 @@ final class ScriptedWorkflowRepository implements WorkflowRepository {
     String? workspaceId,
   }) async {
     duplicatedIds.add(id);
+    if (duplicateGate != null) {
+      await duplicateGate!.future;
+    }
     final source = items.firstWhere((w) => w.id == id);
     final copy = WorkflowSummary(
       id: '$id-copy',

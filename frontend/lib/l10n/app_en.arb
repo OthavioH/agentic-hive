@@ -926,26 +926,9 @@
   "@workflowsDismissNoticeAction": {
     "description": "Semantic label of the button that dismisses a notice on the Workflows page."
   },
-  "workflowsOpenActionDeleting": "Open {name}. Unavailable while the workflow is being deleted.",
-  "@workflowsOpenActionDeleting": {
-    "description": "Semantic label of a workflow row while it is being deleted; explains why opening is unavailable.",
-    "placeholders": {
-      "name": {
-        "type": "String"
-      }
-    }
-  },
-  "workflowsRunActionDeleting": "Run workflow. Unavailable while the workflow is being deleted.",
-  "@workflowsRunActionDeleting": {
-    "description": "Semantic label of the run button while the workflow is being deleted."
-  },
-  "workflowsDuplicateActionDeleting": "Duplicate workflow. Unavailable while the workflow is being deleted.",
-  "@workflowsDuplicateActionDeleting": {
-    "description": "Semantic label of the duplicate button while the workflow is being deleted."
-  },
-  "workflowsDeleteActionDeleting": "Delete workflow. Unavailable while the workflow is being deleted.",
-  "@workflowsDeleteActionDeleting": {
-    "description": "Semantic label of the delete button while the workflow is being deleted."
+  "workflowsActionUnavailableDeleting": "Unavailable while the workflow is being deleted.",
+  "@workflowsActionUnavailableDeleting": {
+    "description": "Disabled reason (tooltip and screen-reader hint) of a workflow row action while the workflow is being deleted."
   },
   "workflowsNodeCount": "{count, plural, =0{0 nodes} =1{1 node} other{{count} nodes}}",
   "@workflowsNodeCount": {

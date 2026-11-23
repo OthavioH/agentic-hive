@@ -425,19 +425,29 @@ void main() {
       await tester.pumpAndSettle();
 
       // 1. Tap Overview in side rail while dirty -> HiveDialog appears;
-      // cancel keeps user in editor.
+      // Enter cancels (Cancel is focused) and keeps user in editor.
       await tester.tap(find.bySemanticsLabel(l10n.navOverview));
       await tester.pumpAndSettle();
 
       expect(find.byType(HiveDialog), findsOneWidget);
       expect(find.text(l10n.editorUnsavedDialogTitle), findsOneWidget);
 
-      await tester.tap(find.text(l10n.editorKeepEditingAction));
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
+      expect(find.byType(HiveDialog), findsNothing);
       expect(find.byType(WorkflowEditorPage), findsOneWidget);
 
       // 2. Tap back button while dirty -> HiveDialog appears;
-      // confirm discards and navigates away.
+      // Enter cancels, then confirm discards and navigates away.
+      await tester.tap(find.byKey(const Key('editor_back_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HiveDialog), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.byType(HiveDialog), findsNothing);
+      expect(find.byType(WorkflowEditorPage), findsOneWidget);
+
       await tester.tap(find.byKey(const Key('editor_back_button')));
       await tester.pumpAndSettle();
 

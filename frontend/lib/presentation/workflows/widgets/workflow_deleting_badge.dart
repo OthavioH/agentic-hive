@@ -4,8 +4,23 @@ import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// Status badge of a workflow row while its deletion runs: the phase and the
-/// stop counters when they are known. A live region, so it is announced.
+/// The status text of a workflow row while its deletion runs; shared by the
+/// visible badge and the row's live-region status.
+String workflowDeletingLabel(
+  AppLocalizations l10n,
+  WorkflowDeletionProgressView? progress,
+) => switch (progress?.phase) {
+  WorkflowDeletionPhase.stoppingRuns => l10n.workflowsDeletingStoppingRuns(
+    progress!.runsStopped,
+    progress.runsToStop,
+  ),
+  WorkflowDeletionPhase.deletingRuns => l10n.workflowsDeletingRemovingRuns,
+  WorkflowDeletionPhase.done || null => l10n.workflowsDeletingStatus,
+};
+
+/// Visible status badge of a deleting workflow row. It is excluded from
+/// semantics: the row's busy `HiveCard` announces the same text as its
+/// live-region status.
 class WorkflowDeletingBadge extends StatelessWidget {
   /// Creates a [WorkflowDeletingBadge] for the row [workflowId].
   const new({required this.workflowId, this.progress, super.key});
@@ -18,21 +33,12 @@ class WorkflowDeletingBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final current = progress;
-    final label = switch (current?.phase) {
-      WorkflowDeletionPhase.stoppingRuns => l10n.workflowsDeletingStoppingRuns(
-        current!.runsStopped,
-        current.runsToStop,
-      ),
-      WorkflowDeletionPhase.deletingRuns => l10n.workflowsDeletingRemovingRuns,
-      WorkflowDeletionPhase.done || null => l10n.workflowsDeletingStatus,
-    };
-    return Semantics(
+    return ExcludeSemantics(
       key: Key('workflow_deleting_$workflowId'),
-      container: true,
-      liveRegion: true,
-      child: HiveBadge(label: label, tone: HiveBadgeTone.warning),
+      child: HiveBadge(
+        label: workflowDeletingLabel(AppLocalizations.of(context)!, progress),
+        tone: HiveBadgeTone.warning,
+      ),
     );
   }
 }

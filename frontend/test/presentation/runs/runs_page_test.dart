@@ -11,6 +11,7 @@ import 'package:agentic_hive_frontend/presentation/runs/pages/runs_page.dart';
 import 'package:agentic_hive_frontend/presentation/workspace/controllers/workspace_registry_controller.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -319,6 +320,14 @@ void main() {
 
       final l10n = AppLocalizations.of(tester.element(find.byType(RunsPage)))!;
       expect(find.text(l10n.runsDeleteTitle), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.runsDeleteTitle), findsNothing);
+      expect(repo.deletedIds, isEmpty);
+
+      await tester.tap(find.byKey(const Key('run_delete_run-done')));
+      await tester.pumpAndSettle();
 
       await tester.tap(find.text(l10n.runsDeleteConfirm));
       await tester.pumpAndSettle();

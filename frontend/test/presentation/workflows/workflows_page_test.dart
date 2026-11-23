@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_deletion_update.dart';
@@ -274,28 +277,30 @@ void main() {
       find.byKey(const Key('duplicate_workflow_wf-1')),
     );
     expect(duplicate.onPressed, isNull);
-    expect(duplicate.semanticLabel, l10n.workflowsDuplicateActionDeleting);
+    expect(duplicate.semanticLabel, l10n.workflowsDuplicateAction);
+    expect(duplicate.disabledReason, l10n.workflowsActionUnavailableDeleting);
 
     final run = tester.widget<HiveIconButton>(
       find.byKey(const Key('run_workflow_wf-1')),
     );
     expect(run.onPressed, isNull);
-    expect(run.semanticLabel, l10n.workflowsRunActionDeleting);
+    expect(run.semanticLabel, l10n.workflowsRunAction);
+    expect(run.disabledReason, l10n.workflowsActionUnavailableDeleting);
 
     final delete = tester.widget<HiveIconButton>(
       find.byKey(const Key('delete_workflow_wf-1')),
     );
     expect(delete.onPressed, isNull);
-    expect(delete.semanticLabel, l10n.workflowsDeleteActionDeleting);
+    expect(delete.semanticLabel, l10n.workflowsDeleteAction);
+    expect(delete.disabledReason, l10n.workflowsActionUnavailableDeleting);
 
     final card = tester.widget<HiveCard>(
       find.byKey(const Key('workflow_card_wf-1')),
     );
     expect(card.onPressed, isNull);
-    expect(
-      card.semanticLabel,
-      l10n.workflowsOpenActionDeleting('Release Flow'),
-    );
+    expect(card.busy, isTrue);
+    expect(card.semanticLabel, l10n.workflowsOpenAction('Release Flow'));
+    expect(card.statusLabel, l10n.workflowsDeletingStatus);
 
     await tester.tap(find.byKey(const Key('workflow_card_wf-1')));
     await tester.pumpAndSettle();
@@ -324,8 +329,11 @@ void main() {
 
     expect(find.text(l10n.workflowsDeletingStoppingRuns(2, 3)), findsOneWidget);
     expect(
-      tester.getSemantics(find.byKey(const Key('workflow_deleting_wf-1'))),
-      isSemantics(isLiveRegion: true),
+      tester.getSemantics(find.byKey(const Key('workflow_card_wf-1'))),
+      isSemantics(
+        isLiveRegion: true,
+        value: l10n.workflowsDeletingStoppingRuns(2, 3),
+      ),
     );
 
     repo.live.last.add(
@@ -335,6 +343,13 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text(l10n.workflowsDeletingRemovingRuns), findsOneWidget);
+    expect(
+      tester.getSemantics(find.byKey(const Key('workflow_card_wf-1'))),
+      isSemantics(
+        isLiveRegion: true,
+        value: l10n.workflowsDeletingRemovingRuns,
+      ),
+    );
     semantics.dispose();
   });
 
@@ -343,12 +358,19 @@ void main() {
     final repo = ScriptedWorkflowRepository()
       ..items.add(_workflow(deleting: true));
     await _pump(tester, repo);
+    final l10n = _l10n(tester);
 
-    expect(find.text(_l10n(tester).workflowsDeletingStatus), findsOneWidget);
+    expect(find.text(l10n.workflowsDeletingStatus), findsOneWidget);
+    final card = tester.widget<HiveCard>(
+      find.byKey(const Key('workflow_card_wf-1')),
+    );
+    expect(card.busy, isTrue);
+    expect(card.statusLabel, l10n.workflowsDeletingStatus);
     final duplicate = tester.widget<HiveIconButton>(
       find.byKey(const Key('duplicate_workflow_wf-1')),
     );
     expect(duplicate.onPressed, isNull);
+    expect(duplicate.disabledReason, l10n.workflowsActionUnavailableDeleting);
     expect(repo.deleteCalls, isEmpty);
   });
 
@@ -441,6 +463,10 @@ void main() {
       find.byKey(const Key('duplicate_workflow_wf-1')),
     );
     expect(duplicate.onPressed, isNotNull);
+    expect(
+      tester.widget<HiveCard>(find.byKey(const Key('workflow_card_wf-1'))).busy,
+      isFalse,
+    );
 
     await tester.tap(find.byKey(const Key('workflows_delete_retry_button')));
     await tester.pumpAndSettle();
@@ -560,20 +586,93 @@ void main() {
     );
   });
 
+  testWidgets('delete flow surfaces meet the labeled tap target guideline', (
+    tester,
+  ) async {
+    final repo = ScriptedWorkflowRepository()..items.add(_workflow());
+    await _pump(tester, repo);
+    final semantics = tester.ensureSemantics();
+
+    await _startDelete(tester, 'wf-1');
+    repo.live.last.add(const WorkflowDeletionStarted(operationId: 'op-1'));
+    await tester.pumpAndSettle();
+
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    semantics.dispose();
+  });
+
+  testWidgets('deleting row action reason shows in a tooltip on hover', (
+    tester,
+  ) async {
+    final repo = ScriptedWorkflowRepository()..items.add(_workflow());
+    await _pump(tester, repo);
+    final l10n = _l10n(tester);
+
+    await _startDelete(tester, 'wf-1');
+    repo.live.last.add(const WorkflowDeletionStarted(operationId: 'op-1'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: Offset.zero);
+    addTearDown(gesture.removePointer);
+    await tester.pump();
+    await gesture.moveTo(
+      tester.getCenter(find.byKey(const Key('duplicate_workflow_wf-1'))),
+    );
+    await tester.pump(HiveMotionTokens.standard.long);
+    await tester.pumpAndSettle();
+
+    expect(find.text(l10n.workflowsActionUnavailableDeleting), findsOneWidget);
+  });
+
+  testWidgets('deleting status is announced once', (tester) async {
+    final repo = ScriptedWorkflowRepository()..items.add(_workflow());
+    await _pump(tester, repo);
+    final l10n = _l10n(tester);
+    final semantics = tester.ensureSemantics();
+
+    await _startDelete(tester, 'wf-1');
+    repo.live.last.add(const WorkflowDeletionStarted(operationId: 'op-1'));
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel(l10n.workflowsDeletingStatus), findsNothing);
+    expect(
+      tester.getSemantics(find.byKey(const Key('workflow_card_wf-1'))).value,
+      l10n.workflowsDeletingStatus,
+    );
+    semantics.dispose();
+  });
+
   testWidgets(
-    'delete flow surfaces meet the labeled tap target guideline',
+    'duplicating-only row disables actions without busy or disabledReason',
     (tester) async {
-      final repo = ScriptedWorkflowRepository()..items.add(_workflow());
+      final gate = Completer<void>();
+      final repo = ScriptedWorkflowRepository()
+        ..items.add(_workflow())
+        ..duplicateGate = gate;
       await _pump(tester, repo);
-      final semantics = tester.ensureSemantics();
 
-      await _startDelete(tester, 'wf-1');
-      repo.live.last.add(const WorkflowDeletionStarted(operationId: 'op-1'));
+      await tester.tap(find.byKey(const Key('duplicate_workflow_wf-1')));
+      await tester.pump();
+
+      final card = tester.widget<HiveCard>(
+        find.byKey(const Key('workflow_card_wf-1')),
+      );
+      expect(card.busy, isFalse);
+      expect(card.onPressed, isNull);
+
+      for (final keyName in <String>[
+        'run_workflow_wf-1',
+        'duplicate_workflow_wf-1',
+        'delete_workflow_wf-1',
+      ]) {
+        final button = tester.widget<HiveIconButton>(find.byKey(Key(keyName)));
+        expect(button.onPressed, isNull);
+        expect(button.disabledReason, isNull);
+      }
+
+      gate.complete();
       await tester.pumpAndSettle();
-
-      await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
-      semantics.dispose();
     },
-    skip: true,
-  ); // Known gap: the page search field has no semantic label (pre-existing).
+  );
 }

@@ -1,6 +1,7 @@
 import 'dart:ui' show Tristate;
 
 import 'package:design_system/design_system.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -147,9 +148,137 @@ void main() {
 
       expect(focusNode.hasFocus, isFalse);
     });
+
+    testWidgets('labelled field meets the labeled tap target guideline', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          hiveTestApp(
+            child: const SizedBox(
+              width: 600,
+              child: HiveTextField(
+                label: 'Search workflows',
+                hint: 'Filter by name or description...',
+              ),
+            ),
+          ),
+        );
+
+        await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+      } finally {
+        handle.dispose();
+      }
+    });
+
+    testWidgets(
+      'semanticLabel-only field with leading icon meets the guideline',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        try {
+          await tester.pumpWidget(
+            hiveTestApp(
+              child: const SizedBox(
+                width: 600,
+                child: HiveTextField(
+                  semanticLabel: 'Search agents',
+                  hint: 'Filter agents...',
+                  leadingIcon: HiveIcons.search,
+                ),
+              ),
+            ),
+          );
+
+          await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+        } finally {
+          handle.dispose();
+        }
+      },
+    );
+
+    testWidgets('multi-line field meets the guideline', (tester) async {
+      final handle = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          hiveTestApp(
+            child: const SizedBox(
+              width: 600,
+              child: HiveTextField(label: 'Notes', maxLines: 4),
+            ),
+          ),
+        );
+
+        await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+      } finally {
+        handle.dispose();
+      }
+    });
+
+    testWidgets('the well adds no tappable semantics node of its own', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          hiveTestApp(
+            child: const SizedBox(
+              width: 600,
+              child: HiveTextField(label: 'Search workflows'),
+            ),
+          ),
+        );
+
+        final root = tester.getSemantics(find.byType(HiveTextField));
+        final tapNodes = <SemanticsNode>[];
+        void visit(SemanticsNode node) {
+          if (node.getSemanticsData().hasAction(SemanticsAction.tap)) {
+            tapNodes.add(node);
+          }
+          node.visitChildren((child) {
+            visit(child);
+            return true;
+          });
+        }
+
+        visit(root);
+        expect(tapNodes, hasLength(1));
+        expect(
+          tapNodes.single,
+          isSemantics(isTextField: true, label: 'Search workflows'),
+        );
+      } finally {
+        handle.dispose();
+      }
+    });
   });
 
   group('HiveSelect', () {
+    testWidgets('select meets the labeled tap target guideline', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          hiveTestApp(
+            child: SizedBox(
+              width: 600,
+              child: HiveSelect<String>(
+                label: 'Source output',
+                options: _outputs,
+                value: 'onSuccess',
+                onChanged: (_) {},
+              ),
+            ),
+          ),
+        );
+
+        await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+      } finally {
+        handle.dispose();
+      }
+    });
+
     testWidgets('shows the chosen option and picks a new one from the menu', (
       tester,
     ) async {

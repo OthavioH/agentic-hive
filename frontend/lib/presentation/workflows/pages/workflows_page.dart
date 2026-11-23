@@ -313,12 +313,9 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
                                   final isBusy =
                                       listState.busyWorkflowId == summary.id ||
                                       isDeleting;
-                                  final duplicateLabel = isDeleting
-                                      ? l10n.workflowsDuplicateActionDeleting
-                                      : l10n.workflowsDuplicateAction;
-                                  final deleteLabel = isDeleting
-                                      ? l10n.workflowsDeleteActionDeleting
-                                      : l10n.workflowsDeleteAction;
+                                  final deletingReason = isDeleting
+                                      ? l10n.workflowsActionUnavailableDeleting
+                                      : null;
                                   final formattedDate = DateFormat.yMMMd()
                                       .add_Hm()
                                       .format(summary.updatedAt.toLocal());
@@ -338,13 +335,13 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
                                   return HiveCard(
                                     key: Key('workflow_card_${summary.id}'),
                                     surface: HiveCardSurface.surface2,
-                                    semanticLabel: isDeleting
-                                        ? l10n.workflowsOpenActionDeleting(
-                                            summary.name,
-                                          )
-                                        : l10n.workflowsOpenAction(
-                                            summary.name,
-                                          ),
+                                    busy: isDeleting,
+                                    statusLabel: isDeleting
+                                        ? workflowDeletingLabel(l10n, deletion)
+                                        : null,
+                                    semanticLabel: l10n.workflowsOpenAction(
+                                      summary.name,
+                                    ),
                                     onPressed: isBusy
                                         ? null
                                         : () => WorkflowEditorRoute(
@@ -470,9 +467,9 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
                                             'run_workflow_${summary.id}',
                                           ),
                                           icon: HiveIcons.play,
-                                          semanticLabel: isDeleting
-                                              ? l10n.workflowsRunActionDeleting
-                                              : l10n.workflowsRunAction,
+                                          semanticLabel:
+                                              l10n.workflowsRunAction,
+                                          disabledReason: deletingReason,
                                           onPressed: isBusy
                                               ? null
                                               : () => unawaited(
@@ -488,7 +485,9 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
                                             'duplicate_workflow_${summary.id}',
                                           ),
                                           icon: HiveIcons.copy,
-                                          semanticLabel: duplicateLabel,
+                                          semanticLabel:
+                                              l10n.workflowsDuplicateAction,
+                                          disabledReason: deletingReason,
                                           onPressed: isBusy
                                               ? null
                                               : () => unawaited(
@@ -505,7 +504,9 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
                                             'delete_workflow_${summary.id}',
                                           ),
                                           icon: HiveIcons.delete,
-                                          semanticLabel: deleteLabel,
+                                          semanticLabel:
+                                              l10n.workflowsDeleteAction,
+                                          disabledReason: deletingReason,
                                           onPressed: isBusy
                                               ? null
                                               : () => unawaited(
