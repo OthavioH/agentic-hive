@@ -12,6 +12,14 @@ _Avoid_: bot, persona, assistant
 An agent CLI installed by the user that does an agent's work, such as Claude Code or Antigravity CLI.
 _Avoid_: provider, model, engine
 
+**Model**:
+The AI model a harness node asks its harness to use, named in that harness's own terms. Without one, the harness uses its own default.
+_Avoid_: harness, provider, LLM (when naming the setting)
+
+**Effort**:
+How hard a harness node asks its harness to reason, on one scale shared by all harnesses: `low`, `medium`, `high` or `max`.
+_Avoid_: reasoning, thinking budget, reasoning level
+
 **Workflow**:
 A graph of nodes and edges saved by the user. It is the recipe, not the execution.
 _Avoid_: pipeline, flow, graph (when referring to the saved artifact)
@@ -50,8 +58,24 @@ The workspace's root folder itself, where the user's own files live. Runs there 
 _Avoid_: main worktree, root copy
 
 **Run target**:
-Where a run executes inside its workspace: the primary checkout, an existing worktree, or a new worktree created for the run. A run started without a target uses the primary checkout. The folder the target resolves to (the workspace root or one of its worktrees) is the run's _target folder_, and at most one run is active per target folder.
+Where a run executes inside its workspace: the primary checkout, an existing worktree, or a new worktree created for the run. A run started without a target uses the primary checkout. The folder the target resolves to (the workspace root or one of its worktrees) is the run's _target folder_, and at most one run is active per target folder. The only exception is a parent run lending its folder to its own child runs, one at a time.
 _Avoid_: run location, run mode
+
+**Fan-out node**:
+A node that takes a list from an earlier node's output and starts one child run for each item, then waits for all of them.
+_Avoid_: map node, for-each node, batch node
+
+**Parent run**:
+The run that contains the fan-out node that started a child run.
+_Avoid_: root run, outer run
+
+**Child run**:
+A run of a saved workflow started by a fan-out node for one item of its list. It is a full run with its own history and run target, linked to its parent run.
+_Avoid_: subrun, spawned run, batch item
+
+**Node override**:
+A value for a node's agent, model or effort that replaces the node's own for one run only.
+_Avoid_: parameter, binding, patch
 
 **Global scope**:
 The level of definitions (workflows, agents, execution settings) available in every workspace.
@@ -92,6 +116,10 @@ _Avoid_: return value, exit status
 **Pause**:
 The state of a run waiting for a human answer, through an approval node or `ask_human`.
 _Avoid_: block, wait
+
+**Proposal**:
+A value produced by an earlier node that an approval node shows to the human, who approves it as is, edits and approves it, or rejects it. The approved value is what later nodes receive.
+_Avoid_: plan, suggestion, draft
 
 **Active run**:
 A run that has started and has not finished, failed, been cancelled, been interrupted by a backend restart, or entered `cancellationUncertain`. A paused or cancelling run is still active.
