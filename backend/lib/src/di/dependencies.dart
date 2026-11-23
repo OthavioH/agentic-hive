@@ -64,12 +64,14 @@ import 'package:agentic_hive_backend/src/domain/harnesses/harness_detector.dart'
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_mcp_installer.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_service.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/building_blocks_text_formatter.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/mcp_scope_resolver.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/mcp_tool_registry.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/create_workflow_tool.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/duplicate_workflow_tool.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/edit_workflow_tool.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/get_workflow_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/list_building_blocks_tool.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/list_workflows_tool.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/list_workspaces_tool.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/workflow_create_input.dart';
@@ -607,6 +609,12 @@ Future<void> registerDependencies(
             ),
             formatter: formatter,
             events: di<WorkflowEvents>(),
+          ),
+          ListBuildingBlocksTool(
+            scopes: scopes,
+            nodeTypes: () => di<NodeRegistry>().descriptors,
+            agents: di<AgentService>(),
+            formatter: const BuildingBlocksTextFormatter(),
           ),
         ]);
       },
