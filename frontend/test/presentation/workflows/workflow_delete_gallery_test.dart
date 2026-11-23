@@ -142,7 +142,7 @@ Future<void> _capture(
           supportedLocales: AppLocalizations.supportedLocales,
           routerConfig: router,
           builder: (context, child) =>
-              RepaintBoundary(key: boundaryKey, child: child!),
+              RepaintBoundary(key: boundaryKey, child: child),
         ),
       ),
     ),
@@ -227,7 +227,7 @@ void main() {
           drive: (tester) async {
             await _openDelete(tester, 'wf-1');
             await _confirm(tester);
-            // Live stream: the test drives the operation through the repository.
+            // Live stream: the capture drives the operation after the dialog.
           },
         ),
         (
