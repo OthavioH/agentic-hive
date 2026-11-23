@@ -442,6 +442,26 @@
   "@agentsSelectPromptDescription": {
     "description": "Empty state description in the detail pane when no agent is selected."
   },
+  "agentsScopeWorkspaceBadge": "Workspace",
+  "@agentsScopeWorkspaceBadge": {
+    "description": "Scope badge on agent list items stored in the current workspace folder."
+  },
+  "agentsScopeGlobalBadge": "Global",
+  "@agentsScopeGlobalBadge": {
+    "description": "Scope badge on agent list items stored in the global agent library."
+  },
+  "agentsOverriddenBadge": "Overridden",
+  "@agentsOverriddenBadge": {
+    "description": "Badge on a global agent shadowed by a workspace agent with the same id."
+  },
+  "agentsScopeGlobalOption": "Global",
+  "@agentsScopeGlobalOption": {
+    "description": "Segment that switches the Agents page to manage only global agents."
+  },
+  "agentsScopeControlLabel": "Agent scope",
+  "@agentsScopeControlLabel": {
+    "description": "Accessibility label of the control choosing between the current workspace and Global agents."
+  },
   "agentsParseErrorBadge": "Parse error",
   "@agentsParseErrorBadge": {
     "description": "Badge label on agent list items whose .md file failed to parse."
@@ -776,6 +796,18 @@
   "workflowsDuplicateAction": "Duplicate workflow",
   "@workflowsDuplicateAction": {
     "description": "Semantic label and tooltip for duplicating a workflow."
+  },
+  "workflowsScopeWorkspaceBadge": "Workspace",
+  "@workflowsScopeWorkspaceBadge": {
+    "description": "Badge on a workflow stored in the current workspace folder."
+  },
+  "workflowsScopeGlobalBadge": "Global",
+  "@workflowsScopeGlobalBadge": {
+    "description": "Badge on a workflow shared by every workspace, and the Global option when creating one."
+  },
+  "workflowsScopeControlLabel": "Workflow scope",
+  "@workflowsScopeControlLabel": {
+    "description": "Accessibility label of the control choosing where a new workflow is stored."
   },
   "workflowsDeleteAction": "Delete workflow",
   "@workflowsDeleteAction": {
@@ -1422,14 +1454,6 @@
       }
     }
   },
-  "settingsDefaultWorkspaceLabel": "Default workspace",
-  "@settingsDefaultWorkspaceLabel": {
-    "description": "Label for the Default workspace text field."
-  },
-  "settingsDefaultWorkspaceHint": "Optional default workspace folder",
-  "@settingsDefaultWorkspaceHint": {
-    "description": "Placeholder text for the Default workspace text field."
-  },
   "settingsBrowse": "Browse",
   "@settingsBrowse": {
     "description": "Button label to open the native file or folder picker."
@@ -2023,17 +2047,13 @@
   "@startRunNoWorkflowsMessage": {
     "description": "Message shown in the Start Run dialog when no workflows exist."
   },
-  "startRunWorkspaceLabel": "Workspace folder",
+  "startRunWorkspaceLabel": "Workspace",
   "@startRunWorkspaceLabel": {
     "description": "Label for the workspace folder path input in the Start Run dialog."
   },
-  "startRunWorkspaceHint": "Path to workspace folder",
-  "@startRunWorkspaceHint": {
-    "description": "Placeholder hint for the workspace folder path input."
-  },
-  "startRunBrowseAction": "Browse",
-  "@startRunBrowseAction": {
-    "description": "Button label to open the folder picker in the Start Run dialog."
+  "startRunNoWorkspacesMessage": "Register a workspace before starting a run.",
+  "@startRunNoWorkspacesMessage": {
+    "description": "Warning shown in the Start run dialog when no workspace is registered."
   },
   "startRunIsolationLabel": "Workspace isolation",
   "@startRunIsolationLabel": {
@@ -2070,10 +2090,6 @@
   "startRunValidationWorkflowRequired": "Select a workflow.",
   "@startRunValidationWorkflowRequired": {
     "description": "Validation error when submitting Start Run without a workflow."
-  },
-  "startRunValidationWorkspaceRequired": "Choose a workspace folder.",
-  "@startRunValidationWorkspaceRequired": {
-    "description": "Validation error when submitting Start Run without a workspace folder."
   },
   "startRunConfirmAction": "Start run",
   "@startRunConfirmAction": {
@@ -2655,6 +2671,123 @@
     "description": "Tooltip and semantic label for renaming a workspace.",
     "placeholders": {
       "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceSettingsTooltip": "Settings of {name}",
+  "@workspaceSettingsTooltip": {
+    "description": "Tooltip and semantic label for opening the execution settings of a workspace.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceSettingsTitle": "Settings of {name}",
+  "@workspaceSettingsTitle": {
+    "description": "Title of the workspace execution settings dialog.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceSettingsSubtitle": "Override the global execution settings for this workspace only. Settings you leave on inherit follow the global value.",
+  "@workspaceSettingsSubtitle": {
+    "description": "Explains what the workspace execution settings dialog does."
+  },
+  "workspaceSettingsMachineNote": "CLI paths and the theme are global only and cannot be overridden here.",
+  "@workspaceSettingsMachineNote": {
+    "description": "Tells the user which settings a workspace cannot override."
+  },
+  "workspaceSettingsLoadError": "Could not load the workspace settings.",
+  "@workspaceSettingsLoadError": {
+    "description": "Error title when the workspace settings fail to load."
+  },
+  "workspaceSettingsSaveAction": "Save",
+  "@workspaceSettingsSaveAction": {
+    "description": "Button that stores the workspace settings overrides."
+  },
+  "workspaceSettingsSaveError": "Could not save the workspace settings.",
+  "@workspaceSettingsSaveError": {
+    "description": "Error title when saving the workspace settings fails."
+  },
+  "workspaceSettingsIsolationLabel": "Default isolation mode",
+  "@workspaceSettingsIsolationLabel": {
+    "description": "Label of the default isolation mode setting."
+  },
+  "workspaceSettingsInheritOption": "Inherit",
+  "@workspaceSettingsInheritOption": {
+    "description": "Segment that makes a workspace follow the global setting."
+  },
+  "workspaceSettingsIsolationDirect": "Direct",
+  "@workspaceSettingsIsolationDirect": {
+    "description": "Segment for the direct isolation mode."
+  },
+  "workspaceSettingsIsolationWorktree": "Worktree",
+  "@workspaceSettingsIsolationWorktree": {
+    "description": "Segment for the worktree isolation mode."
+  },
+  "workspaceSettingsInheritedValue": "Inherited: {value}",
+  "@workspaceSettingsInheritedValue": {
+    "description": "Shows the global value a setting falls back to.",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceSettingsPatternsOverrideLabel": "Override snapshot ignore patterns",
+  "@workspaceSettingsPatternsOverrideLabel": {
+    "description": "Switch that enables a workspace-specific list of snapshot ignore patterns."
+  },
+  "workspaceSettingsPatternsLabel": "Snapshot ignore patterns",
+  "@workspaceSettingsPatternsLabel": {
+    "description": "Label of the snapshot ignore patterns list."
+  },
+  "workspaceSettingsPatternItemLabel": "Pattern",
+  "@workspaceSettingsPatternItemLabel": {
+    "description": "Accessibility label of one ignore pattern field."
+  },
+  "workspaceSettingsPatternPlaceholder": "build/",
+  "@workspaceSettingsPatternPlaceholder": {
+    "description": "Placeholder of an empty ignore pattern field."
+  },
+  "workspaceSettingsPatternAdd": "Add pattern",
+  "@workspaceSettingsPatternAdd": {
+    "description": "Button that adds an ignore pattern."
+  },
+  "workspaceSettingsPatternRemove": "Remove pattern",
+  "@workspaceSettingsPatternRemove": {
+    "description": "Accessibility label of the button that removes an ignore pattern."
+  },
+  "workspaceSettingsPatternsInherited": "Inherited patterns: {patterns}",
+  "@workspaceSettingsPatternsInherited": {
+    "description": "Lists the global ignore patterns a workspace falls back to.",
+    "placeholders": {
+      "patterns": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceSettingsPatternsNone": "none",
+  "@workspaceSettingsPatternsNone": {
+    "description": "Shown when there are no ignore patterns."
+  },
+  "workspaceSettingsPatternsEmpty": "No patterns: every file is snapshotted.",
+  "@workspaceSettingsPatternsEmpty": {
+    "description": "Shown when the workspace overrides the patterns with an empty list."
+  },
+  "workspaceSettingsShellLabel": "Default shell",
+  "@workspaceSettingsShellLabel": {
+    "description": "Label of the default shell setting."
+  },
+  "workspaceSettingsShellHint": "Leave empty to inherit: {value}",
+  "@workspaceSettingsShellHint": {
+    "description": "Hint of the default shell field, naming the global value.",
+    "placeholders": {
+      "value": {
         "type": "String"
       }
     }

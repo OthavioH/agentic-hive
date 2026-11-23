@@ -6,6 +6,7 @@ import 'package:agentic_hive_backend/src/api/overview/overview_handler.dart';
 import 'package:agentic_hive_backend/src/api/pauses/pauses_handler.dart';
 import 'package:agentic_hive_backend/src/api/result_contract/result_contract_handler.dart';
 import 'package:agentic_hive_backend/src/api/runs/runs_handler.dart';
+import 'package:agentic_hive_backend/src/api/settings/execution_settings_handler.dart';
 import 'package:agentic_hive_backend/src/api/settings/settings_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/api/workspace/workspace_handler.dart';
@@ -15,7 +16,9 @@ import 'package:agentic_hive_backend/src/config/app_config.dart';
 import 'package:agentic_hive_backend/src/config/platform_paths.dart';
 import 'package:agentic_hive_backend/src/data/agents/agent_directory_watcher.dart';
 import 'package:agentic_hive_backend/src/data/agents/local_agent_repository.dart';
+import 'package:agentic_hive_backend/src/data/agents/local_workspace_agent_repositories.dart';
 import 'package:agentic_hive_backend/src/data/agents/repository_agent_prompt_resolver.dart';
+import 'package:agentic_hive_backend/src/data/agents/workspace_agent_watchers.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/antigravity_mcp_installer.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/claude_code_mcp_installer.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/codex_mcp_installer.dart';
@@ -35,6 +38,7 @@ import 'package:agentic_hive_backend/src/data/runs/drift_run_repository.dart';
 import 'package:agentic_hive_backend/src/data/runs/file_run_log_store.dart';
 import 'package:agentic_hive_backend/src/data/runs/process_tree_killer_factory.dart';
 import 'package:agentic_hive_backend/src/data/settings/drift_settings_repository.dart';
+import 'package:agentic_hive_backend/src/data/settings/file_workspace_settings_store.dart';
 import 'package:agentic_hive_backend/src/data/settings/os_executable_validator.dart';
 import 'package:agentic_hive_backend/src/data/workflows/drift_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/data/workflows/file_workspace_workflow_repository.dart';
@@ -48,6 +52,7 @@ import 'package:agentic_hive_backend/src/db/database_health_check.dart';
 import 'package:agentic_hive_backend/src/db/metadata_repository.dart';
 import 'package:agentic_hive_backend/src/domain/agents/agent_repository.dart';
 import 'package:agentic_hive_backend/src/domain/agents/agent_service.dart';
+import 'package:agentic_hive_backend/src/domain/agents/workspace_agent_repositories.dart';
 import 'package:agentic_hive_backend/src/domain/engine/graph_engine.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/executable_locator.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_detector.dart';
@@ -73,8 +78,10 @@ import 'package:agentic_hive_backend/src/domain/runs/run_recovery_service.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_service.dart';
 import 'package:agentic_hive_backend/src/domain/settings/executable_validator.dart';
+import 'package:agentic_hive_backend/src/domain/settings/execution_settings_service.dart';
 import 'package:agentic_hive_backend/src/domain/settings/settings_repository.dart';
 import 'package:agentic_hive_backend/src/domain/settings/settings_service.dart';
+import 'package:agentic_hive_backend/src/domain/settings/workspace_settings_store.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
@@ -270,8 +277,17 @@ Future<void> registerDependencies(
       ),
     )
     ..registerSingleton<AgentRepository>(di<LocalAgentRepository>())
+    ..registerSingleton<WorkspaceAgentRepositories>(
+      LocalWorkspaceAgentRepositories(
+        findWorkspace: (id) => di<WorkspaceService>().get(id),
+        pathContext: platformPaths.context,
+      ),
+    )
     ..registerSingleton<AgentPromptResolver>(
-      RepositoryAgentPromptResolver(di<AgentRepository>()),
+      RepositoryAgentPromptResolver(
+        di<AgentRepository>(),
+        workspaceAgents: di<WorkspaceAgentRepositories>().forRoot,
+      ),
     )
     ..registerSingleton<NodeRegistry>(
       NodeRegistry.withDefaults(
@@ -364,8 +380,31 @@ Future<void> registerDependencies(
       dispose: (watcher) => watcher.close(),
     )
     ..registerSingletonWithDependencies<WorkspacesHandler>(
-      () => WorkspacesHandler(service: di<WorkspaceService>()),
+      () => WorkspacesHandler(
+        service: di<WorkspaceService>(),
+        onChanged: () => di<WorkspaceAgentWatchers>().sync(),
+      ),
       dependsOn: [WorkspaceService],
+    )
+    ..registerSingletonWithDependencies<SettingsRepository>(
+      () => DriftSettingsRepository(di<AppDatabase>()),
+      dependsOn: [AppDatabase],
+    )
+    ..registerSingleton<WorkspaceSettingsStore>(
+      FileWorkspaceSettingsStore(pathContext: platformPaths.context),
+    )
+    ..registerSingletonWithDependencies<ExecutionSettingsService>(
+      () => DefaultExecutionSettingsService(
+        settings: di<SettingsRepository>(),
+        workspaces: di<WorkspaceRepository>(),
+        store: di<WorkspaceSettingsStore>(),
+        shellProvider: di<DefaultShellProvider>(),
+      ),
+      dependsOn: [SettingsRepository, WorkspaceRepository],
+    )
+    ..registerSingletonWithDependencies<ExecutionSettingsHandler>(
+      () => ExecutionSettingsHandler(di<ExecutionSettingsService>()),
+      dependsOn: [ExecutionSettingsService],
     )
     ..registerSingletonWithDependencies<ActiveRunLookup>(
       () => RunRepositoryActiveRunLookup(di<RunRepository>()),
@@ -458,6 +497,7 @@ Future<void> registerDependencies(
         workspaceWorkflows: di<WorkspaceWorkflowRepository>(),
         workflowValidator: di<WorkflowValidator>(),
         workspaces: di<WorkspaceService>(),
+        executionSettings: di<ExecutionSettingsService>(),
         engine: di<GraphEngine>(),
         logStore: di<RunLogStore>(),
         pathContext: platformPaths.context,
@@ -470,6 +510,7 @@ Future<void> registerDependencies(
         WorkspacePreparationService,
         WorkflowRepository,
         WorkspaceService,
+        ExecutionSettingsService,
         GraphEngine,
       ],
       dispose: (service) => service.dispose(),
@@ -508,8 +549,24 @@ Future<void> registerDependencies(
       dependsOn: [OverviewService],
     )
     ..registerSingleton<ConnectionRegistry>(ConnectionRegistry())
-    ..registerSingleton<AgentService>(AgentService(di<AgentRepository>()))
+    ..registerSingleton<AgentService>(
+      AgentService(
+        di<AgentRepository>(),
+        workspaces: di<WorkspaceAgentRepositories>(),
+        onWorkspaceAgentsChanged: () => di<WorkspaceAgentWatchers>().sync(),
+      ),
+    )
     ..registerSingleton<AgentsHandler>(AgentsHandler(di<AgentService>()))
+    ..registerSingletonWithDependencies<WorkspaceAgentWatchers>(
+      () => WorkspaceAgentWatchers(
+        listWorkspaces: () => di<WorkspaceService>().list(),
+        repositoryFor: di<WorkspaceAgentRepositories>().forRoot,
+        registry: di<ConnectionRegistry>(),
+        pathContext: platformPaths.context,
+      ),
+      dependsOn: [WorkspaceService],
+      dispose: (watchers) => watchers.close(),
+    )
     ..registerSingletonAsync<AgentDirectoryWatcher>(() async {
       final watcher = AgentDirectoryWatcher(
         agentsDir: config.agentsDir,
@@ -521,10 +578,6 @@ Future<void> registerDependencies(
       return watcher;
     }, dispose: (watcher) => watcher.close())
     ..registerSingleton<ExecutableValidator>(currentExecutableValidator())
-    ..registerSingletonWithDependencies<SettingsRepository>(
-      () => DriftSettingsRepository(di<AppDatabase>()),
-      dependsOn: [AppDatabase],
-    )
     ..registerSingletonWithDependencies<SettingsService>(
       () => DefaultSettingsService(
         repository: di<SettingsRepository>(),
@@ -591,6 +644,7 @@ Future<void> registerDependencies(
           workspacesHandler: di<WorkspacesHandler>(),
           worktreesHandler: di<WorktreesHandler>(),
           settingsHandler: di<SettingsHandler>(),
+          executionSettingsHandler: di<ExecutionSettingsHandler>(),
         ),
         socket: LocalSocket(
           config.socketPath,
@@ -611,11 +665,13 @@ Future<void> registerDependencies(
         WorkspacesHandler,
         WorktreesHandler,
         SettingsHandler,
+        ExecutionSettingsHandler,
         WsGateway,
       ],
       dispose: (server) => server.stop(),
     );
 
   await di.allReady();
+  await di<WorkspaceAgentWatchers>().sync();
   await di<WorkspaceWorkflowWatcher>().start();
 }

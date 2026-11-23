@@ -14,6 +14,10 @@ import 'package:watcher/watcher.dart';
 
 /// Watches [agentsDir] for external `.md` file changes and broadcasts
 /// `agents.changed` events to connected WebSocket clients.
+///
+/// A watcher created with a [workspaceId] covers one workspace's
+/// `.agents/agents` folder (ADR 0022); its events carry that id. Without one
+/// it covers the global library.
 final class AgentDirectoryWatcher {
   /// Creates a watcher for [agentsDir]; does not start until [start] is
   /// called.
@@ -21,12 +25,16 @@ final class AgentDirectoryWatcher {
     required this._agentsDir,
     required this._repository,
     required this._registry,
+    this.workspaceId,
     this._debounceDuration = const Duration(milliseconds: 50),
     p.Context? pathContext,
     this._generateId = randomId,
   }) : _path = pathContext ?? p.context;
 
   static final _log = Logger('agents.watcher');
+
+  /// Workspace this watcher covers, or `null` for the global library.
+  final String? workspaceId;
 
   String _agentsDir;
 
@@ -109,7 +117,11 @@ final class AgentDirectoryWatcher {
 
     final AgentsChangedPayload payload;
     if (kind == AgentChangeKind.deleted) {
-      payload = AgentsChangedPayload(kind: AgentChangeKind.deleted, id: id);
+      payload = AgentsChangedPayload(
+        kind: AgentChangeKind.deleted,
+        id: id,
+        workspaceId: workspaceId,
+      );
     } else {
       final result = await _repository.getById(id);
       if (_closed) return;
@@ -119,9 +131,14 @@ final class AgentDirectoryWatcher {
             kind: kind,
             id: id,
             agent: AgentMarkdownCodec.toSummary(value),
+            workspaceId: workspaceId,
           );
         case FailureResult():
-          payload = AgentsChangedPayload(kind: AgentChangeKind.deleted, id: id);
+          payload = AgentsChangedPayload(
+            kind: AgentChangeKind.deleted,
+            id: id,
+            workspaceId: workspaceId,
+          );
       }
     }
 
@@ -177,9 +194,10 @@ final class AgentDirectoryWatcher {
       WsEnvelope(
         type: WsMessageType.agentsChanged,
         id: _generateId(),
-        payload: const AgentsChangedPayload(
+        payload: AgentsChangedPayload(
           kind: AgentChangeKind.updated,
           id: '*',
+          workspaceId: workspaceId,
         ).toJson(),
       ),
     );

@@ -11,7 +11,6 @@ sealed class UpdateSettingsRequest with _$UpdateSettingsRequest {
   /// Creates a request to update runtime application settings.
   const factory({
     String? agentsDir,
-    String? defaultWorkspaceDir,
     @Default(<HarnessId, String>{}) Map<HarnessId, String> harnessOverrides,
   }) = _UpdateSettingsRequest;
 

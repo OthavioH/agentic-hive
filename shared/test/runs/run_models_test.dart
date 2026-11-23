@@ -287,20 +287,29 @@ void main() {
     test('StartRunRequest round-trips through JSON', () {
       const dto = StartRunRequest(
         workflowId: 'wf-1',
-        workspacePath: '/tmp/ws',
+        workspaceId: 'ws-1',
         workspaceIsolationMode: WorkspaceIsolationMode.direct,
         ignorePatterns: ['build/', '*.tmp'],
       );
       expect(StartRunRequest.fromJson(dto.toJson()), dto);
 
-      const minimal = StartRunRequest(
-        workflowId: 'wf-2',
-        workspacePath: '/tmp/ws2',
-      );
+      const minimal = StartRunRequest(workflowId: 'wf-2', workspaceId: 'ws-2');
       final minimalJson = minimal.toJson();
       expect(minimalJson.containsKey('workspaceIsolationMode'), isFalse);
       expect(minimalJson.containsKey('ignorePatterns'), isFalse);
       expect(StartRunRequest.fromJson(minimalJson), minimal);
+    });
+
+    test('StartRunRequest requires workspaceId and drops workspacePath', () {
+      expect(
+        () => StartRunRequest.fromJson(<String, Object?>{'workflowId': 'wf'}),
+        throwsFormatException,
+      );
+      final json = const StartRunRequest(
+        workflowId: 'wf',
+        workspaceId: 'ws',
+      ).toJson();
+      expect(json.containsKey('workspacePath'), isFalse);
     });
 
     test('RunNodeLogsResponse round-trips through JSON', () {

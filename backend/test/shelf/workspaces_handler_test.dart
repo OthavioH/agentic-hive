@@ -26,6 +26,7 @@ void main() {
   late DriftRunRepository runs;
   late Handler handler;
   var counter = 0;
+  var changedCount = 0;
 
   final workflow = Workflow(
     id: 'wf-1',
@@ -45,6 +46,8 @@ void main() {
   );
 
   setUp(() async {
+    changedCount = 0;
+    counter = 0;
     tempDir = await Directory.systemTemp.createTemp('hive_workspaces_');
     db = AppDatabase(NativeDatabase.memory());
     await db.customSelect('SELECT 1').get();
@@ -67,7 +70,10 @@ void main() {
       ),
       shutdownHandler: ShutdownHandler(onShutdown: () async {}),
       webSocketHandler: (_) => Response.notFound('ws'),
-      workspacesHandler: WorkspacesHandler(service: service),
+      workspacesHandler: WorkspacesHandler(
+        service: service,
+        onChanged: () async => changedCount++,
+      ),
     );
   });
 
@@ -115,6 +121,28 @@ void main() {
       ),
     );
   }
+
+  group('onChanged hook', () {
+    test('fires after a workspace is registered and after it is '
+        'unregistered', () async {
+      final created = await create(makeFolder('hooked').path);
+      expect(changedCount, 1);
+
+      final response = await send('DELETE', '/api/v1/workspaces/${created.id}');
+      expect(response.statusCode, 200);
+      expect(changedCount, 2);
+    });
+
+    test('does not fire when registration fails', () async {
+      final response = await send(
+        'POST',
+        '/api/v1/workspaces',
+        body: {'rootPath': 'relative/path'},
+      );
+      expect(response.statusCode, 400);
+      expect(changedCount, 0);
+    });
+  });
 
   group('POST /api/v1/workspaces', () {
     test('registers a non-git folder flagged as non-git, named after the '

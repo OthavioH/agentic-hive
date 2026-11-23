@@ -175,6 +175,46 @@ void main() {
       expect(del.isSuccess, isTrue);
       expect(client.lastMethod, 'DELETE');
     });
+
+    test('sends workspaceId as a query parameter only when scoped', () async {
+      final client = _FakeBackendClient(_FakeWebSocketSession());
+      final ds = AgentsRemoteDataSource(client);
+
+      await ds.listAgents(workspaceId: 'ws 1');
+      expect(client.lastPath, '/api/v1/agents?workspaceId=ws%201');
+
+      client.nextGet = Success(
+        AgentDetail(
+          id: 'reviewer',
+          name: 'Reviewer',
+          contentHash: 'h',
+          updatedAt: DateTime.utc(2026, 11, 20),
+          scope: AgentScope.workspace,
+        ).toJson(),
+      );
+      final detail = await ds.getAgent('reviewer', workspaceId: 'ws-1');
+      expect(client.lastPath, '/api/v1/agents/reviewer?workspaceId=ws-1');
+      expect(detail.valueOrNull?.scope, AgentScope.workspace);
+
+      await ds.createAgent(
+        const CreateAgentRequest(id: 'a', name: 'A'),
+        workspaceId: 'ws-1',
+      );
+      expect(client.lastPath, '/api/v1/agents?workspaceId=ws-1');
+
+      await ds.updateAgent(
+        'a',
+        const UpdateAgentRequest(name: 'A', expectedHash: 'h'),
+        workspaceId: 'ws-1',
+      );
+      expect(client.lastPath, '/api/v1/agents/a?workspaceId=ws-1');
+
+      await ds.deleteAgent('a', workspaceId: 'ws-1');
+      expect(client.lastPath, '/api/v1/agents/a?workspaceId=ws-1');
+
+      await ds.listAgents();
+      expect(client.lastPath, '/api/v1/agents');
+    });
   });
 
   group('agentRepositoryProvider', () {

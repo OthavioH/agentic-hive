@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/workspace/controllers/workspace_registry_controller.dart';
+import 'package:agentic_hive_frontend/presentation/workspace/widgets/workspace_settings_dialog.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -234,6 +235,10 @@ class _WorkspaceRegistryDialogState
                                 SizedBox(height: spacing.space1),
                             itemBuilder: (context, index) {
                               final workspace = value.workspaces[index];
+                              final activeRunsLabel = l10n
+                                  .workspaceActiveRunsBadge(
+                                    workspace.activeRunCount,
+                                  );
                               return HiveCard(
                                 child: Row(
                                   children: <Widget>[
@@ -263,22 +268,44 @@ class _WorkspaceRegistryDialogState
                                                 ),
                                             overflow: TextOverflow.ellipsis,
                                           ),
+                                          if (workspace.isGit ||
+                                              workspace.activeRunCount > 0)
+                                            Wrap(
+                                              spacing: spacing.space1,
+                                              children: <Widget>[
+                                                if (workspace.isGit)
+                                                  HiveBadge(
+                                                    label:
+                                                        l10n.workspaceGitBadge,
+                                                  ),
+                                                if (workspace.activeRunCount >
+                                                    0)
+                                                  HiveBadge(
+                                                    label: activeRunsLabel,
+                                                  ),
+                                              ],
+                                            ),
                                         ],
                                       ),
                                     ),
-                                    if (workspace.isGit) ...<Widget>[
-                                      SizedBox(width: spacing.space1),
-                                      HiveBadge(label: l10n.workspaceGitBadge),
-                                    ],
-                                    if (workspace.activeRunCount >
-                                        0) ...<Widget>[
-                                      SizedBox(width: spacing.space1),
-                                      HiveBadge(
-                                        label: l10n.workspaceActiveRunsBadge(
-                                          workspace.activeRunCount,
+                                    SizedBox(width: spacing.space1),
+                                    HiveIconButton(
+                                      key: Key(
+                                        'workspace_settings_button_'
+                                        '${workspace.id}',
+                                      ),
+                                      icon: HiveIcons.settings,
+                                      semanticLabel: l10n
+                                          .workspaceSettingsTooltip(
+                                            workspace.name,
+                                          ),
+                                      onPressed: () => unawaited(
+                                        WorkspaceSettingsDialog.show(
+                                          context,
+                                          workspace,
                                         ),
                                       ),
-                                    ],
+                                    ),
                                     SizedBox(width: spacing.space1),
                                     HiveIconButton(
                                       key: Key(

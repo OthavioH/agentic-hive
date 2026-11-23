@@ -13,7 +13,6 @@ void main() {
         agentsDir: '/custom/agents',
         effectiveAgentsDir: '/custom/agents',
         defaultAgentsDir: '/data/agents',
-        defaultWorkspaceDir: '/projects/workspace',
         harnessOverrides: {
           HarnessId.claudeCode: '/opt/bin/claude',
           HarnessId.codex: r'C:\tools\codex.exe',
@@ -31,7 +30,6 @@ void main() {
       });
 
       expect(decoded.agentsDir, isNull);
-      expect(decoded.defaultWorkspaceDir, isNull);
       expect(decoded.harnessOverrides, isEmpty);
     });
 
@@ -47,7 +45,6 @@ void main() {
     test('round-trips through JSON with all fields', () {
       const request = UpdateSettingsRequest(
         agentsDir: '/custom/agents',
-        defaultWorkspaceDir: '/projects/workspace',
         harnessOverrides: {
           HarnessId.geminiCli: '/usr/local/bin/gemini',
           HarnessId.antigravity: '',
@@ -64,7 +61,6 @@ void main() {
       final decoded = UpdateSettingsRequest.fromJson({});
 
       expect(decoded.agentsDir, isNull);
-      expect(decoded.defaultWorkspaceDir, isNull);
       expect(decoded.harnessOverrides, isEmpty);
     });
   });

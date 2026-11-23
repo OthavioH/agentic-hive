@@ -51,9 +51,6 @@ final class DefaultSettingsService implements SettingsService {
   /// SQLite key for the custom agents directory.
   static const agentsDirKey = 'agents_dir';
 
-  /// SQLite key for the default workspace directory.
-  static const defaultWorkspaceDirKey = 'default_workspace_dir';
-
   /// SQLite key prefix for per-harness executable overrides.
   static const harnessOverridePrefix = 'harness_override.';
 
@@ -196,19 +193,6 @@ final class DefaultSettingsService implements SettingsService {
       }
     }
 
-    final rawWorkspaceDir = request.defaultWorkspaceDir?.trim();
-    final hasWorkspaceDir =
-        rawWorkspaceDir != null && rawWorkspaceDir.isNotEmpty;
-    if (hasWorkspaceDir) {
-      if (!_path.isAbsolute(rawWorkspaceDir)) {
-        errors['defaultWorkspaceDir'] =
-            'Default workspace must be an absolute path.';
-      } else if (!Directory(rawWorkspaceDir).existsSync()) {
-        errors['defaultWorkspaceDir'] =
-            'Default workspace folder does not exist.';
-      }
-    }
-
     final normalizedOverrides = <HarnessId, String>{};
     for (final entry in request.harnessOverrides.entries) {
       final id = entry.key;
@@ -242,7 +226,6 @@ final class DefaultSettingsService implements SettingsService {
       agentsDir: customAgentsDir,
       effectiveAgentsDir: effectiveAgentsDir,
       defaultAgentsDir: _defaultAgentsDir,
-      defaultWorkspaceDir: hasWorkspaceDir ? rawWorkspaceDir : null,
       harnessOverrides: normalizedOverrides,
     );
 
@@ -284,7 +267,6 @@ final class DefaultSettingsService implements SettingsService {
 
   Map<String, String?> _changesFor(AppSettings settings) => <String, String?>{
     agentsDirKey: settings.agentsDir,
-    defaultWorkspaceDirKey: settings.defaultWorkspaceDir,
     for (final id in HarnessId.values)
       '$harnessOverridePrefix${id.wireName}': settings.harnessOverrides[id],
   };
@@ -300,12 +282,6 @@ final class DefaultSettingsService implements SettingsService {
         : null;
     final effectiveAgentsDir = customAgentsDir ?? _defaultAgentsDir;
 
-    final storedWorkspace = stored[defaultWorkspaceDirKey]?.trim();
-    final defaultWorkspaceDir =
-        (storedWorkspace != null && storedWorkspace.isNotEmpty)
-        ? storedWorkspace
-        : null;
-
     final overrides = <HarnessId, String>{};
     for (final id in HarnessId.values) {
       final raw = stored['$harnessOverridePrefix${id.wireName}']?.trim();
@@ -318,7 +294,6 @@ final class DefaultSettingsService implements SettingsService {
       agentsDir: customAgentsDir,
       effectiveAgentsDir: effectiveAgentsDir,
       defaultAgentsDir: _defaultAgentsDir,
-      defaultWorkspaceDir: defaultWorkspaceDir,
       harnessOverrides: overrides,
     );
   }

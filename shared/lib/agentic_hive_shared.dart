@@ -3,6 +3,7 @@ library;
 
 export 'src/agents/agent_detail.dart';
 export 'src/agents/agent_list_response.dart';
+export 'src/agents/agent_scope.dart';
 export 'src/agents/agent_summary.dart';
 export 'src/agents/create_agent_request.dart';
 export 'src/agents/update_agent_request.dart';
@@ -40,6 +41,7 @@ export 'src/runs/run_output_stream.dart';
 export 'src/runs/run_status.dart';
 export 'src/runs/run_summary.dart';
 export 'src/settings/app_settings.dart';
+export 'src/settings/execution_settings.dart';
 export 'src/settings/update_settings_request.dart';
 export 'src/workflows/workflow.dart';
 export 'src/workflows/workflow_dtos.dart';

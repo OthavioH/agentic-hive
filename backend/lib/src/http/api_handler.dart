@@ -4,6 +4,7 @@ import 'package:agentic_hive_backend/src/api/overview/overview_handler.dart';
 import 'package:agentic_hive_backend/src/api/pauses/pauses_handler.dart';
 import 'package:agentic_hive_backend/src/api/result_contract/result_contract_handler.dart';
 import 'package:agentic_hive_backend/src/api/runs/runs_handler.dart';
+import 'package:agentic_hive_backend/src/api/settings/execution_settings_handler.dart';
 import 'package:agentic_hive_backend/src/api/settings/settings_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/api/workspace/workspace_handler.dart';
@@ -42,6 +43,7 @@ Handler buildApiHandler({
   WorkspacesHandler? workspacesHandler,
   WorktreesHandler? worktreesHandler,
   SettingsHandler? settingsHandler,
+  ExecutionSettingsHandler? executionSettingsHandler,
 }) {
   final router = Router(notFoundHandler: _notFound)
     ..get('/health', healthHandler)
@@ -74,6 +76,19 @@ Handler buildApiHandler({
       ..delete(
         '/api/v1/workspaces/<id>/worktrees/<worktreeId>',
         worktreesHandler.remove,
+      );
+  }
+  if (executionSettingsHandler != null) {
+    router
+      ..get('/api/v1/settings/execution', executionSettingsHandler.getGlobal)
+      ..put('/api/v1/settings/execution', executionSettingsHandler.putGlobal)
+      ..get(
+        '/api/v1/workspaces/<id>/settings',
+        executionSettingsHandler.getWorkspace,
+      )
+      ..put(
+        '/api/v1/workspaces/<id>/settings',
+        executionSettingsHandler.putWorkspace,
       );
   }
   if (workspacesHandler != null) {

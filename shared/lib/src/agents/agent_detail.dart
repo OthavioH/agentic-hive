@@ -1,3 +1,4 @@
+import 'package:agentic_hive_shared/src/agents/agent_scope.dart';
 import 'package:agentic_hive_shared/src/json_fields.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
@@ -20,6 +21,7 @@ sealed class AgentDetail with _$AgentDetail {
     @Default(<String>[]) List<String> allowedTools,
     @Default(<String>[]) List<String> deniedTools,
     @Default('') String prompt,
+    @Default(AgentScope.global) AgentScope scope,
     String? parseError,
     String? rawContent,
   }) = _AgentDetail;

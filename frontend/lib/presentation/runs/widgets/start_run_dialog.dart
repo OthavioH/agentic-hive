@@ -4,6 +4,7 @@ import 'package:agentic_hive_frontend/core/di/use_case_providers.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/runs/utils/run_l10n.dart';
+import 'package:agentic_hive_frontend/presentation/workspace/controllers/workspace_registry_controller.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,7 +19,6 @@ class StartRunDialog extends ConsumerStatefulWidget {
     this.initialWorkflowId,
     this.initialWorkspaceId,
     this.initialWorktreeId,
-    this.initialWorkspacePath,
     super.key,
   });
 
@@ -33,9 +33,6 @@ class StartRunDialog extends ConsumerStatefulWidget {
   /// Optional worktree ID to pre-select (`primary` or a worktree ID).
   final String? initialWorktreeId;
 
-  /// Optional workspace or worktree folder path to pre-fill.
-  final String? initialWorkspacePath;
-
   /// Shows the [StartRunDialog] and returns the created [Run], or `null` if
   /// cancelled.
   static Future<Run?> show(
@@ -43,7 +40,6 @@ class StartRunDialog extends ConsumerStatefulWidget {
     String? initialWorkflowId,
     String? initialWorkspaceId,
     String? initialWorktreeId,
-    String? initialWorkspacePath,
   }) {
     final l10n = AppLocalizations.of(context)!;
     return HiveDialog.show<Run>(
@@ -53,7 +49,6 @@ class StartRunDialog extends ConsumerStatefulWidget {
         initialWorkflowId: initialWorkflowId,
         initialWorkspaceId: initialWorkspaceId,
         initialWorktreeId: initialWorktreeId,
-        initialWorkspacePath: initialWorkspacePath,
       ),
     );
   }
@@ -63,19 +58,18 @@ class StartRunDialog extends ConsumerStatefulWidget {
 }
 
 class _StartRunDialogState extends ConsumerState<StartRunDialog> {
-  final TextEditingController _workspaceController = TextEditingController();
-
   List<WorkflowSummary> _workflows = const <WorkflowSummary>[];
+  List<Workspace> _workspaces = const <Workspace>[];
   bool _isLoadingInitial = true;
   bool _isCheckingCapabilities = false;
   bool _isSubmitting = false;
 
   String? _selectedWorkflowId;
+  String? _selectedWorkspaceId;
   WorkspaceIsolationMode _isolationMode = WorkspaceIsolationMode.direct;
   WorkspaceCapabilities? _capabilities;
 
   String? _workflowError;
-  String? _workspaceError;
   String? _submitError;
 
   int _capabilitiesToken = 0;
@@ -90,10 +84,6 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
   void initState() {
     super.initState();
     _selectedWorkflowId = widget.initialWorkflowId;
-    final initialPath = widget.initialWorkspacePath;
-    if (initialPath != null && initialPath.isNotEmpty) {
-      _workspaceController.text = initialPath;
-    }
     final initialWorktreeId = widget.initialWorktreeId;
     if (initialWorktreeId != null && initialWorktreeId != 'primary') {
       _isolationMode = WorkspaceIsolationMode.worktree;
@@ -101,18 +91,17 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
     unawaited(_loadInitial());
   }
 
-  @override
-  void dispose() {
-    _workspaceController.dispose();
-    super.dispose();
-  }
-
   Future<void> _loadInitial() async {
     final workflowsFuture = ref.read(listWorkflowsProvider).call();
-    final settingsFuture = ref.read(getSettingsProvider).call();
+    final registryFuture = ref.read(workspaceRegistryControllerProvider.future);
 
     final workflowsResult = await workflowsFuture;
-    final settingsResult = await settingsFuture;
+    WorkspaceRegistryState? registry;
+    try {
+      registry = await registryFuture;
+    } on Object {
+      registry = null;
+    }
     if (!mounted) return;
 
     final workflows = workflowsResult.valueOrNull ?? const <WorkflowSummary>[];
@@ -121,26 +110,51 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
       selectedId = workflows.isNotEmpty ? workflows.first.id : null;
     }
 
-    final defaultWorkspace =
-        settingsResult.valueOrNull?.defaultWorkspaceDir ?? '';
-    if (_workspaceController.text.isEmpty && defaultWorkspace.isNotEmpty) {
-      _workspaceController.text = defaultWorkspace;
-    }
+    final workspaces = registry?.workspaces ?? const <Workspace>[];
+    final workspaceId = _preselectedWorkspaceId(
+      workspaces,
+      registry?.currentWorkspaceId,
+    );
 
     setState(() {
       _workflows = workflows;
+      _workspaces = workspaces;
       _selectedWorkflowId = selectedId;
+      _selectedWorkspaceId = workspaceId;
       _isLoadingInitial = false;
     });
 
-    final path = _workspaceController.text.trim();
-    if (path.isNotEmpty) {
-      await _checkCapabilities(path);
-    }
+    await _checkCapabilities(_selectedWorkspace?.rootPath);
   }
 
-  Future<void> _checkCapabilities(String rawPath) async {
-    final path = rawPath.trim();
+  /// The workspace the dialog opens on: the one it was launched for, else the
+  /// current workspace, else the first registered one.
+  String? _preselectedWorkspaceId(
+    List<Workspace> workspaces,
+    String? currentWorkspaceId,
+  ) {
+    for (final candidate in <String?>[
+      widget.initialWorkspaceId,
+      currentWorkspaceId,
+    ]) {
+      if (candidate != null && workspaces.any((w) => w.id == candidate)) {
+        return candidate;
+      }
+    }
+    return workspaces.isEmpty ? null : workspaces.first.id;
+  }
+
+  Workspace? get _selectedWorkspace {
+    final id = _selectedWorkspaceId;
+    if (id == null) return null;
+    for (final workspace in _workspaces) {
+      if (workspace.id == id) return workspace;
+    }
+    return null;
+  }
+
+  Future<void> _checkCapabilities(String? rawPath) async {
+    final path = rawPath?.trim() ?? '';
     final token = ++_capabilitiesToken;
     if (path.isEmpty) {
       setState(() {
@@ -170,48 +184,23 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
     });
   }
 
-  Future<void> _browseWorkspace() async {
-    final initial = _workspaceController.text.trim();
-    final selectedPath = await ref
-        .read(pickDirectoryProvider)
-        .call(initialDirectory: initial.isEmpty ? null : initial);
-    if (!mounted) return;
-
-    if (selectedPath != null && selectedPath.isNotEmpty) {
-      _workspaceController.text = selectedPath;
-      setState(() {
-        _workspaceError = null;
-        _submitError = null;
-      });
-      await _checkCapabilities(selectedPath);
-    }
-  }
-
   Future<void> _submit() async {
     final l10n = AppLocalizations.of(context)!;
     final workflowId = _selectedWorkflowId;
-    final workspacePath = _workspaceController.text.trim();
+    final workspaceId = _selectedWorkspaceId;
 
     String? workflowError;
-    String? workspaceError;
     if (workflowId == null || workflowId.isEmpty) {
       workflowError = l10n.startRunValidationWorkflowRequired;
     }
-    if (workspacePath.isEmpty) {
-      workspaceError = l10n.startRunValidationWorkspaceRequired;
-    }
-    if (workflowError != null || workspaceError != null) {
-      setState(() {
-        _workflowError = workflowError;
-        _workspaceError = workspaceError;
-      });
+    if (workflowError != null || workspaceId == null) {
+      setState(() => _workflowError = workflowError);
       return;
     }
 
     setState(() {
       _isSubmitting = true;
       _workflowError = null;
-      _workspaceError = null;
       _submitError = null;
     });
 
@@ -220,7 +209,7 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
         .call(
           StartRunRequest(
             workflowId: workflowId!,
-            workspacePath: workspacePath,
+            workspaceId: workspaceId,
             workspaceIsolationMode: _isolationMode,
           ),
         );
@@ -264,6 +253,11 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
         HiveSelectOption<String>(value: workflow.id, label: workflow.name),
     ];
 
+    final workspaceOptions = <HiveSelectOption<String>>[
+      for (final workspace in _workspaces)
+        HiveSelectOption<String>(value: workspace.id, label: workspace.name),
+    ];
+
     return HiveDialog(
       title: l10n.startRunDialogTitle,
       icon: HiveIcons.runs,
@@ -300,38 +294,30 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
                           }),
                   ),
                 SizedBox(height: spacing.space3),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: <Widget>[
-                    Expanded(
-                      child: HiveTextField(
-                        key: const Key('start_run_workspace_field'),
-                        label: l10n.startRunWorkspaceLabel,
-                        hint: l10n.startRunWorkspaceHint,
-                        controller: _workspaceController,
-                        errorText: _workspaceError,
-                        enabled: !_isSubmitting,
-                        onChanged: (value) {
-                          setState(() {
-                            _workspaceError = null;
-                            _submitError = null;
-                          });
-                          unawaited(_checkCapabilities(value));
-                        },
-                      ),
-                    ),
-                    SizedBox(width: spacing.space2),
-                    HiveButton(
-                      key: const Key('start_run_browse_button'),
-                      label: l10n.startRunBrowseAction,
-                      icon: HiveIcons.folder,
-                      variant: HiveButtonVariant.secondary,
-                      onPressed: _isSubmitting
-                          ? null
-                          : () => unawaited(_browseWorkspace()),
-                    ),
-                  ],
-                ),
+                if (_workspaces.isEmpty)
+                  HiveBanner(
+                    key: const Key('start_run_no_workspaces_banner'),
+                    tone: HiveFeedbackTone.warning,
+                    title: l10n.startRunNoWorkspacesMessage,
+                  )
+                else
+                  HiveSelect<String>(
+                    key: const Key('start_run_workspace_select'),
+                    label: l10n.startRunWorkspaceLabel,
+                    options: workspaceOptions,
+                    value: _selectedWorkspaceId,
+                    onChanged: _isSubmitting
+                        ? null
+                        : (value) {
+                            setState(() {
+                              _selectedWorkspaceId = value;
+                              _submitError = null;
+                            });
+                            unawaited(
+                              _checkCapabilities(_selectedWorkspace?.rootPath),
+                            );
+                          },
+                  ),
                 SizedBox(height: spacing.space3),
                 Text(
                   l10n.startRunIsolationLabel,
@@ -399,7 +385,11 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
               : l10n.startRunConfirmAction,
           icon: HiveIcons.play,
           loading: _isSubmitting,
-          onPressed: (_isLoadingInitial || _isSubmitting || _workflows.isEmpty)
+          onPressed:
+              (_isLoadingInitial ||
+                  _isSubmitting ||
+                  _workflows.isEmpty ||
+                  _selectedWorkspaceId == null)
               ? null
               : () => unawaited(_submit()),
         ),

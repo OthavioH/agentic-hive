@@ -201,7 +201,7 @@ void main() {
       final startRes = await repo.startRun(
         const StartRunRequest(
           workflowId: 'wf-1',
-          workspacePath: '/tmp/workspace',
+          workspaceId: 'ws-1',
           workspaceIsolationMode: WorkspaceIsolationMode.worktree,
         ),
       );

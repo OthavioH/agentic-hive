@@ -53,21 +53,6 @@ class SettingsController extends _$SettingsController {
     setAgentsDir(current.saved.defaultAgentsDir);
   }
 
-  /// Updates the draft Default workspace path and clears its inline error.
-  void setDefaultWorkspaceDir(String value) {
-    final current = state.value;
-    if (current == null) return;
-    state = AsyncData(
-      current.copyWith(
-        defaultWorkspaceDirDraft: value,
-        fieldErrors: _withoutError(current.fieldErrors, 'defaultWorkspaceDir'),
-      ),
-    );
-  }
-
-  /// Clears the draft Default workspace path.
-  void clearDefaultWorkspaceDir() => setDefaultWorkspaceDir('');
-
   /// Updates the draft custom executable path for [id] and clears its error.
   void setHarnessOverride(HarnessId id, String value) {
     final current = state.value;
@@ -104,18 +89,6 @@ class SettingsController extends _$SettingsController {
     );
     if (!ref.mounted || picked == null) return;
     setAgentsDir(picked);
-  }
-
-  /// Opens the native folder picker for the Default workspace.
-  Future<void> browseDefaultWorkspaceDir() async {
-    final current = state.value;
-    if (current == null) return;
-    final initial = current.defaultWorkspaceDirDraft.trim();
-    final picked = await ref.read(pickDirectoryProvider)(
-      initialDirectory: initial.isEmpty ? null : initial,
-    );
-    if (!ref.mounted || picked == null) return;
-    setDefaultWorkspaceDir(picked);
   }
 
   /// Opens the native file picker for [id]'s custom executable path.
@@ -193,10 +166,6 @@ class SettingsController extends _$SettingsController {
     final agentsDirDraft = latest.agentsDirDraft == atSaveStart.agentsDirDraft
         ? base.agentsDirDraft
         : latest.agentsDirDraft;
-    final workspaceDraft =
-        latest.defaultWorkspaceDirDraft == atSaveStart.defaultWorkspaceDirDraft
-        ? base.defaultWorkspaceDirDraft
-        : latest.defaultWorkspaceDirDraft;
     final mergedOverrides = Map<HarnessId, String>.from(
       base.harnessOverridesDraft,
     );
@@ -213,7 +182,6 @@ class SettingsController extends _$SettingsController {
     }
     return base.copyWith(
       agentsDirDraft: agentsDirDraft,
-      defaultWorkspaceDirDraft: workspaceDraft,
       harnessOverridesDraft: mergedOverrides,
     );
   }

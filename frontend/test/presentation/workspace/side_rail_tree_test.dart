@@ -411,15 +411,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Recent 3'), findsOneWidget);
 
-    // Clicking Start Run on feat-ui opens StartRunDialog with path
+    // Clicking Start Run on feat-ui opens StartRunDialog with its workspace
     // preselected.
     await tester.tap(find.byKey(const Key('tree_start_run_ws-1_feat-ui')));
     await tester.pumpAndSettle();
     expect(find.byType(StartRunDialog), findsOneWidget);
     expect(
       find.descendant(
-        of: find.byKey(const Key('start_run_workspace_field')),
-        matching: find.text('/data/worktrees/ws-1/feat-ui'),
+        of: find.byKey(const Key('start_run_workspace_select')),
+        matching: find.text('Agentic Hive'),
       ),
       findsOneWidget,
     );

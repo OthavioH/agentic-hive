@@ -9,6 +9,7 @@ import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart'
 import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_log_store.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
+import 'package:agentic_hive_backend/src/domain/settings/execution_settings_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workspace_workflow_repository.dart';
@@ -35,6 +36,7 @@ final class RunService {
     this._workspaceWorkflows,
     this._workflowValidator,
     this._workspaces,
+    this._executionSettings,
     this._engine,
     this._logStore,
     p.Context? pathContext,
@@ -63,6 +65,7 @@ final class RunService {
   final WorkspaceWorkflowRepository? _workspaceWorkflows;
   final WorkflowValidator? _workflowValidator;
   final WorkspaceService? _workspaces;
+  final ExecutionSettingsService? _executionSettings;
   final GraphEngine? _engine;
   final RunLogStore? _logStore;
   final p.Context _pathContext;
@@ -130,39 +133,25 @@ final class RunService {
         ValidationFailure('Field "workflowId" must not be blank.'),
       );
     }
-    final workspaceId = request.workspaceId?.trim();
-    var workspacePath = request.workspacePath?.trim() ?? '';
-    if ((workspaceId == null || workspaceId.isEmpty) && workspacePath.isEmpty) {
+    final workspaceId = request.workspaceId.trim();
+    if (workspaceId.isEmpty) {
       return const FailureResult(
-        ValidationFailure(
-          'Provide "workspaceId" (or the legacy "workspacePath").',
-        ),
+        ValidationFailure('Field "workspaceId" must not be blank.'),
       );
     }
-    String? ownerWorkspaceId;
-    String? workspaceRoot;
     final workspaceService = _workspaces;
-    if (workspaceId != null && workspaceId.isNotEmpty) {
-      if (workspaceService == null) {
-        return const FailureResult(
-          UnexpectedFailure('Workspace registry is not configured.'),
-        );
-      }
-      final found = await workspaceService.get(workspaceId);
-      if (found case FailureResult<Workspace>(:final failure)) {
-        return FailureResult(failure);
-      }
-      ownerWorkspaceId = found.valueOrNull!.id;
-      workspacePath = found.valueOrNull!.rootPath;
-      workspaceRoot = workspacePath;
-    } else if (workspaceService != null) {
-      final found = await workspaceService.findOrRegister(workspacePath);
-      if (found case FailureResult<Workspace>(:final failure)) {
-        return FailureResult(failure);
-      }
-      ownerWorkspaceId = found.valueOrNull!.id;
-      workspaceRoot = found.valueOrNull!.rootPath;
+    if (workspaceService == null) {
+      return const FailureResult(
+        UnexpectedFailure('Workspace registry is not configured.'),
+      );
     }
+    final found = await workspaceService.get(workspaceId);
+    if (found case FailureResult<Workspace>(:final failure)) {
+      return FailureResult(failure);
+    }
+    final ownerWorkspaceId = found.valueOrNull!.id;
+    final workspacePath = found.valueOrNull!.rootPath;
+    final workspaceRoot = workspacePath;
 
     final workflows = _workflows;
     final engine = _engine;
@@ -173,8 +162,23 @@ final class RunService {
       );
     }
 
-    final requestedMode =
+    var requestedMode =
         request.workspaceIsolationMode ?? WorkspaceIsolationMode.worktree;
+    var ignorePatterns = request.ignorePatterns;
+    final executionSettings = _executionSettings;
+    if (executionSettings != null &&
+        (request.workspaceIsolationMode == null || ignorePatterns == null)) {
+      final effective = await executionSettings.effectiveFor(ownerWorkspaceId);
+      if (effective case FailureResult<EffectiveExecutionSettings>(
+        :final failure,
+      )) {
+        return FailureResult(failure);
+      }
+      final settings = effective.valueOrNull!;
+      requestedMode =
+          request.workspaceIsolationMode ?? settings.defaultIsolationMode;
+      ignorePatterns ??= settings.ignorePatterns;
+    }
     final normalizedWorkspace = _canonicalizeWorkspace(workspacePath);
     var reservedDirect = false;
     if (requestedMode == WorkspaceIsolationMode.direct) {
@@ -253,7 +257,6 @@ final class RunService {
         if (conflict != null) return FailureResult(conflict);
       }
 
-      final ignorePatterns = request.ignorePatterns;
       if (ignorePatterns != null && ignorePatterns.isNotEmpty) {
         _snapshots?.configureRunExclusions(runId, ignorePatterns);
       }

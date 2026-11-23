@@ -18,6 +18,9 @@ enum AgentChangeKind {
 }
 
 /// Payload of an `agents.changed` WebSocket event.
+///
+/// [workspaceId] names the workspace whose agent folder changed; `null` means
+/// the global library.
 @freezed
 sealed class AgentsChangedPayload with _$AgentsChangedPayload {
   /// Creates an agents-changed payload.
@@ -25,6 +28,7 @@ sealed class AgentsChangedPayload with _$AgentsChangedPayload {
     required AgentChangeKind kind,
     required String id,
     AgentSummary? agent,
+    String? workspaceId,
   }) = _AgentsChangedPayload;
 
   /// Decodes an agents-changed payload; throws a [FormatException] on a bad

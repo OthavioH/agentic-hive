@@ -93,9 +93,7 @@ void main() {
     await container.read(workspaceRegistryControllerProvider.future);
     final notifier = container.read(
       workspaceRegistryControllerProvider.notifier,
-    );
-
-    notifier.selectGlobal();
+    )..selectGlobal();
     var state = container.read(workspaceRegistryControllerProvider).value!;
     expect(state.isGlobalSelected, isTrue);
     expect(state.currentWorkspaceId, isNull);

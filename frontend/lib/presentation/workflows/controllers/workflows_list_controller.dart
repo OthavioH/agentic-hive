@@ -1,11 +1,11 @@
+import 'dart:async';
+
 import 'package:agentic_hive_frontend/core/di/use_case_providers.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/presentation/workspace/controllers/workspace_registry_controller.dart';
-
-import 'dart:async';
-
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'workflows_list_controller.g.dart';

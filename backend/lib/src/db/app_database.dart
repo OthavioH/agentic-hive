@@ -248,7 +248,7 @@ class Snapshots extends Table {
 /// Persisted runtime settings (key/value pairs).
 @DataClassName('SettingRow')
 class Settings extends Table {
-  /// Setting key (for example `agents_dir`, `default_workspace_dir`,
+  /// Setting key (for example `agents_dir`,
   /// `harness_override.claude_code`).
   TextColumn get key => text()();
 
