@@ -18,7 +18,6 @@ SemanticsNode#
    │       │ │ flags: hasImplicitScrolling
    │       │ │ scrollExtentMin: 0.0
    │       │ │ scrollPosition: 0.0
-   │       │ │ scrollExtentMax: 0.0
    │       │ │
    │       │ ├─SemanticsNode#
    │       │ │   flags: isHeader

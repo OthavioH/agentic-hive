@@ -675,4 +675,248 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
+
+  group('delete flow styling', () {
+    testWidgets('kept run ids use the mono role in onSurface', (tester) async {
+      final repo = ScriptedWorkflowRepository()
+        ..items.addAll(<WorkflowSummary>[
+          _workflow(),
+          _workflow(id: 'wf-2', name: 'Lint Check'),
+        ]);
+      await _pump(tester, repo);
+
+      await _startDelete(tester, 'wf-1');
+      repo.live.last.add(
+        const WorkflowDeletionSucceeded(
+          orphanedRuns: <String>['run-1', 'run-2'],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final ctx = tester.element(find.byType(WorkflowsPage));
+      final colors = ctx.hiveColors;
+      final typography = ctx.hiveTypography;
+      for (final id in <String>['run-1', 'run-2']) {
+        final text = tester.widget<Text>(
+          find.byKey(Key('workflows_delete_kept_run_$id')),
+        );
+        expect(text.style?.fontFamily, typography.mono.fontFamily);
+        expect(text.style?.color, colors.onSurface);
+      }
+    });
+
+    testWidgets(
+      'kept-runs sentence and ids use body/onSurfaceMuted and mono/onSurface '
+      'on error',
+      (tester) async {
+        final repo = ScriptedWorkflowRepository()
+          ..items.addAll(<WorkflowSummary>[
+            _workflow(),
+            _workflow(id: 'wf-2', name: 'Lint Check'),
+          ]);
+        await _pump(tester, repo);
+        final l10n = _l10n(tester);
+
+        await _startDelete(tester, 'wf-1');
+        repo.live.last.add(
+          const WorkflowDeletionFailed(
+            BackendFailure('boom', statusCode: 500),
+            orphanedRuns: <String>['run-a', 'run-b'],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final ctx = tester.element(find.byType(WorkflowsPage));
+        final colors = ctx.hiveColors;
+        final typography = ctx.hiveTypography;
+
+        final sentence = tester.widget<Text>(
+          find.text(l10n.workflowsDeleteKeptRunsDetail(2)),
+        );
+        expect(sentence.style?.fontSize, typography.body.fontSize);
+        expect(sentence.style?.color, colors.onSurfaceMuted);
+
+        for (final id in <String>['run-a', 'run-b']) {
+          final text = tester.widget<Text>(
+            find.byKey(Key('workflows_delete_kept_run_$id')),
+          );
+          expect(text.style?.fontFamily, typography.mono.fontFamily);
+          expect(text.style?.color, colors.onSurface);
+        }
+      },
+    );
+
+    testWidgets('a new notice fades in', (tester) async {
+      final repo = ScriptedWorkflowRepository()
+        ..items.addAll(<WorkflowSummary>[
+          _workflow(),
+          _workflow(id: 'wf-2', name: 'Lint Check'),
+        ]);
+      await _pump(tester, repo);
+
+      await _startDelete(tester, 'wf-1');
+      repo.live.last.add(const WorkflowDeletionSucceeded());
+      await tester.pump();
+      await tester.pump();
+
+      final fadeFinder = find.ancestor(
+        of: find.byKey(const Key('workflows_delete_notice_success')),
+        matching: find.byType(HiveFadeIn),
+      );
+      expect(fadeFinder, findsOneWidget);
+      expect(tester.widget<HiveFadeIn>(fadeFinder).key, isA<ObjectKey>());
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('notice renders without a fade under reduced motion', (
+      tester,
+    ) async {
+      final repo = ScriptedWorkflowRepository()
+        ..items.addAll(<WorkflowSummary>[
+          _workflow(),
+          _workflow(id: 'wf-2', name: 'Lint Check'),
+        ]);
+      await _pump(tester, repo);
+
+      await _startDelete(tester, 'wf-1');
+      repo.live.last.add(
+        const WorkflowDeletionFailed(BackendFailure('boom', statusCode: 500)),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final noticeFade = find.ancestor(
+        of: find.byKey(const Key('workflows_delete_notice_error')),
+        matching: find.byType(HiveFadeIn),
+      );
+      expect(
+        find.descendant(
+          of: noticeFade,
+          matching: find.byWidgetPredicate(
+            (w) =>
+                w is FadeTransition ||
+                w.runtimeType.toString().startsWith('Flux'),
+          ),
+        ),
+        findsWidgets,
+      );
+      await tester.pumpAndSettle();
+
+      // Now with disableAnimations: true.
+      final repo2 = ScriptedWorkflowRepository()..items.add(_workflow());
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [workflowRepositoryProvider.overrideWithValue(repo2)],
+          child: MediaQuery(
+            data: const MediaQueryData(disableAnimations: true),
+            child: MaterialApp(
+              theme: HiveTheme.dark(),
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: const Scaffold(body: WorkflowsPage()),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await _startDelete(tester, 'wf-1');
+      repo2.live.last.add(
+        const WorkflowDeletionFailed(BackendFailure('boom', statusCode: 500)),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final noticeFade2 = find.ancestor(
+        of: find.byKey(const Key('workflows_delete_notice_error')),
+        matching: find.byType(HiveFadeIn),
+      );
+      expect(
+        find.descendant(
+          of: noticeFade2,
+          matching: find.byWidgetPredicate(
+            (w) =>
+                w is FadeTransition ||
+                w.runtimeType.toString().startsWith('Flux'),
+          ),
+        ),
+        findsNothing,
+      );
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('rebuilding the same notice does not replay the fade', (
+      tester,
+    ) async {
+      final repo = ScriptedWorkflowRepository()
+        ..items.addAll(<WorkflowSummary>[
+          _workflow(),
+          _workflow(id: 'wf-2', name: 'Lint Check'),
+        ]);
+      await _pump(tester, repo);
+
+      await _startDelete(tester, 'wf-1');
+      repo.live.last.add(const WorkflowDeletionSucceeded());
+      await tester.pumpAndSettle();
+
+      final noticeFade = find.ancestor(
+        of: find.byKey(const Key('workflows_delete_notice_success')),
+        matching: find.byType(HiveFadeIn),
+      );
+      final before = tester.element(noticeFade);
+      await tester.enterText(find.byType(EditableText).first, 'lint');
+      await tester.pumpAndSettle();
+      final after = tester.element(noticeFade);
+
+      expect(after, same(before));
+    });
+
+    testWidgets('Retry keeps focus, hover and pressed from the catalog', (
+      tester,
+    ) async {
+      final repo = ScriptedWorkflowRepository()
+        ..items.addAll(<WorkflowSummary>[
+          _workflow(),
+          _workflow(id: 'wf-2', name: 'Lint Check'),
+        ]);
+      await _pump(tester, repo);
+
+      await _startDelete(tester, 'wf-1');
+      repo.live.last.add(
+        const WorkflowDeletionFailed(BackendFailure('boom', statusCode: 500)),
+      );
+      await tester.pumpAndSettle();
+
+      final retryFinder = find.byKey(
+        const Key('workflows_delete_retry_button'),
+      );
+      final retryButton = tester.widget<HiveButton>(retryFinder);
+      expect(retryButton.variant, HiveButtonVariant.secondary);
+      expect(retryButton.size, HiveButtonSize.small);
+
+      var focused = false;
+      for (var i = 0; i < 10; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        final focusCtx = FocusManager.instance.primaryFocus?.context;
+        if (focusCtx != null &&
+            find
+                .ancestor(
+                  of: find.byWidget(focusCtx.widget),
+                  matching: retryFinder,
+                )
+                .evaluate()
+                .isNotEmpty) {
+          focused = true;
+          break;
+        }
+      }
+      expect(
+        focused,
+        isTrue,
+        reason: 'Retry button was not focused within 10 Tabs',
+      );
+    });
+  });
 }

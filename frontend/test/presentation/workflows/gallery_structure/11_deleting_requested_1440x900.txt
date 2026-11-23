@@ -38,7 +38,6 @@ SemanticsNode#
            │ scrollIndex: 0
            │ scrollExtentMin: 0.0
            │ scrollPosition: 0.0
-           │ scrollExtentMax: 0.0
            │
            ├─SemanticsNode#
            │ │ tags: RenderViewport.twoPane

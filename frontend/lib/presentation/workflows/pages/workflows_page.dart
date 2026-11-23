@@ -202,13 +202,16 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
               ],
             ),
             if (deleteState.notice case final notice?) ...<Widget>[
-              WorkflowDeleteNoticeBanner(
-                notice: notice,
-                onDismiss: ref
-                    .read(workflowDeleteControllerProvider.notifier)
-                    .dismissNotice,
-                onRetry: () => _retryDelete(context, notice),
-                onReload: () => _reloadFailedDelete(context, notice),
+              HiveFadeIn(
+                key: ObjectKey(notice),
+                child: WorkflowDeleteNoticeBanner(
+                  notice: notice,
+                  onDismiss: ref
+                      .read(workflowDeleteControllerProvider.notifier)
+                      .dismissNotice,
+                  onRetry: () => _retryDelete(context, notice),
+                  onReload: () => _reloadFailedDelete(context, notice),
+                ),
               ),
               SizedBox(height: spacing.space2),
             ],

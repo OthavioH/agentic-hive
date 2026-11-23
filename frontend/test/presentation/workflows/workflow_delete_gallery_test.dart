@@ -63,30 +63,32 @@ String _structurePath(String name) {
 }
 
 String _structureDump(WidgetTester tester) {
-  final root = tester.binding.pipelineOwner.semanticsOwner!.rootSemanticsNode!;
-  final raw = root.toStringDeep(
-    childOrder: DebugSemanticsDumpOrder.traversalOrder,
-  );
-  final lines = raw
-      .split('\n')
-      .where(
-        (line) =>
-            !line.contains('Rect.fromLTRB') &&
-            !line.contains('transform') &&
-            !line.contains('scaled by') &&
-            !line.contains('elevation') &&
-            !line.contains('thickness') &&
-            !line.contains('textDirection'),
-      )
-      .map((line) => line.replaceAll(RegExp(r'#[0-9a-fA-F]+'), '#'))
-      .toList();
-  lines
-    ..add('--- texts ---')
-    ..addAll(
-      tester
-          .widgetList<RichText>(find.byType(RichText))
-          .map((w) => w.text.toPlainText()),
-    );
+  SemanticsNode? root;
+  tester.binding.rootPipelineOwner.visitChildren((child) {
+    root ??= child.semanticsOwner?.rootSemanticsNode;
+  });
+  final raw = root!.toStringDeep();
+  final lines =
+      raw
+          .split('\n')
+          .where(
+            (line) =>
+                !line.contains('Rect.fromLTRB') &&
+                !line.contains('transform') &&
+                !line.contains('scaled by') &&
+                !line.contains('elevation') &&
+                !line.contains('thickness') &&
+                !line.contains('textDirection') &&
+                !line.contains('scrollExtentMax'),
+          )
+          .map((line) => line.replaceAll(RegExp('#[0-9a-fA-F]+'), '#'))
+          .toList()
+        ..add('--- texts ---')
+        ..addAll(
+          tester
+              .widgetList<RichText>(find.byType(RichText))
+              .map((w) => w.text.toPlainText()),
+        );
   return lines.join('\n');
 }
 

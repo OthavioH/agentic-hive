@@ -32,6 +32,8 @@ class WorkflowDeleteNoticeBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final colors = context.hiveColors;
+    final typography = context.hiveTypography;
     return switch (notice) {
       WorkflowDeletedNotice() => HiveBanner(
         key: const Key('workflows_delete_notice_success'),
@@ -45,7 +47,7 @@ class WorkflowDeleteNoticeBanner extends StatelessWidget {
         key: const Key('workflows_delete_notice_partial'),
         tone: HiveFeedbackTone.warning,
         title: l10n.workflowsDeletePartialNotice(orphanedRunIds.length),
-        detail: _runIds(orphanedRunIds),
+        detail: _runIds(context, orphanedRunIds),
         liveRegion: true,
         onDismiss: onDismiss,
         dismissSemanticLabel: l10n.workflowsDismissNoticeAction,
@@ -69,8 +71,11 @@ class WorkflowDeleteNoticeBanner extends StatelessWidget {
                   children: <Widget>[
                     Text(
                       l10n.workflowsDeleteKeptRunsDetail(orphanedRunIds.length),
+                      style: typography.body.copyWith(
+                        color: colors.onSurfaceMuted,
+                      ),
                     ),
-                    _runIds(orphanedRunIds),
+                    _runIds(context, orphanedRunIds),
                   ],
                 ),
           liveRegion: true,
@@ -98,13 +103,22 @@ class WorkflowDeleteNoticeBanner extends StatelessWidget {
     };
   }
 
-  Widget _runIds(List<String> ids) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    mainAxisSize: MainAxisSize.min,
-    children: <Widget>[
-      for (final id in ids) Text(id, key: Key('workflows_delete_kept_run_$id')),
-    ],
-  );
+  Widget _runIds(BuildContext context, List<String> ids) {
+    final colors = context.hiveColors;
+    final typography = context.hiveTypography;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        for (final id in ids)
+          Text(
+            id,
+            key: Key('workflows_delete_kept_run_$id'),
+            style: typography.mono.copyWith(color: colors.onSurface),
+          ),
+      ],
+    );
+  }
 
   String _message(AppLocalizations l10n, Failure failure) => switch (failure) {
     BackendFailure() ||
