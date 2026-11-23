@@ -100,12 +100,7 @@ void main() {
     git = const GitClient(IoProcessRunner());
 
     capabilitiesService = WorkspaceCapabilitiesService(git);
-    preparationService = WorkspacePreparationService(
-      git: git,
-      worktreesDir: p.join(dataDir.path, 'worktrees'),
-      pathContext: p.context,
-      events: events,
-    );
+    preparationService = WorkspacePreparationService(git: git);
     snapshotService = ShadowSnapshotService(
       git: git,
       runs: runs,
@@ -601,7 +596,8 @@ void main() {
 
   group('WorkspacePreparationService & RunService.deleteRun cleanup', () {
     test(
-      'falls back to direct mode for a subfolder of a larger repo',
+      'keeps a run worktree and its branch on deleteRun, leaving uncommitted '
+      'work untouched',
       () async {
         await runGit(['init', workspaceDir.path]);
         await runGit(['-C', workspaceDir.path, 'config', 'user.name', 'User']);
@@ -612,121 +608,83 @@ void main() {
           'user.email',
           'user@example.com',
         ]);
-        final sub = Directory(p.join(workspaceDir.path, 'pkg', 'inner'))
-          ..createSync(recursive: true);
-        await File(p.join(sub.path, 'f.txt')).writeAsString('x\n');
-        await runGit(['-C', workspaceDir.path, 'add', '.']);
+        await File(p.join(workspaceDir.path, 'base.txt'))
+            .writeAsString('committed\n');
+        await runGit(['-C', workspaceDir.path, 'add', 'base.txt']);
         await runGit(['-C', workspaceDir.path, 'commit', '-m', 'base']);
-        await createRun(id: 'run-sub', wsPath: sub.path);
 
-        final prepared = (await preparationService.prepare(
-          runId: 'run-sub',
-          workspacePath: sub.path,
-          recordWarningEvent: true,
-        ) as Success<PreparedWorkspace>).value;
-        expect(prepared.isolationMode, WorkspaceIsolationMode.direct);
-        expect(prepared.effectiveWorkspacePath, sub.path);
-        expect(prepared.worktreePath, isNull);
-        expect(prepared.warningMessage, isNotNull);
-      },
-    );
+        // Uncommitted user work in original workspace.
+        await File(p.join(workspaceDir.path, 'dirty.txt'))
+            .writeAsString('uncommitted\n');
 
-    test(
-      'falls back to direct mode with snapshot.warning on unborn HEAD',
-      () async {
-        await runGit(['init', workspaceDir.path]);
-        await createRun(id: 'run-unborn', wsPath: workspaceDir.path);
+        final worktreePath = p.join(tempRoot.path, 'wt-run-wt');
+        await runGit([
+          '-C',
+          workspaceDir.path,
+          'worktree',
+          'add',
+          '-b',
+          'hive/run-wt',
+          worktreePath,
+          'HEAD',
+        ]);
+        final prepared = PreparedWorkspace(
+          effectiveWorkspacePath: worktreePath,
+          isolationMode: WorkspaceIsolationMode.worktree,
+          worktreePath: worktreePath,
+          worktreeBranch: 'hive/run-wt',
+        );
 
-        final prepared = (await preparationService.prepare(
-          runId: 'run-unborn',
-          workspacePath: workspaceDir.path,
-          recordWarningEvent: true,
-        ) as Success<PreparedWorkspace>).value;
-        expect(prepared.isolationMode, WorkspaceIsolationMode.direct);
-        expect(prepared.effectiveWorkspacePath, workspaceDir.path);
-        expect(prepared.warningMessage, isNotNull);
-
-        final evPage = (await events.listForRun(
-          'run-unborn',
-        ) as Success<({List<RunEvent> items, int lastSequence})>).value;
+        expect(prepared.isolationMode, WorkspaceIsolationMode.worktree);
+        expect(prepared.worktreeBranch, 'hive/run-wt');
+        expect(prepared.worktreePath, isNotNull);
+        expect(Directory(prepared.worktreePath!).existsSync(), isTrue);
+        // Uncommitted file is not in the worktree, and stays in user workspace.
         expect(
-          evPage.items.any((e) => e.type == RunEventType.snapshotWarning),
+          File(p.join(prepared.worktreePath!, 'dirty.txt')).existsSync(),
+          isFalse,
+        );
+        expect(
+          File(p.join(workspaceDir.path, 'dirty.txt')).existsSync(),
           isTrue,
         );
+
+        await createRun(
+          id: 'run-wt',
+          wsPath: workspaceDir.path,
+          status: RunStatus.succeeded,
+          isolationMode: prepared.isolationMode,
+          worktreePath: prepared.worktreePath,
+          worktreeBranch: prepared.worktreeBranch,
+        );
+
+        // Capture a snapshot in the worktree.
+        await snapshotService.captureSnapshot(
+          runId: 'run-wt',
+          workspaceDir: prepared.effectiveWorkspacePath,
+        );
+        expect(
+          Directory(snapshotService.shadowRepoPath('run-wt')).existsSync(),
+          isTrue,
+        );
+
+        // Delete run: the shadow repo goes, the worktree stays (ADR 0022).
+        final delRes = await runService.deleteRun('run-wt');
+        expect(delRes, isA<Success<void>>());
+        expect(
+          Directory(snapshotService.shadowRepoPath('run-wt')).existsSync(),
+          isFalse,
+        );
+        expect(Directory(prepared.worktreePath!).existsSync(), isTrue);
+        final branches = (await git.runChecked([
+          '-C',
+          workspaceDir.path,
+          'branch',
+          '--list',
+          'hive/run-wt',
+        ]) as Success<String>).value;
+        expect(branches.trim(), isNotEmpty);
       },
     );
-
-    test('creates hive/<runId> worktree leaving uncommitted work untouched and '
-        'keeps the worktree on deleteRun', () async {
-      await runGit(['init', workspaceDir.path]);
-      await runGit(['-C', workspaceDir.path, 'config', 'user.name', 'User']);
-      await runGit([
-        '-C',
-        workspaceDir.path,
-        'config',
-        'user.email',
-        'user@example.com',
-      ]);
-      await File(p.join(workspaceDir.path, 'base.txt'))
-          .writeAsString('committed\n');
-      await runGit(['-C', workspaceDir.path, 'add', 'base.txt']);
-      await runGit(['-C', workspaceDir.path, 'commit', '-m', 'base']);
-
-      // Uncommitted user work in original workspace.
-      await File(p.join(workspaceDir.path, 'dirty.txt'))
-          .writeAsString('uncommitted\n');
-
-      final prepared = (await preparationService.prepare(
-        runId: 'run-wt',
-        workspacePath: workspaceDir.path,
-      ) as Success<PreparedWorkspace>).value;
-
-      expect(prepared.isolationMode, WorkspaceIsolationMode.worktree);
-      expect(prepared.worktreeBranch, 'hive/run-wt');
-      expect(prepared.worktreePath, isNotNull);
-      expect(Directory(prepared.worktreePath!).existsSync(), isTrue);
-      // Uncommitted file is not in the worktree, and stays in user workspace.
-      expect(
-        File(p.join(prepared.worktreePath!, 'dirty.txt')).existsSync(),
-        isFalse,
-      );
-      expect(File(p.join(workspaceDir.path, 'dirty.txt')).existsSync(), isTrue);
-
-      await createRun(
-        id: 'run-wt',
-        wsPath: workspaceDir.path,
-        status: RunStatus.succeeded,
-        isolationMode: prepared.isolationMode,
-        worktreePath: prepared.worktreePath,
-        worktreeBranch: prepared.worktreeBranch,
-      );
-
-      // Capture a snapshot in the worktree.
-      await snapshotService.captureSnapshot(
-        runId: 'run-wt',
-        workspaceDir: prepared.effectiveWorkspacePath,
-      );
-      expect(
-        Directory(snapshotService.shadowRepoPath('run-wt')).existsSync(),
-        isTrue,
-      );
-
-      // Delete run: the shadow repo goes, the worktree stays (ADR 0022).
-      final delRes = await runService.deleteRun('run-wt');
-      expect(delRes, isA<Success<void>>());
-      expect(
-        Directory(snapshotService.shadowRepoPath('run-wt')).existsSync(),
-        isFalse,
-      );
-      expect(Directory(prepared.worktreePath!).existsSync(), isTrue);
-      final branches = (await git.runChecked([
-        '-C',
-        workspaceDir.path,
-        'branch',
-        '--list',
-        'hive/run-wt',
-      ]) as Success<String>).value;
-      expect(branches.trim(), isNotEmpty);
-    });
   });
 }

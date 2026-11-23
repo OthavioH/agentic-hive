@@ -435,13 +435,8 @@ Future<void> registerDependencies(
       dependsOn: [AppDatabase],
     )
     ..registerSingletonWithDependencies<WorkspacePreparationService>(
-      () => WorkspacePreparationService(
-        git: di<GitClient>(),
-        worktreesDir: config.worktreesDir,
-        pathContext: platformPaths.context,
-        events: di<RunEventRepository>(),
-      ),
-      dependsOn: [RunEventRepository],
+      () => WorkspacePreparationService(git: di<GitClient>()),
+      dependsOn: [SnapshotRepository],
     )
     ..registerSingletonWithDependencies<ShadowSnapshotService>(
       () => ShadowSnapshotService(

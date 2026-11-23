@@ -38,9 +38,10 @@ sealed class RunTarget with _$RunTarget {
 ///
 /// The run belongs to a workspace (ADR 0022): [workspaceId] is the id of a
 /// registered workspace. There is no path in the request. [target] says where
-/// the run executes; when null it follows [workspaceIsolationMode] (or the
-/// workspace's default): `direct` runs in the primary checkout and `worktree`
-/// in a new worktree.
+/// the run executes; when null the run executes in the primary checkout
+/// (direct). The default isolation mode is a client-side default: clients
+/// preselect a target from the effective execution settings. The server
+/// ignores [workspaceIsolationMode].
 @freezed
 sealed class StartRunRequest with _$StartRunRequest {
   /// Creates a start-run request.

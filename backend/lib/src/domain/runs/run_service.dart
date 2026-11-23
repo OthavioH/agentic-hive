@@ -167,24 +167,18 @@ final class RunService {
       );
     }
 
-    final target = request.target;
-    var requestedMode =
-        request.workspaceIsolationMode ?? WorkspaceIsolationMode.worktree;
+    // No target means the primary checkout (ADR 0022).
+    final target = request.target ?? const RunTarget.primary();
     var ignorePatterns = request.ignorePatterns;
     final executionSettings = _executionSettings;
-    if (executionSettings != null &&
-        ((target == null && request.workspaceIsolationMode == null) ||
-            ignorePatterns == null)) {
+    if (executionSettings != null && ignorePatterns == null) {
       final effective = await executionSettings.effectiveFor(workspace.id);
       if (effective case FailureResult<EffectiveExecutionSettings>(
         :final failure,
       )) {
         return FailureResult(failure);
       }
-      final settings = effective.valueOrNull!;
-      requestedMode =
-          request.workspaceIsolationMode ?? settings.defaultIsolationMode;
-      ignorePatterns ??= settings.ignorePatterns;
+      ignorePatterns = effective.valueOrNull!.ignorePatterns;
     }
 
     String? reservedFolder;
@@ -313,32 +307,6 @@ final class RunService {
             worktreePath: worktree.path,
             worktreeBranch: worktree.branch,
           );
-        case null:
-          // Request without a target: `direct` runs in the primary checkout
-          // and `worktree` in a new worktree, falling back to the primary
-          // checkout for folders that cannot host one.
-          if (requestedMode == WorkspaceIsolationMode.direct) {
-            final conflict = await claim(workspacePath);
-            if (conflict != null) return FailureResult(conflict);
-          }
-          final preparedResult = await workspacePreparation.prepare(
-            runId: runId,
-            workspacePath: workspacePath,
-            requestedMode: requestedMode,
-          );
-          if (preparedResult case FailureResult<PreparedWorkspace>(
-            :final failure,
-          )) {
-            return FailureResult(failure);
-          }
-          prepared = preparedResult.valueOrNull!;
-          if (prepared.isolationMode == WorkspaceIsolationMode.worktree) {
-            createdWorktreePath = prepared.worktreePath;
-            createdWorktreeBranch = prepared.worktreeBranch;
-          } else if (reservedFolder == null) {
-            final conflict = await claim(workspacePath);
-            if (conflict != null) return FailureResult(conflict);
-          }
       }
 
       if (ignorePatterns != null && ignorePatterns.isNotEmpty) {
