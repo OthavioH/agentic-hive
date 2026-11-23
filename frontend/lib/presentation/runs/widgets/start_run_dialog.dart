@@ -87,12 +87,11 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
   bool get _worktreeAvailable {
     final workspace = _selectedWorkspace;
     if (workspace == null || !workspace.isGit) return false;
-    final caps = _capabilities;
-    return caps != null &&
-        caps.gitAvailable &&
-        caps.isGitRepo &&
-        caps.hasCommits;
+    return _hasGitWorktreeSupport(_capabilities);
   }
+
+  static bool _hasGitWorktreeSupport(WorkspaceCapabilities? caps) =>
+      caps != null && caps.gitAvailable && caps.isGitRepo && caps.hasCommits;
 
   @override
   void initState() {
@@ -195,8 +194,7 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
     final caps = capsResult.valueOrNull;
     final worktrees = worktreesResult.valueOrNull ?? const <Worktree>[];
     final existing = worktrees.where((w) => !w.isPrimary).toList();
-    final canWorktree =
-        caps != null && caps.gitAvailable && caps.isGitRepo && caps.hasCommits;
+    final canWorktree = _hasGitWorktreeSupport(caps);
 
     var nextKind = _targetKind;
     var nextWorktreeId = _selectedWorktreeId;
