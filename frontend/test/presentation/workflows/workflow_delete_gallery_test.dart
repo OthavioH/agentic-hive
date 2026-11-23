@@ -53,6 +53,43 @@ String _galleryPath(String name) {
   return '$dir/$name.png';
 }
 
+String _structurePath(String name) {
+  final inFrontend = Directory('test/presentation/workflows').existsSync();
+  final dir = inFrontend
+      ? 'test/presentation/workflows/gallery_structure'
+      : 'frontend/test/presentation/workflows/gallery_structure';
+  Directory(dir).createSync(recursive: true);
+  return '$dir/$name.txt';
+}
+
+String _structureDump(WidgetTester tester) {
+  final root = tester.binding.pipelineOwner.semanticsOwner!.rootSemanticsNode!;
+  final raw = root.toStringDeep(
+    childOrder: DebugSemanticsDumpOrder.traversalOrder,
+  );
+  final lines = raw
+      .split('\n')
+      .where(
+        (line) =>
+            !line.contains('Rect.fromLTRB') &&
+            !line.contains('transform') &&
+            !line.contains('scaled by') &&
+            !line.contains('elevation') &&
+            !line.contains('thickness') &&
+            !line.contains('textDirection'),
+      )
+      .map((line) => line.replaceAll(RegExp(r'#[0-9a-fA-F]+'), '#'))
+      .toList();
+  lines
+    ..add('--- texts ---')
+    ..addAll(
+      tester
+          .widgetList<RichText>(find.byType(RichText))
+          .map((w) => w.text.toPlainText()),
+    );
+  return lines.join('\n');
+}
+
 final _updatedAt = DateTime.utc(2026, 11, 20, 12);
 
 /// Seeds the three real product workflows of the gallery.
@@ -109,6 +146,7 @@ Future<void> _capture(
   required Future<void> Function(WidgetTester tester) drive,
   double textScale = 1.0,
 }) async {
+  final handle = tester.ensureSemantics();
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   // Unmount the previous capture so its ProviderScope (and repository) is
@@ -152,6 +190,19 @@ Future<void> _capture(
   await drive(tester);
   await tester.pumpAndSettle();
 
+  final dimensions = '${size.width.toInt()}x${size.height.toInt()}';
+  final dump = _structureDump(tester);
+  final structureFile = File(_structurePath('${name}_$dimensions'));
+  if (const bool.fromEnvironment('HIVE_UPDATE_STRUCTURE')) {
+    structureFile.writeAsStringSync(dump);
+  } else {
+    expect(
+      dump,
+      structureFile.readAsStringSync(),
+      reason: 'structure of $name changed',
+    );
+  }
+
   await tester.runAsync(() async {
     final boundary =
         boundaryKey.currentContext!.findRenderObject()!
@@ -159,9 +210,9 @@ Future<void> _capture(
     final image = await boundary.toImage();
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     final bytes = byteData!.buffer.asUint8List();
-    final dimensions = '${size.width.toInt()}x${size.height.toInt()}';
     File(_galleryPath('${name}_$dimensions')).writeAsBytesSync(bytes);
   });
+  handle.dispose();
   for (final controller in repo.live) {
     await controller.close();
   }

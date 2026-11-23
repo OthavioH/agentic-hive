@@ -1,0 +1,74 @@
+SemanticsNode#
+ │
+ └─SemanticsNode#
+   │
+   ├─SemanticsNode#
+   │ │ sortKey: OrdinalSortKey#(order: 0.0)
+   │ │
+   │ └─SemanticsNode#
+   │   │ flags: scopesRoute
+   │   │
+   │   └─SemanticsNode#
+   │     │
+   │     └─SemanticsNode#
+   │       │ flags: scopesRoute, namesRoute
+   │       │ label: "Delete workflow?"
+   │       │
+   │       ├─SemanticsNode#
+   │       │ │ flags: hasImplicitScrolling
+   │       │ │ scrollExtentMin: 0.0
+   │       │ │ scrollPosition: 0.0
+   │       │ │ scrollExtentMax: 0.0
+   │       │ │
+   │       │ ├─SemanticsNode#
+   │       │ │   flags: isHeader
+   │       │ │   label: "Delete workflow?"
+   │       │ │
+   │       │ └─SemanticsNode#
+   │       │     label: "2 runs of "Release Flow" are running. Stop them and
+   │       │       delete?"
+   │       │
+   │       ├─SemanticsNode#
+   │       │   actions: tap
+   │       │   flags: isButton, hasEnabledState, isEnabled
+   │       │   label: "Cancel"
+   │       │
+   │       └─SemanticsNode#
+   │           actions: tap
+   │           flags: isButton, hasEnabledState, isEnabled
+   │           label: "Stop runs and delete"
+   │
+   └─SemanticsNode#
+       actions: dismiss, tap
+       label: "Cancel"
+       sortKey: OrdinalSortKey#(order: 1.0)
+
+--- texts ---
+Workflows
+Create, inspect, and manage workflow graphs.
+New workflow
+Search workflows
+Filter by name or description...
+Release Flow
+Valid
+Workspace
+Build, test and publish a release candidate.
+6 nodes
+7 edges
+Updated Nov 20, 2026 09:00
+Lint Check
+Valid
+Global
+2 nodes
+1 edge
+Updated Nov 20, 2026 09:00
+Nightly Dependency Audit
+Needs attention
+Global
+4 nodes
+4 edges
+Updated Nov 20, 2026 09:00
+Delete workflow?
+2 runs of "Release Flow" are running. Stop them and delete?
+Cancel
+Stop runs and delete

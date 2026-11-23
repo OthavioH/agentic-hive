@@ -1,0 +1,110 @@
+SemanticsNode#
+ │
+ └─SemanticsNode#
+   │
+   └─SemanticsNode#
+     │ sortKey: OrdinalSortKey#(order: 0.0)
+     │
+     └─SemanticsNode#
+       │ flags: scopesRoute
+       │
+       ├─SemanticsNode#
+       │   flags: isHeader
+       │   label: "Workflows"
+       │
+       ├─SemanticsNode#
+       │   label: "Create, inspect, and manage workflow graphs."
+       │
+       ├─SemanticsNode#
+       │   actions: tap
+       │   flags: isButton, hasEnabledState, isEnabled
+       │   label: "New workflow"
+       │
+       ├─SemanticsNode#
+       │ │ flags: isLiveRegion
+       │ │
+       │ ├─SemanticsNode#
+       │ │   label: "Could not delete "Release Flow"."
+       │ │
+       │ ├─SemanticsNode#
+       │ │   actions: tap
+       │ │   flags: isButton, hasEnabledState, isEnabled
+       │ │   label: "Dismiss notice"
+       │ │
+       │ ├─SemanticsNode#
+       │ │   label: "Could not delete workflow: database is locked."
+       │ │
+       │ └─SemanticsNode#
+       │     actions: tap
+       │     flags: isButton, hasEnabledState, isEnabled
+       │     label: "Retry"
+       │
+       ├─SemanticsNode#
+       │   merge boundary ⛔️
+       │   actions: focus, tap
+       │   flags: isTextField, hasEnabledState, isEnabled, isFocusable
+       │   label:
+       │     "Search workflows
+       │     Filter by name or description..."
+       │   currentValueLength: 0
+       │   inputType: text
+       │
+       └─SemanticsNode#
+         │
+         └─SemanticsNode#
+           │ flags: hasImplicitScrolling
+           │ scrollChildren: 3
+           │ scrollIndex: 0
+           │ scrollExtentMin: 0.0
+           │ scrollPosition: 0.0
+           │ scrollExtentMax: 0.0
+           │
+           ├─SemanticsNode#
+           │   tags: RenderViewport.twoPane
+           │   actions: tap
+           │   flags: isButton, hasEnabledState, isEnabled
+           │   label: "Open Release Flow"
+           │   indexInParent: 0
+           │
+           ├─SemanticsNode#
+           │   tags: RenderViewport.twoPane
+           │   actions: tap
+           │   flags: isButton, hasEnabledState, isEnabled
+           │   label: "Open Lint Check"
+           │   indexInParent: 1
+           │
+           └─SemanticsNode#
+               tags: RenderViewport.twoPane
+               actions: tap
+               flags: isButton, hasEnabledState, isEnabled
+               label: "Open Nightly Dependency Audit"
+               indexInParent: 2
+
+--- texts ---
+Workflows
+Create, inspect, and manage workflow graphs.
+New workflow
+Could not delete "Release Flow".
+Could not delete workflow: database is locked.
+Retry
+Search workflows
+Filter by name or description...
+Release Flow
+Valid
+Workspace
+Build, test and publish a release candidate.
+6 nodes
+7 edges
+Updated Nov 20, 2026 09:00
+Lint Check
+Valid
+Global
+2 nodes
+1 edge
+Updated Nov 20, 2026 09:00
+Nightly Dependency Audit
+Needs attention
+Global
+4 nodes
+4 edges
+Updated Nov 20, 2026 09:00
