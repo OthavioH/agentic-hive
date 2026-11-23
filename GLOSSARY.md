@@ -8,6 +8,10 @@ A visual orchestrator that chains terminal AI agents (harnesses) into a graph an
 A `.md` file with frontmatter and a prompt that describes a role (for example, "reviewer"). It does not know which harness it will run on.
 _Avoid_: bot, persona, assistant
 
+**Skill**:
+A folder with a `SKILL.md` that teaches a harness how to do something. Agentic Hive ships one skill that teaches a harness how to manage workflows through the `hive` MCP tools. It is not an Agent: an agent describes a role, a skill teaches a capability.
+_Avoid_: plugin, extension
+
 **Harness**:
 An agent CLI installed by the user that does an agent's work, such as Claude Code or Antigravity CLI.
 _Avoid_: provider, model, engine
