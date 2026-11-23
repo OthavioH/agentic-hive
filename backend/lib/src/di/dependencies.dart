@@ -323,19 +323,6 @@ Future<void> registerDependencies(
     ..registerSingleton<WorkspaceWorkflowRepository>(
       FileWorkspaceWorkflowRepository(pathContext: platformPaths.context),
     )
-    ..registerSingletonWithDependencies<WorkflowService>(
-      () => WorkflowService(
-        repository: di<WorkflowRepository>(),
-        validator: di<WorkflowValidator>(),
-        workspaceWorkflows: di<WorkspaceWorkflowRepository>(),
-        workspaces: di<WorkspaceRepository>(),
-      ),
-      dependsOn: [WorkflowRepository, WorkspaceRepository],
-    )
-    ..registerSingletonWithDependencies<WorkflowHandler>(
-      () => WorkflowHandler(service: di<WorkflowService>()),
-      dependsOn: [WorkflowService],
-    )
     ..registerSingletonWithDependencies<RunRepository>(
       () => DriftRunRepository(di<AppDatabase>()),
       dependsOn: [AppDatabase],
@@ -526,6 +513,20 @@ Future<void> registerDependencies(
         GraphEngine,
       ],
       dispose: (service) => service.dispose(),
+    )
+    ..registerSingletonWithDependencies<WorkflowService>(
+      () => WorkflowService(
+        repository: di<WorkflowRepository>(),
+        validator: di<WorkflowValidator>(),
+        workspaceWorkflows: di<WorkspaceWorkflowRepository>(),
+        workspaces: di<WorkspaceRepository>(),
+        runsDeleter: di<RunService>(),
+      ),
+      dependsOn: [WorkflowRepository, WorkspaceRepository, RunService],
+    )
+    ..registerSingletonWithDependencies<WorkflowHandler>(
+      () => WorkflowHandler(service: di<WorkflowService>()),
+      dependsOn: [WorkflowService],
     )
     ..registerSingletonWithDependencies<RunsHandler>(
       () => RunsHandler(service: di<RunService>()),

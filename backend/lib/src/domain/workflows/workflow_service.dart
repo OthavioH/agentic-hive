@@ -1,6 +1,7 @@
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_runs_deleter.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_slug.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workspace_workflow_repository.dart';
@@ -18,12 +19,14 @@ final class WorkflowService {
   ///
   /// Without a workspace workflow repository and a workspace repository only
   /// the global scope is available and any `workspaceId` is answered with
-  /// `NotFoundFailure`.
+  /// `NotFoundFailure`. Without a runs deleter the workflow's runs are kept
+  /// (tests only).
   new({
     required this._repository,
     required this._validator,
     this._workspaceWorkflows,
     this._workspaces,
+    this._runsDeleter,
     String Function()? generateId,
     DateTime Function()? now,
   }) : _generateId = generateId ?? randomId,
@@ -35,6 +38,7 @@ final class WorkflowService {
   final WorkflowValidator _validator;
   final WorkspaceWorkflowRepository? _workspaceWorkflows;
   final WorkspaceRepository? _workspaces;
+  final WorkflowRunsDeleter? _runsDeleter;
   final String Function() _generateId;
   final DateTime Function() _now;
 
@@ -139,15 +143,43 @@ final class WorkflowService {
     return result.map((saved) => _response(saved, workspaceId));
   }
 
-  /// Deletes the workflow with [id].
-  Future<Result<void>> deleteWorkflow(String id, {String? workspaceId}) async {
-    if (workspaceId == null) return await _repository.delete(id);
-    final target = await _resolveTarget(workspaceId);
-    if (target case FailureResult<_Target>(:final failure)) {
+  /// Deletes the workflow [id] and every run of it (#103): runs first, in one
+  /// transaction that refuses with [WorkflowHasActiveRunsFailure] when any is
+  /// active, then the workflow. Worktrees and workspace files are kept.
+  Future<Result<DeleteWorkflowResponse>> deleteWorkflow(
+    String id, {
+    String? workspaceId,
+  }) async {
+    final existing = await _load(id, workspaceId);
+    if (existing case FailureResult<Workflow>(:final failure)) {
       return FailureResult(failure);
     }
-    final scoped = target.valueOrNull!;
-    return await scoped.repository.delete(scoped.rootPath, id);
+    var deletedRuns = 0;
+    final runsDeleter = _runsDeleter;
+    if (runsDeleter != null) {
+      final runs = await runsDeleter.deleteRunsOfWorkflow(
+        id,
+        workspaceId: workspaceId,
+      );
+      if (runs case FailureResult<int>(:final failure)) {
+        return FailureResult(failure);
+      }
+      deletedRuns = runs.valueOrNull!;
+    }
+    final Result<void> deleted;
+    if (workspaceId == null) {
+      deleted = await _repository.delete(id);
+    } else {
+      final target = await _resolveTarget(workspaceId);
+      if (target case FailureResult<_Target>(:final failure)) {
+        return FailureResult(failure);
+      }
+      final scoped = target.valueOrNull!;
+      deleted = await scoped.repository.delete(scoped.rootPath, id);
+    }
+    return deleted.map(
+      (_) => DeleteWorkflowResponse(id: id, deletedRuns: deletedRuns),
+    );
   }
 
   /// Clones an existing workflow [id] into a new workflow of the same scope.

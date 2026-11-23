@@ -94,5 +94,9 @@ void main() {
         ),
       );
     });
+
+    test('workflowHasActiveRuns code is workflow_has_active_runs', () {
+      expect(ApiErrorCode.workflowHasActiveRuns, 'workflow_has_active_runs');
+    });
   });
 }

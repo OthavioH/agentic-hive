@@ -20,6 +20,8 @@ abstract final class WorkflowL10n {
       NotFoundFailure() => l10n.workflowsFailureNotFound,
       ValidationFailure() => l10n.workflowsFailureValidation,
       ConflictFailure() => l10n.workflowsFailureBackend,
+      BackendFailure(code: ApiErrorCode.workflowHasActiveRuns) =>
+        l10n.workflowsFailureActiveRuns,
       BackendFailure() => l10n.workflowsFailureBackend,
       UnexpectedFailure() => l10n.workflowsFailureUnexpected,
     };

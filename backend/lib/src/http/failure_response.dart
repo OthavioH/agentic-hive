@@ -39,6 +39,17 @@ HttpFailureMapping mapFailureToHttp(Failure failure, {String? requestId}) =>
           requestId: requestId,
         ),
       ),
+      WorkflowHasActiveRunsFailure(:final message, :final activeRuns) => (
+        statusCode: 409,
+        error: ApiError(
+          code: ApiErrorCode.workflowHasActiveRuns,
+          message: message,
+          requestId: requestId,
+          details: {
+            for (final entry in activeRuns.entries) entry.key: entry.value.name,
+          },
+        ),
+      ),
       HarnessMcpInstallFailure(:final message) => (
         statusCode: 500,
         error: ApiError(

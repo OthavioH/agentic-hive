@@ -170,7 +170,7 @@ void main() {
       buildRequest('/api/v1/workflows/wf-1', method: 'DELETE'),
     );
     expect(delResp.statusCode, 200);
-    expect(await readJson(delResp), {'id': 'wf-1', 'deleted': true});
+    expect(await readJson(delResp), {'id': 'wf-1', 'deletedRuns': 0});
 
     // Get deleted returns 404 ApiError.
     final missingResp = await handler(buildRequest('/api/v1/workflows/wf-1'));

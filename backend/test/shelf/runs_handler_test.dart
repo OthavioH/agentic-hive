@@ -45,6 +45,12 @@ final class _FakeRunRepository implements RunRepository {
   }
 
   @override
+  Future<Result<List<String>>> deleteAllOfWorkflow(
+    String workflowId, {
+    String? workspaceId,
+  }) => throw UnimplementedError();
+
+  @override
   Future<Result<Run>> markInterruptedWithEvent(
     String runId, {
     required String eventId,

@@ -76,10 +76,7 @@ final class WorkflowHandler {
       id,
       workspaceId: _workspaceId(request),
     );
-    return switch (result) {
-      Success<void>() => jsonResponse(200, {'id': id, 'deleted': true}),
-      FailureResult<void>(:final failure) => failureResponse(request, failure),
-    };
+    return _mapResult(request, result, 200);
   }
 
   Future<Response> _duplicate(Request request, String id) async {

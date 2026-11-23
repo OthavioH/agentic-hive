@@ -49,6 +49,10 @@ abstract final class ApiErrorCode {
   /// The request carried an `Origin` header (`403`).
   static const originNotAllowed = 'origin_not_allowed';
 
+  /// The workflow has active runs and the delete was not forced (`409`).
+  /// `ApiError.details` maps each active run id to its status name.
+  static const workflowHasActiveRuns = 'workflow_has_active_runs';
+
   /// `GET /ws` was called without a WebSocket upgrade (`426`).
   static const upgradeRequired = 'upgrade_required';
 
