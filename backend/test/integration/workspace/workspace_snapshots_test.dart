@@ -657,7 +657,7 @@ void main() {
     );
 
     test('creates hive/<runId> worktree leaving uncommitted work untouched and '
-        'cleans up on deleteRun', () async {
+        'keeps the worktree on deleteRun', () async {
       await runGit(['init', workspaceDir.path]);
       await runGit(['-C', workspaceDir.path, 'config', 'user.name', 'User']);
       await runGit([
@@ -711,14 +711,14 @@ void main() {
         isTrue,
       );
 
-      // Delete run and verify shadow repo + worktree are cleaned up.
+      // Delete run: the shadow repo goes, the worktree stays (ADR 0022).
       final delRes = await runService.deleteRun('run-wt');
       expect(delRes, isA<Success<void>>());
       expect(
         Directory(snapshotService.shadowRepoPath('run-wt')).existsSync(),
         isFalse,
       );
-      expect(Directory(prepared.worktreePath!).existsSync(), isFalse);
+      expect(Directory(prepared.worktreePath!).existsSync(), isTrue);
       final branches = (await git.runChecked([
         '-C',
         workspaceDir.path,
@@ -726,7 +726,7 @@ void main() {
         '--list',
         'hive/run-wt',
       ]) as Success<String>).value;
-      expect(branches.trim(), isEmpty);
+      expect(branches.trim(), isNotEmpty);
     });
   });
 }

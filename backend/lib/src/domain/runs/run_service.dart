@@ -16,6 +16,7 @@ import 'package:agentic_hive_backend/src/domain/workflows/workspace_workflow_rep
 import 'package:agentic_hive_backend/src/domain/workspace/shadow_snapshot_service.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_preparation_service.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_service.dart';
+import 'package:agentic_hive_backend/src/domain/worktrees/worktree_service.dart';
 import 'package:agentic_hive_backend/src/logging/log_event.dart';
 import 'package:agentic_hive_backend/src/util/ids.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
@@ -36,6 +37,7 @@ final class RunService {
     this._workspaceWorkflows,
     this._workflowValidator,
     this._workspaces,
+    this._worktrees,
     this._executionSettings,
     this._engine,
     this._logStore,
@@ -65,6 +67,7 @@ final class RunService {
   final WorkspaceWorkflowRepository? _workspaceWorkflows;
   final WorkflowValidator? _workflowValidator;
   final WorkspaceService? _workspaces;
+  final WorktreeService? _worktrees;
   final ExecutionSettingsService? _executionSettings;
   final GraphEngine? _engine;
   final RunLogStore? _logStore;
@@ -74,9 +77,10 @@ final class RunService {
 
   final Map<String, Future<void>> _activeExecutions = <String, Future<void>>{};
 
-  /// Synchronously reserved canonical workspace paths for in-flight `direct`
-  /// run starts/resumes before the database status is persisted.
-  final Set<String> _reservedDirectWorkspaces = <String>{};
+  /// Synchronously reserved canonical target folders (the primary checkout or
+  /// a worktree) for in-flight run starts/resumes before the database status
+  /// is persisted. At most one run is active per folder (ADR 0022).
+  final Set<String> _reservedFolders = <String>{};
 
   /// Synchronously claimed run IDs currently entering [resumeRun] so concurrent
   /// duplicate resume requests receive `409 Conflict`.
@@ -123,9 +127,10 @@ final class RunService {
     return await globalWorkflows.getById(workflowId);
   }
 
-  /// Validates [request], enforces the `direct`-mode workspace concurrency
-  /// guard, creates the [Run], and starts `GraphEngine` execution
-  /// asynchronously.
+  /// Validates [request], resolves where the run executes (the primary
+  /// checkout, an existing worktree or a new worktree), enforces the
+  /// one-active-run-per-folder guard, creates the [Run], and starts
+  /// `GraphEngine` execution asynchronously.
   Future<Result<Run>> startRun(StartRunRequest request) async {
     final workflowId = request.workflowId.trim();
     if (workflowId.isEmpty) {
@@ -149,8 +154,8 @@ final class RunService {
     if (found case FailureResult<Workspace>(:final failure)) {
       return FailureResult(failure);
     }
-    final ownerWorkspaceId = found.valueOrNull!.id;
-    final workspacePath = found.valueOrNull!.rootPath;
+    final workspace = found.valueOrNull!;
+    final workspacePath = workspace.rootPath;
     final workspaceRoot = workspacePath;
 
     final workflows = _workflows;
@@ -162,13 +167,15 @@ final class RunService {
       );
     }
 
+    final target = request.target;
     var requestedMode =
         request.workspaceIsolationMode ?? WorkspaceIsolationMode.worktree;
     var ignorePatterns = request.ignorePatterns;
     final executionSettings = _executionSettings;
     if (executionSettings != null &&
-        (request.workspaceIsolationMode == null || ignorePatterns == null)) {
-      final effective = await executionSettings.effectiveFor(ownerWorkspaceId);
+        ((target == null && request.workspaceIsolationMode == null) ||
+            ignorePatterns == null)) {
+      final effective = await executionSettings.effectiveFor(workspace.id);
       if (effective case FailureResult<EffectiveExecutionSettings>(
         :final failure,
       )) {
@@ -179,21 +186,23 @@ final class RunService {
           request.workspaceIsolationMode ?? settings.defaultIsolationMode;
       ignorePatterns ??= settings.ignorePatterns;
     }
-    final normalizedWorkspace = _canonicalizeWorkspace(workspacePath);
-    var reservedDirect = false;
-    if (requestedMode == WorkspaceIsolationMode.direct) {
-      if (!_reservedDirectWorkspaces.add(normalizedWorkspace)) {
-        return FailureResult(
-          ConflictFailure(
-            'An active direct-mode run is already starting or executing on '
-            'workspace "$normalizedWorkspace".',
-          ),
+
+    String? reservedFolder;
+    String? createdWorktreePath;
+    String? createdWorktreeBranch;
+
+    // Claims [folder] for this run, or reports the conflicting active run.
+    Future<ConflictFailure?> claim(String folder) async {
+      final key = _canonicalizeWorkspace(folder);
+      if (!_reservedFolders.add(key)) {
+        return ConflictFailure(
+          'An active run is already starting or executing in "$key".',
         );
       }
-      reservedDirect = true;
+      reservedFolder = key;
+      return await _checkFolderConflict(key);
     }
 
-    var createdInDb = false;
     try {
       final workflowResult = await _resolveWorkflow(
         workflows,
@@ -220,41 +229,116 @@ final class RunService {
         }
       }
 
-      if (requestedMode == WorkspaceIsolationMode.direct) {
-        final conflict = await _checkDirectWorkspaceConflict(
-          normalizedWorkspace,
-        );
-        if (conflict != null) return FailureResult(conflict);
-      }
-
       final runId = _generateId();
-      final preparedResult = await workspacePreparation.prepare(
-        runId: runId,
-        workspacePath: workspacePath,
-        requestedMode: requestedMode,
-      );
-      if (preparedResult case FailureResult<PreparedWorkspace>(
-        :final failure,
-      )) {
-        return FailureResult(failure);
-      }
-      final prepared = preparedResult.valueOrNull!;
-
-      if (prepared.isolationMode == WorkspaceIsolationMode.direct &&
-          !reservedDirect) {
-        if (!_reservedDirectWorkspaces.add(normalizedWorkspace)) {
-          return FailureResult(
-            ConflictFailure(
-              'An active direct-mode run is already starting or executing on '
-              'workspace "$normalizedWorkspace".',
+      final PreparedWorkspace prepared;
+      switch (target) {
+        case RunTargetPrimary():
+          final conflict = await claim(workspacePath);
+          if (conflict != null) return FailureResult(conflict);
+          prepared = PreparedWorkspace(
+            effectiveWorkspacePath: workspacePath,
+            isolationMode: WorkspaceIsolationMode.direct,
+          );
+        case RunTargetWorktree(:final worktreeId):
+          final worktrees = _worktrees;
+          if (worktrees == null) {
+            return const FailureResult(
+              UnexpectedFailure('Worktree service is not configured.'),
+            );
+          }
+          final listed = await worktrees.list(workspace);
+          if (listed case FailureResult<List<Worktree>>(:final failure)) {
+            return FailureResult(failure);
+          }
+          final existing = listed.valueOrNull!
+              .where((w) => w.id == worktreeId)
+              .firstOrNull;
+          if (existing == null) {
+            return FailureResult(
+              NotFoundFailure('Worktree "$worktreeId" was not found.'),
+            );
+          }
+          final conflict = await claim(
+            existing.isPrimary ? workspacePath : existing.path,
+          );
+          if (conflict != null) return FailureResult(conflict);
+          prepared = existing.isPrimary
+              ? PreparedWorkspace(
+                  effectiveWorkspacePath: workspacePath,
+                  isolationMode: WorkspaceIsolationMode.direct,
+                )
+              : PreparedWorkspace(
+                  effectiveWorkspacePath: existing.path,
+                  isolationMode: WorkspaceIsolationMode.worktree,
+                  worktreePath: existing.path,
+                  worktreeBranch: existing.branch,
+                );
+        case RunTargetNewWorktree(
+          :final name,
+          :final branch,
+          :final baseBranch,
+        ):
+          final worktrees = _worktrees;
+          if (worktrees == null) {
+            return const FailureResult(
+              UnexpectedFailure('Worktree service is not configured.'),
+            );
+          }
+          final created = await worktrees.create(
+            workspace,
+            CreateWorktreeRequest(
+              name: _nonBlank(name) ?? runId,
+              branch: _nonBlank(branch) ?? 'hive/$runId',
+              baseBranch: baseBranch,
             ),
           );
-        }
-        reservedDirect = true;
-        final conflict = await _checkDirectWorkspaceConflict(
-          normalizedWorkspace,
-        );
-        if (conflict != null) return FailureResult(conflict);
+          if (created case FailureResult<Worktree>(:final failure)) {
+            return FailureResult(failure);
+          }
+          final worktree = created.valueOrNull!;
+          createdWorktreePath = worktree.path;
+          createdWorktreeBranch = worktree.branch;
+          final conflict = await claim(worktree.path);
+          if (conflict != null) {
+            await workspacePreparation.cleanupWorktree(
+              workspacePath: workspacePath,
+              worktreePath: worktree.path,
+              branchName: worktree.branch,
+            );
+            return FailureResult(conflict);
+          }
+          prepared = PreparedWorkspace(
+            effectiveWorkspacePath: worktree.path,
+            isolationMode: WorkspaceIsolationMode.worktree,
+            worktreePath: worktree.path,
+            worktreeBranch: worktree.branch,
+          );
+        case null:
+          // Request without a target: `direct` runs in the primary checkout
+          // and `worktree` in a new worktree, falling back to the primary
+          // checkout for folders that cannot host one.
+          if (requestedMode == WorkspaceIsolationMode.direct) {
+            final conflict = await claim(workspacePath);
+            if (conflict != null) return FailureResult(conflict);
+          }
+          final preparedResult = await workspacePreparation.prepare(
+            runId: runId,
+            workspacePath: workspacePath,
+            requestedMode: requestedMode,
+          );
+          if (preparedResult case FailureResult<PreparedWorkspace>(
+            :final failure,
+          )) {
+            return FailureResult(failure);
+          }
+          prepared = preparedResult.valueOrNull!;
+          if (prepared.isolationMode == WorkspaceIsolationMode.worktree) {
+            createdWorktreePath = prepared.worktreePath;
+            createdWorktreeBranch = prepared.worktreeBranch;
+          } else if (reservedFolder == null) {
+            final conflict = await claim(workspacePath);
+            if (conflict != null) return FailureResult(conflict);
+          }
       }
 
       if (ignorePatterns != null && ignorePatterns.isNotEmpty) {
@@ -267,7 +351,7 @@ final class RunService {
         workflowName: workflow.name,
         workflowDefinition: workflow,
         workspacePath: workspacePath,
-        workspaceId: ownerWorkspaceId,
+        workspaceId: workspace.id,
         status: RunStatus.running,
         startedAt: _now().toUtc(),
         isolationMode: prepared.isolationMode,
@@ -278,17 +362,15 @@ final class RunService {
       final createResult = await _runs.create(run);
       if (createResult case FailureResult<Run>(:final failure)) {
         _snapshots?.configureRunExclusions(runId, const []);
-        if (prepared.isolationMode == WorkspaceIsolationMode.worktree &&
-            prepared.worktreePath != null) {
+        if (createdWorktreePath != null) {
           await workspacePreparation.cleanupWorktree(
             workspacePath: workspacePath,
-            worktreePath: prepared.worktreePath!,
-            branchName: prepared.worktreeBranch,
+            worktreePath: createdWorktreePath,
+            branchName: createdWorktreeBranch,
           );
         }
         return FailureResult(failure);
       }
-      createdInDb = true;
 
       if (prepared.warningMessage != null) {
         await _events.append(
@@ -303,15 +385,18 @@ final class RunService {
       _launchBackground(runId, () => engine.start(runId));
       return Success(run);
     } finally {
-      if (reservedDirect) {
+      final reserved = reservedFolder;
+      if (reserved != null) {
         // Once the run row is persisted as `running` (or if setup failed),
         // the DB status check owns the guard after this point.
-        _reservedDirectWorkspaces.remove(normalizedWorkspace);
-      }
-      if (!createdInDb) {
-        // Nothing persisted.
+        _reservedFolders.remove(reserved);
       }
     }
+  }
+
+  static String? _nonBlank(String? value) {
+    final trimmed = value?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
   }
 
   /// Initiates cancellation for an active run or retries cancellation for a
@@ -358,19 +443,18 @@ final class RunService {
     String? normalizedWorkspace;
     var launched = false;
     try {
-      if (run.isolationMode == WorkspaceIsolationMode.direct &&
-          !engine.isExecuting(id)) {
-        normalizedWorkspace = _canonicalizeWorkspace(run.workspacePath);
-        if (!_reservedDirectWorkspaces.add(normalizedWorkspace)) {
+      if (!engine.isExecuting(id)) {
+        normalizedWorkspace = _canonicalizeWorkspace(_runFolder(run));
+        if (!_reservedFolders.add(normalizedWorkspace)) {
           return FailureResult(
             ConflictFailure(
-              'An active direct-mode run is already starting or executing on '
-              'workspace "$normalizedWorkspace".',
+              'An active run is already starting or executing in '
+              '"$normalizedWorkspace".',
             ),
           );
         }
         reservedDirect = true;
-        final conflict = await _checkDirectWorkspaceConflict(
+        final conflict = await _checkFolderConflict(
           normalizedWorkspace,
           excludeRunId: id,
         );
@@ -391,7 +475,7 @@ final class RunService {
           () => done,
           onSettled: () {
             if (reservedDirect && normalizedWorkspace != null) {
-              _reservedDirectWorkspaces.remove(normalizedWorkspace);
+              _reservedFolders.remove(normalizedWorkspace);
             }
           },
         );
@@ -399,7 +483,7 @@ final class RunService {
       return Success(resumedRun);
     } finally {
       if (!launched && reservedDirect && normalizedWorkspace != null) {
-        _reservedDirectWorkspaces.remove(normalizedWorkspace);
+        _reservedFolders.remove(normalizedWorkspace);
       }
     }
   }
@@ -441,18 +525,18 @@ final class RunService {
         );
       }
 
-      if (run.isolationMode == WorkspaceIsolationMode.direct) {
-        normalizedWorkspace = _canonicalizeWorkspace(run.workspacePath);
-        if (!_reservedDirectWorkspaces.add(normalizedWorkspace)) {
+      {
+        normalizedWorkspace = _canonicalizeWorkspace(_runFolder(run));
+        if (!_reservedFolders.add(normalizedWorkspace)) {
           return FailureResult(
             ConflictFailure(
-              'An active direct-mode run is already starting or executing on '
-              'workspace "$normalizedWorkspace".',
+              'An active run is already starting or executing in '
+              '"$normalizedWorkspace".',
             ),
           );
         }
         reservedDirect = true;
-        final conflict = await _checkDirectWorkspaceConflict(
+        final conflict = await _checkFolderConflict(
           normalizedWorkspace,
           excludeRunId: id,
         );
@@ -466,7 +550,7 @@ final class RunService {
         onSettled: () {
           _resumingRunIds.remove(id);
           if (reservedDirect && normalizedWorkspace != null) {
-            _reservedDirectWorkspaces.remove(normalizedWorkspace);
+            _reservedFolders.remove(normalizedWorkspace);
           }
         },
       );
@@ -475,7 +559,7 @@ final class RunService {
       if (!launched) {
         _resumingRunIds.remove(id);
         if (reservedDirect && normalizedWorkspace != null) {
-          _reservedDirectWorkspaces.remove(normalizedWorkspace);
+          _reservedFolders.remove(normalizedWorkspace);
         }
       }
     }
@@ -591,8 +675,11 @@ final class RunService {
     return _pathContext.canonicalize(workspacePath);
   }
 
-  Future<ConflictFailure?> _checkDirectWorkspaceConflict(
-    String normalizedWorkspace, {
+  /// The folder a run executes in: its worktree, or the workspace root.
+  static String _runFolder(Run run) => run.worktreePath ?? run.workspacePath;
+
+  Future<ConflictFailure?> _checkFolderConflict(
+    String normalizedFolder, {
     String? excludeRunId,
   }) async {
     for (final status in const [
@@ -604,12 +691,10 @@ final class RunService {
       if (listResult case FailureResult<List<Run>>()) continue;
       for (final active in listResult.valueOrNull!) {
         if (active.id == excludeRunId) continue;
-        if (active.isolationMode != WorkspaceIsolationMode.direct) continue;
-        if (_canonicalizeWorkspace(active.workspacePath) ==
-            normalizedWorkspace) {
+        if (_canonicalizeWorkspace(_runFolder(active)) == normalizedFolder) {
           return ConflictFailure(
-            'An active direct-mode run ("${active.id}") is already executing '
-            'on workspace "$normalizedWorkspace".',
+            'An active run ("${active.id}") is already executing in '
+            '"$normalizedFolder".',
           );
         }
       }
@@ -711,18 +796,13 @@ final class RunService {
   }
 
   /// Atomically deletes a non-active run [id] (cascading its checkpoints,
-  /// events, and snapshots) and cleans up its shadow repository, log files,
-  /// and any associated worktree.
+  /// events, and snapshots) and cleans up its shadow repository and log files.
+  /// Its worktree is kept: a worktree is removed only when the user asks
+  /// (ADR 0022).
   ///
   /// Returns [ConflictFailure] when the run is active (`running`, `paused`,
   /// or `cancelling`).
   Future<Result<void>> deleteRun(String id) async {
-    final existingResult = await _runs.getById(id);
-    final existing = switch (existingResult) {
-      Success<Run>(:final value) => value,
-      FailureResult<Run>() => null,
-    };
-
     final deleteResult = await _runs.delete(id);
     if (deleteResult case FailureResult<void>()) {
       return deleteResult;
@@ -735,17 +815,6 @@ final class RunService {
     if (_logStore != null) {
       await _logStore.deleteRunLogs(id);
     }
-    if (existing != null &&
-        _workspacePreparation != null &&
-        existing.isolationMode == WorkspaceIsolationMode.worktree &&
-        existing.worktreePath != null) {
-      await _workspacePreparation.cleanupWorktree(
-        workspacePath: existing.workspacePath,
-        worktreePath: existing.worktreePath!,
-        branchName: existing.worktreeBranch,
-      );
-    }
-
     return deleteResult;
   }
 }
