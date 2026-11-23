@@ -67,10 +67,12 @@ import 'package:agentic_hive_backend/src/domain/mcp_tools/mcp_scope_resolver.dar
 import 'package:agentic_hive_backend/src/domain/mcp_tools/mcp_tool_registry.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/create_workflow_tool.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/duplicate_workflow_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/edit_workflow_tool.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/get_workflow_tool.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/list_workflows_tool.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/list_workspaces_tool.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/workflow_create_input.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/workflow_patcher.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/workflow_text_formatter.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_registry.dart';
@@ -582,6 +584,15 @@ Future<void> registerDependencies(
           DuplicateWorkflowTool(
             scopes: scopes,
             workflows: workflows,
+            formatter: formatter,
+            events: di<WorkflowEvents>(),
+          ),
+          EditWorkflowTool(
+            scopes: scopes,
+            workflows: workflows,
+            patcher: WorkflowPatcher(
+              describe: di<NodeRegistry>().descriptorFor,
+            ),
             formatter: formatter,
             events: di<WorkflowEvents>(),
           ),

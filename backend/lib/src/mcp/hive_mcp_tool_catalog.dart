@@ -105,5 +105,68 @@ abstract final class HiveMcpToolCatalog {
         additionalProperties: false,
       ),
     ),
+    Tool(
+      name: 'edit_workflow',
+      description:
+          'Apply patch operations to a workflow as one transaction. Needs the '
+          'revision you read; returns a summary, the new revision and '
+          'validation.',
+      inputSchema: ObjectSchema(
+        properties: <String, Schema>{
+          'id': StringSchema(description: 'Workflow id from list_workflows.'),
+          'revision': StringSchema(
+            description:
+                'Revision from your last get_workflow or list_workflows.',
+          ),
+          'operations': ListSchema(
+            description:
+                'Applied in order; if one fails none is applied. '
+                'add_node {id, type, label, config?, position?}; '
+                'update_node {id, label?, config?} (config merges, null '
+                'removes a key); remove_node {id} (also its edges); '
+                'connect {from, to, output, maxRetries?}; '
+                'disconnect {from, to, output?}; set_entry {id}; '
+                'set_meta {name?, description?}.',
+            minItems: 1,
+            items: ObjectSchema(
+              properties: <String, Schema>{
+                'op': UntitledSingleSelectEnumSchema(
+                  values: const <String>[
+                    'add_node',
+                    'update_node',
+                    'remove_node',
+                    'connect',
+                    'disconnect',
+                    'set_entry',
+                    'set_meta',
+                  ],
+                ),
+                'id': StringSchema(),
+                'type': StringSchema(),
+                'label': StringSchema(),
+                'config': ObjectSchema(),
+                'position': ObjectSchema(
+                  properties: <String, Schema>{
+                    'x': NumberSchema(),
+                    'y': NumberSchema(),
+                  },
+                  required: const <String>['x', 'y'],
+                ),
+                'from': StringSchema(),
+                'to': StringSchema(),
+                'output': StringSchema(),
+                'maxRetries': IntegerSchema(),
+                'name': StringSchema(),
+                'description': StringSchema(),
+              },
+              required: const <String>['op'],
+            ),
+          ),
+          'workspace': _workspace,
+        },
+        required: const <String>['id', 'revision', 'operations'],
+        additionalProperties: false,
+      ),
+    ),
   ];
 }
