@@ -635,7 +635,7 @@ class AgentsController extends _$AgentsController {
   }
 
   /// Flags every global agent shadowed by a workspace agent with the same
-  /// `name` (trimmed, as the backend does): the file ids may differ (ADR 0022).
+  /// `name` (trimmed, as the backend does): the file ids may differ (ADR 0025).
   /// Malformed files never override nor get overridden.
   List<AgentSummary> _withOverrides(List<AgentSummary> items) {
     final workspaceNames = <String>{

@@ -9,7 +9,7 @@ import 'package:agentic_hive_backend/src/util/canonical_folder.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:path/path.dart' as p;
 
-/// Creates, lists and removes the worktrees of a git [Workspace] (ADR 0022).
+/// Creates, lists and removes the worktrees of a git [Workspace] (ADR 0025).
 ///
 /// Git is the source of truth: the list comes from `git worktree list`, so
 /// worktrees left on disk by old runs appear without any migration. Only

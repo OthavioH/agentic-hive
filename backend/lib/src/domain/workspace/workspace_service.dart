@@ -10,7 +10,7 @@ import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:path/path.dart' as p;
 
 /// Domain service for registering, listing, renaming and unregistering
-/// [Workspace]s (ADR 0022).
+/// [Workspace]s (ADR 0025).
 ///
 /// A workspace has exactly one root folder, unique across workspaces. Non-git
 /// folders are valid. Unregistering never deletes files.

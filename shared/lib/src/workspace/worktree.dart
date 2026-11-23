@@ -4,12 +4,12 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'worktree.freezed.dart';
 part 'worktree.g.dart';
 
-/// [Worktree.id] of the primary checkout of a workspace (ADR 0022). Worktree
+/// [Worktree.id] of the primary checkout of a workspace (ADR 0025). Worktree
 /// names cannot use it, so it never collides with a real worktree.
 const primaryWorktreeId = 'primary';
 
 /// A checkout of a git workspace: its primary checkout or one of its
-/// worktrees (ADR 0022).
+/// worktrees (ADR 0025).
 ///
 /// [id] is the worktree [name] (the last segment of its directory); the
 /// primary checkout uses the fixed id [primaryWorktreeId]. [branch] is null

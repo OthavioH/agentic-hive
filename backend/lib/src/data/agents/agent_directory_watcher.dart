@@ -16,7 +16,7 @@ import 'package:watcher/watcher.dart';
 /// `agents.changed` events to connected WebSocket clients.
 ///
 /// A watcher created with a [workspaceId] covers one workspace's
-/// `.agents/agents` folder (ADR 0022); its events carry that id. Without one
+/// `.agents/agents` folder (ADR 0025); its events carry that id. Without one
 /// it covers the global library.
 final class AgentDirectoryWatcher {
   /// Creates a watcher for [agentsDir]; does not start until [start] is

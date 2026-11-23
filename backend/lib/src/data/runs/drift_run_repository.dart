@@ -36,6 +36,7 @@ final class DriftRunRepository implements RunRepository {
               isolationMode: Value(run.isolationMode.name),
               worktreePath: Value(run.worktreePath),
               worktreeBranch: Value(run.worktreeBranch),
+              input: Value(run.input),
             ),
           );
       return Success(run);
@@ -391,6 +392,7 @@ final class DriftRunRepository implements RunRepository {
       isolationMode: WorkspaceIsolationMode.fromName(row.isolationMode),
       worktreePath: row.worktreePath,
       worktreeBranch: row.worktreeBranch,
+      input: row.input,
     );
   }
 }

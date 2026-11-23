@@ -194,12 +194,18 @@ Future<void> registerDependencies(
     )
     ..registerSingleton<HarnessMcpInstallerRegistry>(
       HarnessMcpInstallerRegistry([
-        ClaudeCodeMcpInstaller(processRunner: di<ProcessRunner>()),
+        ClaudeCodeMcpInstaller(
+          processRunner: di<ProcessRunner>(),
+          pathContext: platformPaths.context,
+        ),
         CodexMcpInstaller(
           processRunner: di<ProcessRunner>(),
           pathContext: platformPaths.context,
         ),
-        GeminiCliMcpInstaller(processRunner: di<ProcessRunner>()),
+        GeminiCliMcpInstaller(
+          processRunner: di<ProcessRunner>(),
+          pathContext: platformPaths.context,
+        ),
         AntigravityMcpInstaller(processRunner: di<ProcessRunner>()),
       ]),
     )

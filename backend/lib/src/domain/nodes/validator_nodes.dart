@@ -275,6 +275,7 @@ final class ReviewValidatorNode extends ValidatorNode {
         inputs: context.inputs,
         isolationMode: context.isolationMode,
         resultJsonPath: context.resultJsonPath,
+        runInput: context.runInput,
         onOutput: context.onOutput,
       ),
     );

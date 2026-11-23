@@ -248,6 +248,10 @@ void main() {
         find.byKey(const Key('start_run_branch_field')),
         'feature/login',
       );
+      await tester.enterText(
+        find.byKey(const Key('start_run_input_field')),
+        'Audit all handlers',
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const Key('start_run_confirm_button')));
@@ -255,6 +259,7 @@ void main() {
 
       expect(runsRepo.lastStartRequest?.workflowId, 'wf-1');
       expect(runsRepo.lastStartRequest?.workspaceId, 'ws-1');
+      expect(runsRepo.lastStartRequest?.input, 'Audit all handlers');
       expect(
         runsRepo.lastStartRequest?.target,
         const RunTarget.newWorktree(branch: 'feature/login'),

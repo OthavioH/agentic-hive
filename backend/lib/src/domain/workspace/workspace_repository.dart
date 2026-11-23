@@ -1,7 +1,7 @@
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
-/// Persistence contract for registered [Workspace]s (ADR 0022).
+/// Persistence contract for registered [Workspace]s (ADR 0025).
 abstract interface class WorkspaceRepository {
   /// Persists a new [workspace].
   ///

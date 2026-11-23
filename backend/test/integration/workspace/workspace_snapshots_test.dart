@@ -668,7 +668,7 @@ void main() {
           isTrue,
         );
 
-        // Delete run: the shadow repo goes, the worktree stays (ADR 0022).
+        // Delete run: the shadow repo goes, the worktree stays (ADR 0025).
         final delRes = await runService.deleteRun('run-wt');
         expect(delRes, isA<Success<void>>());
         expect(

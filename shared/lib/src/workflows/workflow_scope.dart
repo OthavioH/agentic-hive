@@ -1,4 +1,4 @@
-/// Where a workflow definition lives (ADR 0022).
+/// Where a workflow definition lives (ADR 0025).
 enum WorkflowScope {
   /// Stored in SQLite and shared by every workspace.
   global,

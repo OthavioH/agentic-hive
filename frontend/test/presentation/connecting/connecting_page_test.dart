@@ -12,6 +12,7 @@ import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/connecting/pages/connecting_page.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
@@ -92,11 +93,41 @@ final class _FakeBackendLauncher implements BackendLauncher {
 }
 
 final class _FakeWindowLifecycleService implements WindowLifecycleService {
+  final ValueNotifier<bool> _isMaximized = ValueNotifier<bool>(false);
+
+  @override
+  bool get hasCustomTitleBar => true;
+
+  @override
+  bool get showSystemMenuOnRelease => false;
+
+  @override
+  ValueListenable<bool> get isMaximized => _isMaximized;
+
+  @override
+  void configureTitleBar() {}
+
+  @override
+  Future<Result<void>> setTitle(String title) async =>
+      const Success<void>(null);
+
   @override
   Future<void> initialize({
     required VoidCallback onCloseRequested,
     VoidCallback? onQuitRequested,
   }) async {}
+
+  @override
+  Future<void> minimize() async {}
+
+  @override
+  Future<void> toggleMaximize() async {}
+
+  @override
+  Future<void> startDragging() async {}
+
+  @override
+  Future<void> showSystemMenu(Offset globalPosition) async {}
 
   @override
   Future<void> hideToTray() async {}

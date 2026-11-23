@@ -136,6 +136,34 @@ void main() {
         );
       });
 
+      testWidgets('HiveIconButton dangerHover', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_icon_button_danger_hover',
+          HiveIconButton.dangerHover(
+            icon: HiveIcons.close,
+            semanticLabel: 'Close',
+            onPressed: () {},
+          ),
+        );
+      });
+
+      testWidgets('Window caption icons', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'window_caption_icons',
+          const Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 16,
+            children: <Widget>[
+              HiveIcon(HiveIcons.minimize, semanticLabel: 'Minimize'),
+              HiveIcon(HiveIcons.maximize, semanticLabel: 'Maximize'),
+              HiveIcon(HiveIcons.restore, semanticLabel: 'Restore'),
+            ],
+          ),
+        );
+      });
+
       testWidgets('HiveCard', (tester) async {
         await pumpAndMatch(
           tester,
@@ -195,6 +223,105 @@ void main() {
           tester,
           'hive_hex_mark',
           const HiveHexMark(semanticLabel: 'Agentic Hive'),
+        );
+      });
+
+      testWidgets('HiveTitleBar restored', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_title_bar_restored',
+          Align(
+            alignment: Alignment.topCenter,
+            child: HiveTitleBar(
+              isMaximized: false,
+              labels: const HiveTitleBarLabels(
+                minimize: 'Minimize',
+                maximize: 'Maximize',
+                restore: 'Restore',
+                close: 'Close to tray',
+              ),
+              onMinimize: () {},
+              onToggleMaximize: () {},
+              onClose: () {},
+            ),
+          ),
+          size: const Size(720, 80),
+        );
+      });
+
+      testWidgets('HiveTitleBar maximized', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_title_bar_maximized',
+          Align(
+            alignment: Alignment.topCenter,
+            child: HiveTitleBar(
+              isMaximized: true,
+              labels: const HiveTitleBarLabels(
+                minimize: 'Minimize',
+                maximize: 'Maximize',
+                restore: 'Restore',
+                close: 'Close to tray',
+              ),
+              onMinimize: () {},
+              onToggleMaximize: () {},
+              onClose: () {},
+            ),
+          ),
+          size: const Size(720, 80),
+        );
+      });
+
+      testWidgets('HiveTitleBar caption button states', (tester) async {
+        Widget row(Set<WidgetState> states) {
+          WidgetStatesController seeded() {
+            final controller = WidgetStatesController(states);
+            addTearDown(controller.dispose);
+            return controller;
+          }
+
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 4,
+            children: <Widget>[
+              HiveIconButton(
+                icon: HiveIcons.minimize,
+                semanticLabel: 'Minimize',
+                size: HiveButtonSize.small,
+                statesController: seeded(),
+                onPressed: () {},
+              ),
+              HiveIconButton(
+                icon: HiveIcons.maximize,
+                semanticLabel: 'Maximize',
+                size: HiveButtonSize.small,
+                statesController: seeded(),
+                onPressed: () {},
+              ),
+              HiveIconButton.dangerHover(
+                icon: HiveIcons.close,
+                semanticLabel: 'Close to tray',
+                size: HiveButtonSize.small,
+                statesController: seeded(),
+                onPressed: () {},
+              ),
+            ],
+          );
+        }
+
+        await pumpAndMatch(
+          tester,
+          'hive_title_bar_caption_states',
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 16,
+            children: <Widget>[
+              row(<WidgetState>{WidgetState.hovered}),
+              row(<WidgetState>{WidgetState.focused}),
+              row(<WidgetState>{WidgetState.pressed}),
+            ],
+          ),
+          size: const Size(240, 200),
         );
       });
     });

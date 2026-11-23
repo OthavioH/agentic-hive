@@ -203,11 +203,13 @@ void main() {
           workflowId: 'wf-1',
           workspaceId: 'ws-1',
           workspaceIsolationMode: WorkspaceIsolationMode.worktree,
+          input: 'Check all Dart files',
         ),
       );
       expect(client.lastMethod, 'POST');
       expect(client.lastPath, '/api/v1/runs');
       expect(client.lastBody?['workflowId'], 'wf-1');
+      expect(client.lastBody?['input'], 'Check all Dart files');
       expect(startRes.valueOrNull?.id, 'run-1');
 
       client.nextResponse = Success(sampleRun.toJson());

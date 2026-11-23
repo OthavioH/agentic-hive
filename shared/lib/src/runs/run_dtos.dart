@@ -9,7 +9,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'run_dtos.freezed.dart';
 part 'run_dtos.g.dart';
 
-/// Where a run executes inside its workspace (ADR 0022).
+/// Where a run executes inside its workspace (ADR 0025).
 ///
 /// At most one run is active per target folder, the primary checkout included.
 @Freezed(unionKey: 'type')
@@ -36,7 +36,7 @@ sealed class RunTarget with _$RunTarget {
 
 /// Request body for `POST /api/v1/runs`.
 ///
-/// The run belongs to a workspace (ADR 0022): [workspaceId] is the id of a
+/// The run belongs to a workspace (ADR 0025): [workspaceId] is the id of a
 /// registered workspace. There is no path in the request. [target] says where
 /// the run executes; when null the run executes in the primary checkout
 /// (direct). The default isolation mode is a client-side default: clients
@@ -51,6 +51,7 @@ sealed class StartRunRequest with _$StartRunRequest {
     RunTarget? target,
     WorkspaceIsolationMode? workspaceIsolationMode,
     List<String>? ignorePatterns,
+    String? input,
   }) = _StartRunRequest;
 
   /// Decodes a start-run request; throws a [FormatException] on a bad shape.

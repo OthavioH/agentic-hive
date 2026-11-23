@@ -41,12 +41,14 @@ void main() {
   );
   final workflowJson = jsonEncode(workflow.toJson());
 
-  Future<void> seedV6({
+  /// Seeds a database as shipped at [version] (6, or 7 with `runs.input`).
+  Future<void> seedLegacy({
     required List<({String id, String path, String status})> runs,
+    int version = 6,
   }) async {
     final executor = NativeDatabase(dbFile);
-    await executor.ensureOpen(_V6SeedUser());
-    const statements = <List<String>>[
+    await executor.ensureOpen(_SeedUser(version));
+    final statements = <List<String>>[
       [
         'CREATE TABLE app_metadata (key TEXT NOT NULL PRIMARY KEY, ',
         'value TEXT NOT NULL) ',
@@ -63,7 +65,9 @@ void main() {
         'workspace_path TEXT NOT NULL, status TEXT NOT NULL, ',
         'started_at TEXT NOT NULL, finished_at TEXT, error_message TEXT, ',
         "isolation_mode TEXT NOT NULL DEFAULT 'direct', ",
-        'worktree_path TEXT, worktree_branch TEXT) ',
+        'worktree_path TEXT, worktree_branch TEXT',
+        if (version >= 7) ', input TEXT',
+        ') ',
       ],
       [
         'CREATE TABLE checkpoints (id TEXT NOT NULL PRIMARY KEY, ',
@@ -139,24 +143,24 @@ void main() {
         ],
       );
     }
-    await executor.runCustom('PRAGMA user_version = 6');
+    await executor.runCustom('PRAGMA user_version = $version');
     await executor.close();
   }
 
-  test('schemaVersion is 7', () async {
+  test('schemaVersion is 8', () async {
     final db = AppDatabase.open(dbFile);
     addTearDown(db.close);
 
-    expect(db.schemaVersion, 7);
+    expect(db.schemaVersion, 8);
   });
 
-  test('migrating 6 to 7 attaches every run to a workspace named after its '
+  test('migrating 6 to 8 attaches every run to a workspace named after its '
       'folder and keeps workflows and runs', () async {
     final projectA = p.join(dir.path, 'project-a');
     final projectB = p.join(dir.path, 'project-b');
     Directory(p.join(projectA, '.git')).createSync(recursive: true);
     Directory(projectB).createSync(recursive: true);
-    await seedV6(
+    await seedLegacy(
       runs: [
         (id: 'r1', path: projectA, status: 'succeeded'),
         (id: 'r2', path: '$projectA${p.separator}', status: 'failed'),
@@ -197,11 +201,11 @@ void main() {
     final workflow = (await DriftWorkflowRepository(db).getById('wf-1'))
         .valueOrNull!;
     expect(workflow.name, 'Release Flow');
-    expect(await readUserVersionOf(db), 7);
+    expect(await readUserVersionOf(db), 8);
   });
 
-  test('migrating 6 to 7 with no runs creates no workspaces', () async {
-    await seedV6(runs: const []);
+  test('migrating 6 to 8 with no runs creates no workspaces', () async {
+    await seedLegacy(runs: const []);
 
     final db = AppDatabase.open(dbFile);
     addTearDown(db.close);
@@ -209,8 +213,8 @@ void main() {
     expect((await DriftWorkspaceRepository(db).list()).valueOrNull, isEmpty);
   });
 
-  test('migrating 6 to 7 creates the unique root-path index', () async {
-    await seedV6(runs: const []);
+  test('migrating 6 to 8 creates the unique root-path index', () async {
+    await seedLegacy(runs: const []);
 
     final db = AppDatabase.open(dbFile);
     addTearDown(db.close);
@@ -226,6 +230,37 @@ void main() {
       contains('idx_workspaces_root_path'),
     );
   });
+
+  test(
+    'migrating 7 to 8 keeps run input and attaches runs to workspaces',
+    () async {
+      final project = p.join(dir.path, 'project-c');
+      Directory(project).createSync(recursive: true);
+      await seedLegacy(
+        version: 7,
+        runs: [(id: 'r1', path: project, status: 'succeeded')],
+      );
+      final raw = NativeDatabase(dbFile);
+      await raw.ensureOpen(_SeedUser(7));
+      await raw.runUpdate('UPDATE runs SET input = ? WHERE id = ?', [
+        'Audit all handlers',
+        'r1',
+      ]);
+      await raw.close();
+
+      final db = AppDatabase.open(dbFile);
+      addTearDown(db.close);
+
+      final run = (await DriftRunRepository(db).getById('r1')).valueOrNull!;
+      expect(run.input, 'Audit all handlers');
+      expect(run.workspaceId, isNotNull);
+      final workspaces = (await DriftWorkspaceRepository(
+        db,
+      ).list()).valueOrNull!;
+      expect(workspaces.single.name, 'project-c');
+      expect(await readUserVersionOf(db), 8);
+    },
+  );
 }
 
 Future<int> readUserVersionOf(AppDatabase db) async {
@@ -233,9 +268,11 @@ Future<int> readUserVersionOf(AppDatabase db) async {
   return row.read<int>('user_version');
 }
 
-final class _V6SeedUser implements QueryExecutorUser {
+final class _SeedUser implements QueryExecutorUser {
+  new(this.schemaVersion);
+
   @override
-  int get schemaVersion => 6;
+  final int schemaVersion;
 
   @override
   Future<void> beforeOpen(

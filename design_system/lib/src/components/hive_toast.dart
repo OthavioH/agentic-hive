@@ -90,15 +90,18 @@ class HiveToast extends StatelessWidget {
     Duration duration = displayDuration,
   }) {
     final overlay = Overlay.of(context, rootOverlay: true);
+    final themes = InheritedTheme.capture(from: context, to: overlay.context);
     _visible[overlay]?._removeNow();
     final handle = HiveToastHandle._(overlay);
     _visible[overlay] = handle;
     handle._entry = OverlayEntry(
-      builder: (context) => _HiveToastHost(
-        key: handle._hostKey,
-        duration: duration,
-        onGone: handle._removeNow,
-        child: HiveToast(message: message, tone: tone, icon: icon),
+      builder: (context) => themes.wrap(
+        _HiveToastHost(
+          key: handle._hostKey,
+          duration: duration,
+          onGone: handle._removeNow,
+          child: HiveToast(message: message, tone: tone, icon: icon),
+        ),
       ),
     );
     overlay.insert(handle._entry!);
@@ -277,27 +280,35 @@ class _HiveToastHostState extends State<_HiveToastHost>
   @override
   Widget build(BuildContext context) {
     final spacing = context.hiveSpacing;
+    final colors = context.hiveColors;
+    final typography = context.hiveTypography;
     final curved = _curved!;
-    return SafeArea(
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: Padding(
-          padding: EdgeInsets.all(spacing.space4),
-          child: MouseRegion(
-            onEnter: (_) => _pauseTimer(),
-            onExit: (_) {
-              if (!_leaving) _startTimer();
-            },
-            child: AnimatedBuilder(
-              animation: curved,
-              builder: (context, child) => Opacity(
-                opacity: curved.value.clamp(0.0, 1.0),
-                child: Transform.translate(
-                  offset: Offset(0, spacing.space2 * (1 - curved.value)),
-                  child: child,
+    return DefaultTextStyle(
+      style: typography.body.copyWith(
+        color: colors.onSurface,
+        decoration: TextDecoration.none,
+      ),
+      child: SafeArea(
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: Padding(
+            padding: EdgeInsets.all(spacing.space4),
+            child: MouseRegion(
+              onEnter: (_) => _pauseTimer(),
+              onExit: (_) {
+                if (!_leaving) _startTimer();
+              },
+              child: AnimatedBuilder(
+                animation: curved,
+                builder: (context, child) => Opacity(
+                  opacity: curved.value.clamp(0.0, 1.0),
+                  child: Transform.translate(
+                    offset: Offset(0, spacing.space2 * (1 - curved.value)),
+                    child: child,
+                  ),
                 ),
+                child: widget.child,
               ),
-              child: widget.child,
             ),
           ),
         ),

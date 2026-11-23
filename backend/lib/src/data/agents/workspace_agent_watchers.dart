@@ -11,7 +11,7 @@ import 'package:path/path.dart' as p;
 
 /// Keeps one [AgentDirectoryWatcher] per registered workspace so external
 /// edits to `<root>/.agents/agents` (for example after `git pull`) reach the
-/// app live (ADR 0022).
+/// app live (ADR 0025).
 ///
 /// Call [sync] at startup and whenever workspaces or their agent folders
 /// change. A workspace whose agents folder does not exist yet is skipped: the

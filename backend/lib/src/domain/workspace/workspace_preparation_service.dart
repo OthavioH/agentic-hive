@@ -32,7 +32,7 @@ final class PreparedWorkspace {
   final String? warningMessage;
 }
 
-/// Cleans up worktrees created on the fly for a run (ADR 0022).
+/// Cleans up worktrees created on the fly for a run (ADR 0025).
 final class WorkspacePreparationService {
   /// Creates a workspace preparation service.
   const new({required this._git});

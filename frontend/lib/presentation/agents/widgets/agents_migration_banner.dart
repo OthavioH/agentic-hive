@@ -4,7 +4,7 @@ import 'package:design_system/design_system.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// Dismissible banner listing the agent files the move into `~/.agents/agents`
-/// could not merge (ADR 0022).
+/// could not merge (ADR 0025).
 class AgentsMigrationBanner extends StatelessWidget {
   /// Creates an [AgentsMigrationBanner].
   const new({required this.status, required this.onDismiss, super.key});

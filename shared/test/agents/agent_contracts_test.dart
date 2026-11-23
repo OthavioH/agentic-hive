@@ -215,7 +215,7 @@ void main() {
     });
   });
 
-  group('Agent scope (ADR 0022)', () {
+  group('Agent scope (ADR 0025)', () {
     test('summary defaults to global scope and not overridden', () {
       final summary = AgentSummary(
         id: 'a',

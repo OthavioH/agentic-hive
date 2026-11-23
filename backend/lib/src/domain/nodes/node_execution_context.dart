@@ -22,6 +22,7 @@ final class NodeExecutionContext {
     this.isolationMode = WorkspaceIsolationMode.direct,
     this.resultJsonPath,
     this.humanAnswer,
+    this.runInput,
     this.onOutput,
   });
 
@@ -36,11 +37,11 @@ final class NodeExecutionContext {
 
   /// Root folder of the registered workspace the run belongs to, which can
   /// differ from [workspacePath] under worktree isolation. Used to find
-  /// workspace-scoped agents (ADR 0022).
+  /// workspace-scoped agents (ADR 0025).
   final String? workspaceRoot;
 
   /// Identifier of the registered workspace the run belongs to. Used to
-  /// resolve the workspace's effective execution settings (ADR 0022).
+  /// resolve the workspace's effective execution settings (ADR 0025).
   final String? workspaceId;
 
   /// 1-based attempt number for this node execution.
@@ -64,6 +65,9 @@ final class NodeExecutionContext {
   /// The human's answer to an earlier `ask_human` question, set when the
   /// engine re-runs a node after resuming its paused run (ADR 0019).
   final String? humanAnswer;
+
+  /// Optional free-text run input passed only to the workflow's entry node.
+  final String? runInput;
 
   /// Optional callback for streamed output lines.
   final NodeOutputCallback? onOutput;

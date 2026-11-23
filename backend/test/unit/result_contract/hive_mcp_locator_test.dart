@@ -89,5 +89,42 @@ void main() {
       expect(result.isFailure, isTrue);
       expect(result.failureOrNull, isA<NodeExecutionFailure>());
     });
+
+    test(
+      r'discovers hive_mcp.exe beside backend\bin\server.exe (Bundle layout)',
+      () {
+        final locator = HiveMcpLocator(
+          binaryNaming: mcpBinaryNamingFor('windows'),
+          resolvedExecutable: r'C:\App\backend\bin\server.exe',
+          fileExists: (path) => path == r'C:\App\backend\bin\hive_mcp.exe',
+          pathContext: p.windows,
+        );
+
+        final result = locator.resolve();
+        expect(result.isSuccess, isTrue);
+        final launch = result.valueOrNull!;
+        expect(launch.executable, r'C:\App\backend\bin\hive_mcp.exe');
+        expect(launch.baseArguments, isEmpty);
+      },
+    );
+
+    test(
+      'discovers hive_mcp beside backend/bin/server on POSIX (Bundle layout)',
+      () {
+        final locator = HiveMcpLocator(
+          binaryNaming: mcpBinaryNamingFor('linux'),
+          resolvedExecutable: '/opt/agentic-hive/backend/bin/server',
+          fileExists: (path) =>
+              path == '/opt/agentic-hive/backend/bin/hive_mcp',
+          pathContext: p.posix,
+        );
+
+        final result = locator.resolve();
+        expect(result.isSuccess, isTrue);
+        final launch = result.valueOrNull!;
+        expect(launch.executable, '/opt/agentic-hive/backend/bin/hive_mcp');
+        expect(launch.baseArguments, isEmpty);
+      },
+    );
   });
 }

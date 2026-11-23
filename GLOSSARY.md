@@ -24,11 +24,22 @@ _Avoid_: step, stage, task
 A link between nodes, labeled by the output that activates it (`onSuccess`, `onFailure` or a validator label).
 _Avoid_: link, transition
 
+**App**:
+The desktop program the user opens, named Agentic Hive everywhere the user can see it (window, taskbar, process list, tray). It draws, edits and sends commands; it does not run work.
+_Avoid_: frontend, client, UI (in anything user-facing)
+
+**Backend**:
+The local process that runs workflows and keeps state. It keeps running after the app closes.
+_Avoid_: server, daemon (in anything user-facing)
+
 ## Execution
 
 **Run**:
 One execution of a workflow, with its own state and history, belonging to one workspace and working in one of its worktrees or its primary checkout.
 _Avoid_: job, instance, execution
+
+**Run input**:
+Optional free-text task input provided when starting a run and passed to the entry node.
 
 **Workspace**:
 A registered entity with an id, a name and exactly one root folder, unique per folder. Every run belongs to a workspace. The folder can be any folder, not necessarily a repository.
@@ -93,3 +104,13 @@ _Avoid_: current step, live node
 **Active agent**:
 An agent that an active node is executing right now. An agent is never active on its own: it is only active through a node of a run.
 _Avoid_: online agent, running agent (an agent is a file, not a service)
+
+## Distribution
+
+**Release**:
+A published version of the product: a GitHub pre-release for a `vX.Y.Z` tag on `master` with one Bundle archive per released OS and a `SHA256SUMS` file.
+_Avoid_: build, drop, distribution (as a noun for one version)
+
+**Bundle**:
+The folder a user runs: the app executable with the backend's `dart build cli` output in a `backend/` folder next to it (`backend/bin/server`, `backend/bin/hive_mcp`, and `backend/lib/` with SQLite and, on Linux, the executables' compiled programs).
+_Avoid_: package, install folder, distribution

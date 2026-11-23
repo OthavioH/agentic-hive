@@ -6,7 +6,7 @@ part 'execution_settings.freezed.dart';
 part 'execution_settings.g.dart';
 
 /// Execution settings that exist globally and can be overridden per workspace
-/// (ADR 0022).
+/// (ADR 0025).
 ///
 /// Every field is optional: `null` means "not set here", so a workspace falls
 /// back to the global value and the global value falls back to the built-in

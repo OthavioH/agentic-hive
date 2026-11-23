@@ -16,6 +16,12 @@ sealed class HiveIconData {
   Widget build({required double size, required Color color});
 }
 
+/// Stroke width, in 24-unit icon space, for every Hugeicons glyph.
+///
+/// Thicker than the 1.5 default so small icons cover more of each device
+/// pixel and look less jagged under Impeller anti-aliasing (ADR 0023).
+const double _strokeWidth = 1.8;
+
 /// A stroke-rounded glyph from the free Hugeicons set (MIT).
 final class _HugeGlyph extends HiveIconData {
   const new(this._data);
@@ -24,7 +30,12 @@ final class _HugeGlyph extends HiveIconData {
 
   @override
   Widget build({required double size, required Color color}) {
-    return HugeIcon(icon: _data, size: size, color: color);
+    return HugeIcon(
+      icon: _data,
+      size: size,
+      color: color,
+      strokeWidth: _strokeWidth,
+    );
   }
 }
 
@@ -136,6 +147,19 @@ abstract final class HiveIcons {
 
   /// Close or cancel.
   static const HiveIconData close = _HugeGlyph(HugeIcons.strokeRoundedCancel01);
+
+  /// Minimize a window.
+  static const HiveIconData minimize = _HugeGlyph(
+    HugeIcons.strokeRoundedRemove01,
+  );
+
+  /// Maximize a window.
+  static const HiveIconData maximize = _HugeGlyph(
+    HugeIcons.strokeRoundedSquare,
+  );
+
+  /// Restore a maximized window.
+  static const HiveIconData restore = _HugeGlyph(HugeIcons.strokeRoundedCopy01);
 
   /// Confirm.
   static const HiveIconData check = _HugeGlyph(HugeIcons.strokeRoundedTick02);
@@ -280,6 +304,9 @@ abstract final class HiveIcons {
     'person': person,
     'add': add,
     'close': close,
+    'minimize': minimize,
+    'maximize': maximize,
+    'restore': restore,
     'check': check,
     'alert': alert,
     'info': info,

@@ -146,8 +146,8 @@ abstract base class ProcessBackendLauncher implements BackendLauncher {
   /// Path rules of this operating system.
   p.Context get context;
 
-  /// Release binary filename located beside the Flutter executable.
-  String get releaseBinaryName;
+  /// Backend server filename inside the Bundle's `backend/bin/` folder.
+  String get bundledServerBinaryName;
 
   /// Dart CLI executable name used in debug mode fallback.
   String get dartExecutable;
@@ -166,12 +166,14 @@ abstract base class ProcessBackendLauncher implements BackendLauncher {
       );
     }
 
-    final siblingBinary = context.join(
+    final bundledServer = context.join(
       context.dirname(resolvedExecutable),
-      releaseBinaryName,
+      'backend',
+      'bin',
+      bundledServerBinaryName,
     );
-    if (_fileExists(siblingBinary)) {
-      return Success(BackendLaunchTarget(executable: siblingBinary));
+    if (_fileExists(bundledServer)) {
+      return Success(BackendLaunchTarget(executable: bundledServer));
     }
 
     if (isDebugMode) {
@@ -207,7 +209,7 @@ abstract base class ProcessBackendLauncher implements BackendLauncher {
     }
 
     return FailureResult(
-      NotFoundFailure('Backend executable not found at $siblingBinary.'),
+      NotFoundFailure('Backend executable not found at $bundledServer.'),
     );
   }
 
@@ -272,7 +274,7 @@ abstract base class ProcessBackendLauncher implements BackendLauncher {
   );
 }
 
-/// Windows [BackendLauncher] (`agentic_hive_backend.exe` / `dart.exe`).
+/// Windows [BackendLauncher] (`backend\bin\server.exe` / `dart.exe`).
 final class WindowsBackendLauncher extends ProcessBackendLauncher {
   /// Creates a Windows backend launcher.
   new({
@@ -288,13 +290,13 @@ final class WindowsBackendLauncher extends ProcessBackendLauncher {
   p.Context get context => p.windows;
 
   @override
-  String get releaseBinaryName => 'agentic_hive_backend.exe';
+  String get bundledServerBinaryName => 'server.exe';
 
   @override
   String get dartExecutable => 'dart.exe';
 }
 
-/// Linux [BackendLauncher] (`agentic_hive_backend` / `dart`).
+/// Linux [BackendLauncher] (`backend/bin/server` / `dart`).
 final class LinuxBackendLauncher extends ProcessBackendLauncher {
   /// Creates a Linux backend launcher.
   new({
@@ -310,13 +312,13 @@ final class LinuxBackendLauncher extends ProcessBackendLauncher {
   p.Context get context => p.posix;
 
   @override
-  String get releaseBinaryName => 'agentic_hive_backend';
+  String get bundledServerBinaryName => 'server';
 
   @override
   String get dartExecutable => 'dart';
 }
 
-/// macOS [BackendLauncher] (`agentic_hive_backend` / `dart`).
+/// macOS [BackendLauncher] (`backend/bin/server` / `dart`).
 final class MacOSBackendLauncher extends ProcessBackendLauncher {
   /// Creates a macOS backend launcher.
   new({
@@ -332,7 +334,7 @@ final class MacOSBackendLauncher extends ProcessBackendLauncher {
   p.Context get context => p.posix;
 
   @override
-  String get releaseBinaryName => 'agentic_hive_backend';
+  String get bundledServerBinaryName => 'server';
 
   @override
   String get dartExecutable => 'dart';

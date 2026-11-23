@@ -9,7 +9,7 @@ import 'package:agentic_hive_backend/src/http/json_response.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:shelf/shelf.dart';
 
-/// HTTP handler for `/api/v1/workspaces/{id}/worktrees` (ADR 0022).
+/// HTTP handler for `/api/v1/workspaces/{id}/worktrees` (ADR 0025).
 final class WorktreesHandler {
   /// Creates a handler backed by the workspace and worktree services.
   const new({

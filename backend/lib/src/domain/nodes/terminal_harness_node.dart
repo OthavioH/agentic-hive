@@ -35,7 +35,7 @@ final class TerminalHarnessNode extends HarnessNode {
   final DefaultShellProvider defaultShellProvider;
 
   /// Resolves the effective default shell of the run's workspace (workspace
-  /// override, then global setting; ADR 0022). When absent, or when the
+  /// override, then global setting; ADR 0025). When absent, or when the
   /// context carries no workspace, [defaultShellProvider] is used.
   final ExecutionSettingsService? executionSettings;
 

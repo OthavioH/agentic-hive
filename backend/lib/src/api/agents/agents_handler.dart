@@ -20,7 +20,7 @@ final class AgentsHandler {
   }
 
   /// `GET /api/v1/agents` — lists the global agents, or with `?workspaceId=`
-  /// the workspace agents plus the global ones (ADR 0022).
+  /// the workspace agents plus the global ones (ADR 0025).
   Future<Response> list(Request request) async {
     final result = await _service.list(workspaceId: _workspaceId(request));
     return result.fold<Response>(

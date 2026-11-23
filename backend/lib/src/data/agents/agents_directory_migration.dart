@@ -17,7 +17,7 @@ final class AgentsMigrationReport {
 }
 
 /// Copies the agent files of the former app-data `agents` folder into the
-/// user's shared library `~/.agents/agents` (ADR 0022).
+/// user's shared library `~/.agents/agents` (ADR 0025).
 ///
 /// It never overwrites an existing file and never deletes the source, so it is
 /// safe to run on every startup: a second run copies nothing.

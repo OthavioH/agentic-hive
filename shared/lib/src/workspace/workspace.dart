@@ -5,7 +5,7 @@ part 'workspace.freezed.dart';
 part 'workspace.g.dart';
 
 /// A registered workspace: a named entity with exactly one root folder
-/// (ADR 0022).
+/// (ADR 0025).
 ///
 /// [rootPath] is unique per workspace. [isGit] is detected when the workspace
 /// is registered; non-git folders are valid workspaces. [activeRunCount] is the

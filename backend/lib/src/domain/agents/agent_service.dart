@@ -9,7 +9,7 @@ import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 ///
 /// Without a `workspaceId` every operation targets the global library. With
 /// one, reads see the workspace folder layered over the global library
-/// (workspace overrides global by `name`, ADR 0022) and writes only touch the
+/// (workspace overrides global by `name`, ADR 0025) and writes only touch the
 /// workspace folder.
 final class AgentService {
   /// Creates an agent service backed by the global library and, optionally,

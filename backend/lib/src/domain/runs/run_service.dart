@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
@@ -54,6 +55,9 @@ final class RunService {
   /// Maximum page size allowed when querying run events.
   static const int maxEventsLimit = 1000;
 
+  /// Maximum UTF-8 byte length allowed for [StartRunRequest.input] (64 KiB).
+  static const int maxInputBytes = 64 * 1024;
+
   static final _log = Logger('run_service');
 
   static DateTime _utcNow() => DateTime.now().toUtc();
@@ -79,7 +83,7 @@ final class RunService {
 
   /// Synchronously reserved canonical target folders (the primary checkout or
   /// a worktree) for in-flight run starts/resumes before the database status
-  /// is persisted. At most one run is active per folder (ADR 0022).
+  /// is persisted. At most one run is active per folder (ADR 0025).
   final Set<String> _reservedFolders = <String>{};
 
   /// Synchronously claimed run IDs currently entering [resumeRun] so concurrent
@@ -112,7 +116,7 @@ final class RunService {
   }
 
   /// Resolves [workflowId] for a run: workspace-scoped workflows of the run's
-  /// workspace first, then global ones (ADR 0022). Workspace workflow ids are
+  /// workspace first, then global ones (ADR 0025). Workspace workflow ids are
   /// file slugs and global ids are random, so a hit in either is unambiguous.
   Future<Result<Workflow>> _resolveWorkflow(
     WorkflowRepository globalWorkflows,
@@ -158,6 +162,18 @@ final class RunService {
     final workspacePath = workspace.rootPath;
     final workspaceRoot = workspacePath;
 
+    final rawInput = request.input?.trim();
+    final runInput = (rawInput != null && rawInput.isNotEmpty)
+        ? rawInput
+        : null;
+    if (runInput != null && utf8.encode(runInput).length > maxInputBytes) {
+      return const FailureResult(
+        ValidationFailure(
+          'Field "input" must not exceed $maxInputBytes bytes.',
+        ),
+      );
+    }
+
     final workflows = _workflows;
     final engine = _engine;
     final workspacePreparation = _workspacePreparation;
@@ -167,7 +183,7 @@ final class RunService {
       );
     }
 
-    // No target means the primary checkout (ADR 0022).
+    // No target means the primary checkout (ADR 0025).
     final target = request.target ?? const RunTarget.primary();
     var ignorePatterns = request.ignorePatterns;
     final executionSettings = _executionSettings;
@@ -325,6 +341,7 @@ final class RunService {
         isolationMode: prepared.isolationMode,
         worktreePath: prepared.worktreePath,
         worktreeBranch: prepared.worktreeBranch,
+        input: runInput,
       );
 
       final createResult = await _runs.create(run);
@@ -755,7 +772,7 @@ final class RunService {
   /// Atomically deletes a non-active run [id] (cascading its checkpoints,
   /// events, and snapshots) and cleans up its shadow repository and log files.
   /// Its worktree is kept: a worktree is removed only when the user asks
-  /// (ADR 0022).
+  /// (ADR 0025).
   ///
   /// Returns [ConflictFailure] when the run is active (`running`, `paused`,
   /// or `cancelling`).

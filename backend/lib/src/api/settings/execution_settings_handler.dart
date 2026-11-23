@@ -8,7 +8,7 @@ import 'package:shelf/shelf.dart';
 
 /// HTTP handlers for the execution settings: the global ones at
 /// `/api/v1/settings/execution` and the per-workspace overrides at
-/// `/api/v1/workspaces/{id}/settings` (ADR 0022).
+/// `/api/v1/workspaces/{id}/settings` (ADR 0025).
 final class ExecutionSettingsHandler {
   /// Creates the handler backed by [_service].
   const new(this._service);

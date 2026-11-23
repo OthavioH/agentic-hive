@@ -4,7 +4,7 @@ import 'package:agentic_hive_backend/src/domain/agents/agent_repository.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 /// Read view over one workspace agent folder and the global library
-/// (ADR 0022).
+/// (ADR 0025).
 ///
 /// A workspace agent overrides a global agent with the same `name` (the
 /// frontmatter name, whatever the file names are): [list] returns both with

@@ -9,7 +9,7 @@ import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
-/// HTTP handler for the `/api/v1/workspaces` routes (ADR 0022).
+/// HTTP handler for the `/api/v1/workspaces` routes (ADR 0025).
 final class WorkspacesHandler {
   /// Creates a handler backed by [_service].
   ///

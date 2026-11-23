@@ -16,7 +16,7 @@ void main() {
     dbFile = databaseFileIn(createTestDir());
   });
 
-  group('schema v2 -> v7 migration', () {
+  group('schema v2 -> v8 migration', () {
     test('creates settings table and preserves existing v2 data', () async {
       // Create a v2-shaped SQLite database directly without AppDatabase.
       final raw = NativeDatabase(dbFile);
@@ -37,7 +37,7 @@ void main() {
       await raw.runCustom('PRAGMA user_version = 2');
       await raw.close();
 
-      // Open with AppDatabase (schemaVersion 7) -> runs onUpgrade(2 -> 7).
+      // Open with AppDatabase (schemaVersion 8) -> runs onUpgrade(2 -> 8).
       final db = AppDatabase.open(dbFile);
       try {
         await db.customSelect('SELECT 1').get();
@@ -45,7 +45,7 @@ void main() {
         await db.close();
       }
 
-      expect(await readUserVersion(dbFile), 7);
+      expect(await readUserVersion(dbFile), 8);
       final metadata = await readMetadataRows(dbFile);
       expect(metadata['installed_at'], '2026-11-20T00:00:00.000Z');
 

@@ -2,7 +2,7 @@ import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 /// Reads and writes the per-workspace execution overrides stored in the
-/// workspace folder (`<root>/.agentic-hive/settings.json`, ADR 0022).
+/// workspace folder (`<root>/.agentic-hive/settings.json`, ADR 0025).
 abstract interface class WorkspaceSettingsStore {
   /// Reads the overrides of the workspace rooted at [rootPath].
   ///

@@ -29,7 +29,7 @@ final class _SelectionStore implements WorkspaceSelectionStore {
 AgentSummary _summary(String id, AgentScope scope, {bool overridden = false}) =>
     AgentSummary(
       id: id,
-      // Same name across scopes: an override matches on the name (ADR 0022).
+      // Same name across scopes: an override matches on the name (ADR 0025).
       name: id,
       contentHash: 'h-$id-${scope.name}',
       updatedAt: DateTime.utc(2026, 11, 22),

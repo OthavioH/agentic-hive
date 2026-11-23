@@ -11,7 +11,7 @@ import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 /// Domain service for managing and validating [Workflow]s.
 ///
 /// Workflows are global (SQLite) or workspace-scoped (files under the
-/// workspace root, ADR 0022). Every operation takes an optional `workspaceId`:
+/// workspace root, ADR 0025). Every operation takes an optional `workspaceId`:
 /// `null` addresses the global scope.
 final class WorkflowService {
   /// Creates a workflow service.

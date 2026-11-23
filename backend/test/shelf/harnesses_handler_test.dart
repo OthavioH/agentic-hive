@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/claude_code_mcp_installer.dart';
@@ -12,6 +14,7 @@ import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
 import 'package:agentic_hive_backend/src/http/request_context.dart';
 import 'package:agentic_hive_backend/src/mcp/hive_mcp_locator.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart';
 import 'package:test/test.dart';
 
@@ -210,14 +213,17 @@ void main() {
   });
 
   group('POST /api/v1/harnesses/:id/mcp/install', () {
-    late bool claudeInstalled;
     late bool failInstall;
     late _ScriptedProcessRunner mcpRunner;
     late DefaultHarnessService mcpService;
     late Handler mcpHandler;
 
-    setUp(() {
-      claudeInstalled = false;
+    late Directory tempDir;
+    late String claudeConfigPath;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('harnesses_handler_');
+      claudeConfigPath = p.join(tempDir.path, '.claude.json');
       failInstall = false;
       mcpRunner = _ScriptedProcessRunner(
         onRun: (executable, arguments) {
@@ -234,22 +240,6 @@ void main() {
           if (executable == '/usr/local/bin/claude' &&
               arguments.length >= 2 &&
               arguments[0] == 'mcp') {
-            if (arguments[1] == 'get') {
-              if (claudeInstalled) {
-                return const ProcessRunResult(
-                  exitCode: 0,
-                  stdout:
-                      'hive:\n  Scope: User config\n  Type: stdio\n  '
-                      'Command: /usr/bin/hive-mcp\n  Args:\n',
-                  stderr: '',
-                );
-              }
-              return const ProcessRunResult(
-                exitCode: 1,
-                stdout: '',
-                stderr: 'No MCP server named "hive".',
-              );
-            }
             if (arguments[1] == 'add') {
               if (failInstall) {
                 return const ProcessRunResult(
@@ -258,7 +248,17 @@ void main() {
                   stderr: 'Permission denied writing ~/.claude.json',
                 );
               }
-              claudeInstalled = true;
+              File(claudeConfigPath).writeAsStringSync('''
+{
+  "mcpServers": {
+    "hive": {
+      "type": "stdio",
+      "command": "/usr/bin/hive-mcp",
+      "args": []
+    }
+  }
+}
+''');
               return const ProcessRunResult(
                 exitCode: 0,
                 stdout: '',
@@ -290,7 +290,10 @@ void main() {
           ),
         ],
         mcpInstallers: HarnessMcpInstallerRegistry([
-          ClaudeCodeMcpInstaller(processRunner: mcpRunner),
+          ClaudeCodeMcpInstaller(
+            processRunner: mcpRunner,
+            configPathOverride: claudeConfigPath,
+          ),
           const _UnsupportedStubInstaller(HarnessId.geminiCli),
         ]),
         mcpLocator: HiveMcpLocator(
@@ -315,7 +318,12 @@ void main() {
       );
     });
 
-    tearDown(() => mcpService.dispose());
+    tearDown(() async {
+      await mcpService.dispose();
+      if (tempDir.existsSync()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
 
     test('installs MCP and returns refreshed HarnessInfo', () async {
       final listResp = await mcpHandler(buildRequest('/api/v1/harnesses'));

@@ -38,91 +38,142 @@ void main() {
   });
 
   group('ClaudeCodeMcpInstaller', () {
-    test('detects installed when command and args match', () async {
-      final runner = _RecordingProcessRunner((_, _) {
-        return const ProcessRunResult(
-          exitCode: 0,
-          stdout: '''
-hive:
-  Scope: User config (available in all your projects)
-  Status: ✔ Connected
-  Type: stdio
-  Command: /usr/bin/dart
-  Args: run /repo/backend/bin/hive_mcp.dart
-  Environment:
-''',
-          stderr: '',
+    test(
+      'detects installed from ~/.claude.json without spawning the CLI',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'claude_mcp_test_',
         );
-      });
-      final installer = ClaudeCodeMcpInstaller(processRunner: runner);
+        addTearDown(() => tempDir.delete(recursive: true));
+        final configPath = p.join(tempDir.path, '.claude.json');
+        await File(configPath).writeAsString('''
+{
+  "numStartups": 12,
+  "mcpServers": {
+    "other": {
+      "type": "http",
+      "url": "https://example.com/mcp"
+    },
+    "hive": {
+      "type": "stdio",
+      "command": "/usr/bin/dart",
+      "args": ["run", "/repo/backend/bin/hive_mcp.dart"],
+      "env": {}
+    }
+  }
+}
+''');
+        final runner = _RecordingProcessRunner((_, _) {
+          fail('detect() must not spawn the claude CLI');
+        });
+        final installer = ClaudeCodeMcpInstaller(
+          processRunner: runner,
+          configPathOverride: configPath,
+        );
 
-      final result = await installer.detect(
-        executablePath: '/usr/local/bin/claude',
-        expectedCommand: devCommand,
+        final result = await installer.detect(
+          executablePath: '/usr/local/bin/claude',
+          expectedCommand: devCommand,
+        );
+
+        expect(runner.calls, isEmpty);
+        expect(result.status, HarnessMcpStatus.installed);
+      },
+    );
+
+    test(
+      'detects outdated when command or args differ in ~/.claude.json',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'claude_mcp_test_',
+        );
+        addTearDown(() => tempDir.delete(recursive: true));
+        final configPath = p.join(tempDir.path, '.claude.json');
+        await File(configPath).writeAsString('''
+{
+  "mcpServers": {
+    "hive": {
+      "type": "stdio",
+      "command": "/usr/bin/dart",
+      "args": ["run", "/old/path/bin/hive_mcp.dart"]
+    }
+  }
+}
+''');
+        final runner = _RecordingProcessRunner((_, _) {
+          fail('detect() must not spawn the claude CLI');
+        });
+        final installer = ClaudeCodeMcpInstaller(
+          processRunner: runner,
+          configPathOverride: configPath,
+        );
+
+        final result = await installer.detect(
+          executablePath: 'claude',
+          expectedCommand: devCommand,
+        );
+
+        expect(runner.calls, isEmpty);
+        expect(result.status, HarnessMcpStatus.outdated);
+      },
+    );
+
+    test(
+      'detects notInstalled when ~/.claude.json or hive entry is missing',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'claude_mcp_test_',
+        );
+        addTearDown(() => tempDir.delete(recursive: true));
+        final missingPath = p.join(tempDir.path, 'missing.json');
+        final runner = _RecordingProcessRunner((_, _) {
+          fail('detect() must not spawn the claude CLI');
+        });
+        final installer = ClaudeCodeMcpInstaller(
+          processRunner: runner,
+          configPathOverride: missingPath,
+        );
+
+        final missingResult = await installer.detect(
+          executablePath: 'claude',
+          expectedCommand: devCommand,
+        );
+        expect(missingResult.status, HarnessMcpStatus.notInstalled);
+
+        final emptyConfigPath = p.join(tempDir.path, '.claude.json');
+        await File(emptyConfigPath).writeAsString('{"mcpServers": {}}');
+        final emptyInstaller = ClaudeCodeMcpInstaller(
+          processRunner: runner,
+          configPathOverride: emptyConfigPath,
+        );
+        final emptyResult = await emptyInstaller.detect(
+          executablePath: 'claude',
+          expectedCommand: devCommand,
+        );
+        expect(emptyResult.status, HarnessMcpStatus.notInstalled);
+        expect(runner.calls, isEmpty);
+      },
+    );
+
+    test('detects unknown when ~/.claude.json is malformed JSON', () async {
+      final tempDir = await Directory.systemTemp.createTemp('claude_mcp_test_');
+      addTearDown(() => tempDir.delete(recursive: true));
+      final configPath = p.join(tempDir.path, '.claude.json');
+      await File(configPath).writeAsString('{not valid json');
+      final runner = _RecordingProcessRunner((_, _) {
+        fail('detect() must not spawn the claude CLI');
+      });
+      final installer = ClaudeCodeMcpInstaller(
+        processRunner: runner,
+        configPathOverride: configPath,
       );
-
-      expect(runner.calls.single.arguments, ['mcp', 'get', 'hive']);
-      expect(result.status, HarnessMcpStatus.installed);
-    });
-
-    test('detects outdated when command or args differ', () async {
-      final runner = _RecordingProcessRunner((_, _) {
-        return const ProcessRunResult(
-          exitCode: 0,
-          stdout: '''
-hive:
-  Scope: User config
-  Type: stdio
-  Command: /usr/bin/dart
-  Args: run /old/path/bin/hive_mcp.dart
-''',
-          stderr: '',
-        );
-      });
-      final installer = ClaudeCodeMcpInstaller(processRunner: runner);
 
       final result = await installer.detect(
         executablePath: 'claude',
         expectedCommand: devCommand,
       );
 
-      expect(result.status, HarnessMcpStatus.outdated);
-    });
-
-    test('detects notInstalled when claude mcp get reports missing', () async {
-      final runner = _RecordingProcessRunner((_, _) {
-        return const ProcessRunResult(
-          exitCode: 1,
-          stdout: '',
-          stderr: 'No MCP server named "hive".',
-        );
-      });
-      final installer = ClaudeCodeMcpInstaller(processRunner: runner);
-
-      final result = await installer.detect(
-        executablePath: 'claude',
-        expectedCommand: devCommand,
-      );
-
-      expect(result.status, HarnessMcpStatus.notInstalled);
-    });
-
-    test('detects unknown on timeout', () async {
-      final runner = _RecordingProcessRunner((_, _) {
-        return const ProcessRunResult(
-          exitCode: -1,
-          stdout: '',
-          stderr: '',
-          timedOut: true,
-        );
-      });
-      final installer = ClaudeCodeMcpInstaller(processRunner: runner);
-
-      final result = await installer.detect(
-        executablePath: 'claude',
-        expectedCommand: devCommand,
-      );
-
+      expect(runner.calls, isEmpty);
       expect(result.status, HarnessMcpStatus.unknown);
     });
 
@@ -297,31 +348,102 @@ command = "node"
   });
 
   group('GeminiCliMcpInstaller', () {
-    test('detects installed despite noisy stderr config warnings', () async {
+    test('detects installed from ~/.gemini/settings.json tolerating invalid '
+        'sibling entries without spawning the CLI', () async {
+      final tempDir = await Directory.systemTemp.createTemp('gemini_mcp_test_');
+      addTearDown(() => tempDir.delete(recursive: true));
+      final configPath = p.join(tempDir.path, 'settings.json');
+      await File(configPath).writeAsString('''
+{
+  "mcpServers": {
+    "stitch": {
+      "serverUrl": "https://stitch.googleapis.com/mcp",
+      "headers": {
+        "X-Goog-Api-Key": "secret"
+      }
+    },
+    "hive": {
+      "command": "/usr/bin/dart",
+      "args": ["run", "/repo/backend/bin/hive_mcp.dart"],
+      "trust": true
+    }
+  }
+}
+''');
       final runner = _RecordingProcessRunner((_, _) {
-        return const ProcessRunResult(
-          exitCode: 0,
-          stdout: '''
-Configured MCP servers:
-
-✗ stitch:  - Disconnected
-✓ hive: /usr/bin/dart run /repo/backend/bin/hive_mcp.dart (stdio) - Connected
-''',
-          stderr: '''
-Invalid configuration in ~/.gemini/settings.json:
-Error in: mcpServers.stitch
-''',
-        );
+        fail('detect() must not spawn the gemini CLI');
       });
-      final installer = GeminiCliMcpInstaller(processRunner: runner);
+      final installer = GeminiCliMcpInstaller(
+        processRunner: runner,
+        configPathOverride: configPath,
+      );
 
       final result = await installer.detect(
         executablePath: 'gemini',
         expectedCommand: devCommand,
       );
 
-      expect(runner.calls.single.arguments, ['mcp', 'list']);
+      expect(runner.calls, isEmpty);
       expect(result.status, HarnessMcpStatus.installed);
+    });
+
+    test(
+      'detects outdated when command or args differ in ~/.gemini/settings.json',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'gemini_mcp_test_',
+        );
+        addTearDown(() => tempDir.delete(recursive: true));
+        final configPath = p.join(tempDir.path, 'settings.json');
+        await File(configPath).writeAsString('''
+{
+  "mcpServers": {
+    "hive": {
+      "command": "/usr/bin/dart",
+      "args": ["run", "/old/worktree/backend/bin/hive_mcp.dart"],
+      "trust": true
+    }
+  }
+}
+''');
+        final runner = _RecordingProcessRunner((_, _) {
+          fail('detect() must not spawn the gemini CLI');
+        });
+        final installer = GeminiCliMcpInstaller(
+          processRunner: runner,
+          configPathOverride: configPath,
+        );
+
+        final result = await installer.detect(
+          executablePath: 'gemini',
+          expectedCommand: devCommand,
+        );
+
+        expect(runner.calls, isEmpty);
+        expect(result.status, HarnessMcpStatus.outdated);
+      },
+    );
+
+    test('detects notInstalled when ~/.gemini/settings.json or hive entry is '
+        'missing', () async {
+      final tempDir = await Directory.systemTemp.createTemp('gemini_mcp_test_');
+      addTearDown(() => tempDir.delete(recursive: true));
+      final missingPath = p.join(tempDir.path, 'settings.json');
+      final runner = _RecordingProcessRunner((_, _) {
+        fail('detect() must not spawn the gemini CLI');
+      });
+      final installer = GeminiCliMcpInstaller(
+        processRunner: runner,
+        configPathOverride: missingPath,
+      );
+
+      final result = await installer.detect(
+        executablePath: 'gemini',
+        expectedCommand: devCommand,
+      );
+
+      expect(runner.calls, isEmpty);
+      expect(result.status, HarnessMcpStatus.notInstalled);
     });
 
     test('install passes user scope and --trust', () async {

@@ -1,4 +1,4 @@
-/// Where an agent `.md` file lives (ADR 0022).
+/// Where an agent `.md` file lives (ADR 0025).
 enum AgentScope {
   /// `~/.agents/agents`, shared by every workspace.
   global,

@@ -11,7 +11,7 @@ import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 /// Resolves the execution settings (default isolation mode, snapshot
 /// `ignorePatterns`, default shell) of a workspace: its own override wins,
 /// an absent key falls back to the global value, and an absent global value
-/// falls back to the built-in default (ADR 0022).
+/// falls back to the built-in default (ADR 0025).
 ///
 /// Only these three settings can be overridden per workspace; machine-specific
 /// settings (CLI paths, theme) stay global.

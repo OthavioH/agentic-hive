@@ -325,7 +325,7 @@ abstract interface class AgentPromptResolver {
   /// Resolves the prompt for [agentId], or returns `NotFoundFailure`.
   ///
   /// With a [workspaceRoot], `<root>/.agents/agents` is searched first and the
-  /// global library second (ADR 0022).
+  /// global library second (ADR 0025).
   Future<Result<String>> resolvePrompt(String agentId, {String? workspaceRoot});
 
   /// Resolves the prompt and tool permissions for [agentId], or returns

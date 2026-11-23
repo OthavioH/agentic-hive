@@ -3,7 +3,7 @@ import 'package:agentic_hive_backend/src/domain/settings/settings_repository.dar
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 /// Tells the user which files of the global agents move could not be copied
-/// (ADR 0022) and remembers that they dismissed the notice.
+/// (ADR 0025) and remembers that they dismissed the notice.
 ///
 /// The conflicts are computed once at startup by the migration itself. A
 /// dismissal is stored with the exact set of conflicts it applies to, so a

@@ -9,12 +9,14 @@ final class FakeRunRepository implements RunRepository {
     this.isolationMode = WorkspaceIsolationMode.direct,
     this.worktreePath,
     this.worktreeBranch,
+    this.checkpoints = const <Checkpoint>[],
   });
 
   final RunStatus status;
   final WorkspaceIsolationMode isolationMode;
   final String? worktreePath;
   final String? worktreeBranch;
+  final List<Checkpoint> checkpoints;
 
   int getRunCalls = 0;
 
@@ -71,7 +73,7 @@ final class FakeRunRepository implements RunRepository {
 
   @override
   Future<Result<List<Checkpoint>>> getRunCheckpoints(String id) async =>
-      const Success(<Checkpoint>[]);
+      Success(checkpoints);
 
   @override
   Future<Result<Run>> startRun(StartRunRequest request) async =>

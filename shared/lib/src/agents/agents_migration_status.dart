@@ -5,7 +5,7 @@ part 'agents_migration_status.freezed.dart';
 part 'agents_migration_status.g.dart';
 
 /// Outcome of moving the global agents from the app-data `agents` folder into
-/// `~/.agents/agents` (ADR 0022), as reported by
+/// `~/.agents/agents` (ADR 0025), as reported by
 /// `GET /api/v1/agent-library/migration`.
 ///
 /// The move never overwrites an existing file. A [conflicts] entry is a file

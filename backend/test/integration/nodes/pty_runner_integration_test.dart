@@ -186,4 +186,53 @@ void main() {
     expect(result.valueOrNull!.exitCode, 0);
     expect(result.valueOrNull!.stdout, contains('SHIM_OK_MERGED'));
   }, timeout: const Timeout(Duration(seconds: 30)));
+
+  test(
+    'preserves PTY child exit code when Dart VM reaper is active',
+    () async {
+      final reaperKeepalive = await Process.start('sleep', const ['5']);
+      addTearDown(reaperKeepalive.kill);
+
+      final registry = PtySessionRegistry();
+      addTearDown(registry.dispose);
+      final managedKiller = currentProcessTreeKiller();
+      final runner = currentPtyRunner(
+        processTracker: managedKiller.tracker,
+        processTreeKiller: managedKiller.killer,
+        sessionRegistry: registry,
+      );
+
+      for (var i = 0; i < 10; i++) {
+        for (final expectedCode in const [0, 3]) {
+          final key = (
+            runId: 'run-pty-race-$i-$expectedCode',
+            nodeId: 'term-race',
+            attempt: 1,
+          );
+          final result = await runner
+              .run(
+                PtyInvocation(
+                  executable: '/bin/sh',
+                  arguments: <String>['-c', 'exit $expectedCode'],
+                  workingDirectory: tempDir.path,
+                  runId: key.runId,
+                  nodeId: key.nodeId,
+                  attempt: key.attempt,
+                  timeout: const Duration(seconds: 10),
+                ),
+              )
+              .timeout(const Duration(seconds: 15));
+
+          expect(result.isSuccess, isTrue);
+          expect(
+            result.valueOrNull!.exitCode,
+            expectedCode,
+            reason: 'iteration $i expected $expectedCode',
+          );
+        }
+      }
+    },
+    testOn: 'posix',
+    timeout: const Timeout(Duration(seconds: 60)),
+  );
 }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/runs/controllers/run_detail_controller.dart';
 import 'package:agentic_hive_frontend/presentation/runs/utils/run_l10n.dart';
+import 'package:agentic_hive_frontend/presentation/runs/widgets/run_chat_outputs_panel.dart';
 import 'package:agentic_hive_frontend/presentation/runs/widgets/run_graph_view.dart';
 import 'package:agentic_hive_frontend/presentation/runs/widgets/run_inspector_tabs.dart';
 import 'package:agentic_hive_frontend/presentation/runs/widgets/run_output_panel.dart';
@@ -309,6 +310,10 @@ class _RunDetailBodyState extends ConsumerState<_RunDetailBody> {
             ],
           ),
         ),
+        if (run.input != null && run.input!.trim().isNotEmpty) ...<Widget>[
+          SizedBox(height: spacing.space2),
+          _RunInputCard(input: run.input!.trim()),
+        ],
         if (run.errorMessage != null &&
             run.errorMessage!.isNotEmpty) ...<Widget>[
           SizedBox(height: spacing.space2),
@@ -584,6 +589,9 @@ class _InspectorColumn extends StatelessWidget {
               runId: runId,
               detailState: detailState,
             ),
+            RunInspectorTab.outputs => RunChatOutputsPanel(
+              detailState: detailState,
+            ),
             RunInspectorTab.events => _EventTimelineColumn(
               runId: runId,
               events: detailState.events,
@@ -717,6 +725,77 @@ class _CheckpointInspectorColumn extends ConsumerWidget {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RunInputCard extends StatefulWidget {
+  const new({required this.input});
+
+  final String input;
+
+  @override
+  State<_RunInputCard> createState() => _RunInputCardState();
+}
+
+class _RunInputCardState extends State<_RunInputCard> {
+  static const int _collapseCharThreshold = 240;
+  static const int _collapseLineThreshold = 4;
+
+  bool _expanded = false;
+
+  bool get _isLong =>
+      widget.input.length > _collapseCharThreshold ||
+      '\n'.allMatches(widget.input).length >= _collapseLineThreshold;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final spacing = context.hiveSpacing;
+    final colors = context.hiveColors;
+    final typography = context.hiveTypography;
+    final showExpanded = _expanded || !_isLong;
+
+    return HiveCard(
+      key: const Key('run_detail_input_card'),
+      surface: HiveCardSurface.surface2,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Text(
+                l10n.runDetailInputLabel,
+                style: typography.label.copyWith(color: colors.onSurfaceMuted),
+              ),
+              const Spacer(),
+              if (_isLong)
+                HiveButton(
+                  key: const Key('run_detail_input_toggle'),
+                  label: _expanded
+                      ? l10n.runDetailInputShowLess
+                      : l10n.runDetailInputShowMore,
+                  icon: HiveIcons.chevronDown,
+                  variant: HiveButtonVariant.ghost,
+                  onPressed: () => setState(() => _expanded = !_expanded),
+                ),
+            ],
+          ),
+          SizedBox(height: spacing.space1),
+          if (showExpanded)
+            SelectableText(
+              widget.input,
+              style: typography.mono.copyWith(color: colors.onSurface),
+            )
+          else
+            Text(
+              widget.input,
+              maxLines: _collapseLineThreshold,
+              overflow: TextOverflow.ellipsis,
+              style: typography.mono.copyWith(color: colors.onSurface),
+            ),
         ],
       ),
     );

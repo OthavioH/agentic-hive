@@ -51,7 +51,7 @@ final class AppConfig {
   String get serverInfoPath => p.join(dataDir, 'server.json');
 
   /// The global agents folder: the user's shared library `~/.agents/agents`
-  /// (ADR 0022). Falls back to [legacyAgentsDir] only when the configuration
+  /// (ADR 0025). Falls back to [legacyAgentsDir] only when the configuration
   /// gives no folder, as in tests that build a bare [AppConfig].
   String get agentsDir => _agentsDir ?? legacyAgentsDir;
 

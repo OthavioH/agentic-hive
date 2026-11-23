@@ -5,7 +5,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'agents_migration_controller.g.dart';
 
-/// Holds the conflicts left by the move of the global agents (ADR 0022).
+/// Holds the conflicts left by the move of the global agents (ADR 0025).
 ///
 /// The state is `null` while loading or when the status cannot be read: the
 /// banner stays hidden, as the conflicts are informational.

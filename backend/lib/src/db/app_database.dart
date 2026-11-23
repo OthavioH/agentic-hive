@@ -21,7 +21,7 @@ class AppMetadata extends Table {
 }
 
 /// Registered workspaces: a named entity with one unique root folder
-/// (ADR 0022).
+/// (ADR 0025).
 @DataClassName('WorkspaceRow')
 @TableIndex(
   name: 'idx_workspaces_root_path',
@@ -96,7 +96,7 @@ class Runs extends Table {
   /// Path to the workspace folder used by this run.
   TextColumn get workspacePath => text()();
 
-  /// Owning [Workspaces] row. Nullable only because migration 6 to 7 adds the
+  /// Owning [Workspaces] row. Nullable only because migration 7 to 8 adds the
   /// column and back-fills it; every new run sets it.
   TextColumn get workspaceId => text().nullable().references(
     Workspaces,
@@ -125,6 +125,9 @@ class Runs extends Table {
 
   /// Optional branch name (`hive/<runId>`) for an isolated git worktree.
   TextColumn get worktreeBranch => text().nullable()();
+
+  /// Optional free-text run input passed to the entry node.
+  TextColumn get input => text().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -356,7 +359,7 @@ class AppDatabase extends _$AppDatabase {
   static const installedAtKey = 'installed_at';
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -398,6 +401,11 @@ class AppDatabase extends _$AppDatabase {
         await m.createIndex(idxPausesRunStatus);
       }
       if (from < 7) {
+        if (from >= 3) {
+          await m.addColumn(runs, runs.input);
+        }
+      }
+      if (from < 8) {
         await m.createTable(workspaces);
         await m.createIndex(idxWorkspacesRootPath);
         if (from >= 3) {
@@ -412,9 +420,9 @@ class AppDatabase extends _$AppDatabase {
     },
   );
 
-  /// Migration 6 to 7: creates one workspace per distinct run
+  /// Migration 7 to 8: creates one workspace per distinct run
   /// `workspace_path` (named after the folder) and attaches those runs to it
-  /// (ADR 0022).
+  /// (ADR 0025).
   Future<void> _attachRunsToWorkspaces() async {
     final rows = await customSelect(
       'SELECT workspace_path, MIN(started_at) AS first_started '

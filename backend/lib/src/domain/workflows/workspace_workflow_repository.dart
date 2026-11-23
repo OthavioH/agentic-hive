@@ -2,7 +2,7 @@ import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 /// Persists workspace-scoped [Workflow]s as versionable files under a
-/// workspace root (ADR 0022).
+/// workspace root (ADR 0025).
 ///
 /// Every method takes the workspace `rootPath`; the workflow `id` is the file
 /// basename (the slug), so it is stable across external edits.

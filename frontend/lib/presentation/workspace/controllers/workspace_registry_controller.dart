@@ -27,7 +27,7 @@ final class WorkspaceRegistryState {
   final bool isSubmitting;
 
   /// Whether the fixed Global entry is selected: no workspace is current and
-  /// pages manage only global items (ADR 0022). Not persisted across restarts.
+  /// pages manage only global items (ADR 0025). Not persisted across restarts.
   final bool isGlobalSelected;
 
   /// Currently selected [Workspace], or null when [currentWorkspaceId] is

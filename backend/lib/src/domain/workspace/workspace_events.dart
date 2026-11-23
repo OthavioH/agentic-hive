@@ -1,7 +1,7 @@
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 /// Publishes workspace and worktree changes so clients can keep their view
-/// live (ADR 0022).
+/// live (ADR 0025).
 abstract interface class WorkspaceEvents {
   /// Reports that [workspace] was registered or updated, or that the workspace
   /// [id] was unregistered ([workspace] is then null).

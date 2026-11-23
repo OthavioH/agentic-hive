@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:agentic_hive_frontend/core/backend/backend_connection.dart';
+import 'package:agentic_hive_frontend/core/di/use_case_providers.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/app_lifecycle_controller.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/tray_service.dart';
 import 'package:agentic_hive_frontend/core/theme/theme_preference_controller.dart';
@@ -14,6 +15,7 @@ import 'package:flutter_localizations/flutter_localizations.dart'
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:window_manager/window_manager.dart' show DragToResizeArea;
 
 /// Root widget of the Agentic Hive desktop application.
 class HiveApp extends ConsumerWidget {
@@ -66,11 +68,22 @@ class _LifecycleBridge extends ConsumerStatefulWidget {
 class _LifecycleBridgeState extends ConsumerState<_LifecycleBridge> {
   bool _dialogOpen = false;
   TrayMenuLabels? _lastPublishedLabels;
+  String? _lastPublishedTitle;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _publishWindowTitle();
     _publishTrayLabels(ref.read(backendConnectionProvider));
+  }
+
+  void _publishWindowTitle() {
+    final l10n = AppLocalizations.of(context);
+    if (l10n == null) return;
+    final title = l10n.appTitle;
+    if (title == _lastPublishedTitle) return;
+    _lastPublishedTitle = title;
+    unawaited(ref.read(setWindowTitleUseCaseProvider)(title));
   }
 
   void _publishTrayLabels(BackendConnectionState connection) {
@@ -159,6 +172,60 @@ class _LifecycleBridgeState extends ConsumerState<_LifecycleBridge> {
         }
       });
 
-    return widget.child;
+    final chrome = ref.watch(getWindowChromeUseCaseProvider)();
+    final l10n = AppLocalizations.of(context);
+    if (!chrome.hasCustomTitleBar || l10n == null) {
+      return widget.child;
+    }
+
+    return Overlay.wrap(
+      child: DragToResizeArea(
+        child: FocusTraversalGroup(
+          policy: OrderedTraversalPolicy(),
+          child: Column(
+            children: <Widget>[
+              FocusTraversalOrder(
+                order: const NumericFocusOrder(2),
+                child: StreamBuilder<bool>(
+                  initialData: chrome.isMaximized,
+                  stream: ref.watch(watchWindowMaximizedUseCaseProvider)(),
+                  builder: (context, snapshot) => HiveTitleBar(
+                    isMaximized: snapshot.data ?? chrome.isMaximized,
+                    showSystemMenuOnRelease: chrome.showSystemMenuOnRelease,
+                    labels: HiveTitleBarLabels(
+                      minimize: l10n.windowMinimize,
+                      maximize: l10n.windowMaximize,
+                      restore: l10n.windowRestore,
+                      close: l10n.windowCloseToTray,
+                    ),
+                    onMinimize: () =>
+                        unawaited(ref.read(minimizeWindowUseCaseProvider)()),
+                    onToggleMaximize: () => unawaited(
+                      ref.read(toggleMaximizeWindowUseCaseProvider)(),
+                    ),
+                    onClose: () =>
+                        unawaited(ref.read(hideWindowToTrayUseCaseProvider)()),
+                    onDragStart: () =>
+                        unawaited(ref.read(startWindowDragUseCaseProvider)()),
+                    onSystemMenu: (position) => unawaited(
+                      ref.read(showWindowSystemMenuUseCaseProvider)(
+                        x: position.dx,
+                        y: position.dy,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: FocusTraversalOrder(
+                  order: const NumericFocusOrder(1),
+                  child: widget.child,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
