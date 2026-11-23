@@ -274,7 +274,10 @@ final class WorkflowService {
       }
       _onRunsProgress(
         operationId,
-        const WorkflowRunsProgress(phase: WorkflowDeletionPhase.deletingRuns),
+        WorkflowRunsProgress(
+          phase: WorkflowDeletionPhase.deletingRuns,
+          runsDeleted: deletedRuns,
+        ),
       );
       final deleted = await _deleteDefinition(
         operation.workflowId,
