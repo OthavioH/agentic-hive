@@ -29,7 +29,9 @@ final class WorkflowHandler {
   Future<Response> call(Request request) => _router.call(request);
 
   Future<Response> _list(Request request) async {
-    final result = await _service.listWorkflows();
+    final result = await _service.listWorkflows(
+      workspaceId: _workspaceId(request),
+    );
     return _mapResult(request, result, 200);
   }
 
@@ -51,19 +53,29 @@ final class WorkflowHandler {
   }
 
   Future<Response> _getById(Request request, String id) async {
-    final result = await _service.getWorkflow(id);
+    final result = await _service.getWorkflow(
+      id,
+      workspaceId: _workspaceId(request),
+    );
     return _mapResult(request, result, 200);
   }
 
   Future<Response> _update(Request request, String id) async {
     final parsed = await _readJsonBody(request, UpdateWorkflowRequest.fromJson);
     if (parsed.error != null) return parsed.error!;
-    final result = await _service.updateWorkflow(id, parsed.value!);
+    final result = await _service.updateWorkflow(
+      id,
+      parsed.value!,
+      workspaceId: _workspaceId(request),
+    );
     return _mapResult(request, result, 200);
   }
 
   Future<Response> _delete(Request request, String id) async {
-    final result = await _service.deleteWorkflow(id);
+    final result = await _service.deleteWorkflow(
+      id,
+      workspaceId: _workspaceId(request),
+    );
     return switch (result) {
       Success<void>() => jsonResponse(200, {'id': id, 'deleted': true}),
       FailureResult<void>(:final failure) => failureResponse(request, failure),
@@ -82,8 +94,18 @@ final class WorkflowHandler {
       if (parsed.error != null) return parsed.error!;
       name = parsed.value!.name;
     }
-    final result = await _service.duplicateWorkflow(id, name: name);
+    final result = await _service.duplicateWorkflow(
+      id,
+      name: name,
+      workspaceId: _workspaceId(request),
+    );
     return _mapResult(request, result, 201);
+  }
+
+  /// The `workspaceId` query parameter; absent or blank means the global scope.
+  String? _workspaceId(Request request) {
+    final value = request.url.queryParameters['workspaceId']?.trim();
+    return value == null || value.isEmpty ? null : value;
   }
 
   Response _mapResult<T>(Request request, Result<T> result, int okStatus) =>

@@ -8,6 +8,7 @@ final class DeleteWorkflow {
 
   final WorkflowRepository _repository;
 
-  /// Executes the use case for [id].
-  Future<Result<void>> call(String id) => _repository.deleteWorkflow(id);
+  /// Executes the use case for [id] in the scope of [workspaceId].
+  Future<Result<void>> call(String id, {String? workspaceId}) =>
+      _repository.deleteWorkflow(id, workspaceId: workspaceId);
 }

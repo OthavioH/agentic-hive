@@ -9,7 +9,7 @@ final class GetWorkflow {
 
   final WorkflowRepository _repository;
 
-  /// Executes the use case for [id].
-  Future<Result<WorkflowResponse>> call(String id) =>
-      _repository.getWorkflow(id);
+  /// Executes the use case for [id] in the scope of [workspaceId].
+  Future<Result<WorkflowResponse>> call(String id, {String? workspaceId}) =>
+      _repository.getWorkflow(id, workspaceId: workspaceId);
 }

@@ -114,8 +114,9 @@ final class _FakePauseRepo implements PauseRepository {
 
 final class _FakeWorkflowRepo implements WorkflowRepository {
   @override
-  Future<Result<List<WorkflowSummary>>> listWorkflows() async =>
-      const Success<List<WorkflowSummary>>(<WorkflowSummary>[]);
+  Future<Result<List<WorkflowSummary>>> listWorkflows({
+    String? workspaceId,
+  }) async => const Success<List<WorkflowSummary>>(<WorkflowSummary>[]);
 
   @override
   Future<Result<WorkflowResponse>> createWorkflow(
@@ -123,23 +124,28 @@ final class _FakeWorkflowRepo implements WorkflowRepository {
   ) => throw UnimplementedError();
 
   @override
-  Future<Result<void>> deleteWorkflow(String id) => throw UnimplementedError();
+  Future<Result<void>> deleteWorkflow(String id, {String? workspaceId}) =>
+      throw UnimplementedError();
 
   @override
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
+    String? workspaceId,
   }) => throw UnimplementedError();
 
   @override
-  Future<Result<WorkflowResponse>> getWorkflow(String id) =>
-      throw UnimplementedError();
+  Future<Result<WorkflowResponse>> getWorkflow(
+    String id, {
+    String? workspaceId,
+  }) => throw UnimplementedError();
 
   @override
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
-    UpdateWorkflowRequest request,
-  ) => throw UnimplementedError();
+    UpdateWorkflowRequest request, {
+    String? workspaceId,
+  }) => throw UnimplementedError();
 
   @override
   Future<Result<WorkflowValidationResult>> validateWorkflow(

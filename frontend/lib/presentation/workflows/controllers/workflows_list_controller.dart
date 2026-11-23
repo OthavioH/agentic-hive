@@ -1,5 +1,9 @@
 import 'package:agentic_hive_frontend/core/di/use_case_providers.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
+import 'package:agentic_hive_frontend/presentation/workspace/controllers/workspace_registry_controller.dart';
+
+import 'dart:async';
+
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -62,11 +66,39 @@ final class WorkflowsListState {
 }
 
 /// Manages the saved workflows list, search filter, and CRUD actions.
+///
+/// The list covers the global workflows plus those of the current workspace
+/// (each item carries its scope). With the Global entry selected, or without a
+/// workspace, only global workflows are listed. Workspace workflow files that
+/// change on disk refresh the list live.
 @riverpod
 class WorkflowsListController extends _$WorkflowsListController {
+  /// Workspace whose workflows are listed besides the global ones; `null`
+  /// lists only global workflows.
+  String? get _workspaceId => ref.read(
+    workspaceRegistryControllerProvider.select(
+      (state) => state.asData?.value.currentWorkspaceId,
+    ),
+  );
+
   @override
   Future<WorkflowsListState> build() async {
-    final result = await ref.read(listWorkflowsProvider).call();
+    final workspaceId = ref.watch(
+      workspaceRegistryControllerProvider.select(
+        (state) => state.asData?.value.currentWorkspaceId,
+      ),
+    );
+    final changes = ref.read(watchWorkflowChangesProvider).call().listen((
+      payload,
+    ) {
+      if (payload.workspaceId == _workspaceId) {
+        unawaited(_reloadSilently());
+      }
+    });
+    ref.onDispose(() => unawaited(changes.cancel()));
+    final result = await ref
+        .read(listWorkflowsProvider)
+        .call(workspaceId: workspaceId);
     return switch (result) {
       Success<List<WorkflowSummary>>(:final value) => WorkflowsListState(
         workflows: value,
@@ -80,7 +112,9 @@ class WorkflowsListController extends _$WorkflowsListController {
   Future<void> refresh() async {
     final currentQuery = state.asData?.value.searchQuery ?? '';
     state = const AsyncLoading<WorkflowsListState>();
-    final result = await ref.read(listWorkflowsProvider).call();
+    final result = await ref
+        .read(listWorkflowsProvider)
+        .call(workspaceId: _workspaceId);
     if (!ref.mounted) return;
     state = switch (result) {
       Success<List<WorkflowSummary>>(:final value) => AsyncData(
@@ -101,9 +135,12 @@ class WorkflowsListController extends _$WorkflowsListController {
   }
 
   /// Creates a new workflow and refreshes the list on success.
+  ///
+  /// It is stored in [workspaceId] when given, otherwise globally.
   Future<Result<Workflow>> createWorkflow({
     required String name,
     String? description,
+    String? workspaceId,
   }) async {
     final trimmedName = name.trim();
     final trimmedDescription = description?.trim();
@@ -116,6 +153,7 @@ class WorkflowsListController extends _$WorkflowsListController {
                 trimmedDescription == null || trimmedDescription.isEmpty
                 ? null
                 : trimmedDescription,
+            workspaceId: workspaceId,
           ),
         );
     if (!ref.mounted) return result.map((response) => response.workflow);
@@ -130,10 +168,16 @@ class WorkflowsListController extends _$WorkflowsListController {
     }
   }
 
-  /// Duplicates an existing workflow and refreshes the list on success.
-  Future<Result<Workflow>> duplicateWorkflow(String id) async {
+  /// Duplicates an existing workflow of [workspaceId] (global when `null`)
+  /// and refreshes the list on success.
+  Future<Result<Workflow>> duplicateWorkflow(
+    String id, {
+    String? workspaceId,
+  }) async {
     _setBusy(id);
-    final result = await ref.read(duplicateWorkflowProvider).call(id);
+    final result = await ref
+        .read(duplicateWorkflowProvider)
+        .call(id, workspaceId: workspaceId);
     if (!ref.mounted) return result.map((response) => response.workflow);
 
     switch (result) {
@@ -146,10 +190,13 @@ class WorkflowsListController extends _$WorkflowsListController {
     }
   }
 
-  /// Deletes a workflow and updates the list on success.
-  Future<Result<void>> deleteWorkflow(String id) async {
+  /// Deletes a workflow of [workspaceId] (global when `null`) and updates the
+  /// list on success.
+  Future<Result<void>> deleteWorkflow(String id, {String? workspaceId}) async {
     _setBusy(id);
-    final result = await ref.read(deleteWorkflowProvider).call(id);
+    final result = await ref
+        .read(deleteWorkflowProvider)
+        .call(id, workspaceId: workspaceId);
     if (!ref.mounted) return result;
 
     switch (result) {
@@ -159,7 +206,11 @@ class WorkflowsListController extends _$WorkflowsListController {
           state = AsyncData(
             current.copyWith(
               workflows: current.workflows
-                  .where((workflow) => workflow.id != id)
+                  .where(
+                    (workflow) =>
+                        workflow.id != id ||
+                        workflow.workspaceId != workspaceId,
+                  )
                   .toList(),
               busyWorkflowId: () => null,
               actionFailure: () => null,
@@ -174,7 +225,9 @@ class WorkflowsListController extends _$WorkflowsListController {
   }
 
   Future<void> _reloadSilently() async {
-    final result = await ref.read(listWorkflowsProvider).call();
+    final result = await ref
+        .read(listWorkflowsProvider)
+        .call(workspaceId: _workspaceId);
     if (!ref.mounted) return;
     final current = state.asData?.value;
     switch (result) {

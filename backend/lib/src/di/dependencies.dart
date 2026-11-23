@@ -37,6 +37,8 @@ import 'package:agentic_hive_backend/src/data/runs/process_tree_killer_factory.d
 import 'package:agentic_hive_backend/src/data/settings/drift_settings_repository.dart';
 import 'package:agentic_hive_backend/src/data/settings/os_executable_validator.dart';
 import 'package:agentic_hive_backend/src/data/workflows/drift_workflow_repository.dart';
+import 'package:agentic_hive_backend/src/data/workflows/file_workspace_workflow_repository.dart';
+import 'package:agentic_hive_backend/src/data/workflows/workspace_workflow_watcher.dart';
 import 'package:agentic_hive_backend/src/data/workspace/drift_snapshot_repository.dart';
 import 'package:agentic_hive_backend/src/data/workspace/drift_workspace_repository.dart';
 import 'package:agentic_hive_backend/src/data/workspace/git_client.dart';
@@ -76,6 +78,7 @@ import 'package:agentic_hive_backend/src/domain/settings/settings_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workspace_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/shadow_snapshot_service.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/snapshot_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_capabilities_service.dart';
@@ -284,12 +287,21 @@ Future<void> registerDependencies(
     ..registerSingleton<WorkflowValidator>(
       WorkflowValidator(nodeRegistry: di<NodeRegistry>()),
     )
+    ..registerSingletonWithDependencies<WorkspaceRepository>(
+      () => DriftWorkspaceRepository(di<AppDatabase>()),
+      dependsOn: [AppDatabase],
+    )
+    ..registerSingleton<WorkspaceWorkflowRepository>(
+      FileWorkspaceWorkflowRepository(pathContext: platformPaths.context),
+    )
     ..registerSingletonWithDependencies<WorkflowService>(
       () => WorkflowService(
         repository: di<WorkflowRepository>(),
         validator: di<WorkflowValidator>(),
+        workspaceWorkflows: di<WorkspaceWorkflowRepository>(),
+        workspaces: di<WorkspaceRepository>(),
       ),
-      dependsOn: [WorkflowRepository],
+      dependsOn: [WorkflowRepository, WorkspaceRepository],
     )
     ..registerSingletonWithDependencies<WorkflowHandler>(
       () => WorkflowHandler(service: di<WorkflowService>()),
@@ -332,10 +344,6 @@ Future<void> registerDependencies(
     ..registerSingleton<WorkspaceCapabilitiesService>(
       WorkspaceCapabilitiesService(di<GitClient>()),
     )
-    ..registerSingletonWithDependencies<WorkspaceRepository>(
-      () => DriftWorkspaceRepository(di<AppDatabase>()),
-      dependsOn: [AppDatabase],
-    )
     ..registerSingletonWithDependencies<WorkspaceService>(
       () => WorkspaceService(
         workspaces: di<WorkspaceRepository>(),
@@ -343,6 +351,17 @@ Future<void> registerDependencies(
         pathContext: platformPaths.context,
       ),
       dependsOn: [WorkspaceRepository],
+    )
+    ..registerSingletonWithDependencies<WorkspaceWorkflowWatcher>(
+      () => WorkspaceWorkflowWatcher(
+        workspaces: di<WorkspaceRepository>(),
+        repository: di<WorkspaceWorkflowRepository>(),
+        validator: di<WorkflowValidator>(),
+        registry: di<ConnectionRegistry>(),
+        pathContext: platformPaths.context,
+      ),
+      dependsOn: [WorkspaceRepository],
+      dispose: (watcher) => watcher.close(),
     )
     ..registerSingletonWithDependencies<WorkspacesHandler>(
       () => WorkspacesHandler(service: di<WorkspaceService>()),
@@ -436,6 +455,7 @@ Future<void> registerDependencies(
         snapshots: di<ShadowSnapshotService>(),
         workspacePreparation: di<WorkspacePreparationService>(),
         workflows: di<WorkflowRepository>(),
+        workspaceWorkflows: di<WorkspaceWorkflowRepository>(),
         workflowValidator: di<WorkflowValidator>(),
         workspaces: di<WorkspaceService>(),
         engine: di<GraphEngine>(),
@@ -597,4 +617,5 @@ Future<void> registerDependencies(
     );
 
   await di.allReady();
+  await di<WorkspaceWorkflowWatcher>().start();
 }

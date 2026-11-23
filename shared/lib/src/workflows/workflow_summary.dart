@@ -1,4 +1,5 @@
 import 'package:agentic_hive_shared/src/json_fields.dart';
+import 'package:agentic_hive_shared/src/workflows/workflow_scope.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'workflow_summary.freezed.dart';
@@ -16,6 +17,8 @@ sealed class WorkflowSummary with _$WorkflowSummary {
     required bool hasValidationErrors,
     required DateTime updatedAt,
     String? description,
+    @Default(WorkflowScope.global) WorkflowScope scope,
+    String? workspaceId,
   }) = _WorkflowSummary;
 
   /// Decodes a workflow summary; throws a [FormatException] on a bad shape.

@@ -11,6 +11,7 @@ import 'package:agentic_hive_backend/src/domain/runs/run_log_store.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workspace_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/shadow_snapshot_service.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_preparation_service.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_service.dart';
@@ -31,6 +32,7 @@ final class RunService {
     this._snapshots,
     this._workspacePreparation,
     this._workflows,
+    this._workspaceWorkflows,
     this._workflowValidator,
     this._workspaces,
     this._engine,
@@ -58,6 +60,7 @@ final class RunService {
   final ShadowSnapshotService? _snapshots;
   final WorkspacePreparationService? _workspacePreparation;
   final WorkflowRepository? _workflows;
+  final WorkspaceWorkflowRepository? _workspaceWorkflows;
   final WorkflowValidator? _workflowValidator;
   final WorkspaceService? _workspaces;
   final GraphEngine? _engine;
@@ -101,6 +104,22 @@ final class RunService {
     await waitForActiveExecutions();
   }
 
+  /// Resolves [workflowId] for a run: workspace-scoped workflows of the run's
+  /// workspace first, then global ones (ADR 0022). Workspace workflow ids are
+  /// file slugs and global ids are random, so a hit in either is unambiguous.
+  Future<Result<Workflow>> _resolveWorkflow(
+    WorkflowRepository globalWorkflows,
+    String workflowId,
+    String? workspaceRoot,
+  ) async {
+    final scoped = _workspaceWorkflows;
+    if (scoped != null && workspaceRoot != null) {
+      final inWorkspace = await scoped.getById(workspaceRoot, workflowId);
+      if (inWorkspace is Success<Workflow>) return inWorkspace;
+    }
+    return await globalWorkflows.getById(workflowId);
+  }
+
   /// Validates [request], enforces the `direct`-mode workspace concurrency
   /// guard, creates the [Run], and starts `GraphEngine` execution
   /// asynchronously.
@@ -121,6 +140,7 @@ final class RunService {
       );
     }
     String? ownerWorkspaceId;
+    String? workspaceRoot;
     final workspaceService = _workspaces;
     if (workspaceId != null && workspaceId.isNotEmpty) {
       if (workspaceService == null) {
@@ -134,12 +154,14 @@ final class RunService {
       }
       ownerWorkspaceId = found.valueOrNull!.id;
       workspacePath = found.valueOrNull!.rootPath;
+      workspaceRoot = workspacePath;
     } else if (workspaceService != null) {
       final found = await workspaceService.findOrRegister(workspacePath);
       if (found case FailureResult<Workspace>(:final failure)) {
         return FailureResult(failure);
       }
       ownerWorkspaceId = found.valueOrNull!.id;
+      workspaceRoot = found.valueOrNull!.rootPath;
     }
 
     final workflows = _workflows;
@@ -169,7 +191,11 @@ final class RunService {
 
     var createdInDb = false;
     try {
-      final workflowResult = await workflows.getById(workflowId);
+      final workflowResult = await _resolveWorkflow(
+        workflows,
+        workflowId,
+        workspaceRoot,
+      );
       if (workflowResult case FailureResult<Workflow>(:final failure)) {
         return FailureResult(failure);
       }

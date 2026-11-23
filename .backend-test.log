@@ -1,0 +1,789 @@
+Running build hooks...
+00:00 +0: loading test\integration\agents\agent_prompt_resolver_integration_test.dart
+00:00 +0: test\integration\agents\agent_prompt_resolver_integration_test.dart: harness node with agentId resolves prompt from LocalAgentRepository and picks up edits on disk
+00:00 +1: test\integration\di\agent_prompt_resolver_di_test.dart: registerDependencies wires a real AgentPromptResolver backed by the agents directory
+00:00 +2: test\integration\di\agent_prompt_resolver_di_test.dart: registerDependencies wires a real AgentPromptResolver backed by the agents directory
+00:01 +3: test\integration\http\lifecycle_test.dart: server.json and socket file exist after start with pid, version, socketPath and startedAt
+00:02 +4: test\integration\http\overview_routes_test.dart: GET /api/v1/overview returns empty snapshot on empty DB
+00:02 +5: test\integration\http\overview_routes_test.dart: GET /api/v1/overview returns empty snapshot on empty DB
+00:03 +6: test\integration\http\overview_routes_test.dart: GET /api/v1/overview returns empty snapshot on empty DB
+00:03 +7: test\integration\http\lifecycle_test.dart: server.json and socket file POST /api/v1/shutdown answers 202 and removes server.json and socket
+00:03 +8: test\integration\http\overview_routes_test.dart: GET /api/v1/overview aggregates real SQLite + agent data and rejects Origin
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database. 
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:agentic_hive_backend/src/db/app_database.g.dart:4912:36)
+#4      new AppDatabase (package:agentic_hive_backend/src/db/app_database.dart)
+#5      new AppDatabase.open (package:agentic_hive_backend/src/db/app_database.dart:353:7)
+#6      main.<anonymous closure> (file:///C:/Users/Ots/orca/workspaces/agentic-hive/r2-workspace-workflows/backend/test/integration/http/overview_routes_test.dart:94:28)
+<asynchronous suspension>
+#7      Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:15)
+<asynchronous suspension>
+#8      Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#9      Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+00:04 +9: test\integration\http\overview_routes_test.dart: GET /api/v1/overview aggregates real SQLite + agent data and rejects Origin
+00:04 +10: test\integration\http\lifecycle_test.dart: stale socket a socket left by a killed process is cleared and start succeeds
+00:04 +10: test\integration\http\overview_routes_test.dart: GET /api/v1/overview handles >200 events per run, multiple active runs, cancelling runs in recentRuns, and 24h window boundaries
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database. 
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:agentic_hive_backend/src/db/app_database.g.dart:4912:36)
+#4      new AppDatabase (package:agentic_hive_backend/src/db/app_database.dart)
+#5      new AppDatabase.open (package:agentic_hive_backend/src/db/app_database.dart:353:7)
+#6      main.<anonymous closure> (file:///C:/Users/Ots/orca/workspaces/agentic-hive/r2-workspace-workflows/backend/test/integration/http/overview_routes_test.dart:269:30)
+#7      Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:25)
+<asynchronous suspension>
+#8      Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#9      Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+00:05 +11: test\integration\http\lifecycle_test.dart: stale socket a socket left by a killed process is cleared and start succeeds
+00:06 +12: test\integration\http\lifecycle_test.dart: stale socket a regular file at the socket path is cleared and start succeeds
+00:06 +13: test\integration\http\pauses_routes_test.dart: lists, gets, answers (200/400/404/409), rejects Origin, and broadcasts WS
+00:06 +14: test\integration\http\pauses_routes_test.dart: lists, gets, answers (200/400/404/409), rejects Origin, and broadcasts WS
+00:07 +15: test\integration\http\pauses_routes_test.dart: lists, gets, answers (200/400/404/409), rejects Origin, and broadcasts WS
+00:07 +15: test\integration\http\lifecycle_test.dart: data folder permissions the data folder is rwx------ after start
+  Skip: Windows relies on the user profile ACL, not POSIX modes (ADR 0011).
+00:07 +15 ~1: test\integration\http\pauses_routes_test.dart: lists, gets, answers (200/400/404/409), rejects Origin, and broadcasts WS
+00:08 +16 ~1: test\integration\http\request_log_test.dart: each request writes an http.request line without the query string to logs/backend-<today UTC>.jsonl
+00:08 +17 ~1: test\integration\http\routes_test.dart: GET /health answers 200 with a HealthResponse over the Unix socket
+00:09 +18 ~1: test\integration\http\runs_routes_test.dart: recovers orphaned runs on startup and serves /api/v1/runs endpoints
+00:09 +19 ~1: test\integration\http\runs_routes_test.dart: recovers orphaned runs on startup and serves /api/v1/runs endpoints
+00:09 +20 ~1: test\integration\http\runs_routes_test.dart: recovers orphaned runs on startup and serves /api/v1/runs endpoints
+00:10 +21 ~1: test\integration\http\runs_routes_test.dart: recovers orphaned runs on startup and serves /api/v1/runs endpoints
+00:10 +22 ~1: test\integration\http\routes_test.dart: errors a request to /api/v1/status with an Origin header answers 403
+00:10 +23 ~1: test\integration\http\routes_test.dart: errors a request to /nowhere with an Origin header answers 403
+00:11 +24 ~1: test\integration\http\settings_routes_test.dart: GET/PUT /api/v1/settings persists, reloads F2 agents, broadcasts settings.updated, and survives restart
+00:13 +25 ~1: test\integration\http\workspace_routes_test.dart: serves capabilities, snapshots, diff, restore, and rejects Origin over Unix socket
+00:15 +26 ~1: test\integration\http\workspace_routes_test.dart: serves capabilities, snapshots, diff, restore, and rejects Origin over Unix socket
+00:16 +27 ~1: test\integration\http\workspace_routes_test.dart: serves capabilities, snapshots, diff, restore, and rejects Origin over Unix socket
+00:18 +28 ~1: test\integration\http\workspace_routes_test.dart: serves capabilities, snapshots, diff, restore, and rejects Origin over Unix socket
+00:18 +29 ~1: test\integration\http\workspace_routes_test.dart: serves capabilities, snapshots, diff, restore, and rejects Origin over Unix socket
+00:19 +30 ~1: test\integration\http\workspace_routes_test.dart: serves capabilities, snapshots, diff, restore, and rejects Origin over Unix socket
+00:19 +31 ~1: test\integration\http\workspace_routes_test.dart: serves capabilities, snapshots, diff, restore, and rejects Origin over Unix socket
+00:19 +32 ~1: test\integration\http\workspace_routes_test.dart: serves capabilities, snapshots, diff, restore, and rejects Origin over Unix socket
+00:19 +33 ~1: test\integration\http\workspace_routes_test.dart: serves capabilities, snapshots, diff, restore, and rejects Origin over Unix socket
+00:20 +34 ~1: test\integration\http\workspace_routes_test.dart: serves capabilities, snapshots, diff, restore, and rejects Origin over Unix socket
+00:20 +35 ~1: test\integration\http\workspace_routes_test.dart: serves capabilities, snapshots, diff, restore, and rejects Origin over Unix socket
+00:21 +36 ~1: test\integration\http\workspace_routes_test.dart: serves capabilities, snapshots, diff, restore, and rejects Origin over Unix socket
+00:22 +37 ~1: test\integration\http\workspace_routes_test.dart: serves capabilities, snapshots, diff, restore, and rejects Origin over Unix socket
+00:22 +38 ~1: test\integration\http\workspace_routes_test.dart: serves capabilities, snapshots, diff, restore, and rejects Origin over Unix socket
+00:22 +39 ~1: test\integration\http\workspace_routes_test.dart: serves capabilities, snapshots, diff, restore, and rejects Origin over Unix socket
+00:22 +40 ~1: test\integration\http\workspace_routes_test.dart: serves capabilities, snapshots, diff, restore, and rejects Origin over Unix socket
+00:23 +41 ~1: test\integration\persistence\pause_persistence_test.dart: migrates schemaVersion 5 to 6 creating Pauses table
+00:23 +42 ~1: test\integration\persistence\run_persistence_test.dart: migrates a v2 database to v3, creating runs, checkpoints, and run_events
+00:23 +43 ~1: test\integration\persistence\run_persistence_test.dart: migrates a v2 database to v3, creating runs, checkpoints, and run_events
+00:24 +44 ~1: test\integration\persistence\run_persistence_test.dart: repositories support monotonic sequences, filtering, and cascade delete
+00:24 +45 ~1: test\integration\persistence\run_persistence_test.dart: RunRecoveryService recovers running runs, preserves paused, and resolves resume points
+00:24 +46 ~1: test\integration\persistence\run_persistence_test.dart: updateStatus preserves finishedAt/errorMessage and delete enforces active check
+00:24 +47 ~1: test\integration\persistence\run_persistence_test.dart: RunRecoveryService transitions cancelling runs to cancellationUncertain
+00:24 +48 ~1: test\integration\persistence\settings_repository_test.dart: schema v2 -> v7 migration creates settings table and preserves existing v2 data
+00:25 +49 ~1: test\integration\persistence\settings_repository_test.dart: DriftSettingsRepository returns empty map when no settings are stored
+00:25 +50 ~1: test\integration\persistence\settings_repository_test.dart: DriftSettingsRepository upserts and deletes keys atomically in applyChanges
+00:25 +51 ~1: test\integration\persistence\workflow_repository_test.dart: create, read, update, list, and delete persist across restarts
+00:25 +52 ~1: test\integration\persistence\workflow_repository_test.dart: migrates a v1 database to v2 and creates workflows table
+00:25 +53 ~1: test\integration\persistence\workspace_migration_test.dart: schemaVersion is 7
+00:25 +54 ~1: test\integration\persistence\workspace_migration_test.dart: migrating 6 to 7 attaches every run to a workspace named after its folder and keeps workflows and runs
+00:26 +55 ~1: test\integration\result_contract\hive_mcp_integration_test.dart: hive-mcp stdio proxy handles initialize, tools/list, report_result, and ask_human
+00:26 +56 ~1: test\integration\result_contract\hive_mcp_integration_test.dart: hive-mcp stdio proxy handles initialize, tools/list, report_result, and ask_human
+00:27 +57 ~1: test\integration\result_contract\hive_mcp_integration_test.dart: hive-mcp stdio proxy handles initialize, tools/list, report_result, and ask_human
+00:33 +58 ~1: test\integration\runs\process_tree_killer_test.dart: currentProcessTreeKiller terminates parent and spawned child processes before returning
+00:34 +59 ~1: test\integration\runs\process_tree_killer_test.dart: currentProcessTreeKiller terminates parent and spawned child processes before returning
+00:34 +60 ~1: test\integration\runs\process_tree_killer_test.dart: currentProcessTreeKiller terminates parent and spawned child processes before returning
+00:34 +61 ~1: test\integration\runs\process_tree_killer_test.dart: deterministically returns NodeExecutionFailure when confirmation times out and blocks new spawns while cancelling
+00:36 +62 ~1: test\integration\runs\runs_api_integration_test.dart: POST /runs starts asynchronously, enforces 409 on direct conflict, streams run.event/run.output, and serves node logs
+00:36 +62 ~1: test\integration\runs\process_tree_killer_test.dart: PosixProcessPlatform spawns child as leader of its own process group (pgid == pid)
+  Skip: POSIX process group ownership applies to Linux and macOS only.
+00:36 +62 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs starts asynchronously, enforces 409 on direct conflict, streams run.event/run.output, and serves node logs
+00:37 +63 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs starts asynchronously, enforces 409 on direct conflict, streams run.event/run.output, and serves node logs
+00:37 +64 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs starts asynchronously, enforces 409 on direct conflict, streams run.event/run.output, and serves node logs
+00:37 +65 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs starts asynchronously, enforces 409 on direct conflict, streams run.event/run.output, and serves node logs
+00:39 +66 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs starts asynchronously, enforces 409 on direct conflict, streams run.event/run.output, and serves node logs
+00:40 +67 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs starts asynchronously, enforces 409 on direct conflict, streams run.event/run.output, and serves node logs
+00:40 +68 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs starts asynchronously, enforces 409 on direct conflict, streams run.event/run.output, and serves node logs
+00:40 +69 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs starts asynchronously, enforces 409 on direct conflict, streams run.event/run.output, and serves node logs
+00:41 +70 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs starts asynchronously, enforces 409 on direct conflict, streams run.event/run.output, and serves node logs
+00:43 +71 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs starts asynchronously, enforces 409 on direct conflict, streams run.event/run.output, and serves node logs
+00:43 +72 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs starts asynchronously, enforces 409 on direct conflict, streams run.event/run.output, and serves node logs
+00:43 +73 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs starts asynchronously, enforces 409 on direct conflict, streams run.event/run.output, and serves node logs
+00:43 +74 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs starts asynchronously, enforces 409 on direct conflict, streams run.event/run.output, and serves node logs
+00:44 +75 ~2: test\integration\websocket\messages_test.dart: a non-JSON text frame gets invalid_message and the connection stays open
+00:45 +76 ~2: test\integration\runs\runs_api_integration_test.dart: two simultaneous POST /runs in direct mode on the same workspace return one 201 and one 409
+00:45 +77 ~2: test\integration\runs\runs_api_integration_test.dart: two simultaneous POST /runs in direct mode on the same workspace return one 201 and one 409
+00:45 +78 ~2: test\integration\runs\runs_api_integration_test.dart: two simultaneous POST /runs in direct mode on the same workspace return one 201 and one 409
+00:46 +79 ~2: test\integration\runs\runs_api_integration_test.dart: two simultaneous POST /runs in direct mode on the same workspace return one 201 and one 409
+00:46 +80 ~2: test\integration\runs\runs_api_integration_test.dart: two simultaneous POST /runs in direct mode on the same workspace return one 201 and one 409
+00:46 +81 ~2: test\integration\runs\runs_api_integration_test.dart: two simultaneous POST /runs in direct mode on the same workspace return one 201 and one 409
+00:46 +82 ~2: test\integration\runs\runs_api_integration_test.dart: two simultaneous POST /runs in direct mode on the same workspace return one 201 and one 409
+00:47 +83 ~2: test\integration\runs\runs_api_integration_test.dart: two simultaneous POST /runs in direct mode on the same workspace return one 201 and one 409
+00:47 +84 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs/:id/cancel terminates a running command node
+00:48 +85 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs/:id/cancel terminates a running command node
+00:48 +86 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs/:id/cancel terminates a running command node
+00:49 +87 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs/:id/cancel terminates a running command node
+00:50 +88 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs/:id/cancel terminates a running command node
+00:50 +89 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs/:id/cancel terminates a running command node
+00:51 +90 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs/:id/cancel terminates a running command node
+00:51 +91 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs/:id/resume rejects paused (409) and resumes interrupted
+00:51 +92 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs/:id/resume rejects paused (409) and resumes interrupted
+00:51 +93 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs/:id/resume rejects paused (409) and resumes interrupted
+WARNING (drift): It looks like you've created the database class AppDatabase multiple times. When these two databases use the same QueryExecutor, race conditions will occur and might corrupt the database. 
+Try to follow the advice at https://drift.simonbinder.eu/faq/#using-the-database or, if you know what you're doing, set driftRuntimeOptions.dontWarnAboutMultipleDatabases = true
+Here is the stacktrace from when the database was opened a second time:
+#0      GeneratedDatabase._handleInstantiated (package:drift/src/runtime/api/db_base.dart:96:30)
+#1      GeneratedDatabase._whenConstructed (package:drift/src/runtime/api/db_base.dart:73:12)
+#2      new GeneratedDatabase (package:drift/src/runtime/api/db_base.dart:64:5)
+#3      new _$AppDatabase (package:agentic_hive_backend/src/db/app_database.g.dart:4912:36)
+#4      new AppDatabase (package:agentic_hive_backend/src/db/app_database.dart)
+#5      new AppDatabase.open (package:agentic_hive_backend/src/db/app_database.dart:353:7)
+#6      main.<anonymous closure> (file:///C:/Users/Ots/orca/workspaces/agentic-hive/r2-workspace-workflows/backend/test/integration/runs/runs_api_integration_test.dart:306:30)
+<asynchronous suspension>
+#7      Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:253:15)
+<asynchronous suspension>
+#8      Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:250:11)
+<asynchronous suspension>
+#9      Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:318:9)
+<asynchronous suspension>
+This warning will only appear on debug builds.
+00:51 +94 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs/:id/resume rejects paused (409) and resumes interrupted
+00:51 +95 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs/:id/resume rejects paused (409) and resumes interrupted
+00:51 +96 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs/:id/resume rejects paused (409) and resumes interrupted
+00:51 +97 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs/:id/resume rejects paused (409) and resumes interrupted
+00:51 +98 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs/:id/resume rejects paused (409) and resumes interrupted
+00:51 +99 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs/:id/resume rejects paused (409) and resumes interrupted
+00:51 +100 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs/:id/resume rejects paused (409) and resumes interrupted
+00:51 +101 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs/:id/resume rejects paused (409) and resumes interrupted
+00:51 +102 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs/:id/resume rejects paused (409) and resumes interrupted
+00:54 +103 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs/:id/resume rejects paused (409) and resumes interrupted
+00:54 +104 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs/:id/resume rejects paused (409) and resumes interrupted
+00:55 +105 ~2: test\integration\runs\runs_api_integration_test.dart: POST /runs/:id/resume rejects paused (409) and resumes interrupted
+00:57 +106 ~2: test\integration\workflows\workspace_scoped_workflows_test.dart: an external edit of the workflow file is broadcast live
+00:59 +107 ~2: test\integration\workflows\workspace_scoped_workflows_test.dart: an external edit of the workflow file is broadcast live
+01:00 +108 ~2: test\integration\workspace\workspace_run_linkage_test.dart: a run started with only workspacePath registers the folder as a workspace and attaches the run
+01:01 +109 ~2: test\integration\workspace\workspace_run_linkage_test.dart: a run started with only workspacePath registers the folder as a workspace and attaches the run
+01:04 +110 ~2: test\integration\workspace\workspace_run_linkage_test.dart: a run started with only workspacePath registers the folder as a workspace and attaches the run
+01:04 +111 ~2: test\integration\workspace\workspace_snapshots_test.dart: ShadowSnapshotService captures non-git snapshots, deduplicates unchanged trees, and computes diffs
+01:05 +112 ~2: test\integration\workspace\workspace_snapshots_test.dart: ShadowSnapshotService captures non-git snapshots, deduplicates unchanged trees, and computes diffs
+01:05 +113 ~2: test\integration\workspace\workspace_snapshots_test.dart: ShadowSnapshotService captures non-git snapshots, deduplicates unchanged trees, and computes diffs
+01:09 +114 ~2: test\integration\workspace\workspace_snapshots_test.dart: ShadowSnapshotService captures non-git snapshots, deduplicates unchanged trees, and computes diffs
+01:11 +115 ~2: test\integration\worktrees\worktrees_routes_test.dart: lists the primary checkout with its branch first
+01:12 +116 ~2: test\integration\workspace\workspace_snapshots_test.dart: ShadowSnapshotService respects .hiveignore, custom exclusions, and file size limit with snapshot.warning
+01:14 +117 ~2: test\integration\worktrees\worktrees_routes_test.dart: creates a worktree on a new branch under the app data folder, from the primary current branch by default
+01:15 +118 ~2: test\integration\workspace\workspace_snapshots_test.dart: ShadowSnapshotService restores files, removes untracked files, preserves .git and excluded files, and rejects running
+01:19 +119 ~2: test\integration\workspace\workspace_snapshots_test.dart: ShadowSnapshotService restores files, removes untracked files, preserves .git and excluded files, and rejects running
+01:22 +120 ~2: test\integration\worktrees\worktrees_routes_test.dart: flags uncommitted changes in a worktree
+01:22 +121 ~2: test\integration\workspace\workspace_snapshots_test.dart: ShadowSnapshotService hardening shadow commands ignore user git config and commit with --no-verify
+01:29 +122 ~2: test\integration\worktrees\worktrees_routes_test.dart: rejects bad names, duplicate names, existing branches and unknown base branches
+01:31 +123 ~2: test\integration\workspace\workspace_snapshots_test.dart: ShadowSnapshotService hardening pins every snapshot under refs/hive/snap and clears a stale index.lock
+01:38 +124 ~2: test\integration\workspace\workspace_snapshots_test.dart: ShadowSnapshotService hardening pins every snapshot under refs/hive/snap and clears a stale index.lock
+01:39 +125 ~2: test\integration\worktrees\worktrees_routes_test.dart: keeps an unmerged branch and says so
+01:46 +126 ~2: test\integration\workspace\workspace_snapshots_test.dart: ShadowSnapshotService hardening size guard also applies to tracked files that grow and escapes glob characters in names
+01:49 +127 ~2: test\integration\worktrees\worktrees_routes_test.dart: refuses to remove a dirty worktree unless forced
+01:54 +128 ~2: test\integration\workspace\workspace_snapshots_test.dart: ShadowSnapshotService hardening restore reuses the persisted exclusions of the last capture
+01:57 +129 ~2: test\integration\workspace\workspace_snapshots_test.dart: ShadowSnapshotService hardening restore reuses the persisted exclusions of the last capture
+01:59 +130 ~2: test\integration\worktrees\worktrees_routes_test.dart: does not list or remove worktrees outside the app data folder
+02:01 +131 ~2: test\integration\workspace\workspace_snapshots_test.dart: ShadowSnapshotService hardening concurrent captures for one run are serialized
+02:05 +132 ~2: test\integration\workspace\workspace_snapshots_test.dart: ShadowSnapshotService hardening concurrent captures for one run are serialized
+02:08 +133 ~2: test\integration\workspace\workspace_snapshots_test.dart: ShadowSnapshotService hardening concurrent captures for one run are serialized
+02:09 +134 ~2: test\integration\worktrees\worktrees_routes_test.dart: unknown workspace is 404
+02:10 +135 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:11 +136 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:11 +137 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:11 +138 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:11 +139 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:11 +140 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:11 +141 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:12 +142 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:12 +143 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:12 +144 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:12 +145 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:12 +146 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:12 +147 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:12 +148 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:12 +149 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:12 +150 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:12 +151 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:12 +152 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:12 +153 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:12 +154 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:12 +155 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:12 +156 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:12 +157 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:12 +158 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode for a subfolder of a larger repo
+02:13 +159 ~2: test\shelf\error_middleware_test.dart: passes a normal response through untouched
+02:13 +160 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode with snapshot.warning on unborn HEAD
+02:13 +161 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode with snapshot.warning on unborn HEAD
+02:13 +162 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode with snapshot.warning on unborn HEAD
+02:13 +163 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode with snapshot.warning on unborn HEAD
+02:14 +164 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode with snapshot.warning on unborn HEAD
+02:14 +165 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode with snapshot.warning on unborn HEAD
+02:14 +166 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode with snapshot.warning on unborn HEAD
+02:14 +167 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode with snapshot.warning on unborn HEAD
+02:14 +168 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode with snapshot.warning on unborn HEAD
+02:14 +169 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode with snapshot.warning on unborn HEAD
+02:14 +170 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode with snapshot.warning on unborn HEAD
+02:15 +171 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode with snapshot.warning on unborn HEAD
+02:15 +172 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode with snapshot.warning on unborn HEAD
+02:15 +173 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode with snapshot.warning on unborn HEAD
+02:15 +174 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode with snapshot.warning on unborn HEAD
+02:15 +175 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode with snapshot.warning on unborn HEAD
+02:15 +176 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode with snapshot.warning on unborn HEAD
+02:15 +177 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode with snapshot.warning on unborn HEAD
+02:15 +178 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode with snapshot.warning on unborn HEAD
+02:15 +179 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup falls back to direct mode with snapshot.warning on unborn HEAD
+02:16 +180 ~2: test\shelf\overview_handler_test.dart: returns empty snapshot when no runs, pauses, or agents exist
+02:16 +181 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:16 +182 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:16 +183 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:16 +184 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:17 +185 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:17 +186 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:17 +187 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:17 +188 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:18 +189 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:18 +190 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:18 +191 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:18 +192 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:18 +193 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:18 +194 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:18 +195 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:19 +196 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:19 +197 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:19 +198 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:19 +199 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:20 +200 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:20 +201 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:20 +202 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:20 +203 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:20 +204 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:20 +205 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:20 +206 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:20 +207 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:21 +208 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:21 +209 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:21 +210 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:21 +211 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:22 +212 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:22 +213 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:22 +214 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:22 +215 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:25 +216 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:27 +217 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:27 +218 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:28 +219 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:28 +220 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:28 +221 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:28 +222 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:28 +223 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:29 +224 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:29 +225 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:30 +226 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:30 +227 ~2: test\integration\workspace\workspace_snapshots_test.dart: WorkspacePreparationService & RunService.deleteRun cleanup creates hive/<runId> worktree leaving uncommitted work untouched and cleans up on deleteRun
+02:30 +228 ~2: test\shelf\workspaces_handler_test.dart: PATCH /api/v1/workspaces/:id renames the workspace
+02:30 +229 ~2: test\shelf\workspaces_handler_test.dart: PATCH /api/v1/workspaces/:id rejects a blank name with 400
+02:31 +230 ~2: test\shelf\workspace_handler_test.dart: GET /api/v1/workspace/capabilities returns capabilities JSON
+02:31 +231 ~2: test\shelf\workspace_handler_test.dart: GET /api/v1/workspace/capabilities returns capabilities JSON
+02:32 +232 ~2: test\shelf\workspaces_handler_test.dart: DELETE /api/v1/workspaces/:id unregisters without deleting any file
+02:32 +233 ~2: test\shelf\workspaces_handler_test.dart: DELETE /api/v1/workspaces/:id unregisters without deleting any file
+02:32 +234 ~2: test\shelf\workspaces_handler_test.dart: DELETE /api/v1/workspaces/:id unregisters without deleting any file
+02:32 +235 ~2: test\shelf\workspaces_handler_test.dart: DELETE /api/v1/workspaces/:id unregisters without deleting any file
+02:32 +236 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:33 +237 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:34 +238 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:34 +239 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:36 +240 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:36 +241 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:36 +242 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:36 +243 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:36 +244 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:36 +245 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:36 +246 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:36 +247 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:36 +248 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:36 +249 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:36 +250 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:36 +251 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:36 +252 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:36 +253 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:36 +254 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:37 +255 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:37 +256 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:37 +257 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:37 +258 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:37 +259 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:37 +260 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:39 +261 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:39 +262 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:41 +263 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:41 +264 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:41 +265 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:41 +266 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:41 +267 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:41 +268 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:41 +269 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +270 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +271 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +272 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +273 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +274 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +275 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +276 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +277 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +278 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +279 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +280 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +281 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +282 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +283 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +284 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +285 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +286 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +287 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +288 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +289 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +290 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +291 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +292 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +293 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +294 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +295 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +296 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +297 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +298 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +299 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +300 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:42 +301 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:43 +302 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:43 +303 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:43 +304 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:43 +305 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:44 +306 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:44 +307 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:44 +308 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:44 +309 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:44 +310 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:44 +311 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:45 +312 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:45 +313 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:45 +314 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:45 +315 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:45 +316 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +317 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +318 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +319 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +320 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +321 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +322 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +323 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +324 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +325 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +326 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +327 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +328 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +329 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +330 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +331 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +332 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +333 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +334 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +335 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +336 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +337 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +338 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +339 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +340 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +341 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +342 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +343 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +344 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +345 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +346 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +347 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +348 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +349 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +350 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +351 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +352 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +353 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +354 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +355 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:47 +356 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:48 +357 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:48 +358 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:48 +359 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:48 +360 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:48 +361 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:48 +362 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:48 +363 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:48 +364 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:48 +365 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:48 +366 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:48 +367 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:48 +368 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:48 +369 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:48 +370 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:48 +371 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:48 +372 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:48 +373 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:48 +374 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:48 +375 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:48 +376 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:48 +377 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:48 +378 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:49 +379 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:49 +380 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:49 +381 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:49 +382 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:50 +383 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:51 +384 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:51 +385 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:51 +386 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:51 +387 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:51 +388 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:51 +389 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:51 +390 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:51 +391 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:51 +392 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:51 +393 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +394 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +395 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +396 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +397 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +398 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +399 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +400 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +401 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +402 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +403 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +404 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +405 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +406 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +407 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +408 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +409 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +410 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +411 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +412 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +413 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +414 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +415 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +416 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:52 +417 ~2: test\shelf\workspace_handler_test.dart: lists snapshots, computes diff, enforces 409 when running, and restores when paused
+02:54 +418 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine interrupted run recovery rolls back, resets the breaker and keeps attemptsByEdge
+02:54 +419 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine interrupted run recovery does not need any input to resume
+02:54 +420 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine interrupted run recovery skips the rollback when the interrupted node never snapshotted
+02:54 +421 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine interrupted run recovery ignores snapshots taken before the last checkpoint
+02:54 +422 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine interrupted run recovery stays interrupted when the rollback fails
+02:54 +423 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine interrupted run recovery restarts from the entry node when no checkpoint exists
+02:54 +424 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine interrupted rollback selection rolls back a node running at the last checkpoint
+02:54 +425 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine interrupted rollback selection never restores a snapshot older than a completed node
+02:54 +426 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine terminal status writes a failed status write leaves no run.failed event behind
+02:54 +427 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine terminal status writes a failed status write leaves no run.cancelled event behind
+02:54 +428 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine terminal status writes the status is written before the terminal event
+02:54 +429 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine cancellation a running run reports cancelled only after the kill is confirmed
+02:54 +430 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine cancellation aborts every parallel branch
+02:54 +431 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine cancellation a failed kill transitions to cancellationUncertain and is retryable
+02:54 +432 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine cancellation a node future that does not settle within cancelGracePeriod transitions to cancellationUncertain
+02:54 +433 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine cancellation a cancel issued during start is applied once driven
+02:54 +434 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine cancellation a cancel issued during a failing setup reports that failure
+02:54 +435 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine cancellation a cancel that races the pause is applied to the paused run
+02:54 +436 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine cancellation a cancel that arrives too late says the run already finished
+02:54 +437 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine cancellation a paused run is cancelled immediately without killing
+02:54 +438 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine cancellation an interrupted run is cancelled immediately
+02:54 +439 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine cancellation rejects cancelling a finished run
+02:54 +440 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine cancellation rejects cancelling a running run this process does not drive
+02:54 +441 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine cancellation returns NotFoundFailure for an unknown run
+02:54 +442 ~2: test\unit\engine\graph_engine_recovery_cancel_test.dart: GraphEngine cancellation cancelling a paused run is not confused with a resume
+02:55 +443 ~2: test\unit\engine\graph_engine_retries_test.dart: GraphEngine cycle retries tracks attemptsByEdge and emits node.retried per traversal
+02:55 +444 ~2: test\unit\engine\graph_engine_retries_test.dart: GraphEngine cycle retries fails the run once the edge reaches maxRetries
+02:55 +445 ~2: test\unit\engine\graph_engine_retries_test.dart: GraphEngine cycle retries does not roll the workspace back between attempts
+02:55 +446 ~2: test\unit\engine\graph_engine_retries_test.dart: GraphEngine cycle retries maxRetries 0 blocks the first traversal
+02:55 +447 ~2: test\unit\engine\graph_engine_retries_test.dart: GraphEngine circuit breaker trips after 3 consecutive infrastructure failures
+02:55 +448 ~2: test\unit\engine\graph_engine_retries_test.dart: GraphEngine circuit breaker the threshold is configurable
+02:55 +449 ~2: test\unit\engine\graph_engine_retries_test.dart: GraphEngine circuit breaker a normal outcome resets the counter
+02:55 +450 ~2: test\unit\engine\graph_engine_retries_test.dart: GraphEngine circuit breaker onFailure outcomes never trip the breaker
+02:55 +451 ~2: test\unit\engine\graph_engine_retries_test.dart: GraphEngine circuit breaker rejected and changesRequested outcomes reset the counter
+02:55 +452 ~2: test\unit\engine\graph_engine_retries_test.dart: GraphEngine circuit breaker retries an infrastructure failure on the same node
+02:55 +453 ~2: test\unit\engine\graph_engine_retries_test.dart: GraphEngine circuit breaker an authentication failure fails the run without retrying
+02:55 +454 ~2: test\unit\engine\graph_engine_retries_test.dart: GraphEngine circuit breaker a node that throws fails the run instead of hanging
+02:55 +455 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine routing runs a linear workflow from the entry node to success
+02:55 +456 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine routing starts at entryNodeId, not at the first listed node
+02:55 +457 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine routing follows only the edge matching the emitted outputLabel
+02:55 +458 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine routing routes custom labels such as changesRequested
+02:55 +459 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine routing a terminal node emitting approved ends its branch cleanly
+02:55 +460 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine routing a terminal node emitting onFailure fails the run
+02:55 +461 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine routing a terminal node emitting rejected fails the run
+02:55 +462 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine routing a terminal node emitting changesRequested fails the run
+02:55 +463 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine routing an outcome without a matching edge fails when others exist
+02:55 +464 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine routing fails the run when the workflow has no entry node
+02:55 +465 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine routing fails the run when a node type is not registered
+02:55 +466 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine routing rejects starting a run that is not running
+02:55 +467 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine routing rejects starting a run that already has checkpoints
+02:55 +468 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine routing rejects a concurrent start of the same run
+02:55 +469 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine routing returns NotFoundFailure for an unknown run
+02:55 +470 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine node context and persistence accumulates nodeOutputs and passes immediate predecessors
+02:55 +471 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine node context and persistence predecessors come from this traversal, not a previous loop
+02:55 +472 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine node context and persistence passes the declared outputs, config and attempt number
+02:55 +473 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine node context and persistence uses the worktree path as workspace when isolated
+02:55 +474 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine node context and persistence saves a checkpoint and checkpoint.saved after every node
+02:55 +475 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine node context and persistence emits node.started and node.completed per node in order
+02:55 +476 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine node context and persistence snapshots the workspace before each node
+02:55 +477 ~2: test\unit\engine\graph_engine_routing_test.dart: GraphEngine node context and persistence continues without a snapshot and warns when capture fails
+02:56 +478 ~2: test\unit\engine\pausing_human_approval_port_test.dart: answers an approval request with a pause request
+02:57 +479 ~2: test\unit\engine\workflow_graph_test.dart: WorkflowGraph looks up nodes and edges
+02:57 +480 ~2: test\unit\engine\workflow_graph_test.dart: WorkflowGraph reaches follows one or more edges
+02:57 +481 ~2: test\unit\engine\workflow_graph_test.dart: WorkflowGraph a node on a cycle reaches itself
+02:57 +482 ~2: test\unit\harnesses\harness_detector_test.dart: CliHarnessDetector returns notInstalled when executable is not on PATH
+02:57 +483 ~2: test\unit\harnesses\harness_detector_test.dart: CliHarnessDetector parses versions for all four concrete harnesses
+02:57 +484 ~2: test\unit\harnesses\harness_detector_test.dart: CliHarnessDetector detects outdated CLI and interactive update prompts
+02:57 +485 ~2: test\unit\harnesses\harness_detector_test.dart: CliHarnessDetector detects auth errors without leaking raw stderr/secrets
+02:57 +486 ~2: test\unit\harnesses\harness_detector_test.dart: CliHarnessDetector marks timed-out probe as unavailable
+02:57 +487 ~2: test\unit\harnesses\harness_detector_test.dart: CliHarnessDetector marks non-zero exit without auth/update pattern as unavailable
+02:57 +488 ~2: test\unit\harnesses\harness_detector_test.dart: CliHarnessDetector marks unparseable version output as unavailable
+02:58 +489 ~2: test\unit\harnesses\harness_mcp_installers_test.dart: HarnessMcpInstallerRegistry looks up installers by HarnessId without switching
+02:58 +490 ~2: test\unit\harnesses\harness_mcp_installers_test.dart: ClaudeCodeMcpInstaller detects installed when command and args match
+02:58 +491 ~2: test\unit\harnesses\harness_mcp_installers_test.dart: ClaudeCodeMcpInstaller detects outdated when command or args differ
+02:58 +492 ~2: test\unit\harnesses\harness_mcp_installers_test.dart: ClaudeCodeMcpInstaller detects notInstalled when claude mcp get reports missing
+02:58 +493 ~2: test\unit\harnesses\harness_mcp_installers_test.dart: ClaudeCodeMcpInstaller detects unknown on timeout
+02:58 +494 ~2: test\unit\harnesses\harness_mcp_installers_test.dart: ClaudeCodeMcpInstaller install passes exact args and removes+re-adds when already exists
+02:58 +495 ~2: test\unit\harnesses\harness_mcp_installers_test.dart: CodexMcpInstaller detects installed only when command, args, and HIVE_* env_vars match
+02:58 +496 ~2: test\unit\harnesses\harness_mcp_installers_test.dart: CodexMcpInstaller detects outdated when env_vars is missing HIVE_* keys
+02:58 +497 ~2: test\unit\harnesses\harness_mcp_installers_test.dart: CodexMcpInstaller install runs codex mcp add and patches env_vars in config.toml with backup
+02:58 +498 ~2: test\unit\harnesses\harness_service_test.dart: listHarnesses scans once and returns cached results thereafter
+02:58 +499 ~2: test\unit\harnesses\harness_service_test.dart: listHarnesses scans once and returns cached results thereafter
+02:58 +500 ~2: test\unit\harnesses\harness_service_test.dart: listHarnesses scans once and returns cached results thereafter
+02:58 +501 ~2: test\unit\harnesses\harness_service_test.dart: listHarnesses scans once and returns cached results thereafter
+02:58 +502 ~2: test\unit\harnesses\harness_service_test.dart: listHarnesses scans once and returns cached results thereafter
+02:58 +503 ~2: test\unit\harnesses\harness_service_test.dart: refreshAll broadcasts only harnesses whose status or fields changed
+02:58 +504 ~2: test\unit\harnesses\harness_service_test.dart: reportAuthError and reportOutdated update cache and broadcast, and refreshOne clears stale errors when probe succeeds
+02:58 +505 ~2: test\unit\harnesses\harness_service_test.dart: refreshOne before initial listHarnesses does not cause listHarnesses to return a partial cache
+02:59 +506 ~2: test\unit\harnesses\os_executable_locator_test.dart: executableLocatorFor returns WindowsExecutableLocator for windows
+02:59 +507 ~2: test\unit\harnesses\os_executable_locator_test.dart: executableLocatorFor returns PosixExecutableLocator for linux and macos
+02:59 +508 ~2: test\unit\harnesses\os_executable_locator_test.dart: executableLocatorFor throws UnsupportedError for unknown operating systems
+02:59 +509 ~2: test\unit\harnesses\os_executable_locator_test.dart: WindowsExecutableLocator runs where and returns the first resolved path
+02:59 +510 ~2: test\unit\harnesses\os_executable_locator_test.dart: WindowsExecutableLocator prefers .exe, .cmd, or .bat over extensionless shims
+02:59 +511 ~2: test\unit\harnesses\os_executable_locator_test.dart: WindowsExecutableLocator returns null on non-zero exit, timeout, or launch error
+02:59 +512 ~2: test\unit\harnesses\os_executable_locator_test.dart: PosixExecutableLocator runs which and returns the first resolved path
+02:59 +513 ~2: test\unit\harnesses\os_executable_locator_test.dart: PosixExecutableLocator returns null when which exits non-zero or output is empty
+02:59 +514 ~2: test\unit\logging\log_formatter_test.dart: LogFormatter.toJson writes time, level, logger, message and fields
+02:59 +515 ~2: test\unit\logging\log_formatter_test.dart: LogFormatter.toJson omits fields when the event has none
+02:59 +516 ~2: test\unit\logging\log_formatter_test.dart: LogFormatter.toJson uses the plain message for a record that is not a LogEvent
+02:59 +517 ~2: test\unit\logging\log_formatter_test.dart: LogFormatter.toJson toJsonLine is one line of the same JSON
+02:59 +518 ~2: test\unit\logging\log_formatter_test.dart: userContent is written at FINEST
+02:59 +519 ~2: test\unit\logging\log_formatter_test.dart: userContent is written at FINER
+02:59 +520 ~2: test\unit\logging\log_formatter_test.dart: userContent is written at FINE
+02:59 +521 ~2: test\unit\logging\log_formatter_test.dart: userContent is written at CONFIG
+02:59 +522 ~2: test\unit\logging\log_formatter_test.dart: userContent is not written at INFO
+02:59 +523 ~2: test\unit\logging\log_formatter_test.dart: userContent is not written at WARNING
+02:59 +524 ~2: test\unit\logging\log_formatter_test.dart: userContent is not written at SEVERE
+02:59 +525 ~2: test\unit\logging\log_formatter_test.dart: userContent is kept whole at exactly the maximum length
+02:59 +526 ~2: test\unit\logging\log_formatter_test.dart: userContent is truncated to 500 characters plus an ellipsis
+02:59 +527 ~2: test\unit\logging\log_formatter_test.dart: userContent appears in the console line below INFO
+02:59 +528 ~2: test\unit\logging\log_formatter_test.dart: secrets never appear at FINEST in JSON or on the console
+02:59 +529 ~2: test\unit\logging\log_formatter_test.dart: secrets never appear at FINE in JSON or on the console
+02:59 +530 ~2: test\unit\logging\log_formatter_test.dart: secrets never appear at INFO in JSON or on the console
+02:59 +531 ~2: test\unit\logging\log_formatter_test.dart: secrets never appear at SEVERE in JSON or on the console
+02:59 +532 ~2: test\unit\logging\log_formatter_test.dart: secrets never appear in a plain-string message
+02:59 +533 ~2: test\unit\logging\log_formatter_test.dart: secrets never appear in a stack trace
+02:59 +534 ~2: test\unit\logging\log_formatter_test.dart: errors writes the error and the stack trace to JSON
+02:59 +535 ~2: test\unit\logging\log_formatter_test.dart: errors omits error and stackTrace when the record has none
+02:59 +536 ~2: test\unit\logging\log_formatter_test.dart: errors puts the error and stack trace on their own console lines
+02:59 +537 ~2: test\unit\logging\log_formatter_test.dart: LogFormatter.toConsoleLine writes time, padded level, logger, message and fields
+03:00 +538 ~2: test\unit\logging\redactor_test.dart: Redactor.isSensitiveKey treats "token" as sensitive
+03:00 +539 ~2: test\unit\logging\redactor_test.dart: Redactor.isSensitiveKey treats "accessToken" as sensitive
+03:00 +540 ~2: test\unit\logging\redactor_test.dart: Redactor.isSensitiveKey treats "client_secret" as sensitive
+03:00 +541 ~2: test\unit\logging\redactor_test.dart: Redactor.isSensitiveKey treats "password" as sensitive
+03:00 +542 ~2: test\unit\logging\redactor_test.dart: Redactor.isSensitiveKey treats "passwd" as sensitive
+03:00 +543 ~2: test\unit\logging\redactor_test.dart: Redactor.isSensitiveKey treats "Authorization" as sensitive
+03:00 +544 ~2: test\unit\logging\redactor_test.dart: Redactor.isSensitiveKey treats "apiKey" as sensitive
+03:00 +545 ~2: test\unit\logging\redactor_test.dart: Redactor.isSensitiveKey treats "api_key" as sensitive
+03:00 +546 ~2: test\unit\logging\redactor_test.dart: Redactor.isSensitiveKey treats "X-API-KEY" as sensitive
+03:00 +547 ~2: test\unit\logging\redactor_test.dart: Redactor.isSensitiveKey treats "cookie" as sensitive
+03:00 +548 ~2: test\unit\logging\redactor_test.dart: Redactor.isSensitiveKey treats "Set-Cookie" as sensitive
+03:00 +549 ~2: test\unit\logging\redactor_test.dart: Redactor.isSensitiveKey treats "credentials" as sensitive
+03:00 +550 ~2: test\unit\logging\redactor_test.dart: Redactor.isSensitiveKey does not treat "status" as sensitive
+03:00 +551 ~2: test\unit\logging\redactor_test.dart: Redactor.isSensitiveKey does not treat "runId" as sensitive
+03:00 +552 ~2: test\unit\logging\redactor_test.dart: Redactor.isSensitiveKey does not treat "durationMs" as sensitive
+03:00 +553 ~2: test\unit\logging\redactor_test.dart: Redactor.isSensitiveKey does not treat "path" as sensitive
+03:00 +554 ~2: test\unit\logging\redactor_test.dart: Redactor.isSensitiveKey does not treat "keyword" as sensitive
+03:00 +555 ~2: test\unit\logging\redactor_test.dart: Redactor.redactText hides Bearer credentials and keeps the scheme
+03:00 +556 ~2: test\unit\logging\redactor_test.dart: Redactor.redactText hides Bearer credentials regardless of case
+03:00 +557 ~2: test\unit\logging\redactor_test.dart: Redactor.redactText hides every occurrence of a registered secret
+03:00 +558 ~2: test\unit\logging\redactor_test.dart: Redactor.redactText hides secrets given to the constructor
+03:00 +559 ~2: test\unit\logging\redactor_test.dart: Redactor.redactText ignores an empty secret
+03:00 +560 ~2: test\unit\logging\redactor_test.dart: Redactor.redactText leaves text without secrets unchanged
+03:00 +561 ~2: test\unit\logging\redactor_test.dart: Redactor.redactFields replaces values of sensitive keys, whatever their type
+03:00 +562 ~2: test\unit\logging\redactor_test.dart: Redactor.redactFields keeps null, numbers and booleans
+03:00 +563 ~2: test\unit\logging\redactor_test.dart: Redactor.redactFields redacts Bearer values and secrets inside string fields
+03:00 +564 ~2: test\unit\logging\redactor_test.dart: Redactor.redactFields recurses into nested maps
+03:00 +565 ~2: test\unit\logging\redactor_test.dart: Redactor.redactFields recurses into lists, including maps inside lists
+03:00 +566 ~2: test\unit\logging\redactor_test.dart: Redactor.redactFields converts other objects to redacted text
+03:00 +567 ~2: test\unit\logging\rotating_file_log_sink_test.dart: creates the folder and writes backend-YYYY-MM-DD.jsonl
+03:01 +568 ~2: test\unit\logging\rotating_file_log_sink_test.dart: names the file after the UTC day
+03:01 +569 ~2: test\unit\logging\rotating_file_log_sink_test.dart: appends to an existing file of the same day
+03:01 +570 ~2: test\unit\logging\rotating_file_log_sink_test.dart: opens a new file when the day changes
+03:01 +571 ~2: test\unit\logging\rotating_file_log_sink_test.dart: deletes files older than the retention, keeping today
+03:01 +572 ~2: test\unit\logging\rotating_file_log_sink_test.dart: keeps only today with a retention of one day
+03:01 +573 ~2: test\unit\logging\rotating_file_log_sink_test.dart: ignores files and folders that are not its log files
+03:01 +574 ~2: test\unit\logging\rotating_file_log_sink_test.dart: deletes expired files again when the day changes
+03:01 +575 ~2: test\unit\logging\rotating_file_log_sink_test.dart: close can be called without any write
+03:01 +576 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +577 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +578 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +579 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +580 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +581 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +582 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +583 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +584 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +585 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +586 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +587 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +588 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +589 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +590 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +591 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +592 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +593 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +594 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +595 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +596 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +597 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +598 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +599 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:02 +600 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:03 +601 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:03 +602 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:03 +603 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:05 +604 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:05 +605 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:05 +606 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:05 +607 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:05 +608 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:05 +609 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:05 +610 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:05 +611 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:05 +612 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:05 +613 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:06 +614 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:06 +615 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:06 +616 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:06 +617 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:06 +618 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:06 +619 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:06 +620 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:06 +621 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:06 +622 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:06 +623 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:06 +624 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:06 +625 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:06 +626 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:06 +627 ~2: test\unit\nodes\dart_process_runner_test.dart: delivers stdin content and captures stdout/stderr
+03:07 +628 ~2: test\unit\nodes\dart_process_runner_test.dart: terminates process and reports timedOut on timeout
+03:07 +629 ~2: test\unit\nodes\dart_process_runner_test.dart: terminates process and reports timedOut on timeout
+03:07 +630 ~2: test\unit\nodes\dart_process_runner_test.dart: terminates process and reports timedOut on timeout
+03:07 +631 ~2: test\unit\nodes\dart_process_runner_test.dart: terminates process and reports timedOut on timeout
+03:07 +632 ~2: test\unit\nodes\dart_process_runner_test.dart: terminates process and reports timedOut on timeout
+03:07 +633 ~2: test\unit\nodes\dart_process_runner_test.dart: terminates process and reports timedOut on timeout
+03:07 +634 ~2: test\unit\nodes\dart_process_runner_test.dart: terminates process and reports timedOut on timeout
+03:07 +635 ~2: test\unit\nodes\dart_process_runner_test.dart: terminates process and reports timedOut on timeout
+03:08 +636 ~2: test\unit\nodes\dart_process_runner_test.dart: terminates process and reports timedOut on timeout
+03:08 +637 ~2: test\unit\nodes\dart_process_runner_test.dart: terminates process and reports timedOut on timeout
+03:08 +638 ~2: test\unit\nodes\dart_process_runner_test.dart: terminates process and reports timedOut on timeout
+03:08 +639 ~2: test\unit\nodes\dart_process_runner_test.dart: terminates process and reports timedOut on timeout
+03:09 +640 ~2: test\unit\nodes\dart_process_runner_test.dart: returns NodeExecutionFailure for missing executable
+03:09 +641 ~2: test\unit\nodes\dart_process_runner_test.dart: returns NodeExecutionFailure for missing executable
+03:10 +642 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:11 +643 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:11 +644 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:11 +645 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:11 +646 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:11 +647 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:11 +648 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:11 +649 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:11 +650 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:11 +651 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:11 +652 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:11 +653 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:11 +654 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:11 +655 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:12 +656 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:12 +657 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:12 +658 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:12 +659 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:12 +660 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:12 +661 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:12 +662 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:12 +663 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:12 +664 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:13 +665 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:13 +666 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:14 +667 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:14 +668 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:14 +669 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:14 +670 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:14 +671 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:14 +672 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:14 +673 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:16 +674 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:16 +675 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:18 +676 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:18 +677 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:18 +678 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:18 +679 ~2: test\unit\result_contract\hive_mcp_outside_run_test.dart: HiveMcpServer outside a run bin/hive_mcp.dart starts and answers tool calls with isError when HIVE_* env vars are absent
+03:20 +680 ~2: test\unit\settings\settings_service_test.dart: getSettings returns defaults when SQLite settings table is empty
+03:20 +681 ~2: test\unit\settings\settings_service_test.dart: updateSettings atomic validation collects all per-field errors and performs no partial writes
+03:20 +682 ~2: test\unit\settings\settings_service_test.dart: updateSettings live F2/F3 reload updates agentsDir without moving files and resets to default
+03:20 +683 ~2: test\unit\settings\settings_service_test.dart: updateSettings live F2/F3 reload uses config.agentsDir as single source of truth for default and reset
+03:20 +684 ~2: test\unit\settings\settings_service_test.dart: updateSettings live F2/F3 reload applyPersistedSettings does not recreate deleted custom agentsDir and falls back to default
+03:21 +685 ~2: test\unit\settings\settings_service_test.dart: updateSettings live F2/F3 reload AgentDirectoryWatcher.start(createDirectory: false) fails without creating missing custom folder
+03:21 +686 ~2: test\unit\settings\settings_service_test.dart: updateSettings live F2/F3 reload serializes concurrent updateSettings calls cleanly
+03:21 +687 ~2: test\unit\settings\settings_service_test.dart: updateSettings live F2/F3 reload updates harnessOverrides and triggers F3 re-detection only for changed harnesses
+03:21 +688 ~2: test\unit\settings\settings_service_test.dart: ExecutableValidator WindowsExecutableValidator checks file existence and extension
+03:21 +689 ~2: test\unit\version_test.dart: backendVersion equals the version in backend/pubspec.yaml
+03:22 +690 ~2: test\unit\workflows\workflow_service_scope_test.dart: create with a workspace id writes a slug-named file
+03:22 +691 ~2: test\unit\workflows\workflow_service_scope_test.dart: a second workspace workflow with the same name gets a free slug
+03:22 +692 ~2: test\unit\workflows\workflow_service_scope_test.dart: a name with no letters falls back to a generated slug
+03:22 +693 ~2: test\unit\workflows\workflow_service_scope_test.dart: create without a workspace id stays global
+03:22 +694 ~2: test\unit\workflows\workflow_service_scope_test.dart: create in an unknown workspace is NotFound
+03:22 +695 ~2: test\unit\workflows\workflow_service_scope_test.dart: same name in both scopes lists both with their scope
+03:22 +696 ~2: test\unit\workflows\workflow_service_scope_test.dart: listing without a workspace id returns only global ones
+03:22 +697 ~2: test\unit\workflows\workflow_service_scope_test.dart: get, update and delete resolve in the requested scope
+03:22 +698 ~2: test\unit\workflows\workflow_service_scope_test.dart: an unregistered workspace id fails with NotFound
+03:22 +699 ~2: test\unit\workflows\workflow_service_scope_test.dart: duplicate stays inside the scope of the source
+03:22 +700 ~2: test\unit\workflows\workflow_service_test.dart: createWorkflow persists invalid draft and returns validation issues
+03:22 +701 ~2: test\unit\workflows\workflow_service_test.dart: listWorkflows computes summary counts and hasValidationErrors
+03:22 +702 ~2: test\unit\workflows\workflow_service_test.dart: updateWorkflow preserves createdAt and refreshes updatedAt
+03:22 +703 ~2: test\unit\workflows\workflow_service_test.dart: duplicateWorkflow clones graph with a new id and copy name
+03:22 +704 ~2: test\unit\workflows\workflow_service_test.dart: getWorkflow returns NotFoundFailure for unknown id
+03:23 +705 ~2: test\unit\workflows\workflow_validator_test.dart: WorkflowValidator accepts a valid linear workflow
+03:24 +706 ~2: test\unit\workflows\workflow_validator_test.dart: WorkflowValidator accepts parallel fan-out from the same (sourceNodeId, sourceOutput)
+03:24 +707 ~2: test\unit\workflows\workflow_validator_test.dart: WorkflowValidator accepts a self-loop when maxRetries > 0
+03:24 +708 ~2: test\unit\workflows\workflow_validator_test.dart: WorkflowValidator accepts a multi-node cycle when at least one edge has maxRetries > 0
+03:24 +709 ~2: test\unit\workflows\workflow_validator_test.dart: WorkflowValidator reports error for blank workflow name
+03:24 +710 ~2: test\unit\workflows\workflow_validator_test.dart: WorkflowValidator reports error for empty nodes list
+03:24 +711 ~2: test\unit\workflows\workflow_validator_test.dart: WorkflowValidator reports error for missing or non-existent entryNodeId
+03:24 +712 ~2: test\unit\workflows\workflow_validator_test.dart: WorkflowValidator reports error for empty sourceOutput
+03:24 +713 ~2: test\unit\workflows\workflow_validator_test.dart: WorkflowValidator reports error for orphan edges
+03:24 +714 ~2: test\unit\workflows\workflow_validator_test.dart: WorkflowValidator reports error for duplicate edges
+03:24 +715 ~2: test\unit\workflows\workflow_validator_test.dart: WorkflowValidator reports error for maxRetries <= 0
+03:24 +716 ~2: test\unit\workflows\workflow_validator_test.dart: WorkflowValidator reports error for unbounded self-loop
+03:24 +717 ~2: test\unit\workflows\workflow_validator_test.dart: WorkflowValidator reports error for unbounded multi-node cycle
+03:24 +718 ~2: test\unit\workflows\workflow_validator_test.dart: WorkflowValidator reports warning for unreachable node while keeping isValid true
+03:24 +719 ~2: test\unit\workflows\workflow_validator_test.dart: WorkflowValidator reports error for unknown node type
+03:24 +720 ~2: test\unit\workflows\workflow_validator_test.dart: WorkflowValidator reports field-level error for invalid node config
+03:24 +721 ~2: test\unit\workflows\workspace_workflow_watcher_test.dart: an external create, edit and delete are broadcast live
+03:25 +722 ~2: test\unit\worktrees\worktree_service_test.dart: removal is blocked while a run is active in the worktree
+03:26 +723 ~2: test\unit\worktrees\worktree_service_test.dart: removal is blocked while a run is active in the worktree
+03:26 +724 ~2: test\unit\worktrees\worktree_service_test.dart: removal is blocked while a run is active in the worktree
+03:37 +725 ~2: test\unit\worktrees\worktree_service_test.dart: removal works once the run is no longer active
+03:53 +726 ~2: All tests passed!

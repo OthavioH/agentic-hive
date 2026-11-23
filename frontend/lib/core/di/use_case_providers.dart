@@ -53,6 +53,7 @@ import 'package:agentic_hive_frontend/domain/workflows/use_cases/get_workflow.da
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/list_workflows.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/update_workflow.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/validate_workflow.dart';
+import 'package:agentic_hive_frontend/domain/workflows/use_cases/watch_workflow_changes.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/create_workspace.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/get_snapshot_diff.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/get_workspace_capabilities.dart';
@@ -152,6 +153,11 @@ DuplicateWorkflow duplicateWorkflow(Ref ref) =>
 @riverpod
 DeleteWorkflow deleteWorkflow(Ref ref) =>
     DeleteWorkflow(ref.watch(workflowRepositoryProvider));
+
+/// Provides [WatchWorkflowChanges].
+@riverpod
+WatchWorkflowChanges watchWorkflowChanges(Ref ref) =>
+    WatchWorkflowChanges(ref.watch(workflowChangesSourceProvider));
 
 /// Provides [ValidateWorkflow].
 @riverpod

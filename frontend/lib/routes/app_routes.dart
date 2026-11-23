@@ -81,7 +81,7 @@ class WorkflowsRoute extends GoRouteData with $WorkflowsRoute {
 /// Typed route for `/workflows/:id`.
 class WorkflowEditorRoute extends GoRouteData with $WorkflowEditorRoute {
   /// Creates a [WorkflowEditorRoute].
-  const new({required this.id});
+  const new({required this.id, this.workspaceId});
 
   /// Sub-path relative to [WorkflowsRoute].
   static const String subPath = ':id';
@@ -89,15 +89,18 @@ class WorkflowEditorRoute extends GoRouteData with $WorkflowEditorRoute {
   /// Workflow identifier.
   final String id;
 
+  /// Workspace that owns the workflow; `null` for a global workflow.
+  final String? workspaceId;
+
   @override
   Widget build(BuildContext context, GoRouterState state) =>
-      WorkflowEditorPage(workflowId: id);
+      WorkflowEditorPage(workflowId: id, workspaceId: workspaceId);
 
   @override
   FutureOr<bool> onExit(BuildContext context, GoRouterState state) {
     final container = ProviderScope.containerOf(context, listen: false);
     final editorState = container
-        .read(workflowEditorControllerProvider(id))
+        .read(workflowEditorControllerProvider(id, workspaceId: workspaceId))
         .asData
         ?.value;
     if (editorState == null || !editorState.isDirty) {
