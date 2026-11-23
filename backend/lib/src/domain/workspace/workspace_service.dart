@@ -4,6 +4,7 @@ import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_capabilities_service.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_repository.dart';
+import 'package:agentic_hive_backend/src/util/canonical_folder.dart';
 import 'package:agentic_hive_backend/src/util/ids.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:path/path.dart' as p;
@@ -80,23 +81,6 @@ final class WorkspaceService {
   /// touched; refused with a conflict while any of its runs is active.
   Future<Result<void>> unregister(String id) => _workspaces.delete(id);
 
-  /// Returns the workspace registered for folder [path], registering it first
-  /// (named after the folder) when none exists.
-  Future<Result<Workspace>> findOrRegister(String path) async {
-    final rootPath = _validateRoot(path);
-    if (rootPath case FailureResult<String>(:final failure)) {
-      return FailureResult(failure);
-    }
-    final root = rootPath.valueOrNull!;
-    final existing = await _findByRoot(root);
-    if (existing case FailureResult<Workspace?>(:final failure)) {
-      return FailureResult(failure);
-    }
-    final found = existing.valueOrNull;
-    if (found != null) return Success(found);
-    return await _register(root, _defaultName(root));
-  }
-
   Future<Result<Workspace>> _register(String root, String name) async {
     final existing = await _findByRoot(root);
     if (existing case FailureResult<Workspace?>(:final failure)) {
@@ -132,9 +116,11 @@ final class WorkspaceService {
     if (all case FailureResult<List<Workspace>>(:final failure)) {
       return FailureResult(failure);
     }
-    final key = _canonical(root);
+    final key = canonicalFolder(root, _path);
     for (final workspace in all.valueOrNull!) {
-      if (_canonical(workspace.rootPath) == key) return Success(workspace);
+      if (canonicalFolder(workspace.rootPath, _path) == key) {
+        return Success(workspace);
+      }
     }
     return const Success(null);
   }
@@ -162,17 +148,5 @@ final class WorkspaceService {
   String _defaultName(String root) {
     final name = _path.basename(root);
     return name.isEmpty ? root : name;
-  }
-
-  String _canonical(String path) {
-    try {
-      final dir = Directory(path);
-      if (dir.existsSync()) {
-        return _path.canonicalize(dir.resolveSymbolicLinksSync());
-      }
-    } on FileSystemException {
-      // Fall back to path canonicalization below.
-    }
-    return _path.canonicalize(path);
   }
 }

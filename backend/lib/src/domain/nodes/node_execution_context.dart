@@ -11,6 +11,7 @@ final class NodeExecutionContext {
     required this.nodeId,
     required this.workspacePath,
     this.workspaceRoot,
+    this.workspaceId,
     this.attempt = 1,
     this.availableOutputs = const <String>[
       NodeOutput.onSuccess,
@@ -37,6 +38,10 @@ final class NodeExecutionContext {
   /// differ from [workspacePath] under worktree isolation. Used to find
   /// workspace-scoped agents (ADR 0022).
   final String? workspaceRoot;
+
+  /// Identifier of the registered workspace the run belongs to. Used to
+  /// resolve the workspace's effective execution settings (ADR 0022).
+  final String? workspaceId;
 
   /// 1-based attempt number for this node execution.
   final int attempt;

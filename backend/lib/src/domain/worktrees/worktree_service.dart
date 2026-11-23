@@ -5,6 +5,7 @@ import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/data/workspace/git_client.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
 import 'package:agentic_hive_backend/src/domain/worktrees/active_run_lookup.dart';
+import 'package:agentic_hive_backend/src/util/canonical_folder.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:path/path.dart' as p;
 
@@ -24,9 +25,6 @@ final class WorktreeService {
     required this._worktreesDir,
     p.Context? pathContext,
   }) : _path = pathContext ?? p.context;
-
-  /// Id of the primary checkout in a worktree list.
-  static const primaryId = 'primary';
 
   static final _validName = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
 
@@ -56,7 +54,7 @@ final class WorktreeService {
       final name = _path.basename(entry.path);
       items.add(
         Worktree(
-          id: isPrimary ? primaryId : name,
+          id: isPrimary ? primaryWorktreeId : name,
           name: isPrimary ? _path.basename(workspace.rootPath) : name,
           path: entry.path,
           isPrimary: isPrimary,
@@ -79,11 +77,11 @@ final class WorktreeService {
       );
     }
     final name = request.name.trim();
-    if (!_validName.hasMatch(name) || name == primaryId) {
+    if (!_validName.hasMatch(name) || name == primaryWorktreeId) {
       return FailureResult(
         ValidationFailure(
           'Worktree name "$name" is invalid: use letters, digits, ".", "_" '
-          'and "-", starting with a letter or digit ("$primaryId" is '
+          'and "-", starting with a letter or digit ("$primaryWorktreeId" is '
           'reserved).',
         ),
       );
@@ -160,7 +158,7 @@ final class WorktreeService {
     String id, {
     bool force = false,
   }) async {
-    if (id == primaryId) {
+    if (id == primaryWorktreeId) {
       return const FailureResult(
         ValidationFailure('The primary checkout cannot be removed.'),
       );
@@ -180,8 +178,10 @@ final class WorktreeService {
     if (active case FailureResult<Set<String>>(:final failure)) {
       return FailureResult(failure);
     }
-    final key = _canonical(worktree.path);
-    if (active.valueOrNull!.any((folder) => _canonical(folder) == key)) {
+    final key = canonicalFolder(worktree.path, _path);
+    if (active.valueOrNull!.any(
+      (folder) => canonicalFolder(folder, _path) == key,
+    )) {
       return FailureResult(
         ConflictFailure('A run is active in worktree "$id".'),
       );
@@ -337,20 +337,8 @@ final class WorktreeService {
   }
 
   bool _isManaged(String folder) {
-    final base = _canonical(_worktreesDir);
-    return _path.isWithin(base, _canonical(folder));
-  }
-
-  String _canonical(String folder) {
-    try {
-      final dir = Directory(folder);
-      if (dir.existsSync()) {
-        return _path.canonicalize(dir.resolveSymbolicLinksSync());
-      }
-    } on FileSystemException {
-      // Fall back to path canonicalization below.
-    }
-    return _path.canonicalize(folder);
+    final base = canonicalFolder(_worktreesDir, _path);
+    return _path.isWithin(base, canonicalFolder(folder, _path));
   }
 }
 

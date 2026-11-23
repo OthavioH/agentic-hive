@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:agentic_hive_backend/src/api/agents/agents_handler.dart';
+import 'package:agentic_hive_backend/src/api/agents/agents_migration_handler.dart';
 import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
 import 'package:agentic_hive_backend/src/api/overview/overview_handler.dart';
 import 'package:agentic_hive_backend/src/api/pauses/pauses_handler.dart';
@@ -15,6 +16,7 @@ import 'package:agentic_hive_backend/src/api/worktrees/worktrees_handler.dart';
 import 'package:agentic_hive_backend/src/config/app_config.dart';
 import 'package:agentic_hive_backend/src/config/platform_paths.dart';
 import 'package:agentic_hive_backend/src/data/agents/agent_directory_watcher.dart';
+import 'package:agentic_hive_backend/src/data/agents/layered_agent_repository.dart';
 import 'package:agentic_hive_backend/src/data/agents/local_agent_repository.dart';
 import 'package:agentic_hive_backend/src/data/agents/local_workspace_agent_repositories.dart';
 import 'package:agentic_hive_backend/src/data/agents/repository_agent_prompt_resolver.dart';
@@ -52,6 +54,7 @@ import 'package:agentic_hive_backend/src/db/database_health_check.dart';
 import 'package:agentic_hive_backend/src/db/metadata_repository.dart';
 import 'package:agentic_hive_backend/src/domain/agents/agent_repository.dart';
 import 'package:agentic_hive_backend/src/domain/agents/agent_service.dart';
+import 'package:agentic_hive_backend/src/domain/agents/agents_migration_service.dart';
 import 'package:agentic_hive_backend/src/domain/agents/workspace_agent_repositories.dart';
 import 'package:agentic_hive_backend/src/domain/engine/graph_engine.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/executable_locator.dart';
@@ -130,6 +133,7 @@ Future<void> registerDependencies(
   required DateTime startedAt,
   Future<void> Function()? onShutdown,
   IOSink? consoleOut,
+  List<String> agentsMigrationConflicts = const <String>[],
 }) async {
   di
     ..registerSingleton<AppConfig>(config)
@@ -300,6 +304,7 @@ Future<void> registerDependencies(
         approvalPort: di<HumanApprovalPort>(),
         agentPromptResolver: di<AgentPromptResolver>(),
         processTreeKiller: di<ProcessTreeKiller>(),
+        executionSettings: () => di<ExecutionSettingsService>(),
       ),
     )
     ..registerSingleton<WorkflowValidator>(
@@ -435,13 +440,8 @@ Future<void> registerDependencies(
       dependsOn: [AppDatabase],
     )
     ..registerSingletonWithDependencies<WorkspacePreparationService>(
-      () => WorkspacePreparationService(
-        git: di<GitClient>(),
-        worktreesDir: config.worktreesDir,
-        pathContext: platformPaths.context,
-        events: di<RunEventRepository>(),
-      ),
-      dependsOn: [RunEventRepository],
+      () => WorkspacePreparationService(git: di<GitClient>()),
+      dependsOn: [SnapshotRepository],
     )
     ..registerSingletonWithDependencies<ShadowSnapshotService>(
       () => ShadowSnapshotService(
@@ -562,8 +562,20 @@ Future<void> registerDependencies(
       AgentService(
         di<AgentRepository>(),
         workspaces: di<WorkspaceAgentRepositories>(),
+        layer: LayeredAgentRepository.new,
         onWorkspaceAgentsChanged: () => di<WorkspaceAgentWatchers>().sync(),
       ),
+    )
+    ..registerSingletonWithDependencies<AgentsMigrationHandler>(
+      () => AgentsMigrationHandler(
+        AgentsMigrationService(
+          legacyDir: config.legacyAgentsDir,
+          targetDir: config.agentsDir,
+          conflicts: agentsMigrationConflicts,
+          settings: di<SettingsRepository>(),
+        ),
+      ),
+      dependsOn: [SettingsRepository],
     )
     ..registerSingleton<AgentsHandler>(AgentsHandler(di<AgentService>()))
     ..registerSingletonWithDependencies<WorkspaceAgentWatchers>(
@@ -643,6 +655,7 @@ Future<void> registerDependencies(
           shutdownHandler: di<ShutdownHandler>(),
           webSocketHandler: di<WsGateway>().handler,
           agentsHandler: di<AgentsHandler>(),
+          agentsMigrationHandler: di<AgentsMigrationHandler>(),
           harnessesHandler: di<HarnessesHandler>(),
           workflowHandler: di<WorkflowHandler>(),
           resultContractHandler: di<ResultContractHandler>(),

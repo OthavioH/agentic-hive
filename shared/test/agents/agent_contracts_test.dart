@@ -15,6 +15,45 @@ Matcher _formatErrorNaming(String field) => isA<FormatException>().having(
 void main() {
   final updatedAt = DateTime.utc(2026, 11, 20, 14, 30);
 
+  group('AgentsMigrationStatus', () {
+    test('round-trips through JSON', () {
+      const status = AgentsMigrationStatus(
+        conflicts: ['a.md', 'sub/b.md'],
+        dismissed: true,
+        legacyDir: '/data/agents',
+        targetDir: '/home/me/.agents/agents',
+      );
+
+      final decoded = AgentsMigrationStatus.fromJson(
+        _overTheWire(status.toJson()),
+      );
+
+      expect(decoded, status);
+    });
+
+    test('defaults to no conflicts and not dismissed', () {
+      final decoded = AgentsMigrationStatus.fromJson(<String, Object?>{
+        'legacyDir': '/data/agents',
+        'targetDir': '/home/me/.agents/agents',
+      });
+
+      expect(decoded.conflicts, isEmpty);
+      expect(decoded.dismissed, isFalse);
+      expect(decoded.hasPendingConflicts, isFalse);
+    });
+
+    test('hasPendingConflicts is true only for undismissed conflicts', () {
+      const open = AgentsMigrationStatus(
+        conflicts: ['a.md'],
+        legacyDir: 'l',
+        targetDir: 't',
+      );
+
+      expect(open.hasPendingConflicts, isTrue);
+      expect(open.copyWith(dismissed: true).hasPendingConflicts, isFalse);
+    });
+  });
+
   group('AgentSummary', () {
     test('round-trips through JSON with all fields', () {
       final summary = AgentSummary(

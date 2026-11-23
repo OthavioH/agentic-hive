@@ -82,7 +82,7 @@ void main() {
 
     expect(items, hasLength(1));
     expect(items.single.isPrimary, isTrue);
-    expect(items.single.id, 'primary');
+    expect(items.single.id, primaryWorktreeId);
     expect(items.single.branch, 'main');
     expect(items.single.hasUncommittedChanges, isFalse);
   });
@@ -103,7 +103,7 @@ void main() {
     expect(File(p.join(created.path, 'a.txt')).existsSync(), isTrue);
 
     final items = await list();
-    expect(items.map((w) => w.id), ['primary', 'feat-a']);
+    expect(items.map((w) => w.id), [primaryWorktreeId, 'feat-a']);
   });
 
   test('the branch defaults to the worktree name and a base branch can be '
@@ -132,7 +132,7 @@ void main() {
   test('rejects bad names, duplicate names, existing branches and unknown '
       'base branches', () async {
     expect((await create('../evil')).statusCode, 400);
-    expect((await create('primary')).statusCode, 400);
+    expect((await create(primaryWorktreeId)).statusCode, 400);
     expect((await create('ok', baseBranch: 'nope')).statusCode, 400);
     expect((await create('main')).statusCode, 409);
     expect((await create('one')).statusCode, 201);

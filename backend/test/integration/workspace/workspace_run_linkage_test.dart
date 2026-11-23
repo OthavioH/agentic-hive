@@ -60,6 +60,41 @@ void main() {
     return Workspace.fromJson(response.json);
   }
 
+  test('a run started without a target runs directly in the primary checkout '
+      'of a git workspace, never in a throwaway worktree', () async {
+    for (final args in <List<String>>[
+      ['init'],
+      ['config', 'user.name', 'User'],
+      ['config', 'user.email', 'user@example.com'],
+      ['commit', '--allow-empty', '-m', 'base'],
+    ]) {
+      final result = await Process.run(
+        'git',
+        args,
+        workingDirectory: workspaceDir.path,
+      );
+      expect(result.exitCode, 0, reason: '${result.stderr}');
+    }
+    final workflow = await createWorkflow();
+    final workspace = await registerWorkspace();
+
+    final response = await http.post(
+      '/api/v1/runs',
+      body: jsonEncode(
+        StartRunRequest(
+          workflowId: workflow.id,
+          workspaceId: workspace.id,
+        ).toJson(),
+      ),
+    );
+
+    expect(response.statusCode, 201);
+    final run = Run.fromJson(response.json);
+    expect(run.isolationMode, WorkspaceIsolationMode.direct);
+    expect(run.worktreePath, isNull);
+    expect(run.worktreeBranch, isNull);
+  });
+
   test('a run started with workspaceId belongs to that workspace and uses its '
       'root folder', () async {
     final workflow = await createWorkflow();

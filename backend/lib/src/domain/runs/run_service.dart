@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
@@ -18,6 +17,7 @@ import 'package:agentic_hive_backend/src/domain/workspace/workspace_preparation_
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_service.dart';
 import 'package:agentic_hive_backend/src/domain/worktrees/worktree_service.dart';
 import 'package:agentic_hive_backend/src/logging/log_event.dart';
+import 'package:agentic_hive_backend/src/util/canonical_folder.dart';
 import 'package:agentic_hive_backend/src/util/ids.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:logging/logging.dart';
@@ -167,24 +167,18 @@ final class RunService {
       );
     }
 
-    final target = request.target;
-    var requestedMode =
-        request.workspaceIsolationMode ?? WorkspaceIsolationMode.worktree;
+    // No target means the primary checkout (ADR 0022).
+    final target = request.target ?? const RunTarget.primary();
     var ignorePatterns = request.ignorePatterns;
     final executionSettings = _executionSettings;
-    if (executionSettings != null &&
-        ((target == null && request.workspaceIsolationMode == null) ||
-            ignorePatterns == null)) {
+    if (executionSettings != null && ignorePatterns == null) {
       final effective = await executionSettings.effectiveFor(workspace.id);
       if (effective case FailureResult<EffectiveExecutionSettings>(
         :final failure,
       )) {
         return FailureResult(failure);
       }
-      final settings = effective.valueOrNull!;
-      requestedMode =
-          request.workspaceIsolationMode ?? settings.defaultIsolationMode;
-      ignorePatterns ??= settings.ignorePatterns;
+      ignorePatterns = effective.valueOrNull!.ignorePatterns;
     }
 
     String? reservedFolder;
@@ -193,7 +187,7 @@ final class RunService {
 
     // Claims [folder] for this run, or reports the conflicting active run.
     Future<ConflictFailure?> claim(String folder) async {
-      final key = _canonicalizeWorkspace(folder);
+      final key = canonicalFolder(folder, _pathContext);
       if (!_reservedFolders.add(key)) {
         return ConflictFailure(
           'An active run is already starting or executing in "$key".',
@@ -313,32 +307,6 @@ final class RunService {
             worktreePath: worktree.path,
             worktreeBranch: worktree.branch,
           );
-        case null:
-          // Request without a target: `direct` runs in the primary checkout
-          // and `worktree` in a new worktree, falling back to the primary
-          // checkout for folders that cannot host one.
-          if (requestedMode == WorkspaceIsolationMode.direct) {
-            final conflict = await claim(workspacePath);
-            if (conflict != null) return FailureResult(conflict);
-          }
-          final preparedResult = await workspacePreparation.prepare(
-            runId: runId,
-            workspacePath: workspacePath,
-            requestedMode: requestedMode,
-          );
-          if (preparedResult case FailureResult<PreparedWorkspace>(
-            :final failure,
-          )) {
-            return FailureResult(failure);
-          }
-          prepared = preparedResult.valueOrNull!;
-          if (prepared.isolationMode == WorkspaceIsolationMode.worktree) {
-            createdWorktreePath = prepared.worktreePath;
-            createdWorktreeBranch = prepared.worktreeBranch;
-          } else if (reservedFolder == null) {
-            final conflict = await claim(workspacePath);
-            if (conflict != null) return FailureResult(conflict);
-          }
       }
 
       if (ignorePatterns != null && ignorePatterns.isNotEmpty) {
@@ -444,7 +412,7 @@ final class RunService {
     var launched = false;
     try {
       if (!engine.isExecuting(id)) {
-        normalizedWorkspace = _canonicalizeWorkspace(_runFolder(run));
+        normalizedWorkspace = canonicalFolder(_runFolder(run), _pathContext);
         if (!_reservedFolders.add(normalizedWorkspace)) {
           return FailureResult(
             ConflictFailure(
@@ -526,7 +494,7 @@ final class RunService {
       }
 
       {
-        normalizedWorkspace = _canonicalizeWorkspace(_runFolder(run));
+        normalizedWorkspace = canonicalFolder(_runFolder(run), _pathContext);
         if (!_reservedFolders.add(normalizedWorkspace)) {
           return FailureResult(
             ConflictFailure(
@@ -663,18 +631,6 @@ final class RunService {
     }
   }
 
-  String _canonicalizeWorkspace(String workspacePath) {
-    try {
-      final dir = Directory(workspacePath);
-      if (dir.existsSync()) {
-        return _pathContext.canonicalize(dir.resolveSymbolicLinksSync());
-      }
-    } on FileSystemException {
-      // Fall back to path canonicalization below.
-    }
-    return _pathContext.canonicalize(workspacePath);
-  }
-
   /// The folder a run executes in: its worktree, or the workspace root.
   static String _runFolder(Run run) => run.worktreePath ?? run.workspacePath;
 
@@ -691,7 +647,8 @@ final class RunService {
       if (listResult case FailureResult<List<Run>>()) continue;
       for (final active in listResult.valueOrNull!) {
         if (active.id == excludeRunId) continue;
-        if (_canonicalizeWorkspace(_runFolder(active)) == normalizedFolder) {
+        if (canonicalFolder(_runFolder(active), _pathContext) ==
+            normalizedFolder) {
           return ConflictFailure(
             'An active run ("${active.id}") is already executing in '
             '"$normalizedFolder".',

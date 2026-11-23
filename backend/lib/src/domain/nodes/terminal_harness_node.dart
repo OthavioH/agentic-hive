@@ -7,6 +7,7 @@ import 'package:agentic_hive_backend/src/domain/nodes/harness_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_execution_context.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/runs/process_tree_killer.dart';
+import 'package:agentic_hive_backend/src/domain/settings/execution_settings_service.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:path/path.dart' as p;
 
@@ -18,6 +19,7 @@ final class TerminalHarnessNode extends HarnessNode {
     required this.defaultShellProvider,
     required super.resultContract,
     required super.agentPromptResolver,
+    this.executionSettings,
     this.processTreeKiller,
     this.mcpGracePeriod = defaultMcpGracePeriod,
   });
@@ -31,6 +33,11 @@ final class TerminalHarnessNode extends HarnessNode {
 
   /// OS-specific fallback shell provider when `command` is omitted.
   final DefaultShellProvider defaultShellProvider;
+
+  /// Resolves the effective default shell of the run's workspace (workspace
+  /// override, then global setting; ADR 0022). When absent, or when the
+  /// context carries no workspace, [defaultShellProvider] is used.
+  final ExecutionSettingsService? executionSettings;
 
   /// Optional process-tree killer used to terminate interactive CLIs that
   /// remain alive after [mcpGracePeriod] following an accepted MCP report.
@@ -57,6 +64,15 @@ final class TerminalHarnessNode extends HarnessNode {
   @override
   String get typeId => NodeTypeId.terminal;
 
+  Future<Result<String>> _resolveDefaultShell(String? workspaceId) async {
+    final settings = executionSettings;
+    if (settings == null || workspaceId == null) {
+      return Success(defaultShellProvider.defaultShell);
+    }
+    final effective = await settings.effectiveFor(workspaceId);
+    return effective.map((value) => value.defaultShell);
+  }
+
   @override
   Future<Result<ProcessExecutionResult>> runHarness(
     NodeExecutionContext context, {
@@ -71,10 +87,16 @@ final class TerminalHarnessNode extends HarnessNode {
   }) async {
     final config = TerminalHarnessNodeConfig.fromJson(context.config);
     final configuredCommand = config.command?.trim();
-    final executable =
-        (configuredCommand != null && configuredCommand.isNotEmpty)
-        ? configuredCommand
-        : defaultShellProvider.defaultShell;
+    final String executable;
+    if (configuredCommand != null && configuredCommand.isNotEmpty) {
+      executable = configuredCommand;
+    } else {
+      final shell = await _resolveDefaultShell(context.workspaceId);
+      if (shell case FailureResult<String>(:final failure)) {
+        return FailureResult(failure);
+      }
+      executable = shell.valueOrNull!;
+    }
 
     Directory? promptDir;
     var terminatedAfterMcp = false;

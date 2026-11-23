@@ -6,9 +6,11 @@ import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 /// Read view over one workspace agent folder and the global library
 /// (ADR 0022).
 ///
-/// A workspace agent overrides a global agent with the same id: [getById]
-/// resolves workspace first, then global, and [list] returns both with the
-/// shadowed global entry flagged [AgentSummary.overridden].
+/// A workspace agent overrides a global agent with the same `name` (the
+/// frontmatter name, whatever the file names are): [list] returns both with
+/// the shadowed global entry flagged [AgentSummary.overridden], and [getById]
+/// resolves a workspace file with that id first, then a global id redirects to
+/// the workspace agent that overrides it by name.
 ///
 /// Writes are not layered: callers pick the [workspace] or [global]
 /// repository explicitly so an edit never silently lands in the wrong scope.
@@ -35,11 +37,17 @@ final class LayeredAgentRepository implements AgentRepository {
       return FailureResult(failure);
     }
     final workspaceItems = workspaceResult.valueOrNull!;
-    final workspaceIds = {for (final s in workspaceItems) s.id};
+    final workspaceNames = {
+      for (final s in workspaceItems)
+        if (s.parseError == null) _nameKey(s.name),
+    };
     final merged = <AgentSummary>[
       ...workspaceItems,
       for (final s in globalResult.valueOrNull!)
-        s.copyWith(overridden: workspaceIds.contains(s.id)),
+        s.copyWith(
+          overridden:
+              s.parseError == null && workspaceNames.contains(_nameKey(s.name)),
+        ),
     ]..sort((a, b) => a.id.compareTo(b.id));
     return Success(merged);
   }
@@ -49,10 +57,30 @@ final class LayeredAgentRepository implements AgentRepository {
     final fromWorkspace = await workspace.getById(id);
     if (fromWorkspace case FailureResult<AgentDetail>(:final failure)
         when failure is NotFoundFailure) {
-      return await global.getById(id);
+      return await _globalOrOverride(id);
     }
     return fromWorkspace;
   }
+
+  Future<Result<AgentDetail>> _globalOrOverride(String id) async {
+    final fromGlobal = await global.getById(id);
+    final detail = fromGlobal.valueOrNull;
+    if (detail == null || detail.parseError != null) return fromGlobal;
+    final listed = await workspace.list();
+    if (listed case FailureResult<List<AgentSummary>>(:final failure)) {
+      return FailureResult(failure);
+    }
+    final override = listed.valueOrNull!
+        .where(
+          (s) =>
+              s.parseError == null && _nameKey(s.name) == _nameKey(detail.name),
+        )
+        .firstOrNull;
+    if (override == null) return fromGlobal;
+    return await workspace.getById(override.id);
+  }
+
+  static String _nameKey(String name) => name.trim();
 
   @override
   Future<Result<AgentDetail>> create(CreateAgentRequest request) =>

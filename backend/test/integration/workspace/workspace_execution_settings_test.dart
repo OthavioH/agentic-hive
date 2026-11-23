@@ -76,19 +76,29 @@ void main() {
     return Run.fromJson(response.json);
   }
 
-  test('without any setting a git workspace run uses a worktree', () async {
-    final workflowId = await createWorkflowId();
+  // The default isolation mode is a client-side default: the Start Run dialog
+  // preselects a target from these effective settings, and a run without a
+  // target always runs in the primary checkout.
+  Future<EffectiveExecutionSettings> effectiveSettings(
+    String workspaceId,
+  ) async {
+    final response = await http.get('/api/v1/workspaces/$workspaceId/settings');
+    expect(response.statusCode, 200);
+    return WorkspaceSettingsResponse.fromJson(response.json).effective;
+  }
+
+  test('without any setting the effective default mode is worktree', () async {
     final workspaceId = await registerWorkspaceId();
 
-    final run = await startRun(workflowId, workspaceId);
+    final effective = await effectiveSettings(workspaceId);
 
-    expect(run.isolationMode, WorkspaceIsolationMode.worktree);
+    expect(effective.defaultIsolationMode, WorkspaceIsolationMode.worktree);
+    expect(effective.defaultShell, isNotEmpty);
   });
 
   test(
     'the global default isolation mode applies to every workspace',
     () async {
-      final workflowId = await createWorkflowId();
       final workspaceId = await registerWorkspaceId();
       final put = await http.put(
         '/api/v1/settings/execution',
@@ -96,31 +106,34 @@ void main() {
       );
       expect(put.statusCode, 200);
 
-      final run = await startRun(workflowId, workspaceId);
+      final effective = await effectiveSettings(workspaceId);
 
-      expect(run.isolationMode, WorkspaceIsolationMode.direct);
+      expect(effective.defaultIsolationMode, WorkspaceIsolationMode.direct);
     },
   );
 
   test('the workspace override beats the global default', () async {
-    final workflowId = await createWorkflowId();
     final workspaceId = await registerWorkspaceId();
     await http.put(
       '/api/v1/settings/execution',
-      body: jsonEncode({'defaultIsolationMode': 'direct'}),
+      body: jsonEncode({'defaultIsolationMode': 'direct', 'defaultShell': 'a'}),
     );
     final put = await http.put(
       '/api/v1/workspaces/$workspaceId/settings',
-      body: jsonEncode({'defaultIsolationMode': 'worktree'}),
+      body: jsonEncode({
+        'defaultIsolationMode': 'worktree',
+        'defaultShell': 'b',
+      }),
     );
     expect(put.statusCode, 200);
 
-    final run = await startRun(workflowId, workspaceId);
+    final effective = await effectiveSettings(workspaceId);
 
-    expect(run.isolationMode, WorkspaceIsolationMode.worktree);
+    expect(effective.defaultIsolationMode, WorkspaceIsolationMode.worktree);
+    expect(effective.defaultShell, 'b');
   });
 
-  test('an explicit mode on the request beats every setting', () async {
+  test('a run without a target ignores the default isolation mode', () async {
     final workflowId = await createWorkflowId();
     final workspaceId = await registerWorkspaceId();
     await http.put(
@@ -128,21 +141,10 @@ void main() {
       body: jsonEncode({'defaultIsolationMode': 'worktree'}),
     );
 
-    final response = await http.post(
-      '/api/v1/runs',
-      body: jsonEncode(
-        StartRunRequest(
-          workflowId: workflowId,
-          workspaceId: workspaceId,
-          workspaceIsolationMode: WorkspaceIsolationMode.direct,
-        ).toJson(),
-      ),
-    );
+    final run = await startRun(workflowId, workspaceId);
 
-    expect(
-      Run.fromJson(response.json).isolationMode,
-      WorkspaceIsolationMode.direct,
-    );
+    expect(run.isolationMode, WorkspaceIsolationMode.direct);
+    expect(run.worktreePath, isNull);
   });
 }
 
