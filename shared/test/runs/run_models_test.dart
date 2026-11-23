@@ -312,6 +312,49 @@ void main() {
       expect(json.containsKey('workspacePath'), isFalse);
     });
 
+    test('StartRunRequest carries each run target through JSON', () {
+      const targets = <RunTarget>[
+        RunTarget.primary(),
+        RunTarget.worktree(worktreeId: 'feature-x'),
+        RunTarget.newWorktree(),
+        RunTarget.newWorktree(
+          name: 'spike',
+          branch: 'hive/spike',
+          baseBranch: 'main',
+        ),
+      ];
+      for (final target in targets) {
+        final dto = StartRunRequest(
+          workflowId: 'wf',
+          workspaceId: 'ws',
+          target: target,
+        );
+        expect(StartRunRequest.fromJson(dto.toJson()), dto);
+      }
+    });
+
+    test('RunTarget uses a type discriminator and rejects unknown types', () {
+      expect(const RunTarget.primary().toJson(), {'type': 'primary'});
+      expect(const RunTarget.worktree(worktreeId: 'a').toJson(), {
+        'type': 'worktree',
+        'worktreeId': 'a',
+      });
+      expect(
+        () => RunTarget.fromJson(<String, Object?>{'type': 'nope'}),
+        throwsFormatException,
+      );
+      expect(
+        () => RunTarget.fromJson(<String, Object?>{'type': 'worktree'}),
+        throwsFormatException,
+      );
+    });
+
+    test('StartRunRequest target is optional', () {
+      const request = StartRunRequest(workflowId: 'wf', workspaceId: 'ws');
+      expect(request.target, isNull);
+      expect(request.toJson().containsKey('target'), isFalse);
+    });
+
     test('RunNodeLogsResponse round-trips through JSON', () {
       final dto = RunNodeLogsResponse(
         runId: 'run-1',
