@@ -11,7 +11,7 @@ import 'package:design_system/design_system.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// Wireframe pass 1 tree displaying workspaces, worktrees, and active/recent
+/// Hierarchical tree displaying workspaces, worktrees, and active/recent
 /// runs beside the navigation rail.
 class SideRailTree extends ConsumerWidget {
   /// Creates a [SideRailTree].
@@ -274,43 +274,54 @@ class _SideRailTreeContent extends ConsumerWidget {
                   message: l10n.sideRailTreeEmptyMessage,
                 )
               : ListView(
+                  padding: EdgeInsets.symmetric(vertical: spacing.spaceHalf),
                   children: <Widget>[
-                    for (final wsNode in state.workspaces) ...<Widget>[
+                    for (
+                      var i = 0;
+                      i < state.workspaces.length;
+                      i++
+                    ) ...<Widget>[
+                      if (i > 0) SizedBox(height: spacing.spaceHalf),
                       HiveTreeItem(
-                        key: Key('tree_workspace_${wsNode.workspace.id}'),
-                        label: wsNode.workspace.name,
+                        key: Key(
+                          'tree_workspace_${state.workspaces[i].workspace.id}',
+                        ),
+                        label: state.workspaces[i].workspace.name,
                         leading: HiveIcon(
                           HiveIcons.folder,
                           size: spacing.space2,
                           color: colors.onSurfaceMuted,
                         ),
-                        expanded: wsNode.expanded,
-                        expandSemanticLabel: wsNode.expanded
+                        expanded: state.workspaces[i].expanded,
+                        expandSemanticLabel: state.workspaces[i].expanded
                             ? l10n.sideRailTreeCollapseWorkspace(
-                                wsNode.workspace.name,
+                                state.workspaces[i].workspace.name,
                               )
                             : l10n.sideRailTreeExpandWorkspace(
-                                wsNode.workspace.name,
+                                state.workspaces[i].workspace.name,
                               ),
                         onToggleExpand: () =>
-                            onToggleWorkspace(wsNode.workspace.id),
+                            onToggleWorkspace(state.workspaces[i].workspace.id),
                         selected:
-                            wsNode.workspace.id == state.currentWorkspaceId,
-                        highlighted: wsNode.pendingPauseCount > 0,
+                            state.workspaces[i].workspace.id ==
+                            state.currentWorkspaceId,
+                        highlighted: state.workspaces[i].pendingPauseCount > 0,
                         trailing: _WorkspaceTrailingBadges(
-                          activeRunCount: wsNode.activeRunCount,
-                          pendingPauseCount: wsNode.pendingPauseCount,
+                          activeRunCount: state.workspaces[i].activeRunCount,
+                          pendingPauseCount:
+                              state.workspaces[i].pendingPauseCount,
                         ),
-                        onPressed: () => onSelectWorkspace(wsNode.workspace.id),
+                        onPressed: () =>
+                            onSelectWorkspace(state.workspaces[i].workspace.id),
                       ),
-                      if (wsNode.expanded)
-                        for (final wtNode in wsNode.worktrees)
+                      if (state.workspaces[i].expanded)
+                        for (final wtNode in state.workspaces[i].worktrees)
                           ..._buildWorktreeSection(
                             context,
                             l10n,
                             spacing,
                             colors,
-                            wsNode.workspace,
+                            state.workspaces[i].workspace,
                             wtNode,
                             now,
                           ),
@@ -423,30 +434,53 @@ class _SideRailTreeContent extends ConsumerWidget {
       ),
       if (wtNode.expanded) ...<Widget>[
         if (wtNode.activeRuns.isEmpty && wtNode.recentRuns.isEmpty)
-          HiveTreeItem(
-            indentLevel: 2,
-            label: l10n.sideRailTreeNoRuns,
-            onPressed: null,
+          Padding(
+            padding: EdgeInsets.only(
+              left: spacing.space8,
+              right: spacing.space1,
+              top: spacing.spaceHalf,
+              bottom: spacing.spaceHalf,
+            ),
+            child: Text(
+              l10n.sideRailTreeNoRuns,
+              style: context.hiveTypography.bodySmall.copyWith(
+                color: colors.onSurfaceMuted,
+              ),
+            ),
           ),
         for (final run in visibleActive) _buildRunItem(l10n, run, now),
         if (wtNode.activeRuns.length > SideRailTreeController.maxRunsPerGroup)
-          HiveTreeItem(
-            key: Key('tree_see_all_active_${workspace.id}_${wt.id}'),
-            indentLevel: 2,
-            label: wtNode.showAllActive
-                ? l10n.sideRailTreeShowLess
-                : l10n.sideRailTreeSeeAll(remainingActive),
-            onPressed: () => onToggleShowAllActive(workspace.id, wt.id),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: EdgeInsets.only(left: spacing.space6),
+              child: HiveButton(
+                key: Key('tree_see_all_active_${workspace.id}_${wt.id}'),
+                label: wtNode.showAllActive
+                    ? l10n.sideRailTreeShowLess
+                    : l10n.sideRailTreeSeeAll(remainingActive),
+                variant: HiveButtonVariant.ghost,
+                size: HiveButtonSize.small,
+                onPressed: () => onToggleShowAllActive(workspace.id, wt.id),
+              ),
+            ),
           ),
         for (final run in visibleRecent) _buildRunItem(l10n, run, now),
         if (wtNode.recentRuns.length > SideRailTreeController.maxRunsPerGroup)
-          HiveTreeItem(
-            key: Key('tree_see_all_recent_${workspace.id}_${wt.id}'),
-            indentLevel: 2,
-            label: wtNode.showAllRecent
-                ? l10n.sideRailTreeShowLess
-                : l10n.sideRailTreeSeeAll(remainingRecent),
-            onPressed: () => onToggleShowAllRecent(workspace.id, wt.id),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: EdgeInsets.only(left: spacing.space6),
+              child: HiveButton(
+                key: Key('tree_see_all_recent_${workspace.id}_${wt.id}'),
+                label: wtNode.showAllRecent
+                    ? l10n.sideRailTreeShowLess
+                    : l10n.sideRailTreeSeeAll(remainingRecent),
+                variant: HiveButtonVariant.ghost,
+                size: HiveButtonSize.small,
+                onPressed: () => onToggleShowAllRecent(workspace.id, wt.id),
+              ),
+            ),
           ),
       ],
     ];

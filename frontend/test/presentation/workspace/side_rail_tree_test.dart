@@ -475,11 +475,15 @@ void main() {
     await tester.pumpAndSettle();
 
     // Clicking workspace Notes selects it
+    await tester.ensureVisible(find.byKey(const Key('tree_workspace_ws-2')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('tree_workspace_ws-2')));
     await tester.pumpAndSettle();
     expect(selectionStore.savedId, 'ws-2');
 
     // Clicking run opens /runs/:id
+    await tester.ensureVisible(find.text('Paused Flow'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Paused Flow'));
     await tester.pumpAndSettle();
     expect(navigatedTo, '/runs/run-paused');
