@@ -316,7 +316,8 @@ void main() {
       created.workflow.id,
       expectedRevision: created.revision,
     );
-    expect(result, isA<Success<void>>());
+    final accepted = result.valueOrNull!;
+    await service.whenDeletionFinished(accepted.operationId);
     expect(
       (await service.getWorkflow(created.workflow.id)).failureOrNull,
       isA<NotFoundFailure>(),
@@ -329,7 +330,8 @@ void main() {
     )).valueOrNull!;
 
     final result = await service.deleteWorkflow(created.workflow.id);
-    expect(result, isA<Success<void>>());
+    final accepted = result.valueOrNull!;
+    await service.whenDeletionFinished(accepted.operationId);
   });
 
   test(

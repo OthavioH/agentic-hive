@@ -92,7 +92,7 @@ final class WorkflowHandler {
       expectedRevision: _revision(request),
       force: force,
     );
-    return _mapResult(request, result, 200);
+    return _mapResult(request, result, 202);
   }
 
   Future<Response> _duplicate(Request request, String id) async {

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:agentic_hive_frontend/core/backend/backend_client_provider.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_connection.dart';
+import 'package:agentic_hive_frontend/data/workflows/workflow_deletion_providers.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_remote_data_source.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_repository_impl.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_changes_source.dart';
@@ -20,7 +21,10 @@ WorkflowRemoteDataSource workflowRemoteDataSource(Ref ref) {
 /// Provides the [WorkflowRepository] interface.
 @riverpod
 WorkflowRepository workflowRepository(Ref ref) {
-  return WorkflowRepositoryImpl(ref.watch(workflowRemoteDataSourceProvider));
+  return WorkflowRepositoryImpl(
+    ref.watch(workflowRemoteDataSourceProvider),
+    deletionEvents: ref.watch(workflowDeletionEventsSourceProvider),
+  );
 }
 
 /// Provides the [WorkflowChangesSource], forwarding `workflows.changed`

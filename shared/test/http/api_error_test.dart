@@ -102,5 +102,9 @@ void main() {
     test('workflowHasActiveRuns code is workflow_has_active_runs', () {
       expect(ApiErrorCode.workflowHasActiveRuns, 'workflow_has_active_runs');
     });
+
+    test('workflowDeleting code is workflow_deleting', () {
+      expect(ApiErrorCode.workflowDeleting, 'workflow_deleting');
+    });
   });
 }

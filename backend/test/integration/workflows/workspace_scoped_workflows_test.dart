@@ -12,6 +12,21 @@ import 'package:test/test.dart';
 import '../http/support/harness.dart';
 import '../websocket/support/ws_harness.dart' as ws;
 
+/// Polls the deletion operation until it is done; fails after 30 seconds.
+Future<void> _awaitDeletion(SocketHttpClient http, String operationId) async {
+  for (var i = 0; i < 300; i++) {
+    final status = WorkflowDeletionStatus.fromJson(
+      (await http.get('/api/v1/workflow-deletions/$operationId')).json,
+    );
+    if (status.phase == WorkflowDeletionPhase.done) {
+      expect(status.outcome, WorkflowDeletionOutcome.deleted);
+      return;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+  }
+  fail('Deletion $operationId did not finish within 30s');
+}
+
 void main() {
   late Directory workspaceDir;
   late Backend backend;
@@ -85,7 +100,11 @@ void main() {
     final deleted = await http.delete(
       '/api/v1/workflows/quick?workspaceId=${workspace.id}',
     );
-    expect(deleted.statusCode, 200);
+    expect(deleted.statusCode, 202);
+    await _awaitDeletion(
+      http,
+      WorkflowDeletionAccepted.fromJson(deleted.json).operationId,
+    );
     expect(file.existsSync(), isFalse);
   });
 

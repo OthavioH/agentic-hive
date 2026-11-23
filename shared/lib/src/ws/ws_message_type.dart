@@ -72,4 +72,13 @@ abstract final class WsMessageType {
   /// Server → client, broadcast globally when a pending pause is answered or
   /// cancelled.
   static const pauseResolved = 'pause.resolved';
+
+  /// Server → client, broadcast while a workflow deletion runs (ADR 0027).
+  static const workflowDeleteProgress = 'workflow.delete.progress';
+
+  /// Server → client, broadcast when a workflow deletion finished.
+  static const workflowDeleted = 'workflow.deleted';
+
+  /// Server → client, broadcast when a workflow deletion failed.
+  static const workflowDeleteFailed = 'workflow.delete.failed';
 }

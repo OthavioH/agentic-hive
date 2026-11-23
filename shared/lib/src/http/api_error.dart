@@ -58,6 +58,10 @@ abstract final class ApiErrorCode {
   /// active run id to its status name.
   static const workflowHasActiveRuns = 'workflow_has_active_runs';
 
+  /// The workflow is being deleted (409); details.operationId names the
+  /// deletion operation (ADR 0027).
+  static const workflowDeleting = 'workflow_deleting';
+
   /// `GET /ws` was called without a WebSocket upgrade (`426`).
   static const upgradeRequired = 'upgrade_required';
 

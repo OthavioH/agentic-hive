@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
@@ -75,13 +76,14 @@ Request _jsonRequest(
 
 void main() {
   late _FakeWorkflowRepository repository;
+  late WorkflowService service;
   late Handler handler;
   late int idCounter;
 
   setUp(() {
     repository = _FakeWorkflowRepository();
     idCounter = 0;
-    final service = WorkflowService(
+    service = WorkflowService(
       repository: repository,
       validator: const WorkflowValidator(),
       generateId: () => 'wf-${++idCounter}',
@@ -170,12 +172,9 @@ void main() {
     final delResp = await handler(
       buildRequest('/api/v1/workflows/wf-1', method: 'DELETE'),
     );
-    expect(delResp.statusCode, 200);
-    expect(await readJson(delResp), {
-      'id': 'wf-1',
-      'deletedRuns': 0,
-      'orphanedRuns': <Object?>[],
-    });
+    expect(delResp.statusCode, 202);
+    final deletion = WorkflowDeletionAccepted.fromJson(await readJson(delResp));
+    await service.whenDeletionFinished(deletion.operationId);
 
     // Get deleted returns 404 ApiError.
     final missingResp = await handler(buildRequest('/api/v1/workflows/wf-1'));
@@ -356,6 +355,10 @@ void main() {
       ),
     );
     expect(staleDel.statusCode, 409);
+    expect(
+      ApiError.fromJson(await readJson(staleDel)).code,
+      ApiErrorCode.revisionConflict,
+    );
 
     final okDel = await handler(
       buildRequest(
@@ -363,17 +366,18 @@ void main() {
         method: 'DELETE',
       ),
     );
-    expect(okDel.statusCode, 200);
+    expect(okDel.statusCode, 202);
   });
 
   group('DELETE /api/v1/workflows/:id force', () {
     late _RecordingRunsDeleter deleter;
+    late WorkflowService forceService;
     late Handler forceHandler;
 
     setUp(() async {
       deleter = _RecordingRunsDeleter();
       var counter = 0;
-      final forceService = WorkflowService(
+      forceService = WorkflowService(
         repository: _FakeWorkflowRepository(),
         validator: const WorkflowValidator(),
         runsDeleter: deleter,
@@ -412,12 +416,12 @@ void main() {
         buildRequest('/api/v1/workflows/wf-1?force=true', method: 'DELETE'),
       );
 
-      expect(resp.statusCode, 200);
-      expect(await readJson(resp), {
-        'id': 'wf-1',
-        'deletedRuns': 1,
-        'orphanedRuns': ['r2'],
-      });
+      expect(resp.statusCode, 202);
+      expect(
+        WorkflowDeletionAccepted.fromJson(await readJson(resp)).workflowId,
+        'wf-1',
+      );
+      await Future<void>.delayed(Duration.zero);
       expect(deleter.calls.single.$3, isTrue);
     });
 
@@ -426,7 +430,7 @@ void main() {
         buildRequest('/api/v1/workflows/wf-1', method: 'DELETE'),
       );
 
-      expect(resp.statusCode, 200);
+      expect(resp.statusCode, 202);
       expect(deleter.calls.single.$3, isFalse);
     });
 
@@ -435,8 +439,144 @@ void main() {
         buildRequest('/api/v1/workflows/wf-1?force=false', method: 'DELETE'),
       );
 
-      expect(resp.statusCode, 200);
+      expect(resp.statusCode, 202);
       expect(deleter.calls.single.$3, isFalse);
+    });
+
+    test('DELETE answers 202 before the background work finishes', () async {
+      final gate = Completer<void>();
+      deleter.gate = gate;
+
+      final resp = await Future<Response>.value(
+        forceHandler(
+          buildRequest('/api/v1/workflows/wf-1?force=true', method: 'DELETE'),
+        ),
+      ).timeout(const Duration(seconds: 1));
+
+      expect(resp.statusCode, 202);
+      final accepted = WorkflowDeletionAccepted.fromJson(await readJson(resp));
+      expect(accepted.workflowId, 'wf-1');
+      expect(
+        (await forceHandler(buildRequest('/api/v1/workflows/wf-1'))).statusCode,
+        200,
+      );
+
+      gate.complete();
+      await forceService.whenDeletionFinished(accepted.operationId);
+      expect(
+        (await forceHandler(buildRequest('/api/v1/workflows/wf-1'))).statusCode,
+        404,
+      );
+    });
+
+    test('DELETE with active runs and no force answers 409 '
+        'workflow_has_active_runs with the runs in details', () async {
+      deleter.activeRuns = {'r1': RunStatus.running};
+
+      final resp = await forceHandler(
+        buildRequest('/api/v1/workflows/wf-1', method: 'DELETE'),
+      );
+
+      expect(resp.statusCode, 409);
+      final error = ApiError.fromJson(await readJson(resp));
+      expect(error.code, ApiErrorCode.workflowHasActiveRuns);
+      expect(error.details, {'r1': 'running'});
+      expect(deleter.calls, isEmpty);
+    });
+
+    test('DELETE twice answers the same operationId', () async {
+      deleter.gate = Completer<void>();
+
+      final first = WorkflowDeletionAccepted.fromJson(
+        await readJson(
+          await forceHandler(
+            buildRequest('/api/v1/workflows/wf-1?force=true', method: 'DELETE'),
+          ),
+        ),
+      );
+      final second = WorkflowDeletionAccepted.fromJson(
+        await readJson(
+          await forceHandler(
+            buildRequest('/api/v1/workflows/wf-1', method: 'DELETE'),
+          ),
+        ),
+      );
+
+      expect(second.operationId, first.operationId);
+      deleter.gate!.complete();
+      await forceService.whenDeletionFinished(first.operationId);
+    });
+
+    test('PUT while deleting answers 409 workflow_deleting with the '
+        'operation id', () async {
+      deleter.gate = Completer<void>();
+      final accepted = WorkflowDeletionAccepted.fromJson(
+        await readJson(
+          await forceHandler(
+            buildRequest('/api/v1/workflows/wf-1?force=true', method: 'DELETE'),
+          ),
+        ),
+      );
+
+      final resp = await forceHandler(
+        _jsonRequest(
+          '/api/v1/workflows/wf-1',
+          method: 'PUT',
+          body: const UpdateWorkflowRequest(name: 'Renamed').toJson(),
+        ),
+      );
+
+      expect(resp.statusCode, 409);
+      final error = ApiError.fromJson(await readJson(resp));
+      expect(error.code, ApiErrorCode.workflowDeleting);
+      expect(error.details, {'operationId': accepted.operationId});
+      deleter.gate!.complete();
+      await forceService.whenDeletionFinished(accepted.operationId);
+    });
+
+    test(
+      'POST duplicate while deleting answers 409 workflow_deleting',
+      () async {
+        deleter.gate = Completer<void>();
+        await forceHandler(
+          buildRequest('/api/v1/workflows/wf-1?force=true', method: 'DELETE'),
+        );
+
+        final resp = await forceHandler(
+          _jsonRequest('/api/v1/workflows/wf-1/duplicate', method: 'POST'),
+        );
+
+        expect(resp.statusCode, 409);
+        expect(
+          ApiError.fromJson(await readJson(resp)).code,
+          ApiErrorCode.workflowDeleting,
+        );
+        deleter.gate!.complete();
+      },
+    );
+
+    test('GET by id while deleting answers 200 and the list marks the '
+        'workflow as deleting', () async {
+      deleter.gate = Completer<void>();
+      final accepted = WorkflowDeletionAccepted.fromJson(
+        await readJson(
+          await forceHandler(
+            buildRequest('/api/v1/workflows/wf-1?force=true', method: 'DELETE'),
+          ),
+        ),
+      );
+
+      expect(
+        (await forceHandler(buildRequest('/api/v1/workflows/wf-1'))).statusCode,
+        200,
+      );
+      final list = WorkflowListResponse.fromJson(
+        await readJson(await forceHandler(buildRequest('/api/v1/workflows'))),
+      );
+      expect(list.workflows.single.deleting, isTrue);
+
+      deleter.gate!.complete();
+      await forceService.whenDeletionFinished(accepted.operationId);
     });
 
     test('an invalid force value is 400 and deletes nothing', () async {
@@ -467,13 +607,27 @@ final class _RecordingRunsDeleter implements WorkflowRunsDeleter {
   );
   final List<(String, String?, bool)> calls = <(String, String?, bool)>[];
 
+  /// Active runs reported for the workflow (run id to status).
+  Map<String, RunStatus> activeRuns = const {};
+
+  /// When set, the deletion waits on this gate before answering.
+  Completer<void>? gate;
+
+  @override
+  Future<Result<Map<String, RunStatus>>> activeRunsOfWorkflow(
+    String workflowId, {
+    String? workspaceId,
+  }) async => Success(activeRuns);
+
   @override
   Future<Result<WorkflowRunsDeletion>> deleteRunsOfWorkflow(
     String workflowId, {
     String? workspaceId,
     bool force = false,
+    WorkflowRunsProgressListener? onProgress,
   }) async {
     calls.add((workflowId, workspaceId, force));
+    await gate?.future;
     return result;
   }
 }
