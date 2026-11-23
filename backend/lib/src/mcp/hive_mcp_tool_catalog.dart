@@ -168,5 +168,16 @@ abstract final class HiveMcpToolCatalog {
         additionalProperties: false,
       ),
     ),
+    Tool(
+      name: 'list_building_blocks',
+      description:
+          'List the node types (config fields, outputs) and agents a workflow '
+          'can use in a scope. Call it before create_workflow '
+          'or edit_workflow.',
+      inputSchema: ObjectSchema(
+        properties: <String, Schema>{'workspace': _workspace},
+        additionalProperties: false,
+      ),
+    ),
   ];
 }

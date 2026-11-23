@@ -21,6 +21,7 @@ export 'src/http/status_response.dart';
 export 'src/json_fields.dart' show JsonMap;
 export 'src/mcp/mcp_tool_call.dart';
 export 'src/nodes/node_category.dart';
+export 'src/nodes/node_config_field.dart';
 export 'src/nodes/node_config_validation.dart' show NodeConfigIssue;
 export 'src/nodes/node_configs.dart';
 export 'src/nodes/node_descriptor.dart';
