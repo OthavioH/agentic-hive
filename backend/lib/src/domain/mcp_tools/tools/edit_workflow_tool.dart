@@ -123,10 +123,21 @@ final class EditWorkflowTool extends ScopedMcpTool {
       FailureResult(failure: NotFoundFailure()) => FailureResult(
         _notFound(id, scope),
       ),
+      FailureResult(failure: WorkflowDeletingFailure(:final operationId)) =>
+        FailureResult(_deleting(id, operationId)),
       FailureResult(:final failure) => FailureResult(failure),
       Success(value: final result) => _success(revision, patch, result),
     };
   }
+
+  /// The text for a save refused while the workflow is being deleted (#119).
+  WorkflowDeletingFailure _deleting(String id, String operationId) =>
+      WorkflowDeletingFailure(
+        'Workflow "$id" is being deleted (operation $operationId), so it '
+        'cannot be edited. Nothing was changed. Do not retry: the deletion is '
+        'running and will finish on its own.',
+        operationId: operationId,
+      );
 
   NotFoundFailure _notFound(String id, McpScope scope) => NotFoundFailure(
     'Workflow "$id" not found in ${scope.label}. Call list_workflows to see '

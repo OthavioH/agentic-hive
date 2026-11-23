@@ -8,6 +8,8 @@ import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/create_workflow_
 import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/duplicate_workflow_tool.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/workflow_create_input.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/workflow_text_formatter.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_operation.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_registry.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_events.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
@@ -52,6 +54,7 @@ void main() {
   late _Events events;
   late CreateWorkflowTool create;
   late DuplicateWorkflowTool duplicate;
+  late WorkflowDeletionRegistry deletions;
   final workspace = Workspace(
     id: 'ws-1',
     name: 'App',
@@ -65,11 +68,13 @@ void main() {
     global = MemoryWorkflows();
     workspaceFiles = MemoryWorkspaceWorkflows();
     workspaces = MemoryWorkspaces([workspace]);
+    deletions = WorkflowDeletionRegistry();
     service = WorkflowService(
       repository: global,
       validator: const WorkflowValidator(),
       workspaceWorkflows: workspaceFiles,
       workspaces: workspaces,
+      deletions: deletions,
     );
     scopes = McpScopeResolver(
       workspaces: workspaces,
@@ -303,6 +308,32 @@ void main() {
       );
     },
   );
+
+  test('a workflow being deleted answers the deleting text and says not to '
+      'retry', () async {
+    await create.call(McpToolInput(arguments: input(name: 'Global One')));
+    final id = global.store.keys.single;
+    deletions.start(
+      WorkflowDeletionOperation(
+        id: 'op-8',
+        workflowId: id,
+        phase: WorkflowDeletionPhase.deletingRuns,
+        startedAt: DateTime.utc(2026, 11, 23, 10),
+      ),
+    );
+
+    final result = await duplicate.call(McpToolInput(arguments: {'id': id}));
+
+    final failure = result.failureOrNull! as WorkflowDeletingFailure;
+    expect(failure.operationId, 'op-8');
+    expect(
+      failure.message,
+      'Workflow "$id" is being deleted (operation op-8), so it cannot be '
+      'duplicated. Nothing was created. Do not retry: the deletion is running '
+      'and will finish on its own.',
+    );
+    expect(global.store, hasLength(1));
+  });
 
   test('unknown id names the scope', () async {
     final result = await duplicate.call(
