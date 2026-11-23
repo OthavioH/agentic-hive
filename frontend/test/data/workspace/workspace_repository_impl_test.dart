@@ -282,4 +282,41 @@ void main() {
     expect(items[0].branch, 'main');
     expect(items[1].hasUncommittedChanges, isTrue);
   });
+
+  test('removeWorktree DELETEs /api/v1/workspaces/:id/worktrees/:wtId', () async {
+    client.nextResponse = const Success(<String, Object?>{
+      'id': 'feat-a',
+      'deleted': true,
+      'branchDeleted': false,
+      'notice': 'Branch kept because it is not merged.',
+    });
+    final result = await container
+        .read(workspaceRepositoryProvider)
+        .removeWorktree('ws-1', 'feat-a');
+    expect(client.lastMethod, 'DELETE');
+    expect(client.lastPath, '/api/v1/workspaces/ws-1/worktrees/feat-a');
+    expect(result.valueOrNull?.deleted, isTrue);
+    expect(result.valueOrNull?.branchDeleted, isFalse);
+    expect(
+      result.valueOrNull?.notice,
+      'Branch kept because it is not merged.',
+    );
+  });
+
+  test('removeWorktree passes force=true query parameter', () async {
+    client.nextResponse = const Success(<String, Object?>{
+      'id': 'feat-a',
+      'deleted': true,
+      'branchDeleted': true,
+    });
+    final result = await container
+        .read(workspaceRepositoryProvider)
+        .removeWorktree('ws-1', 'feat-a', force: true);
+    expect(client.lastMethod, 'DELETE');
+    expect(
+      client.lastPath,
+      '/api/v1/workspaces/ws-1/worktrees/feat-a?force=true',
+    );
+    expect(result.valueOrNull?.branchDeleted, isTrue);
+  });
 }

@@ -28,6 +28,13 @@ final class FakeWorkspaceRepository implements WorkspaceRepository {
   Result<Workspace>? createWorkspaceResult;
   Result<Workspace>? renameWorkspaceResult;
   Result<void>? unregisterWorkspaceResult;
+  Result<RemoveWorktreeResponse>? removeWorktreeResult;
+  Result<RemoveWorktreeResponse> Function(
+    String workspaceId,
+    String worktreeId, {
+    required bool force,
+  })?
+  onRemoveWorktree;
 
   List<Snapshot> snapshots;
   Result<WorkspaceCapabilities> capabilities;
@@ -49,6 +56,9 @@ final class FakeWorkspaceRepository implements WorkspaceRepository {
   final List<({String id, String name})> renameCalls =
       <({String id, String name})>[];
   final List<String> unregisterCalls = <String>[];
+  final List<({String workspaceId, String worktreeId, bool force})>
+  removeWorktreeCalls =
+      <({String workspaceId, String worktreeId, bool force})>[];
 
   @override
   Future<Result<List<Workspace>>> listWorkspaces() async {
@@ -132,6 +142,51 @@ final class FakeWorkspaceRepository implements WorkspaceRepository {
     return Success<List<Worktree>>(
       List<Worktree>.of(
         worktreesByWorkspaceId[workspaceId] ?? const <Worktree>[],
+      ),
+    );
+  }
+
+  @override
+  Future<Result<RemoveWorktreeResponse>> removeWorktree(
+    String workspaceId,
+    String worktreeId, {
+    bool force = false,
+  }) async {
+    removeWorktreeCalls.add((
+      workspaceId: workspaceId,
+      worktreeId: worktreeId,
+      force: force,
+    ));
+    final handler = onRemoveWorktree;
+    if (handler != null) {
+      final result = handler(workspaceId, worktreeId, force: force);
+      if (result.isSuccess) {
+        worktreesByWorkspaceId[workspaceId] =
+            (worktreesByWorkspaceId[workspaceId] ?? const <Worktree>[])
+                .where((w) => w.id != worktreeId)
+                .toList();
+      }
+      return result;
+    }
+    final override = removeWorktreeResult;
+    if (override != null) {
+      if (override.isSuccess) {
+        worktreesByWorkspaceId[workspaceId] =
+            (worktreesByWorkspaceId[workspaceId] ?? const <Worktree>[])
+                .where((w) => w.id != worktreeId)
+                .toList();
+      }
+      return override;
+    }
+    worktreesByWorkspaceId[workspaceId] =
+        (worktreesByWorkspaceId[workspaceId] ?? const <Worktree>[])
+            .where((w) => w.id != worktreeId)
+            .toList();
+    return Success<RemoveWorktreeResponse>(
+      RemoveWorktreeResponse(
+        id: worktreeId,
+        deleted: true,
+        branchDeleted: true,
       ),
     );
   }

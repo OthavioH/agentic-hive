@@ -321,6 +321,25 @@ class SideRailTreeController extends _$SideRailTreeController {
       .read(workspaceRegistryControllerProvider.notifier)
       .selectWorkspace(workspaceId);
 
+  /// Removes non-primary worktree [worktreeId] of [workspaceId] and refreshes
+  /// the tree on success.
+  Future<Result<RemoveWorktreeResponse>> removeWorktree(
+    String workspaceId,
+    String worktreeId, {
+    bool force = false,
+  }) async {
+    final result = await ref.read(removeWorktreeProvider)(
+      workspaceId,
+      worktreeId,
+      force: force,
+    );
+    if (!ref.mounted) return result;
+    if (result is Success<RemoveWorktreeResponse>) {
+      await refresh();
+    }
+    return result;
+  }
+
   /// Toggles expand/collapse for workspace [workspaceId].
   void toggleWorkspaceExpanded(String workspaceId) {
     final current = state.asData?.value;

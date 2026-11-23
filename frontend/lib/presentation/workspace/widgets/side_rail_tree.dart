@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/runs/utils/run_l10n.dart';
 import 'package:agentic_hive_frontend/presentation/runs/widgets/start_run_dialog.dart';
@@ -36,6 +37,84 @@ class SideRailTree extends ConsumerWidget {
     );
     if (created != null && context.mounted) {
       RunDetailRoute(id: created.id).go(context);
+    }
+  }
+
+  Future<void> _removeWorktreeFromTree(
+    BuildContext context,
+    WidgetRef ref,
+    Workspace workspace,
+    SideRailWorktreeNode wtNode,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final wt = wtNode.worktree;
+    final choice = await showHiveConfirmDialog(
+      context,
+      title: l10n.worktreeRemoveTitle,
+      message: l10n.worktreeRemoveMessage(wt.name),
+      confirmLabel: l10n.worktreeRemoveConfirm,
+      cancelLabel: l10n.worktreeRemoveCancel,
+      tone: HiveConfirmTone.destructive,
+      icon: HiveIcons.delete,
+    );
+    if (!context.mounted || choice != HiveConfirmChoice.confirm) return;
+
+    final controller = ref.read(sideRailTreeControllerProvider.notifier);
+    var result = await controller.removeWorktree(workspace.id, wt.id);
+    if (!context.mounted) return;
+
+    if (result case FailureResult<RemoveWorktreeResponse>(:final failure)) {
+      final is409 =
+          failure is ConflictFailure ||
+          (failure is BackendFailure && failure.statusCode == 409);
+      final isDirtyConflict =
+          is409 &&
+          wtNode.activeRuns.isEmpty &&
+          (wt.hasUncommittedChanges ||
+              failure.message.toLowerCase().contains('uncommitted'));
+      if (isDirtyConflict) {
+        final forceChoice = await showHiveConfirmDialog(
+          context,
+          title: l10n.worktreeRemoveDirtyTitle,
+          message: l10n.worktreeRemoveDirtyMessage(wt.name),
+          confirmLabel: l10n.worktreeRemoveForceConfirm,
+          cancelLabel: l10n.worktreeRemoveCancel,
+          tone: HiveConfirmTone.destructive,
+          icon: HiveIcons.alert,
+        );
+        if (!context.mounted || forceChoice != HiveConfirmChoice.confirm) {
+          return;
+        }
+        result = await controller.removeWorktree(
+          workspace.id,
+          wt.id,
+          force: true,
+        );
+        if (!context.mounted) return;
+      }
+    }
+
+    switch (result) {
+      case Success<RemoveWorktreeResponse>(:final value):
+        if (!value.branchDeleted) {
+          final notice = value.notice;
+          HiveToast.show(
+            context,
+            tone: HiveToastTone.info,
+            message: (notice != null && notice.isNotEmpty)
+                ? notice
+                : l10n.worktreeRemoveBranchKeptNotice,
+          );
+        }
+      case FailureResult<RemoveWorktreeResponse>(:final failure):
+        final message = failure.message.isNotEmpty
+            ? failure.message
+            : l10n.worktreeRemoveError;
+        HiveToast.show(
+          context,
+          tone: HiveToastTone.danger,
+          message: message,
+        );
     }
   }
 
@@ -109,6 +188,9 @@ class SideRailTree extends ConsumerWidget {
                     onToggleShowAllRecent: controller.toggleShowAllRecent,
                     onStartRun: (ws, wt) =>
                         unawaited(_startRunFromTree(context, ref, ws, wt)),
+                    onRemoveWorktree: (ws, wtNode) => unawaited(
+                      _removeWorktreeFromTree(context, ref, ws, wtNode),
+                    ),
                     onOpenRun: (runId) => RunDetailRoute(id: runId).go(context),
                   ),
               },
@@ -130,6 +212,7 @@ class _SideRailTreeContent extends ConsumerWidget {
     required this.onToggleShowAllActive,
     required this.onToggleShowAllRecent,
     required this.onStartRun,
+    required this.onRemoveWorktree,
     required this.onOpenRun,
   });
 
@@ -143,6 +226,8 @@ class _SideRailTreeContent extends ConsumerWidget {
   final void Function(String workspaceId, String worktreeId)
   onToggleShowAllRecent;
   final void Function(Workspace workspace, Worktree worktree) onStartRun;
+  final void Function(Workspace workspace, SideRailWorktreeNode wtNode)
+  onRemoveWorktree;
   final ValueChanged<String> onOpenRun;
 
   @override
@@ -294,6 +379,16 @@ class _SideRailTreeContent extends ConsumerWidget {
               semanticLabel: l10n.sideRailTreeStartRunTooltip(wtLabel),
               onPressed: () => onStartRun(workspace, wt),
             ),
+            if (!wt.isPrimary) ...<Widget>[
+              SizedBox(width: spacing.spaceHalf),
+              HiveIconButton(
+                key: Key('tree_remove_worktree_${workspace.id}_${wt.id}'),
+                icon: HiveIcons.delete,
+                size: HiveButtonSize.small,
+                semanticLabel: l10n.sideRailTreeRemoveWorktreeTooltip(wtLabel),
+                onPressed: () => onRemoveWorktree(workspace, wtNode),
+              ),
+            ],
           ],
         ),
         onPressed: () => onSelectWorkspace(workspace.id),

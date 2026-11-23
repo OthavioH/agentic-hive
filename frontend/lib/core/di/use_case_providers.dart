@@ -64,6 +64,7 @@ import 'package:agentic_hive_frontend/domain/workspace/use_cases/list_run_snapsh
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/list_workspaces.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/list_worktrees.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/load_last_workspace_id.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/remove_worktree.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/rename_workspace.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/restore_snapshot.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/save_last_workspace_id.dart';
@@ -350,3 +351,8 @@ SaveLastWorkspaceId saveLastWorkspaceId(Ref ref) =>
 @riverpod
 ListWorktrees listWorktrees(Ref ref) =>
     ListWorktrees(ref.watch(workspaceRepositoryProvider));
+
+/// Provides [RemoveWorktree].
+@riverpod
+RemoveWorktree removeWorktree(Ref ref) =>
+    RemoveWorktree(ref.watch(workspaceRepositoryProvider));

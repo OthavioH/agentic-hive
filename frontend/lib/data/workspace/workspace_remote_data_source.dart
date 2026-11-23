@@ -22,6 +22,13 @@ abstract interface class WorkspaceRemoteDataSource {
   /// `GET /api/v1/workspaces/:id/worktrees`.
   Future<Result<List<Worktree>>> listWorktrees(String workspaceId);
 
+  /// `DELETE /api/v1/workspaces/:id/worktrees/:worktreeId`.
+  Future<Result<RemoveWorktreeResponse>> removeWorktree(
+    String workspaceId,
+    String worktreeId, {
+    bool force = false,
+  });
+
   /// `GET /api/v1/workspace/capabilities`.
   Future<Result<WorkspaceCapabilities>> getCapabilities({String? path});
 
@@ -95,6 +102,22 @@ final class HttpWorkspaceRemoteDataSource implements WorkspaceRemoteDataSource {
       '/api/v1/workspaces/${Uri.encodeComponent(workspaceId)}/worktrees',
     );
     return _decode(result, (json) => WorktreeListResponse.fromJson(json).items);
+  }
+
+  @override
+  Future<Result<RemoveWorktreeResponse>> removeWorktree(
+    String workspaceId,
+    String worktreeId, {
+    bool force = false,
+  }) async {
+    final uri = Uri(
+      path:
+          '/api/v1/workspaces/${Uri.encodeComponent(workspaceId)}'
+          '/worktrees/${Uri.encodeComponent(worktreeId)}',
+      queryParameters: force ? const <String, String>{'force': 'true'} : null,
+    );
+    final result = await _client.sendJsonRequest('DELETE', uri.toString());
+    return _decode(result, RemoveWorktreeResponse.fromJson);
   }
 
   @override

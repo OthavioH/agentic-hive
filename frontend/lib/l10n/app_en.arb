@@ -3037,5 +3037,60 @@
         "type": "String"
       }
     }
+  },
+  "sideRailTreeRemoveWorktreeTooltip": "Remove worktree {name}",
+  "@sideRailTreeRemoveWorktreeTooltip": {
+    "description": "Tooltip for removing a non-primary worktree in the side rail tree.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "worktreeRemoveTitle": "Remove worktree?",
+  "@worktreeRemoveTitle": {
+    "description": "Confirmation dialog title when removing a worktree."
+  },
+  "worktreeRemoveMessage": "Remove worktree \"{name}\"? Its branch is deleted only if merged.",
+  "@worktreeRemoveMessage": {
+    "description": "Confirmation dialog message when removing a worktree.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "worktreeRemoveConfirm": "Remove",
+  "@worktreeRemoveConfirm": {
+    "description": "Confirm button label when removing a worktree."
+  },
+  "worktreeRemoveCancel": "Cancel",
+  "@worktreeRemoveCancel": {
+    "description": "Cancel button label when removing a worktree."
+  },
+  "worktreeRemoveDirtyTitle": "Worktree has uncommitted changes",
+  "@worktreeRemoveDirtyTitle": {
+    "description": "Second confirmation dialog title when force-removing a dirty worktree."
+  },
+  "worktreeRemoveDirtyMessage": "Worktree \"{name}\" has uncommitted changes. Force removing it will permanently discard them. Continue?",
+  "@worktreeRemoveDirtyMessage": {
+    "description": "Second confirmation dialog message when force-removing a dirty worktree.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "worktreeRemoveForceConfirm": "Discard & remove",
+  "@worktreeRemoveForceConfirm": {
+    "description": "Confirm button label for force-removing a dirty worktree."
+  },
+  "worktreeRemoveBranchKeptNotice": "Worktree removed; its branch was kept because it is not merged.",
+  "@worktreeRemoveBranchKeptNotice": {
+    "description": "Fallback notice when a removed worktree's branch was kept."
+  },
+  "worktreeRemoveError": "Could not remove worktree.",
+  "@worktreeRemoveError": {
+    "description": "Fallback error message when removing a worktree fails."
   }
 }

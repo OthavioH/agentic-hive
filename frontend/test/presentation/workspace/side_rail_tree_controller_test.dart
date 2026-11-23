@@ -557,4 +557,43 @@ void main() {
       expect(tree.refreshFailure, isNull);
     });
   });
+
+  group('removeWorktree', () {
+    test('calls repository and refreshes the tree on success', () async {
+      workspaceRepo
+        ..workspaces = <Workspace>[makeWorkspace()]
+        ..worktreesByWorkspaceId['ws-1'] = <Worktree>[
+          makeWorktree(),
+          makeWorktree(
+            id: 'feat-a',
+            name: 'feat-a',
+            path: '/data/worktrees/ws-1/feat-a',
+            isPrimary: false,
+            branch: 'feat/a',
+          ),
+        ];
+      final container = createContainer();
+      final sub = container.listen(sideRailTreeControllerProvider, (_, _) {});
+      addTearDown(sub.close);
+      final tree = await container.read(sideRailTreeControllerProvider.future);
+      expect(tree.workspaces.single.worktrees, hasLength(2));
+
+      final result = await container
+          .read(sideRailTreeControllerProvider.notifier)
+          .removeWorktree('ws-1', 'feat-a');
+
+      expect(result.isSuccess, isTrue);
+      expect(workspaceRepo.removeWorktreeCalls, <({
+        String workspaceId,
+        String worktreeId,
+        bool force,
+      })>[
+        (workspaceId: 'ws-1', worktreeId: 'feat-a', force: false),
+      ]);
+      final updated = await container.read(
+        sideRailTreeControllerProvider.future,
+      );
+      expect(updated.workspaces.single.worktrees, hasLength(1));
+    });
+  });
 }

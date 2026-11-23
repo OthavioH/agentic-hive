@@ -36,6 +36,13 @@ final class WorkspaceRepositoryImpl implements WorkspaceRepository {
       _remote.listWorktrees(workspaceId);
 
   @override
+  Future<Result<RemoveWorktreeResponse>> removeWorktree(
+    String workspaceId,
+    String worktreeId, {
+    bool force = false,
+  }) => _remote.removeWorktree(workspaceId, worktreeId, force: force);
+
+  @override
   Future<Result<WorkspaceCapabilities>> getCapabilities({String? path}) =>
       _remote.getCapabilities(path: path);
 

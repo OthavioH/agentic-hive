@@ -67,6 +67,22 @@ final class _FakeWorkspaceRepository implements WorkspaceRepository {
   }
 
   @override
+  Future<Result<RemoveWorktreeResponse>> removeWorktree(
+    String workspaceId,
+    String worktreeId, {
+    bool force = false,
+  }) async {
+    lastId = worktreeId;
+    return Success(
+      RemoveWorktreeResponse(
+        id: worktreeId,
+        deleted: true,
+        branchDeleted: true,
+      ),
+    );
+  }
+
+  @override
   Future<Result<WorkspaceCapabilities>> getCapabilities({String? path}) =>
       throw UnimplementedError();
 

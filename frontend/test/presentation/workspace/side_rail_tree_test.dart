@@ -792,4 +792,189 @@ void main() {
       expect(find.text('Renamed'), findsOneWidget);
     });
   });
+
+  group('remove worktree', () {
+    testWidgets(
+      'non-primary worktree shows remove button, primary does not, '
+      'and confirms before removing and showing unmerged notice',
+      (tester) async {
+        workspaceRepo
+          ..workspaces = <Workspace>[makeWorkspace()]
+          ..worktreesByWorkspaceId['ws-1'] = <Worktree>[
+            makeWorktree(),
+            makeWorktree(
+              id: 'feat-ui',
+              name: 'feat-ui',
+              path: '/data/worktrees/ws-1/feat-ui',
+              isPrimary: false,
+              branch: 'feature/ui',
+            ),
+          ]
+          ..removeWorktreeResult = const Success<RemoveWorktreeResponse>(
+            RemoveWorktreeResponse(
+              id: 'feat-ui',
+              deleted: true,
+              branchDeleted: false,
+              notice: 'Branch feature/ui is not merged and was kept.',
+            ),
+          );
+
+        await tester.pumpWidget(
+          _buildRouterApp(
+            workspaceRepo: workspaceRepo,
+            selectionStore: selectionStore,
+            runsRepo: runsRepo,
+            pauseRepo: pauseRepo,
+            fixedNow: fixedNow,
+            changes: changes,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('tree_remove_worktree_ws-1_primary')),
+          findsNothing,
+        );
+        final removeButton = find.byKey(
+          const Key('tree_remove_worktree_ws-1_feat-ui'),
+        );
+        expect(removeButton, findsOneWidget);
+
+        await tester.tap(removeButton);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Remove worktree?'), findsOneWidget);
+        expect(workspaceRepo.removeWorktreeCalls, isEmpty);
+
+        await tester.tap(find.text('Remove'));
+        await tester.pumpAndSettle();
+
+        expect(workspaceRepo.removeWorktreeCalls, <({
+          String workspaceId,
+          String worktreeId,
+          bool force,
+        })>[
+          (workspaceId: 'ws-1', worktreeId: 'feat-ui', force: false),
+        ]);
+        expect(
+          find.text('Branch feature/ui is not merged and was kept.'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'dirty worktree 409 offers second confirmation and retries with force',
+      (tester) async {
+        var callCount = 0;
+        workspaceRepo
+          ..workspaces = <Workspace>[makeWorkspace()]
+          ..worktreesByWorkspaceId['ws-1'] = <Worktree>[
+            makeWorktree(),
+            makeWorktree(
+              id: 'feat-dirty',
+              name: 'feat-dirty',
+              path: '/data/worktrees/ws-1/feat-dirty',
+              isPrimary: false,
+              hasUncommittedChanges: true,
+              branch: 'feature/dirty',
+            ),
+          ]
+          ..onRemoveWorktree = (wsId, wtId, {required force}) {
+            callCount++;
+            if (callCount == 1 && !force) {
+              return const FailureResult<RemoveWorktreeResponse>(
+                BackendFailure(
+                  'Worktree has uncommitted changes.',
+                  statusCode: 409,
+                ),
+              );
+            }
+            return const Success<RemoveWorktreeResponse>(
+              RemoveWorktreeResponse(
+                id: 'feat-dirty',
+                deleted: true,
+                branchDeleted: true,
+              ),
+            );
+          };
+
+        await tester.pumpWidget(
+          _buildRouterApp(
+            workspaceRepo: workspaceRepo,
+            selectionStore: selectionStore,
+            runsRepo: runsRepo,
+            pauseRepo: pauseRepo,
+            fixedNow: fixedNow,
+            changes: changes,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byKey(const Key('tree_remove_worktree_ws-1_feat-dirty')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Remove'));
+        await tester.pumpAndSettle();
+
+        // Explicit second confirmation for uncommitted changes.
+        expect(find.text('Worktree has uncommitted changes'), findsOneWidget);
+        await tester.tap(find.text('Discard & remove'));
+        await tester.pumpAndSettle();
+
+        expect(workspaceRepo.removeWorktreeCalls, <({
+          String workspaceId,
+          String worktreeId,
+          bool force,
+        })>[
+          (workspaceId: 'ws-1', worktreeId: 'feat-dirty', force: false),
+          (workspaceId: 'ws-1', worktreeId: 'feat-dirty', force: true),
+        ]);
+      },
+    );
+
+    testWidgets(
+      'active run 409 shows error and does not offer force remove',
+      (tester) async {
+        workspaceRepo
+          ..workspaces = <Workspace>[makeWorkspace()]
+          ..worktreesByWorkspaceId['ws-1'] = <Worktree>[
+            makeWorktree(),
+            makeWorktree(
+              id: 'feat-busy',
+              name: 'feat-busy',
+              path: '/data/worktrees/ws-1/feat-busy',
+              isPrimary: false,
+              branch: 'feature/busy',
+            ),
+          ]
+          ..removeWorktreeResult = const FailureResult<RemoveWorktreeResponse>(
+            BackendFailure('A run is active in worktree.', statusCode: 409),
+          );
+
+        await tester.pumpWidget(
+          _buildRouterApp(
+            workspaceRepo: workspaceRepo,
+            selectionStore: selectionStore,
+            runsRepo: runsRepo,
+            pauseRepo: pauseRepo,
+            fixedNow: fixedNow,
+            changes: changes,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byKey(const Key('tree_remove_worktree_ws-1_feat-busy')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Remove'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Worktree has uncommitted changes'), findsNothing);
+        expect(find.text('A run is active in worktree.'), findsOneWidget);
+      },
+    );
+  });
 }

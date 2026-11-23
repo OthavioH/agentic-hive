@@ -21,6 +21,13 @@ abstract interface class WorkspaceRepository {
   /// Lists checkouts for workspace [workspaceId], primary checkout first.
   Future<Result<List<Worktree>>> listWorktrees(String workspaceId);
 
+  /// Removes non-primary worktree [worktreeId] of workspace [workspaceId].
+  Future<Result<RemoveWorktreeResponse>> removeWorktree(
+    String workspaceId,
+    String worktreeId, {
+    bool force = false,
+  });
+
   /// Reports git availability and, when [path] is given, whether it is a git
   /// repository with commits.
   Future<Result<WorkspaceCapabilities>> getCapabilities({String? path});
