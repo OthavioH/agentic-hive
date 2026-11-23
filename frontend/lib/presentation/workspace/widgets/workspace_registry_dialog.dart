@@ -235,6 +235,10 @@ class _WorkspaceRegistryDialogState
                                 SizedBox(height: spacing.space1),
                             itemBuilder: (context, index) {
                               final workspace = value.workspaces[index];
+                              final activeRunsLabel = l10n
+                                  .workspaceActiveRunsBadge(
+                                    workspace.activeRunCount,
+                                  );
                               return HiveCard(
                                 child: Row(
                                   children: <Widget>[
@@ -277,11 +281,7 @@ class _WorkspaceRegistryDialogState
                                                 if (workspace.activeRunCount >
                                                     0)
                                                   HiveBadge(
-                                                    label: l10n
-                                                        .workspaceActiveRunsBadge(
-                                                          workspace
-                                                              .activeRunCount,
-                                                        ),
+                                                    label: activeRunsLabel,
                                                   ),
                                               ],
                                             ),

@@ -14,6 +14,7 @@ void main() {
   setUp(() {
     repo = FakeWorkspaceSettingsRepository();
     container = ProviderContainer.test(
+      retry: (_, _) => null,
       overrides: [workspaceSettingsRepositoryProvider.overrideWithValue(repo)],
     );
   });
