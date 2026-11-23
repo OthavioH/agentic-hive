@@ -39,7 +39,7 @@ The workspace's root folder itself, where the user's own files live. Runs there 
 _Avoid_: main worktree, root copy
 
 **Run target**:
-Where a run executes inside its workspace: the primary checkout, an existing worktree, or a new worktree created for the run. At most one run is active per target folder.
+Where a run executes inside its workspace: the primary checkout, an existing worktree, or a new worktree created for the run. A run started without a target uses the primary checkout. The folder the target resolves to (the workspace root or one of its worktrees) is the run's _target folder_, and at most one run is active per target folder.
 _Avoid_: run location, run mode
 
 **Global scope**:
