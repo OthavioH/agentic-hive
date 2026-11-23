@@ -6,7 +6,15 @@ environment:
 
 workspace:
   - backend
+  - frontend
   - shared
+  - design_system
+  - widgetbook
+  - tools/hive_lints
+
+dependencies:
+  path: ^1.9.1
 
 dev_dependencies:
+  test: ^1.32.0
   very_good_analysis: ^11.0.0

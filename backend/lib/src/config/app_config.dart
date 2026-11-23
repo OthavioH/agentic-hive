@@ -8,6 +8,7 @@ final class AppConfig {
   const new({
     required this.mode,
     required this.dataDir,
+    this._agentsDir,
     this.webSocketPingInterval = defaultPingInterval,
     this.logRetentionDays = defaultLogRetentionDays,
   });
@@ -23,6 +24,8 @@ final class AppConfig {
 
   /// Absolute path of the data folder.
   final String dataDir;
+
+  final String? _agentsDir;
 
   /// How often the server pings WebSocket clients to detect dead connections.
   final Duration webSocketPingInterval;
@@ -46,4 +49,23 @@ final class AppConfig {
 
   /// The `server.json` file read by the frontend.
   String get serverInfoPath => p.join(dataDir, 'server.json');
+
+  /// The folder where agent `.md` files are stored.
+  String get agentsDir => _agentsDir ?? p.join(dataDir, 'agents');
+
+  /// The folder where per-run shadow git repositories are stored.
+  String get snapshotsDir => p.join(dataDir, 'snapshots');
+
+  /// The folder where per-run isolated git worktrees are stored.
+  String get worktreesDir => p.join(dataDir, 'worktrees');
+
+  /// The folder where per-run artifacts (such as node attempt logs) are
+  /// stored.
+  String get runsDir => p.join(dataDir, 'runs');
+
+  /// The folder for a single run's backend-managed files.
+  String runDir(String runId) => p.join(runsDir, runId);
+
+  /// The folder where raw `stdout`/`stderr` attempt logs for [runId] live.
+  String runLogsDir(String runId) => p.join(runsDir, runId, 'logs');
 }

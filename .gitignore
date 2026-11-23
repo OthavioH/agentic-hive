@@ -4,6 +4,11 @@ build/
 *.iml
 .idea/
 
+# Generated Dart / Flutter files
+**/*.g.dart
+**/*.freezed.dart
+frontend/lib/l10n/generated/
+
 # Backend development data (database, logs, socket)
 backend/.dev-data/
 

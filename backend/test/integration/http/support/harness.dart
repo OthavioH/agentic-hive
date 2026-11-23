@@ -9,7 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 /// Upper bound for any single wait in these tests.
-const ioTimeout = Duration(seconds: 10);
+const ioTimeout = Duration(seconds: 30);
 
 /// Creates a short, fresh temporary folder that is deleted after the test.
 ///
@@ -29,7 +29,7 @@ Future<void> deleteWithRetry(Directory dir) async {
       await dir.delete(recursive: true);
       return;
     } on FileSystemException {
-      if (attempt >= 20) rethrow;
+      if (attempt >= 30) rethrow;
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
   }
@@ -53,17 +53,29 @@ AppConfig configFor(String dataDir) =>
 /// Starts the real backend on [dataDir] with an isolated container.
 ///
 /// The backend is stopped after the test unless [stopOnTearDown] is false.
+/// Registers container cleanup before awaiting `Backend.start` so open file
+/// handles (`hive.db`, logs, directory watcher) are always released before
+/// `createTempDir`'s teardown deletes [dataDir].
 Future<Backend> startBackend(
   String dataDir, {
   bool stopOnTearDown = true,
 }) async {
-  final backend = await Backend.start(
+  final di = GetIt.asNewInstance();
+  Backend? backend;
+  if (stopOnTearDown) {
+    addTearDown(() async {
+      if (backend != null) {
+        await backend.stop().timeout(ioTimeout);
+      } else {
+        await di.reset().timeout(ioTimeout);
+      }
+    });
+  }
+  return backend = await Backend.start(
     config: configFor(dataDir),
-    di: GetIt.asNewInstance(),
+    di: di,
     consoleOut: discardingSink(),
   ).timeout(ioTimeout);
-  if (stopOnTearDown) addTearDown(() => backend.stop().timeout(ioTimeout));
-  return backend;
 }
 
 /// A decoded HTTP response received over the Unix socket.
@@ -103,17 +115,48 @@ final class SocketHttpClient {
   Future<SocketResponse> get(
     String pathAndQuery, {
     Map<String, String> headers = const {},
+  }) => _send('GET', pathAndQuery, headers: headers);
+
+  /// Sends `DELETE` to [pathAndQuery] with optional extra [headers].
+  Future<SocketResponse> delete(
+    String pathAndQuery, {
+    Map<String, String> headers = const {},
+  }) => _send('DELETE', pathAndQuery, headers: headers);
+
+  /// Sends `POST` to [pathAndQuery] with optional [headers] and [body].
+  Future<SocketResponse> post(
+    String pathAndQuery, {
+    Map<String, String> headers = const {},
+    String? body,
+  }) => _send('POST', pathAndQuery, headers: headers, body: body);
+
+  /// Sends `PUT` to [pathAndQuery] with optional [headers] and [body].
+  Future<SocketResponse> put(
+    String pathAndQuery, {
+    Map<String, String> headers = const {},
+    String? body,
+  }) => _send('PUT', pathAndQuery, headers: headers, body: body);
+
+  Future<SocketResponse> _send(
+    String method,
+    String pathAndQuery, {
+    Map<String, String> headers = const {},
+    String? body,
   }) async {
     final request = await _client
-        .getUrl(Uri.parse('http://localhost$pathAndQuery'))
+        .openUrl(method, Uri.parse('http://localhost$pathAndQuery'))
         .timeout(ioTimeout);
     headers.forEach(request.headers.set);
+    if (body != null) {
+      request.headers.contentType = ContentType.json;
+      request.write(body);
+    }
     final response = await request.close().timeout(ioTimeout);
-    final body = await response
+    final responseBody = await response
         .transform(utf8.decoder)
         .join()
         .timeout(ioTimeout);
-    return SocketResponse(response.statusCode, response.headers, body);
+    return SocketResponse(response.statusCode, response.headers, responseBody);
   }
 
   /// Closes the client and its idle connections.

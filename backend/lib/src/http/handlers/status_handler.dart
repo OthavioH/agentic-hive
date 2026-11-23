@@ -3,23 +3,28 @@ import 'package:agentic_hive_backend/src/http/json_response.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:shelf/shelf.dart';
 
+int _noActiveRuns() => 0;
+
 /// `GET /api/v1/status`: version, uptime, data folder and a real database
 /// check. Answers `503` when a dependency is down.
 final class StatusHandler {
-  /// Creates the handler; [now] is injectable for tests.
+  /// Creates the handler; [now] and [activeRuns] are injectable for tests.
   new({
     required this._databaseHealthCheck,
     required this._version,
     required this._dataDir,
     required this._startedAt,
     DateTime Function()? now,
-  }) : _now = now ?? DateTime.now;
+    int Function()? activeRuns,
+  }) : _now = now ?? DateTime.now,
+       _activeRuns = activeRuns ?? _noActiveRuns;
 
   final DatabaseHealthCheck _databaseHealthCheck;
   final String _version;
   final String _dataDir;
   final DateTime _startedAt;
   final DateTime Function() _now;
+  final int Function() _activeRuns;
 
   /// Handles one status request.
   Future<Response> call(Request request) async {
@@ -33,6 +38,7 @@ final class StatusHandler {
         uptimeSeconds: _now().difference(_startedAt).inSeconds,
         dataDir: _dataDir,
         database: database,
+        activeRuns: _activeRuns(),
       ),
     );
   }

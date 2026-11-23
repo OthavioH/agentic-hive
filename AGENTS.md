@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Rules for the whole product. `frontend/`, `backend/` and `shared/` each have their own `AGENTS.md`. When a rule there conflicts with this one, the folder's rule wins inside that folder.
+Rules for the whole product. `frontend/`, `backend/`, `shared/` and `design_system/` each have their own `AGENTS.md`. When a rule there conflicts with this one, the folder's rule wins inside that folder.
 
 Before changing architecture, read the decisions in `docs/adrs/`. To change a decision, write a new ADR that supersedes the old one; do not edit the old one to say something else. Use the terms from `GLOSSARY.md` in code, UI and documents.
 
@@ -8,9 +8,12 @@ Before changing architecture, read the decisions in `docs/adrs/`. To change a de
 
 | Folder | What it is | May depend on |
 |---|---|---|
-| `frontend/` | Flutter desktop app: graph editor, run monitor, approvals | `shared/` |
-| `backend/` | Local Dart server (shelf): graph engine, nodes, harnesses, SQLite, MCP server | `shared/` |
+| `frontend/` | Flutter desktop app: graph editor, run monitor, approvals | `shared/`, `design_system/` |
+| `backend/` | Local Dart server (shelf): graph engine, nodes, harnesses, SQLite, MCP server (ADR 0015) | `shared/` |
 | `shared/` | Pure Dart package: workflow schema, node types, events, DTOs | nothing in the project |
+| `design_system/` | Flutter package: semantic tokens, themes, `Hive*` catalog, `HiveIcons`, motion, node visual contract (ADR 0018) | nothing in the project |
+| `widgetbook/` | Flutter desktop app: visual catalog and token showcase for owner approval (ADR 0018) | `design_system/` |
+| `tools/hive_lints/` | First-party `analysis_server_plugin` enforcing design-system and import rules (ADR 0018) | nothing in the project |
 | `docs/adrs/` | Numbered architecture decisions (`0001-slug.md`) | — |
 | `.agents/agents/` | Specialist agents for this project (one atomic role per file) | — |
 
@@ -18,8 +21,9 @@ Before changing architecture, read the decisions in `docs/adrs/`. To change a de
 
 ## Responsibilities
 
-- The **backend** is the source of truth. Only it runs processes, touches workspaces and writes state.
-- The **frontend** only draws, edits and sends commands. It never runs harnesses or reads SQLite directly. A run must keep working with the app closed.
+- The **backend** is the source of truth. Only it runs processes, touches workspaces and writes state. It outlives the app so runs continue when the window closes (ADR 0016).
+- The **frontend** only draws, edits and sends commands (using `design_system/`, ADR 0018) and owns the system tray icon (ADR 0016). It never runs harnesses or reads SQLite directly.
+- Both sides follow the layer-first, feature-second architecture with a sealed `Result` type (ADR 0017).
 
 ## Abstractions
 
@@ -43,6 +47,7 @@ Each family of behavior has an abstract base, and each variation is an implement
 - **Always the latest stable version.** Before adding or updating a dependency (Dart, Flutter, packages), check the current version on pub.dev and the current documentation (Context7). Never write a version or an API from memory.
 - **Multi-platform:** Windows and Linux now, macOS designed in (ADR 0012). OS-specific behavior lives behind an abstraction with one implementation per OS; never branch on the platform inline. Handle paths with `package:path`.
 - **Zero tolerance on code quality** (ADR 0014): `very_good_analysis` with no disabled rules. Work is done only when `dart analyze --fatal-infos`, `dart format --output=none --set-exit-if-changed .` and `dart fix --dry-run` all report nothing.
+- **Generated files:** Generated files (`**/*.g.dart`, `**/*.freezed.dart`, `frontend/lib/l10n/generated/`) are gitignored and never committed. **Before starting any work** in a fresh clone or worktree (before running `dart analyze`, `dart test`, or editing code), agents MUST run `dart run tool/codegen.dart` (which runs `flutter pub get`, `build_runner` in `shared/`, `backend/`, and `frontend/`, and `flutter gen-l10n` in `frontend/`).
 - Code, identifiers, commit messages and all documentation (README, `AGENTS.md`, ADRs, glossary, agent definitions) are written in English.
 
 ## Agent skills

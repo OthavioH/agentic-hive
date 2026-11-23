@@ -1,0 +1,2628 @@
+{
+  "@@locale": "en",
+  "appTitle": "Agentic Hive",
+  "@appTitle": {
+    "description": "Application title shown in window title bars and root metadata."
+  },
+  "navOverview": "Overview",
+  "@navOverview": {
+    "description": "Navigation rail destination label for Overview."
+  },
+  "navWorkflows": "Workflows",
+  "@navWorkflows": {
+    "description": "Navigation rail destination label for Workflows."
+  },
+  "navRuns": "Runs",
+  "@navRuns": {
+    "description": "Navigation rail destination label for Runs."
+  },
+  "navPauses": "Pauses",
+  "@navPauses": {
+    "description": "Navigation rail destination label for Pauses."
+  },
+  "navAgents": "Agents",
+  "@navAgents": {
+    "description": "Navigation rail destination label for Agents."
+  },
+  "navHarnesses": "Harnesses",
+  "@navHarnesses": {
+    "description": "Navigation rail destination label for Harnesses."
+  },
+  "navSettings": "Settings",
+  "@navSettings": {
+    "description": "Navigation rail destination label for Settings."
+  },
+  "railExpandTooltip": "Expand navigation rail",
+  "@railExpandTooltip": {
+    "description": "Tooltip for the button that expands the side rail."
+  },
+  "railCollapseTooltip": "Collapse navigation rail",
+  "@railCollapseTooltip": {
+    "description": "Tooltip for the button that collapses the side rail."
+  },
+  "overviewEmptyTitle": "No activity yet",
+  "@overviewEmptyTitle": {
+    "description": "Empty state title on the Overview placeholder page."
+  },
+  "overviewEmptyDescription": "Workflow runs, active agents, and pending pauses will appear here once you start running workflows.",
+  "@overviewEmptyDescription": {
+    "description": "Empty state description on the Overview placeholder page."
+  },
+  "workflowsEmptyTitle": "No workflows yet",
+  "@workflowsEmptyTitle": {
+    "description": "Empty state title on the Workflows placeholder page."
+  },
+  "workflowsEmptyDescription": "Create a workflow graph to orchestrate agents, validators, and approvals.",
+  "@workflowsEmptyDescription": {
+    "description": "Empty state description on the Workflows placeholder page."
+  },
+  "runsEmptyTitle": "No runs yet",
+  "@runsEmptyTitle": {
+    "description": "Empty state title on the Runs placeholder page."
+  },
+  "runsEmptyDescription": "Start a workflow to monitor live execution, logs, and node checkpoints here.",
+  "@runsEmptyDescription": {
+    "description": "Empty state description on the Runs placeholder page."
+  },
+  "pausesEmptyTitle": "No pending pauses",
+  "@pausesEmptyTitle": {
+    "description": "Empty state title on the Pauses placeholder page."
+  },
+  "pausesEmptyDescription": "Runs waiting for your approval or answer will appear here.",
+  "@pausesEmptyDescription": {
+    "description": "Empty state description on the Pauses inbox page."
+  },
+  "agentsEmptyTitle": "No agents configured",
+  "@agentsEmptyTitle": {
+    "description": "Empty state title on the Agents placeholder page."
+  },
+  "agentsEmptyDescription": "Define specialized agent roles and prompts to reuse across your workflows.",
+  "@agentsEmptyDescription": {
+    "description": "Empty state description on the Agents placeholder page."
+  },
+  "harnessesEmptyTitle": "No harnesses detected",
+  "@harnessesEmptyTitle": {
+    "description": "Empty state title on the Harnesses page."
+  },
+  "harnessesEmptyDescription": "Connected CLI harnesses and their availability status will appear here.",
+  "@harnessesEmptyDescription": {
+    "description": "Empty state description on the Harnesses page."
+  },
+  "harnessesPageSubtitle": "Detected local AI agent CLIs, versions, and sign-in readiness.",
+  "@harnessesPageSubtitle": {
+    "description": "Subtitle shown in the Harnesses page header."
+  },
+  "harnessesRefreshAll": "Refresh",
+  "@harnessesRefreshAll": {
+    "description": "Button label in the Harnesses page header to refresh all harnesses."
+  },
+  "harnessesRetry": "Retry",
+  "@harnessesRetry": {
+    "description": "Button label to retry loading harnesses after an error."
+  },
+  "harnessesLoading": "Checking installed harnesses...",
+  "@harnessesLoading": {
+    "description": "Loading indicator label while fetching harness statuses."
+  },
+  "harnessesLoadErrorTitle": "Failed to load harnesses",
+  "@harnessesLoadErrorTitle": {
+    "description": "Error state title when initial harness loading fails."
+  },
+  "harnessesErrorNetwork": "Could not reach the local backend service.",
+  "@harnessesErrorNetwork": {
+    "description": "Localized error message when loading or refreshing harnesses fails due to a network error."
+  },
+  "harnessesErrorBackend": "The backend returned an error while checking harnesses.",
+  "@harnessesErrorBackend": {
+    "description": "Localized error message when the backend returns a failure while checking harnesses."
+  },
+  "harnessesErrorNotFound": "The requested harness could not be found.",
+  "@harnessesErrorNotFound": {
+    "description": "Localized error message when a harness is not found."
+  },
+  "harnessesErrorUnexpected": "An unexpected error occurred while checking harnesses.",
+  "@harnessesErrorUnexpected": {
+    "description": "Localized fallback error message when loading or refreshing harnesses fails."
+  },
+  "harnessesRefreshError": "Could not refresh harnesses: {message}",
+  "@harnessesRefreshError": {
+    "description": "Toast error message shown when refreshing harnesses fails.",
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessesRecheckTooltip": "Re-check {name}",
+  "@harnessesRecheckTooltip": {
+    "description": "Accessibility label for the per-card re-check button.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessesCopyPathTooltip": "Copy {name} executable path",
+  "@harnessesCopyPathTooltip": {
+    "description": "Accessibility label for copying a harness executable path.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessesPathCopiedToast": "Path copied",
+  "@harnessesPathCopiedToast": {
+    "description": "Toast confirmation shown after copying a harness executable path."
+  },
+  "harnessesExecutablePathLabel": "Executable",
+  "@harnessesExecutablePathLabel": {
+    "description": "Label above or beside the resolved harness executable path."
+  },
+  "harnessesVersionLabel": "Version {version}",
+  "@harnessesVersionLabel": {
+    "description": "Detected version label on a harness card.",
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessesVersionUnknown": "Version unavailable",
+  "@harnessesVersionUnknown": {
+    "description": "Fallback version label when no version could be detected."
+  },
+  "harnessStatusReady": "Ready",
+  "@harnessStatusReady": {
+    "description": "Badge label when a harness is ready."
+  },
+  "harnessStatusNotInstalled": "Not installed",
+  "@harnessStatusNotInstalled": {
+    "description": "Badge label when a harness CLI is not installed on PATH."
+  },
+  "harnessStatusAuthError": "Sign-in required",
+  "@harnessStatusAuthError": {
+    "description": "Badge label when a harness CLI reports an authentication error."
+  },
+  "harnessStatusOutdated": "Update required",
+  "@harnessStatusOutdated": {
+    "description": "Badge label when a harness CLI requires an update."
+  },
+  "harnessStatusUnavailable": "Unavailable",
+  "@harnessStatusUnavailable": {
+    "description": "Badge label when probing a harness CLI fails."
+  },
+  "harnessGuidanceNotInstalled": "Install this CLI and ensure it is available on your system PATH.",
+  "@harnessGuidanceNotInstalled": {
+    "description": "Actionable guidance shown when a harness is not installed."
+  },
+  "harnessGuidanceAuthError": "Sign in directly using the {name} CLI in your terminal. Agentic Hive never stores harness credentials.",
+  "@harnessGuidanceAuthError": {
+    "description": "Actionable guidance shown when a harness has an authentication error.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessGuidanceOutdated": "Update the {name} CLI in your terminal so workflow runs do not block on an interactive update prompt.",
+  "@harnessGuidanceOutdated": {
+    "description": "Actionable guidance shown when a harness is outdated.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessGuidanceUnavailable": "The CLI was found on PATH, but probing its version or status failed.",
+  "@harnessGuidanceUnavailable": {
+    "description": "Actionable guidance shown when a harness probe fails."
+  },
+  "harnessesMcpStatusInstalled": "MCP installed",
+  "@harnessesMcpStatusInstalled": {
+    "description": "Badge label when the Hive MCP server is installed and current for a harness."
+  },
+  "harnessesMcpStatusNotInstalled": "MCP not installed",
+  "@harnessesMcpStatusNotInstalled": {
+    "description": "Badge label when the Hive MCP server is not installed for a harness."
+  },
+  "harnessesMcpStatusOutdated": "MCP outdated",
+  "@harnessesMcpStatusOutdated": {
+    "description": "Badge label when the installed Hive MCP server points to an outdated command."
+  },
+  "harnessesMcpStatusUnsupported": "MCP unsupported",
+  "@harnessesMcpStatusUnsupported": {
+    "description": "Badge label when a harness does not support Hive MCP installation."
+  },
+  "harnessesMcpStatusUnknown": "MCP status unknown",
+  "@harnessesMcpStatusUnknown": {
+    "description": "Badge label when detecting Hive MCP installation status failed."
+  },
+  "harnessesMcpStatusNotApplicable": "MCP not applicable",
+  "@harnessesMcpStatusNotApplicable": {
+    "description": "Badge label for MCP status when the harness CLI itself is not installed."
+  },
+  "harnessesMcpInstall": "Install",
+  "@harnessesMcpInstall": {
+    "description": "Button label to install the Hive MCP server into a harness."
+  },
+  "harnessesMcpUpdate": "Update",
+  "@harnessesMcpUpdate": {
+    "description": "Button label to update an outdated Hive MCP server entry in a harness."
+  },
+  "harnessesMcpInstallSuccess": "Installed Hive MCP for {name}",
+  "@harnessesMcpInstallSuccess": {
+    "description": "Toast confirmation shown after installing Hive MCP for a harness.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessesMcpInstallError": "Could not install Hive MCP: {message}",
+  "@harnessesMcpInstallError": {
+    "description": "Toast error message shown when installing Hive MCP fails.",
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessesMcpInstallCliNotInstalled": "Install the harness CLI before installing Hive MCP.",
+  "@harnessesMcpInstallCliNotInstalled": {
+    "description": "Error detail shown when attempting to install Hive MCP for a harness whose CLI is not installed."
+  },
+  "settingsEmptyTitle": "Settings",
+  "@settingsEmptyTitle": {
+    "description": "Empty state title on the Settings placeholder page."
+  },
+  "settingsEmptyDescription": "Theme, workspace defaults, and backend connection preferences will be configured here.",
+  "@settingsEmptyDescription": {
+    "description": "Empty state description on the Settings placeholder page."
+  },
+  "connectingTitle": "Connecting to backend",
+  "@connectingTitle": {
+    "description": "Title shown on the connecting page while waiting for the backend."
+  },
+  "connectingSubtitle": "Waiting for the local Agentic Hive backend service over the Unix domain socket.",
+  "@connectingSubtitle": {
+    "description": "Subtitle shown on the connecting page."
+  },
+  "connectingStatusConnecting": "Connecting to backend...",
+  "@connectingStatusConnecting": {
+    "description": "Status message when connection attempt is in progress."
+  },
+  "connectingStatusDisconnected": "Backend is not responding.",
+  "@connectingStatusDisconnected": {
+    "description": "Status message when backend is unreachable or disconnected."
+  },
+  "connectingRetryAction": "Retry connection",
+  "@connectingRetryAction": {
+    "description": "Button label to retry connecting to the backend."
+  },
+  "connectingReasonNotRunningTitle": "Backend is not running",
+  "@connectingReasonNotRunningTitle": {
+    "description": "Title on connecting page when server.json is missing."
+  },
+  "connectingReasonNotRunningMessage": "No active backend was found (server.json is missing). Start the Agentic Hive backend service and it will connect automatically.",
+  "@connectingReasonNotRunningMessage": {
+    "description": "Message on connecting page when server.json is missing."
+  },
+  "connectingReasonRefusedTitle": "Backend socket unreachable",
+  "@connectingReasonRefusedTitle": {
+    "description": "Title on connecting page when the backend socket refuses connections."
+  },
+  "connectingReasonRefusedMessage": "The backend socket refused the connection or is stale. Waiting for the backend service to accept connections.",
+  "@connectingReasonRefusedMessage": {
+    "description": "Message on connecting page when the backend socket refuses connections."
+  },
+  "connectingReasonDegradedTitle": "Backend is degraded",
+  "@connectingReasonDegradedTitle": {
+    "description": "Title on connecting page when /api/v1/status returns 503 degraded."
+  },
+  "connectingReasonDegradedMessage": "The backend is running, but a required dependency such as the database is unavailable. Retrying automatically.",
+  "@connectingReasonDegradedMessage": {
+    "description": "Message on connecting page when backend reports degraded status."
+  },
+  "connectingReasonProtocolMismatchTitle": "Protocol version mismatch",
+  "@connectingReasonProtocolMismatchTitle": {
+    "description": "Title on connecting page when server.hello protocolVersion does not match."
+  },
+  "connectingReasonProtocolMismatchMessage": "This desktop app and the running backend use incompatible WebSocket protocol versions. Update the app or backend, then retry.",
+  "@connectingReasonProtocolMismatchMessage": {
+    "description": "Message on connecting page when WebSocket protocol version is incompatible."
+  },
+  "connectingReasonTimeoutTitle": "Connection timed out",
+  "@connectingReasonTimeoutTitle": {
+    "description": "Title on connecting page when socket connect, status check, or server.hello times out."
+  },
+  "connectingReasonTimeoutMessage": "The backend did not respond in time. Retrying automatically.",
+  "@connectingReasonTimeoutMessage": {
+    "description": "Message on connecting page when connection or handshake times out."
+  },
+  "connectingReasonUnexpectedTitle": "Unexpected connection error",
+  "@connectingReasonUnexpectedTitle": {
+    "description": "Title on connecting page when an unexpected transport or protocol error occurs."
+  },
+  "connectingReasonUnexpectedMessage": "An unexpected error occurred while connecting to the local backend.",
+  "@connectingReasonUnexpectedMessage": {
+    "description": "Message on connecting page when an unexpected error occurs."
+  },
+  "connectingNextRetryIn": "Retrying in {seconds}s",
+  "@connectingNextRetryIn": {
+    "description": "Countdown badge showing seconds until the next automatic retry.",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "connectingAutoRetryHalted": "Automatic retry paused",
+  "@connectingAutoRetryHalted": {
+    "description": "Badge shown when automatic retries are halted due to protocol mismatch."
+  },
+  "connectingAttemptCount": "Attempt {count}",
+  "@connectingAttemptCount": {
+    "description": "Badge showing the number of failed connection attempts.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "routeErrorTitle": "Page not found",
+  "@routeErrorTitle": {
+    "description": "Title shown on the router error page when a route cannot be resolved."
+  },
+  "routeErrorDescription": "The requested page does not exist or could not be opened.",
+  "@routeErrorDescription": {
+    "description": "Description shown on the router error page."
+  },
+  "routeErrorAction": "Back to Overview",
+  "@routeErrorAction": {
+    "description": "Button label on the router error page to return to Overview."
+  },
+  "agentsNewAction": "New agent",
+  "@agentsNewAction": {
+    "description": "Primary button label in the Agents page header to create a new agent."
+  },
+  "agentsSaveAction": "Save",
+  "@agentsSaveAction": {
+    "description": "Primary button label to save the current agent draft."
+  },
+  "agentsDeleteAction": "Delete",
+  "@agentsDeleteAction": {
+    "description": "Button label to delete the selected agent."
+  },
+  "agentsInsertTemplateAction": "Insert template",
+  "@agentsInsertTemplateAction": {
+    "description": "Button label to populate a new agent draft with the starter Markdown template."
+  },
+  "agentsRetryAction": "Retry",
+  "@agentsRetryAction": {
+    "description": "Button label to retry loading agents or agent details."
+  },
+  "agentsReloadAction": "Reload from disk",
+  "@agentsReloadAction": {
+    "description": "Action label to reload the agent from disk, discarding local edits."
+  },
+  "agentsOverwriteAction": "Overwrite",
+  "@agentsOverwriteAction": {
+    "description": "Action label to overwrite external disk changes with local edits."
+  },
+  "agentsCancelAction": "Cancel",
+  "@agentsCancelAction": {
+    "description": "Cancel button label in confirmation dialogs."
+  },
+  "agentsBackToListAction": "Back to list",
+  "@agentsBackToListAction": {
+    "description": "Button label on narrow layouts to return from the editor to the agent list."
+  },
+  "agentsSearchHint": "Search agents by ID, name, description, or tag",
+  "@agentsSearchHint": {
+    "description": "Placeholder text in the agent library search input."
+  },
+  "agentsSearchClearTooltip": "Clear search",
+  "@agentsSearchClearTooltip": {
+    "description": "Semantics label for the clear button in the agent search field."
+  },
+  "agentsNoMatchesTitle": "No matching agents",
+  "@agentsNoMatchesTitle": {
+    "description": "Empty state title when search or tag filters match no agents."
+  },
+  "agentsNoMatchesDescription": "Try a different search query or clear your tag filters.",
+  "@agentsNoMatchesDescription": {
+    "description": "Empty state description when search or tag filters match no agents."
+  },
+  "agentsSelectPromptTitle": "Select an agent",
+  "@agentsSelectPromptTitle": {
+    "description": "Empty state title in the detail pane when no agent is selected."
+  },
+  "agentsSelectPromptDescription": "Choose an agent from the list to inspect or edit it, or create a new one.",
+  "@agentsSelectPromptDescription": {
+    "description": "Empty state description in the detail pane when no agent is selected."
+  },
+  "agentsParseErrorBadge": "Parse error",
+  "@agentsParseErrorBadge": {
+    "description": "Badge label on agent list items whose .md file failed to parse."
+  },
+  "agentsParseErrorTitle": "Unable to parse agent file",
+  "@agentsParseErrorTitle": {
+    "description": "Banner title when inspecting a malformed agent .md file."
+  },
+  "agentsLoadErrorTitle": "Failed to load agents",
+  "@agentsLoadErrorTitle": {
+    "description": "Banner title when listing agents fails."
+  },
+  "agentsDetailErrorTitle": "Failed to load agent",
+  "@agentsDetailErrorTitle": {
+    "description": "Banner title when loading a specific agent fails."
+  },
+  "agentsFieldName": "Name",
+  "@agentsFieldName": {
+    "description": "Label for the agent name field."
+  },
+  "agentsFieldNameHint": "e.g. Code Reviewer",
+  "@agentsFieldNameHint": {
+    "description": "Hint text for the agent name field."
+  },
+  "agentsFieldSlug": "Slug ID",
+  "@agentsFieldSlug": {
+    "description": "Label for the agent filename slug ID field."
+  },
+  "agentsFieldSlugHint": "e.g. code-reviewer",
+  "@agentsFieldSlugHint": {
+    "description": "Hint text for the agent slug ID field."
+  },
+  "agentsFieldSlugHelper": "Filename (<id>.md). Editable only before first save.",
+  "@agentsFieldSlugHelper": {
+    "description": "Helper text explaining that the slug is the filename and immutable after creation."
+  },
+  "agentsFieldSlugInvalid": "Use lowercase letters, numbers, hyphens, or underscores (no reserved OS names).",
+  "@agentsFieldSlugInvalid": {
+    "description": "Validation error shown when the agent slug ID is invalid."
+  },
+  "agentsFieldNameRequired": "Name is required.",
+  "@agentsFieldNameRequired": {
+    "description": "Validation error shown when the agent name is empty."
+  },
+  "agentsFieldDescription": "Description",
+  "@agentsFieldDescription": {
+    "description": "Label for the agent description field."
+  },
+  "agentsFieldDescriptionHint": "Short summary of what this agent does",
+  "@agentsFieldDescriptionHint": {
+    "description": "Hint text for the agent description field."
+  },
+  "agentsFieldTags": "Tags",
+  "@agentsFieldTags": {
+    "description": "Label for the agent tags chip editor."
+  },
+  "agentsFieldTagsHint": "Add a tag and press Enter",
+  "@agentsFieldTagsHint": {
+    "description": "Hint text for adding a new tag."
+  },
+  "agentsAddChipTooltip": "Add",
+  "@agentsAddChipTooltip": {
+    "description": "Tooltip and semantics label for the add chip button."
+  },
+  "agentsRemoveChipTooltip": "Remove {item}",
+  "@agentsRemoveChipTooltip": {
+    "description": "Semantics label for removing a chip item.",
+    "placeholders": {
+      "item": {
+        "type": "String"
+      }
+    }
+  },
+  "agentsCapabilitiesTitle": "Capabilities & tools",
+  "@agentsCapabilitiesTitle": {
+    "description": "Title of the collapsible informational metadata section in the agent editor."
+  },
+  "agentsCapabilitiesSubtitle": "Informational metadata declared in frontmatter (not enforced at runtime).",
+  "@agentsCapabilitiesSubtitle": {
+    "description": "Subtitle of the collapsible capabilities and tools section."
+  },
+  "agentsFieldRequiredSkills": "Required skills",
+  "@agentsFieldRequiredSkills": {
+    "description": "Label for required_skills chip editor."
+  },
+  "agentsFieldRequiredSkillsHint": "Add skill name",
+  "@agentsFieldRequiredSkillsHint": {
+    "description": "Hint text for required_skills input."
+  },
+  "agentsFieldRequiredTools": "Required tools",
+  "@agentsFieldRequiredTools": {
+    "description": "Label for required_tools chip editor."
+  },
+  "agentsFieldRequiredToolsHint": "Add tool name",
+  "@agentsFieldRequiredToolsHint": {
+    "description": "Hint text for required_tools input."
+  },
+  "agentsFieldAllowedTools": "Allowed tools",
+  "@agentsFieldAllowedTools": {
+    "description": "Label for allowed_tools chip editor."
+  },
+  "agentsFieldAllowedToolsHint": "Add tool name",
+  "@agentsFieldAllowedToolsHint": {
+    "description": "Hint text for allowed_tools input."
+  },
+  "agentsFieldDeniedTools": "Denied tools",
+  "@agentsFieldDeniedTools": {
+    "description": "Label for denied_tools chip editor."
+  },
+  "agentsFieldDeniedToolsHint": "Add tool name",
+  "@agentsFieldDeniedToolsHint": {
+    "description": "Hint text for denied_tools input."
+  },
+  "agentsFieldPrompt": "Prompt",
+  "@agentsFieldPrompt": {
+    "description": "Label for the Markdown prompt editor."
+  },
+  "agentsFieldPromptHint": "Write the agent's role instructions in Markdown...",
+  "@agentsFieldPromptHint": {
+    "description": "Hint text for the Markdown prompt textarea."
+  },
+  "agentsPromptModeLabel": "Prompt editor mode",
+  "@agentsPromptModeLabel": {
+    "description": "Semantics label for the Raw / Preview segmented control."
+  },
+  "agentsPromptModeRaw": "Raw",
+  "@agentsPromptModeRaw": {
+    "description": "Segment label for editing raw Markdown prompt text."
+  },
+  "agentsPromptModePreview": "Preview",
+  "@agentsPromptModePreview": {
+    "description": "Segment label for previewing rendered Markdown prompt."
+  },
+  "agentsPromptPreviewEmpty": "Nothing to preview yet.",
+  "@agentsPromptPreviewEmpty": {
+    "description": "Placeholder text in Markdown preview mode when the prompt is empty."
+  },
+  "agentsStarterTemplate": "## Responsibilities\n\nDescribe the core role and responsibilities of this agent.\n\n## Required inputs\n\n- List any context or artifacts this agent expects.\n\n## Execution guidance\n\n- Outline key constraints, style rules, or steps to follow.\n\n## Outputs and completion\n\n- Describe the expected deliverable and completion criteria.",
+  "@agentsStarterTemplate": {
+    "description": "Starter Markdown template inserted when creating a new agent."
+  },
+  "agentsSaveSuccess": "Agent saved.",
+  "@agentsSaveSuccess": {
+    "description": "Toast message shown after saving an existing agent."
+  },
+  "agentsCreateSuccess": "Agent created.",
+  "@agentsCreateSuccess": {
+    "description": "Toast message shown after creating a new agent."
+  },
+  "agentsDeleteSuccess": "Agent deleted.",
+  "@agentsDeleteSuccess": {
+    "description": "Toast message shown after deleting an agent."
+  },
+  "agentsDeleteDialogTitle": "Delete agent?",
+  "@agentsDeleteDialogTitle": {
+    "description": "Title of the destructive confirmation dialog when deleting an agent."
+  },
+  "agentsDeleteDialogMessage": "This will permanently delete {name} ({id}.md) from disk.",
+  "@agentsDeleteDialogMessage": {
+    "description": "Message in the delete agent confirmation dialog.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "agentsConflictDialogTitle": "External modification detected",
+  "@agentsConflictDialogTitle": {
+    "description": "Title of the 409 conflict confirmation dialog when saving."
+  },
+  "agentsConflictDialogMessage": "{id}.md was modified on disk since you opened it. Reload from disk or overwrite with your changes?",
+  "@agentsConflictDialogMessage": {
+    "description": "Message in the 409 conflict confirmation dialog.",
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "agentsExternalModifiedTitle": "Modified on disk",
+  "@agentsExternalModifiedTitle": {
+    "description": "Banner title when the currently open agent with unsaved edits is modified externally."
+  },
+  "agentsExternalModifiedMessage": "This agent changed outside the app while you have unsaved edits.",
+  "@agentsExternalModifiedMessage": {
+    "description": "Banner message when the currently open agent with unsaved edits is modified externally."
+  },
+  "agentsExternalDeletedTitle": "Deleted on disk",
+  "@agentsExternalDeletedTitle": {
+    "description": "Banner title when the currently open agent is deleted externally."
+  },
+  "agentsExternalDeletedMessage": "This agent was removed from disk outside the app. Save to recreate it or select another agent.",
+  "@agentsExternalDeletedMessage": {
+    "description": "Banner message when the currently open agent is deleted externally."
+  },
+  "agentsDismissTooltip": "Dismiss",
+  "@agentsDismissTooltip": {
+    "description": "Semantics label for dismissing an inline banner or toast."
+  },
+  "trayTooltip": "Agentic Hive",
+  "@trayTooltip": {
+    "description": "Tooltip shown when hovering over the system tray icon."
+  },
+  "trayStatusConnected": "Agentic Hive — Connected",
+  "@trayStatusConnected": {
+    "description": "Disabled tray menu header when the backend is connected."
+  },
+  "trayStatusStarting": "Agentic Hive — Starting…",
+  "@trayStatusStarting": {
+    "description": "Disabled tray menu header when the app is connecting or starting the backend."
+  },
+  "trayStatusDisconnected": "Agentic Hive — Disconnected",
+  "@trayStatusDisconnected": {
+    "description": "Disabled tray menu header when the backend is disconnected."
+  },
+  "trayActionOpen": "Open Agentic Hive",
+  "@trayActionOpen": {
+    "description": "Tray menu item that restores and focuses the main window."
+  },
+  "trayActionQuit": "Quit",
+  "@trayActionQuit": {
+    "description": "Tray menu item that quits the UI and stops an idle backend."
+  },
+  "trayActionStopBackendAndQuit": "Stop Backend & Quit",
+  "@trayActionStopBackendAndQuit": {
+    "description": "Tray menu item that stops the backend and exits the app."
+  },
+  "stopBackendDialogTitle": "Stop backend and quit?",
+  "@stopBackendDialogTitle": {
+    "description": "Confirmation dialog title when stopping the backend while runs are active."
+  },
+  "stopBackendDialogMessage": "{count, plural, =1{There is 1 active run in progress. Stopping the backend will abort it.} other{There are {count} active runs in progress. Stopping the backend will abort them.}}",
+  "@stopBackendDialogMessage": {
+    "description": "Confirmation dialog body when stopping the backend with active runs.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "stopBackendDialogCancel": "Cancel",
+  "@stopBackendDialogCancel": {
+    "description": "Safe cancel button label on the stop backend confirmation dialog."
+  },
+  "stopBackendDialogConfirm": "Stop Backend & Quit",
+  "@stopBackendDialogConfirm": {
+    "description": "Confirming destructive button label on the stop backend confirmation dialog."
+  },
+  "dialogDismissLabel": "Dismiss",
+  "@dialogDismissLabel": {
+    "description": "Accessibility label for modal dialog scrim dismissal."
+  },
+  "connectingReasonLaunchFailedTitle": "Failed to start backend",
+  "@connectingReasonLaunchFailedTitle": {
+    "description": "Title on connecting page when launching the local backend process fails."
+  },
+  "connectingReasonLaunchFailedMessage": "The local Agentic Hive backend could not be launched. Check that the backend executable is available, then retry.",
+  "@connectingReasonLaunchFailedMessage": {
+    "description": "Message on connecting page when launching the local backend process fails."
+  },
+  "workflowsPageSubtitle": "Create, inspect, and manage workflow graphs.",
+  "@workflowsPageSubtitle": {
+    "description": "Subtitle on the Workflows list page header."
+  },
+  "workflowsNewAction": "New workflow",
+  "@workflowsNewAction": {
+    "description": "Primary button label to create a new workflow."
+  },
+  "workflowsSearchLabel": "Search workflows",
+  "@workflowsSearchLabel": {
+    "description": "Label for the workflow search field."
+  },
+  "workflowsSearchHint": "Filter by name or description...",
+  "@workflowsSearchHint": {
+    "description": "Placeholder hint for the workflow search field."
+  },
+  "workflowsSearchEmptyTitle": "No matching workflows",
+  "@workflowsSearchEmptyTitle": {
+    "description": "Title shown when the workflow search filter matches no items."
+  },
+  "workflowsSearchEmptyDescription": "Try a different search query or clear the filter.",
+  "@workflowsSearchEmptyDescription": {
+    "description": "Description shown when the workflow search filter matches no items."
+  },
+  "workflowsClearSearchAction": "Clear search",
+  "@workflowsClearSearchAction": {
+    "description": "Button label to clear the workflow search filter."
+  },
+  "workflowsLoadErrorTitle": "Failed to load workflows",
+  "@workflowsLoadErrorTitle": {
+    "description": "Title shown when loading the workflows list fails."
+  },
+  "workflowsRetryAction": "Retry",
+  "@workflowsRetryAction": {
+    "description": "Button label to retry loading workflows."
+  },
+  "workflowsCreateTitle": "Create workflow",
+  "@workflowsCreateTitle": {
+    "description": "Title of the create workflow dialog."
+  },
+  "workflowsNameLabel": "Workflow name",
+  "@workflowsNameLabel": {
+    "description": "Label for the workflow name input."
+  },
+  "workflowsNameHint": "e.g. PR Review Pipeline",
+  "@workflowsNameHint": {
+    "description": "Placeholder hint for the workflow name input."
+  },
+  "workflowsNameRequiredError": "Enter a workflow name.",
+  "@workflowsNameRequiredError": {
+    "description": "Validation error shown when creating a workflow with an empty name."
+  },
+  "workflowsDescriptionLabel": "Description (optional)",
+  "@workflowsDescriptionLabel": {
+    "description": "Label for the workflow description input."
+  },
+  "workflowsDescriptionHint": "Describe what this workflow automates...",
+  "@workflowsDescriptionHint": {
+    "description": "Placeholder hint for the workflow description input."
+  },
+  "workflowsCreateConfirm": "Create",
+  "@workflowsCreateConfirm": {
+    "description": "Confirm button label in the create workflow dialog."
+  },
+  "workflowsCancelAction": "Cancel",
+  "@workflowsCancelAction": {
+    "description": "Cancel button label in workflow dialogs."
+  },
+  "workflowsDuplicateAction": "Duplicate workflow",
+  "@workflowsDuplicateAction": {
+    "description": "Semantic label and tooltip for duplicating a workflow."
+  },
+  "workflowsDeleteAction": "Delete workflow",
+  "@workflowsDeleteAction": {
+    "description": "Semantic label and tooltip for deleting a workflow."
+  },
+  "workflowsOpenAction": "Open {name}",
+  "@workflowsOpenAction": {
+    "description": "Semantic label for opening a workflow card in the editor.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workflowsDeleteTitle": "Delete workflow?",
+  "@workflowsDeleteTitle": {
+    "description": "Title of the delete workflow confirmation dialog."
+  },
+  "workflowsDeleteMessage": "Delete \"{name}\"? This action cannot be undone.",
+  "@workflowsDeleteMessage": {
+    "description": "Message in the delete workflow confirmation dialog.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workflowsDeleteConfirm": "Delete",
+  "@workflowsDeleteConfirm": {
+    "description": "Confirm button label in the delete workflow dialog."
+  },
+  "workflowsNodeCount": "{count, plural, =0{0 nodes} =1{1 node} other{{count} nodes}}",
+  "@workflowsNodeCount": {
+    "description": "Node count label on a workflow summary card.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workflowsEdgeCount": "{count, plural, =0{0 edges} =1{1 edge} other{{count} edges}}",
+  "@workflowsEdgeCount": {
+    "description": "Edge count label on a workflow summary card.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workflowsStatusValid": "Valid",
+  "@workflowsStatusValid": {
+    "description": "Badge label when a workflow has no validation errors."
+  },
+  "workflowsStatusInvalid": "Needs attention",
+  "@workflowsStatusInvalid": {
+    "description": "Badge label when a workflow has validation errors."
+  },
+  "workflowsUpdatedLabel": "Updated {timestamp}",
+  "@workflowsUpdatedLabel": {
+    "description": "Timestamp label on a workflow summary card.",
+    "placeholders": {
+      "timestamp": {
+        "type": "String"
+      }
+    }
+  },
+  "editorBackAction": "Back to workflows",
+  "@editorBackAction": {
+    "description": "Tooltip and semantic label for the back button in the graph editor."
+  },
+  "editorAddNodeAction": "Add node",
+  "@editorAddNodeAction": {
+    "description": "Button label to add a new node to the graph canvas."
+  },
+  "editorSaveAction": "Save",
+  "@editorSaveAction": {
+    "description": "Primary button label to save changes in the graph editor."
+  },
+  "editorSavingAction": "Saving...",
+  "@editorSavingAction": {
+    "description": "Label shown while saving a workflow."
+  },
+  "editorUnsavedBadge": "Unsaved changes",
+  "@editorUnsavedBadge": {
+    "description": "Badge indicating the workflow has unsaved local edits."
+  },
+  "editorSavedBadge": "Saved",
+  "@editorSavedBadge": {
+    "description": "Badge indicating all workflow changes are saved."
+  },
+  "editorValidationValid": "Graph valid",
+  "@editorValidationValid": {
+    "description": "Badge indicating the workflow graph passed validation."
+  },
+  "editorValidationErrorsCount": "{count, plural, =1{1 error} other{{count} errors}}",
+  "@editorValidationErrorsCount": {
+    "description": "Badge showing the number of validation errors in the graph.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "editorValidationWarningsCount": "{count, plural, =1{1 warning} other{{count} warnings}}",
+  "@editorValidationWarningsCount": {
+    "description": "Badge showing the number of validation warnings in the graph.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "editorUnsavedDialogTitle": "Discard unsaved changes?",
+  "@editorUnsavedDialogTitle": {
+    "description": "Title of the confirmation dialog when leaving the editor with unsaved changes."
+  },
+  "editorUnsavedDialogMessage": "You have unsaved changes to this workflow. Leave without saving?",
+  "@editorUnsavedDialogMessage": {
+    "description": "Message of the confirmation dialog when leaving the editor with unsaved changes."
+  },
+  "editorDiscardAction": "Discard changes",
+  "@editorDiscardAction": {
+    "description": "Confirm button label to discard unsaved edits and leave the editor."
+  },
+  "editorKeepEditingAction": "Keep editing",
+  "@editorKeepEditingAction": {
+    "description": "Cancel button label to stay in the graph editor."
+  },
+  "editorInspectorWorkflowTitle": "Workflow",
+  "@editorInspectorWorkflowTitle": {
+    "description": "Inspector panel header when no node or edge is selected."
+  },
+  "editorInspectorNodeTitle": "Node",
+  "@editorInspectorNodeTitle": {
+    "description": "Inspector panel header when a node is selected."
+  },
+  "editorInspectorEdgeTitle": "Edge",
+  "@editorInspectorEdgeTitle": {
+    "description": "Inspector panel header when an edge is selected."
+  },
+  "editorValidationSectionTitle": "Validation",
+  "@editorValidationSectionTitle": {
+    "description": "Section header for validation diagnostics in the inspector."
+  },
+  "editorNoValidationIssues": "No validation issues found.",
+  "@editorNoValidationIssues": {
+    "description": "Message shown in the inspector when the workflow has no errors or warnings."
+  },
+  "editorNodeLabelField": "Label",
+  "@editorNodeLabelField": {
+    "description": "Text field label for editing a node's display label."
+  },
+  "editorNodeTypeField": "Node type",
+  "@editorNodeTypeField": {
+    "description": "Read-only field label for a node's type identifier."
+  },
+  "editorNodeEntryLabel": "Entry node",
+  "@editorNodeEntryLabel": {
+    "description": "Switch label for toggling whether the selected node is the workflow entry node."
+  },
+  "editorDeleteNodeAction": "Delete node",
+  "@editorDeleteNodeAction": {
+    "description": "Button label to delete the selected node."
+  },
+  "editorDefaultNodeLabel": "Step {number}",
+  "@editorDefaultNodeLabel": {
+    "description": "Default label assigned to a newly added placeholder node.",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "editorEntryBadge": "Entry",
+  "@editorEntryBadge": {
+    "description": "Badge displayed on the entry node card on the canvas."
+  },
+  "editorNodeTypePlaceholder": "Placeholder",
+  "@editorNodeTypePlaceholder": {
+    "description": "Display label for generic placeholder nodes before F5 node types."
+  },
+  "editorEdgeSourceOutputLabel": "Source output",
+  "@editorEdgeSourceOutputLabel": {
+    "description": "Select field label for choosing an edge's sourceOutput."
+  },
+  "editorEdgeSourceOutputCustomOption": "Custom output...",
+  "@editorEdgeSourceOutputCustomOption": {
+    "description": "Select option for entering a custom sourceOutput value."
+  },
+  "editorEdgeSourceOutputCustomLabel": "Custom output label",
+  "@editorEdgeSourceOutputCustomLabel": {
+    "description": "Text field label for entering a custom edge sourceOutput."
+  },
+  "editorEdgeSourceOutputCustomHint": "e.g. approved, needsReview",
+  "@editorEdgeSourceOutputCustomHint": {
+    "description": "Placeholder hint for custom edge sourceOutput."
+  },
+  "editorEdgeMaxRetriesLabel": "Max retries",
+  "@editorEdgeMaxRetriesLabel": {
+    "description": "Text field label for an edge's maxRetries limit."
+  },
+  "editorEdgeMaxRetriesHint": "Optional (required for cycles)",
+  "@editorEdgeMaxRetriesHint": {
+    "description": "Placeholder hint for an edge's maxRetries field."
+  },
+  "editorEdgeMaxRetriesHelper": "Positive integer required on at least one edge in a cycle.",
+  "@editorEdgeMaxRetriesHelper": {
+    "description": "Helper text under the maxRetries input."
+  },
+  "editorDeleteEdgeAction": "Delete edge",
+  "@editorDeleteEdgeAction": {
+    "description": "Button label to delete the selected edge."
+  },
+  "editorOutputPortTooltip": "Drag to another node to connect",
+  "@editorOutputPortTooltip": {
+    "description": "Tooltip and semantic label for a node's output port handle."
+  },
+  "editorZoomInTooltip": "Zoom in",
+  "@editorZoomInTooltip": {
+    "description": "Tooltip and semantic label for canvas zoom-in button."
+  },
+  "editorZoomOutTooltip": "Zoom out",
+  "@editorZoomOutTooltip": {
+    "description": "Tooltip and semantic label for canvas zoom-out button."
+  },
+  "editorZoomResetTooltip": "Reset view",
+  "@editorZoomResetTooltip": {
+    "description": "Tooltip and semantic label for resetting canvas pan and zoom."
+  },
+  "editorLoadErrorTitle": "Could not open workflow",
+  "@editorLoadErrorTitle": {
+    "description": "Title shown when loading a workflow in the editor fails."
+  },
+  "editorBackToWorkflowsAction": "Back to Workflows",
+  "@editorBackToWorkflowsAction": {
+    "description": "Button label to return to the workflows list from an editor error state."
+  },
+  "editorIssueErrorLabel": "Error",
+  "@editorIssueErrorLabel": {
+    "description": "Severity label for a validation error item."
+  },
+  "editorIssueWarningLabel": "Warning",
+  "@editorIssueWarningLabel": {
+    "description": "Severity label for a validation warning item."
+  },
+  "editorIssueBlankName": "Workflow name must not be blank.",
+  "@editorIssueBlankName": {
+    "description": "Localized validation message when the workflow name is blank."
+  },
+  "editorIssueEmptyNodes": "Workflow must contain at least one node.",
+  "@editorIssueEmptyNodes": {
+    "description": "Localized validation message when the workflow contains no nodes."
+  },
+  "editorIssueMissingEntryNode": "Select a valid entry node for this workflow.",
+  "@editorIssueMissingEntryNode": {
+    "description": "Localized validation message when entryNodeId is missing or invalid."
+  },
+  "editorIssueEmptySourceOutput": "Edge \"{edgeId}\" must specify a non-empty source output.",
+  "@editorIssueEmptySourceOutput": {
+    "description": "Localized validation message when an edge has an empty sourceOutput.",
+    "placeholders": {
+      "edgeId": {
+        "type": "String"
+      }
+    }
+  },
+  "editorIssueOrphanEdge": "Edge \"{edgeId}\" references a missing source or target node.",
+  "@editorIssueOrphanEdge": {
+    "description": "Localized validation message when an edge references a missing node.",
+    "placeholders": {
+      "edgeId": {
+        "type": "String"
+      }
+    }
+  },
+  "editorIssueDuplicateEdge": "Duplicate edge from \"{sourceLabel}\" ({sourceOutput}) to \"{targetLabel}\".",
+  "@editorIssueDuplicateEdge": {
+    "description": "Localized validation message when two edges share source, output, and target.",
+    "placeholders": {
+      "sourceLabel": {
+        "type": "String"
+      },
+      "sourceOutput": {
+        "type": "String"
+      },
+      "targetLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "editorIssueInvalidMaxRetries": "Edge \"{edgeId}\" max retries must be greater than 0.",
+  "@editorIssueInvalidMaxRetries": {
+    "description": "Localized validation message when an edge has maxRetries <= 0.",
+    "placeholders": {
+      "edgeId": {
+        "type": "String"
+      }
+    }
+  },
+  "editorIssueUnboundedCycle": "Cycle involving \"{sourceLabel}\" -> \"{targetLabel}\" requires at least one edge with max retries greater than 0.",
+  "@editorIssueUnboundedCycle": {
+    "description": "Localized validation message when a directed cycle has no positive maxRetries edge.",
+    "placeholders": {
+      "sourceLabel": {
+        "type": "String"
+      },
+      "targetLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "editorIssueUnreachableNode": "Node \"{nodeLabel}\" is not reachable from the entry node.",
+  "@editorIssueUnreachableNode": {
+    "description": "Localized validation message when a node cannot be reached from entryNodeId.",
+    "placeholders": {
+      "nodeLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "editorIssueUnknown": "Workflow graph has a validation issue ({code}).",
+  "@editorIssueUnknown": {
+    "description": "Fallback localized validation message for an unrecognized validation issue code.",
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "workflowsFailureNetwork": "Could not reach the local backend. Check the connection and try again.",
+  "@workflowsFailureNetwork": {
+    "description": "Localized error message when a workflow operation fails with a NetworkFailure."
+  },
+  "workflowsFailureNotFound": "The requested workflow could not be found.",
+  "@workflowsFailureNotFound": {
+    "description": "Localized error message when a workflow operation fails with a NotFoundFailure."
+  },
+  "workflowsFailureValidation": "The workflow request was invalid. Check your inputs and try again.",
+  "@workflowsFailureValidation": {
+    "description": "Localized error message when a workflow operation fails with a ValidationFailure."
+  },
+  "workflowsFailureBackend": "The local backend rejected the workflow request.",
+  "@workflowsFailureBackend": {
+    "description": "Localized error message when a workflow operation fails with a BackendFailure."
+  },
+  "workflowsFailureUnexpected": "An unexpected error occurred while processing the workflow.",
+  "@workflowsFailureUnexpected": {
+    "description": "Localized error message when a workflow operation fails with an UnexpectedFailure."
+  },
+  "settingsPageSubtitle": "Configure appearance, default paths, and custom harness executables.",
+  "@settingsPageSubtitle": {
+    "description": "Subtitle shown in the Settings page header."
+  },
+  "settingsSave": "Save",
+  "@settingsSave": {
+    "description": "Primary button label to save pending settings changes."
+  },
+  "settingsDiscard": "Discard",
+  "@settingsDiscard": {
+    "description": "Secondary button label to discard pending settings changes."
+  },
+  "settingsSavedToast": "Settings saved",
+  "@settingsSavedToast": {
+    "description": "Toast confirmation shown after settings are saved successfully."
+  },
+  "settingsSaveError": "Could not save settings: {message}",
+  "@settingsSaveError": {
+    "description": "Toast error message shown when saving settings fails with a non-validation error.",
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "runsPageSubtitle": "Monitor workflow executions, event logs, and node checkpoints.",
+  "@runsPageSubtitle": {
+    "description": "Subtitle on the Runs list page header."
+  },
+  "runsRefreshAction": "Refresh",
+  "@runsRefreshAction": {
+    "description": "Button label to refresh the runs list or run details."
+  },
+  "runsLoadErrorTitle": "Failed to load runs",
+  "@runsLoadErrorTitle": {
+    "description": "Title shown when loading the runs list fails."
+  },
+  "runsRetryAction": "Retry",
+  "@runsRetryAction": {
+    "description": "Button label to retry loading runs."
+  },
+  "runsFilterAll": "All",
+  "@runsFilterAll": {
+    "description": "Filter chip label to show runs of all statuses."
+  },
+  "runsFilterWorkflowLabel": "Workflow",
+  "@runsFilterWorkflowLabel": {
+    "description": "Label for the workflow filter dropdown on the Runs page."
+  },
+  "runsFilterWorkflowAll": "All workflows",
+  "@runsFilterWorkflowAll": {
+    "description": "Option label to include runs from all workflows."
+  },
+  "runsFilterEmptyTitle": "No matching runs",
+  "@runsFilterEmptyTitle": {
+    "description": "Title shown when no runs match the active status or workflow filters."
+  },
+  "runsFilterEmptyDescription": "No runs match the selected status or workflow filter.",
+  "@runsFilterEmptyDescription": {
+    "description": "Description shown when no runs match the active filters."
+  },
+  "runsClearFiltersAction": "Clear filters",
+  "@runsClearFiltersAction": {
+    "description": "Button label to clear active status and workflow filters."
+  },
+  "runsStatusRunning": "Running",
+  "@runsStatusRunning": {
+    "description": "Display label for RunStatus.running."
+  },
+  "runsStatusPaused": "Paused",
+  "@runsStatusPaused": {
+    "description": "Display label for RunStatus.paused."
+  },
+  "runsStatusInterrupted": "Interrupted",
+  "@runsStatusInterrupted": {
+    "description": "Display label for RunStatus.interrupted."
+  },
+  "runsStatusSucceeded": "Succeeded",
+  "@runsStatusSucceeded": {
+    "description": "Display label for RunStatus.succeeded."
+  },
+  "runsStatusFailed": "Failed",
+  "@runsStatusFailed": {
+    "description": "Display label for RunStatus.failed."
+  },
+  "runsStatusCancelled": "Cancelled",
+  "@runsStatusCancelled": {
+    "description": "Display label for RunStatus.cancelled."
+  },
+  "runsCheckpointCount": "{count, plural, =1{1 checkpoint} other{{count} checkpoints}}",
+  "@runsCheckpointCount": {
+    "description": "Checkpoint count label shown on a run summary card.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "runsDurationInProgress": "In progress",
+  "@runsDurationInProgress": {
+    "description": "Duration label shown when an active run has not finished yet."
+  },
+  "runsDurationUnavailable": "—",
+  "@runsDurationUnavailable": {
+    "description": "Duration placeholder shown when a non-active run has no finish timestamp."
+  },
+  "runsLoadMoreAction": "Load more",
+  "@runsLoadMoreAction": {
+    "description": "Button label to load the next page of runs."
+  },
+  "runsDeleteTooltip": "Delete run",
+  "@runsDeleteTooltip": {
+    "description": "Tooltip and semantic label for the delete run button."
+  },
+  "runsDeleteTitle": "Delete run",
+  "@runsDeleteTitle": {
+    "description": "Title of the delete run confirmation dialog."
+  },
+  "runsDeleteMessage": "Delete this run of \"{workflowName}\"? Its event log and checkpoints will be permanently removed.",
+  "@runsDeleteMessage": {
+    "description": "Confirmation message when deleting a non-active run.",
+    "placeholders": {
+      "workflowName": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsLoading": "Loading settings...",
+  "@settingsLoading": {
+    "description": "Loading indicator label while fetching settings."
+  },
+  "settingsLoadErrorTitle": "Failed to load settings",
+  "@settingsLoadErrorTitle": {
+    "description": "Error state title when loading settings fails."
+  },
+  "settingsRetry": "Retry",
+  "@settingsRetry": {
+    "description": "Button label to retry loading settings after an error."
+  },
+  "settingsErrorNetwork": "Could not reach the local backend service.",
+  "@settingsErrorNetwork": {
+    "description": "Localized error message when loading or saving settings fails due to a network error."
+  },
+  "settingsErrorBackend": "The backend returned an error while processing settings.",
+  "@settingsErrorBackend": {
+    "description": "Localized error message when the backend returns a failure while processing settings."
+  },
+  "settingsErrorUnexpected": "An unexpected error occurred while processing settings.",
+  "@settingsErrorUnexpected": {
+    "description": "Localized fallback error message for settings failures."
+  },
+  "settingsSectionAppearance": "Appearance",
+  "@settingsSectionAppearance": {
+    "description": "Section title for theme and appearance settings."
+  },
+  "settingsSectionAppearanceDescription": "Choose how Agentic Hive looks on this device. Changes apply immediately.",
+  "@settingsSectionAppearanceDescription": {
+    "description": "Description under the Appearance section title."
+  },
+  "settingsThemeLabel": "Theme",
+  "@settingsThemeLabel": {
+    "description": "Accessibility and row label for the theme segmented control."
+  },
+  "settingsThemeDark": "Dark",
+  "@settingsThemeDark": {
+    "description": "Dark theme option in the theme segmented control."
+  },
+  "settingsThemeLight": "Light",
+  "@settingsThemeLight": {
+    "description": "Light theme option in the theme segmented control."
+  },
+  "settingsThemeSystem": "System",
+  "@settingsThemeSystem": {
+    "description": "System theme option in the theme segmented control."
+  },
+  "settingsSectionPaths": "Paths",
+  "@settingsSectionPaths": {
+    "description": "Section title for folder path settings."
+  },
+  "settingsSectionPathsDescription": "Configure where agents are loaded from and the default workspace for new runs.",
+  "@settingsSectionPathsDescription": {
+    "description": "Description under the Paths section title."
+  },
+  "settingsAgentsFolderLabel": "Agents folder",
+  "@settingsAgentsFolderLabel": {
+    "description": "Label for the Agents folder text field."
+  },
+  "settingsAgentsFolderHint": "Path to your agents directory",
+  "@settingsAgentsFolderHint": {
+    "description": "Placeholder text for the Agents folder text field."
+  },
+  "settingsAgentsFolderHelper": "Default: {path}",
+  "@settingsAgentsFolderHelper": {
+    "description": "Helper text showing the default agents folder path.",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "runsDeleteConfirm": "Delete",
+  "@runsDeleteConfirm": {
+    "description": "Confirm button label in the delete run dialog."
+  },
+  "runsCancelAction": "Cancel",
+  "@runsCancelAction": {
+    "description": "Cancel button label in the delete run dialog."
+  },
+  "runsFailureNetwork": "Could not reach the local backend. Check the connection and try again.",
+  "@runsFailureNetwork": {
+    "description": "Localized error message when a run operation fails with a NetworkFailure."
+  },
+  "runsFailureNotFound": "The requested run could not be found.",
+  "@runsFailureNotFound": {
+    "description": "Localized error message when a run operation fails with a NotFoundFailure."
+  },
+  "runsFailureValidation": "The run request was invalid.",
+  "@runsFailureValidation": {
+    "description": "Localized error message when a run operation fails with a ValidationFailure."
+  },
+  "runsFailureConflict": "Active runs cannot be deleted.",
+  "@runsFailureConflict": {
+    "description": "Localized error message when attempting to delete an active run."
+  },
+  "runsFailureBackend": "The local backend rejected the run request.",
+  "@runsFailureBackend": {
+    "description": "Localized error message when a run operation fails with a BackendFailure."
+  },
+  "runsFailureUnexpected": "An unexpected error occurred while loading runs.",
+  "@runsFailureUnexpected": {
+    "description": "Localized error message when a run operation fails with an UnexpectedFailure."
+  },
+  "runDetailBackTooltip": "Back to runs",
+  "@runDetailBackTooltip": {
+    "description": "Tooltip and semantic label for navigating back to the Runs list."
+  },
+  "runDetailLoadErrorTitle": "Failed to load run details",
+  "@runDetailLoadErrorTitle": {
+    "description": "Title shown when loading a run detail page fails."
+  },
+  "runDetailWorkspaceLabel": "Workspace",
+  "@runDetailWorkspaceLabel": {
+    "description": "Metadata label for the run workspace path."
+  },
+  "runDetailStartedLabel": "Started",
+  "@runDetailStartedLabel": {
+    "description": "Metadata label for the run start timestamp."
+  },
+  "runDetailFinishedLabel": "Finished",
+  "@runDetailFinishedLabel": {
+    "description": "Metadata label for the run finish timestamp."
+  },
+  "runDetailDurationLabel": "Duration",
+  "@runDetailDurationLabel": {
+    "description": "Metadata label for the run duration."
+  },
+  "runDetailErrorLabel": "Error",
+  "@runDetailErrorLabel": {
+    "description": "Label for the run error banner when a run failed."
+  },
+  "runDetailEventsTitle": "Event log",
+  "@runDetailEventsTitle": {
+    "description": "Section heading for the chronological run event log."
+  },
+  "runDetailEventsEmpty": "No events recorded for this run.",
+  "@runDetailEventsEmpty": {
+    "description": "Empty state text when a run has no events."
+  },
+  "runDetailEventPayloadTitle": "payload",
+  "@runDetailEventPayloadTitle": {
+    "description": "Code block header title for an event payload."
+  },
+  "runDetailEventPayloadEmpty": "No payload",
+  "@runDetailEventPayloadEmpty": {
+    "description": "Empty label for an event with an empty payload."
+  },
+  "runDetailCopyLabel": "Copy",
+  "@runDetailCopyLabel": {
+    "description": "Copy button label inside HiveCodeBlock."
+  },
+  "runDetailExpandPayloadTooltip": "Show payload",
+  "@runDetailExpandPayloadTooltip": {
+    "description": "Semantic label for expanding an event JSON payload."
+  },
+  "runDetailCollapsePayloadTooltip": "Hide payload",
+  "@runDetailCollapsePayloadTooltip": {
+    "description": "Semantic label for collapsing an event JSON payload."
+  },
+  "runDetailNodeLabel": "Node: {nodeId}",
+  "@runDetailNodeLabel": {
+    "description": "Target node badge or label on an event item.",
+    "placeholders": {
+      "nodeId": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsDefaultWorkspaceLabel": "Default workspace",
+  "@settingsDefaultWorkspaceLabel": {
+    "description": "Label for the Default workspace text field."
+  },
+  "settingsDefaultWorkspaceHint": "Optional default workspace folder",
+  "@settingsDefaultWorkspaceHint": {
+    "description": "Placeholder text for the Default workspace text field."
+  },
+  "settingsBrowse": "Browse",
+  "@settingsBrowse": {
+    "description": "Button label to open the native file or folder picker."
+  },
+  "settingsResetToDefault": "Reset to default",
+  "@settingsResetToDefault": {
+    "description": "Button label to reset the Agents folder to its default path."
+  },
+  "settingsClear": "Clear",
+  "@settingsClear": {
+    "description": "Button label to clear an optional path field."
+  },
+  "settingsSectionHarnesses": "Harnesses",
+  "@settingsSectionHarnesses": {
+    "description": "Section title for per-harness executable path overrides."
+  },
+  "settingsSectionHarnessesDescription": "Override auto-detected CLI executable paths when needed. Leave blank for auto-detection.",
+  "@settingsSectionHarnessesDescription": {
+    "description": "Description under the Harnesses section title."
+  },
+  "settingsHarnessPathHint": "Auto-detect from PATH",
+  "@settingsHarnessPathHint": {
+    "description": "Placeholder text for an optional custom harness executable path."
+  },
+  "settingsHarnessClaudeCode": "Claude Code",
+  "@settingsHarnessClaudeCode": {
+    "description": "Display label for the Claude Code harness."
+  },
+  "settingsHarnessCodex": "Codex",
+  "@settingsHarnessCodex": {
+    "description": "Display label for the Codex harness."
+  },
+  "settingsHarnessGeminiCli": "Gemini CLI",
+  "@settingsHarnessGeminiCli": {
+    "description": "Display label for the Gemini CLI harness."
+  },
+  "settingsHarnessAntigravity": "Antigravity",
+  "@settingsHarnessAntigravity": {
+    "description": "Display label for the Antigravity harness."
+  },
+  "runDetailEdgeLabel": "Edge: {edgeId}",
+  "@runDetailEdgeLabel": {
+    "description": "Target edge badge or label on an event item.",
+    "placeholders": {
+      "edgeId": {
+        "type": "String"
+      }
+    }
+  },
+  "runDetailCheckpointsTitle": "Checkpoints",
+  "@runDetailCheckpointsTitle": {
+    "description": "Section heading for the run checkpoints inspector."
+  },
+  "runDetailCheckpointsEmpty": "No checkpoints saved for this run.",
+  "@runDetailCheckpointsEmpty": {
+    "description": "Empty state text when a run has no checkpoints."
+  },
+  "runDetailCheckpointSequence": "Checkpoint #{sequence}",
+  "@runDetailCheckpointSequence": {
+    "description": "Label for a checkpoint entry in the checkpoint selector list.",
+    "placeholders": {
+      "sequence": {
+        "type": "int"
+      }
+    }
+  },
+  "runDetailCompletedNodeLabel": "Completed node",
+  "@runDetailCompletedNodeLabel": {
+    "description": "Label for the completedNodeId field in the checkpoint inspector."
+  },
+  "runDetailPendingNodesLabel": "Pending nodes",
+  "@runDetailPendingNodesLabel": {
+    "description": "Label for the pendingNodeIds field in the checkpoint inspector."
+  },
+  "runDetailAttemptsLabel": "Attempts by edge",
+  "@runDetailAttemptsLabel": {
+    "description": "Label for the attemptsByEdge field in the checkpoint inspector."
+  },
+  "runDetailCircuitBreakerLabel": "Circuit breaker count",
+  "@runDetailCircuitBreakerLabel": {
+    "description": "Label for the circuitBreakerCount field in the checkpoint inspector."
+  },
+  "runDetailNodeOutputsLabel": "node_outputs.json",
+  "@runDetailNodeOutputsLabel": {
+    "description": "Code block header title for checkpoint nodeOutputs."
+  },
+  "runDetailNoOutputs": "No node outputs",
+  "@runDetailNoOutputs": {
+    "description": "Empty label for a checkpoint with no node outputs."
+  },
+  "runDetailNone": "None",
+  "@runDetailNone": {
+    "description": "Fallback label when a checkpoint field has no value."
+  },
+  "editorIssueUnknownNodeType": "Node \"{nodeLabel}\" has an unknown node type.",
+  "@editorIssueUnknownNodeType": {
+    "description": "Localized validation message when a node uses an unregistered type.",
+    "placeholders": {
+      "nodeLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "editorIssueInvalidNodeConfig": "Node \"{nodeLabel}\" has an invalid configuration.",
+  "@editorIssueInvalidNodeConfig": {
+    "description": "Localized validation message when a node's configuration fails validation.",
+    "placeholders": {
+      "nodeLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeTypeClaudeCode": "Claude Code",
+  "@nodeTypeClaudeCode": {
+    "description": "Display name for the Claude Code harness node."
+  },
+  "nodeTypeCodex": "Codex",
+  "@nodeTypeCodex": {
+    "description": "Display name for the Codex harness node."
+  },
+  "nodeTypeGeminiCli": "Gemini CLI",
+  "@nodeTypeGeminiCli": {
+    "description": "Display name for the Gemini CLI harness node."
+  },
+  "nodeTypeAntigravity": "Antigravity",
+  "@nodeTypeAntigravity": {
+    "description": "Display name for the Antigravity CLI harness node."
+  },
+  "nodeTypeTerminalHarness": "Terminal Harness",
+  "@nodeTypeTerminalHarness": {
+    "description": "Display name for the generic terminal harness node."
+  },
+  "nodeTypeCommand": "Command",
+  "@nodeTypeCommand": {
+    "description": "Display name for the command execution node."
+  },
+  "nodeTypeTestsValidator": "Tests Validator",
+  "@nodeTypeTestsValidator": {
+    "description": "Display name for the deterministic tests validator node."
+  },
+  "nodeTypeChecklistValidator": "Checklist Validator",
+  "@nodeTypeChecklistValidator": {
+    "description": "Display name for the deterministic checklist validator node."
+  },
+  "nodeTypeReviewValidator": "Review Validator",
+  "@nodeTypeReviewValidator": {
+    "description": "Display name for the harness-backed review validator node."
+  },
+  "nodeTypeHumanApproval": "Human Approval",
+  "@nodeTypeHumanApproval": {
+    "description": "Display name for the human approval pause node."
+  },
+  "nodeTypeUnknown": "Unknown Node",
+  "@nodeTypeUnknown": {
+    "description": "Fallback display name for an unregistered node type."
+  },
+  "nodeCategoryHarnesses": "Harnesses",
+  "@nodeCategoryHarnesses": {
+    "description": "Node palette category header for harness nodes."
+  },
+  "nodeCategoryExecution": "Execution",
+  "@nodeCategoryExecution": {
+    "description": "Node palette category header for execution nodes."
+  },
+  "nodeCategoryValidators": "Validators",
+  "@nodeCategoryValidators": {
+    "description": "Node palette category header for validator nodes."
+  },
+  "nodeCategoryHuman": "Human",
+  "@nodeCategoryHuman": {
+    "description": "Node palette category header for human-in-the-loop nodes."
+  },
+  "editorPaletteTitle": "Node Palette",
+  "@editorPaletteTitle": {
+    "description": "Header title for the categorized node palette panel."
+  },
+  "editorPaletteHint": "Click or drag onto the canvas",
+  "@editorPaletteHint": {
+    "description": "Helper text under the node palette header."
+  },
+  "editorPaletteInsertSemantic": "Add {nodeType} node",
+  "@editorPaletteInsertSemantic": {
+    "description": "Accessibility label for a node palette item.",
+    "placeholders": {
+      "nodeType": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeConfigSectionTitle": "Configuration",
+  "@nodeConfigSectionTitle": {
+    "description": "Section header for per-type node configuration fields in the inspector."
+  },
+  "nodeConfigUnknownType": "No configuration form is registered for this node type.",
+  "@nodeConfigUnknownType": {
+    "description": "Fallback message in the inspector when a node has an unregistered type."
+  },
+  "nodeConfigAgentIdLabel": "Agent",
+  "@nodeConfigAgentIdLabel": {
+    "description": "Select field label for choosing an agent from the Agent Library."
+  },
+  "nodeConfigAgentSelectHint": "Select an agent",
+  "@nodeConfigAgentSelectHint": {
+    "description": "Placeholder hint for the agent library select."
+  },
+  "nodeConfigAgentLoadingHint": "Loading agents...",
+  "@nodeConfigAgentLoadingHint": {
+    "description": "Placeholder hint while the Agent Library is loading."
+  },
+  "nodeConfigAgentLoadError": "Could not load agents from the Agent Library.",
+  "@nodeConfigAgentLoadError": {
+    "description": "Error text when loading the Agent Library fails."
+  },
+  "nodeConfigAgentEmptyHint": "No agents yet. Create one on the Agents page.",
+  "@nodeConfigAgentEmptyHint": {
+    "description": "Placeholder or helper hint when the Agent Library has no agents."
+  },
+  "nodeConfigAgentMissingError": "Agent \"{agentId}\" was not found in the Agent Library.",
+  "@nodeConfigAgentMissingError": {
+    "description": "Warning/error text when a node references an agent ID that no longer exists in the Agent Library.",
+    "placeholders": {
+      "agentId": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeConfigAgentNoneOption": "None",
+  "@nodeConfigAgentNoneOption": {
+    "description": "Option label in the agent select to clear the selected agent."
+  },
+  "nodeConfigAdditionalInstructionsLabel": "Additional instructions",
+  "@nodeConfigAdditionalInstructionsLabel": {
+    "description": "Multiline text field label for additional harness instructions."
+  },
+  "nodeConfigAdditionalInstructionsHint": "Extra instructions appended to the prompt...",
+  "@nodeConfigAdditionalInstructionsHint": {
+    "description": "Placeholder hint for additional harness instructions."
+  },
+  "nodeConfigWorkingDirectoryLabel": "Working directory",
+  "@nodeConfigWorkingDirectoryLabel": {
+    "description": "Text field label for a relative working directory inside the workspace."
+  },
+  "nodeConfigWorkingDirectoryHint": "Optional relative path (e.g. packages/app)",
+  "@nodeConfigWorkingDirectoryHint": {
+    "description": "Placeholder hint for working directory."
+  },
+  "nodeConfigTimeoutSecondsLabel": "Timeout (seconds)",
+  "@nodeConfigTimeoutSecondsLabel": {
+    "description": "Text field label for node execution timeout in seconds."
+  },
+  "nodeConfigTimeoutSecondsHint": "Optional positive integer",
+  "@nodeConfigTimeoutSecondsHint": {
+    "description": "Placeholder hint for timeout in seconds."
+  },
+  "nodeConfigTimeoutSecondsError": "Enter a positive integer.",
+  "@nodeConfigTimeoutSecondsError": {
+    "description": "Validation error shown when timeout in seconds is not a positive integer."
+  },
+  "nodeConfigExtraArgsLabel": "Extra CLI arguments",
+  "@nodeConfigExtraArgsLabel": {
+    "description": "List field label for extra CLI arguments passed to a harness."
+  },
+  "nodeConfigExtraArgsItemLabel": "Argument",
+  "@nodeConfigExtraArgsItemLabel": {
+    "description": "Accessibility label for each extra CLI argument row."
+  },
+  "nodeConfigExtraArgsAddLabel": "Add argument",
+  "@nodeConfigExtraArgsAddLabel": {
+    "description": "Button label to append an extra CLI argument."
+  },
+  "nodeConfigCommandLabel": "Command",
+  "@nodeConfigCommandLabel": {
+    "description": "Text field label for the executable or shell command."
+  },
+  "nodeConfigCommandHint": "e.g. dart, flutter, npm",
+  "@nodeConfigCommandHint": {
+    "description": "Placeholder hint for the command input."
+  },
+  "nodeConfigArgsLabel": "Arguments",
+  "@nodeConfigArgsLabel": {
+    "description": "List field label for command arguments."
+  },
+  "nodeConfigArgsItemLabel": "Argument",
+  "@nodeConfigArgsItemLabel": {
+    "description": "Accessibility label for each command argument row."
+  },
+  "nodeConfigArgsAddLabel": "Add argument",
+  "@nodeConfigArgsAddLabel": {
+    "description": "Button label to append a command argument."
+  },
+  "nodeConfigEnvLabel": "Environment variables",
+  "@nodeConfigEnvLabel": {
+    "description": "Key-value editor label for command environment variables."
+  },
+  "nodeConfigEnvKeyLabel": "Variable",
+  "@nodeConfigEnvKeyLabel": {
+    "description": "Key column label in the environment variables editor."
+  },
+  "nodeConfigEnvValueLabel": "Value",
+  "@nodeConfigEnvValueLabel": {
+    "description": "Value column label in the environment variables editor."
+  },
+  "nodeConfigEnvAddLabel": "Add variable",
+  "@nodeConfigEnvAddLabel": {
+    "description": "Button label to add an environment variable row."
+  },
+  "nodeConfigEnvDuplicateKey": "Duplicate variable name",
+  "@nodeConfigEnvDuplicateKey": {
+    "description": "Error message when two environment variable rows share the same key."
+  },
+  "nodeConfigEnvEmptyKey": "Variable name is required",
+  "@nodeConfigEnvEmptyKey": {
+    "description": "Error message when an environment variable row has a value without a key."
+  },
+  "nodeConfigRemoveButtonLabel": "Remove",
+  "@nodeConfigRemoveButtonLabel": {
+    "description": "Accessibility label for removing a list row."
+  },
+  "nodeConfigChecklistRulesLabel": "Checklist rules",
+  "@nodeConfigChecklistRulesLabel": {
+    "description": "Section label for the list of checklist validator rules."
+  },
+  "nodeConfigChecklistEmpty": "No checklist rules configured yet.",
+  "@nodeConfigChecklistEmpty": {
+    "description": "Empty state text when a checklist validator has no rules."
+  },
+  "nodeConfigChecklistAddRule": "Add rule",
+  "@nodeConfigChecklistAddRule": {
+    "description": "Button label to add a new checklist rule."
+  },
+  "nodeConfigChecklistRemoveRule": "Remove rule",
+  "@nodeConfigChecklistRemoveRule": {
+    "description": "Accessibility label for removing a checklist rule row."
+  },
+  "nodeConfigChecklistRuleLabelField": "Rule label",
+  "@nodeConfigChecklistRuleLabelField": {
+    "description": "Text field label for a checklist rule's display label."
+  },
+  "nodeConfigChecklistRuleKindField": "Check kind",
+  "@nodeConfigChecklistRuleKindField": {
+    "description": "Select field label for a checklist rule's kind."
+  },
+  "nodeConfigChecklistRuleKindFileExists": "File exists",
+  "@nodeConfigChecklistRuleKindFileExists": {
+    "description": "Checklist rule kind option for checking file existence."
+  },
+  "nodeConfigChecklistRuleKindCommandSucceeds": "Command succeeds",
+  "@nodeConfigChecklistRuleKindCommandSucceeds": {
+    "description": "Checklist rule kind option for checking command exit code 0."
+  },
+  "nodeConfigChecklistRuleKindOutputMatchesRegex": "Output matches regex",
+  "@nodeConfigChecklistRuleKindOutputMatchesRegex": {
+    "description": "Checklist rule kind option for matching command stdout against a regex."
+  },
+  "nodeConfigChecklistRulePathField": "Relative file path",
+  "@nodeConfigChecklistRulePathField": {
+    "description": "Text field label for the fileExists checklist rule path."
+  },
+  "nodeConfigChecklistRulePathHint": "e.g. build/app.apk",
+  "@nodeConfigChecklistRulePathHint": {
+    "description": "Placeholder hint for the fileExists checklist rule path."
+  },
+  "nodeConfigChecklistRulePatternField": "Regex pattern",
+  "@nodeConfigChecklistRulePatternField": {
+    "description": "Text field label for the outputMatchesRegex checklist rule pattern."
+  },
+  "nodeConfigChecklistRulePatternHint": "e.g. All tests passed",
+  "@nodeConfigChecklistRulePatternHint": {
+    "description": "Placeholder hint for the outputMatchesRegex checklist rule pattern."
+  },
+  "nodeConfigReviewHarnessLabel": "Review harness",
+  "@nodeConfigReviewHarnessLabel": {
+    "description": "Select field label for choosing which headless harness runs a review validator."
+  },
+  "nodeConfigReviewCriteriaLabel": "Review criteria",
+  "@nodeConfigReviewCriteriaLabel": {
+    "description": "Multiline text field label for review validator criteria."
+  },
+  "nodeConfigReviewCriteriaHint": "Describe what the reviewer should verify...",
+  "@nodeConfigReviewCriteriaHint": {
+    "description": "Placeholder hint for review criteria."
+  },
+  "nodeConfigHumanTitleLabel": "Approval title",
+  "@nodeConfigHumanTitleLabel": {
+    "description": "Text field label for the human approval node title."
+  },
+  "nodeConfigHumanTitleHint": "e.g. Approve production release",
+  "@nodeConfigHumanTitleHint": {
+    "description": "Placeholder hint for the human approval title."
+  },
+  "nodeConfigHumanInstructionsLabel": "Instructions for reviewer",
+  "@nodeConfigHumanInstructionsLabel": {
+    "description": "Multiline text field label for human approval instructions."
+  },
+  "nodeConfigHumanInstructionsHint": "Explain what the human should review before approving or rejecting...",
+  "@nodeConfigHumanInstructionsHint": {
+    "description": "Placeholder hint for human approval instructions."
+  },
+  "nodeConfigHumanAllowFeedbackLabel": "Allow feedback message",
+  "@nodeConfigHumanAllowFeedbackLabel": {
+    "description": "Switch label for allowing the human reviewer to enter feedback."
+  },
+  "runDetailTabsLabel": "Inspector view",
+  "@runDetailTabsLabel": {
+    "description": "Semantic label for the Checkpoints/Snapshots toggle on Run Detail."
+  },
+  "runDetailTabSnapshots": "Snapshots",
+  "@runDetailTabSnapshots": {
+    "description": "Segment label for the workspace snapshots view on Run Detail."
+  },
+  "runDetailIsolationLabel": "Isolation",
+  "@runDetailIsolationLabel": {
+    "description": "Metadata label for how the run workspace is isolated."
+  },
+  "runDetailIsolationDirect": "Direct",
+  "@runDetailIsolationDirect": {
+    "description": "Isolation mode value: the run edits the workspace folder directly."
+  },
+  "runDetailIsolationWorktree": "Worktree",
+  "@runDetailIsolationWorktree": {
+    "description": "Isolation mode value: the run uses an isolated git worktree."
+  },
+  "runDetailWorktreePathLabel": "Worktree path",
+  "@runDetailWorktreePathLabel": {
+    "description": "Metadata label for the git worktree folder of a run."
+  },
+  "runDetailWorktreeBranchLabel": "Branch",
+  "@runDetailWorktreeBranchLabel": {
+    "description": "Metadata label for the hive/<runId> branch of a run worktree."
+  },
+  "snapshotsTitle": "Snapshots",
+  "@snapshotsTitle": {
+    "description": "Title of the workspace snapshots panel."
+  },
+  "snapshotsEmptyMessage": "No snapshots were captured for this run yet.",
+  "@snapshotsEmptyMessage": {
+    "description": "Empty state message for the snapshots panel."
+  },
+  "snapshotsLoadErrorTitle": "Failed to load snapshots",
+  "@snapshotsLoadErrorTitle": {
+    "description": "Title shown when listing snapshots fails."
+  },
+  "snapshotKindPreNode": "Before node",
+  "@snapshotKindPreNode": {
+    "description": "Badge for a snapshot captured before a node ran."
+  },
+  "snapshotKindSafetyPreRestore": "Safety",
+  "@snapshotKindSafetyPreRestore": {
+    "description": "Badge for the automatic snapshot taken right before a restore."
+  },
+  "snapshotNodeUnknown": "Workspace",
+  "@snapshotNodeUnknown": {
+    "description": "Fallback title of a snapshot that is not tied to a node."
+  },
+  "snapshotDiffStatSemanticLabel": "{added} added, {modified} modified, {deleted} deleted",
+  "@snapshotDiffStatSemanticLabel": {
+    "description": "Screen reader label for the +A ~M -D change summary.",
+    "placeholders": {
+      "added": {
+        "type": "int"
+      },
+      "modified": {
+        "type": "int"
+      },
+      "deleted": {
+        "type": "int"
+      }
+    }
+  },
+  "snapshotsShowFilesTooltip": "Show changed files",
+  "@snapshotsShowFilesTooltip": {
+    "description": "Tooltip for expanding the changed files of a snapshot."
+  },
+  "snapshotsHideFilesTooltip": "Hide changed files",
+  "@snapshotsHideFilesTooltip": {
+    "description": "Tooltip for collapsing the changed files of a snapshot."
+  },
+  "snapshotsNoChangedFiles": "No files changed in this snapshot.",
+  "@snapshotsNoChangedFiles": {
+    "description": "Shown when an expanded snapshot has no changed files."
+  },
+  "snapshotsDiffLoadFailed": "Could not load the changed files.",
+  "@snapshotsDiffLoadFailed": {
+    "description": "Shown when loading the changed files of a snapshot fails."
+  },
+  "snapshotChangeAdded": "added",
+  "@snapshotChangeAdded": {
+    "description": "Change type word for a file added in a snapshot."
+  },
+  "snapshotChangeModified": "modified",
+  "@snapshotChangeModified": {
+    "description": "Change type word for a file modified in a snapshot."
+  },
+  "snapshotChangeDeleted": "deleted",
+  "@snapshotChangeDeleted": {
+    "description": "Change type word for a file deleted in a snapshot."
+  },
+  "snapshotsRestoreAction": "Restore",
+  "@snapshotsRestoreAction": {
+    "description": "Button that restores the workspace to a snapshot."
+  },
+  "snapshotsRestoringAction": "Restoring...",
+  "@snapshotsRestoringAction": {
+    "description": "Button label while a restore is running."
+  },
+  "snapshotsRestoreRunActive": "Stop or pause the run before restoring a snapshot.",
+  "@snapshotsRestoreRunActive": {
+    "description": "Notice explaining restore is unavailable while the run is running."
+  },
+  "snapshotsRestoreGitUnavailable": "Restore needs git, which is not available on this machine. Install git and refresh.",
+  "@snapshotsRestoreGitUnavailable": {
+    "description": "Notice explaining restore is unavailable because git is missing."
+  },
+  "snapshotsRestoreCheckFailed": "Could not check whether restore is available. Refresh to try again.",
+  "@snapshotsRestoreCheckFailed": {
+    "description": "Notice shown when the git capability check failed."
+  },
+  "snapshotsRestoreDialogTitle": "Restore this snapshot?",
+  "@snapshotsRestoreDialogTitle": {
+    "description": "Title of the restore confirmation dialog."
+  },
+  "snapshotsRestoreDialogMessage": "Files in the workspace are rolled back to this snapshot and files created after it are removed. Excluded files and .git are kept. A safety snapshot of the current state is taken first.",
+  "@snapshotsRestoreDialogMessage": {
+    "description": "Body of the restore confirmation dialog."
+  },
+  "snapshotsRestoreConfirm": "Restore snapshot",
+  "@snapshotsRestoreConfirm": {
+    "description": "Confirm button of the restore dialog."
+  },
+  "snapshotsRestoreCancel": "Cancel",
+  "@snapshotsRestoreCancel": {
+    "description": "Cancel button of the restore dialog."
+  },
+  "snapshotsRestoreBarrierLabel": "Dismiss restore dialog",
+  "@snapshotsRestoreBarrierLabel": {
+    "description": "Screen reader label of the restore dialog scrim."
+  },
+  "snapshotsRestoreSuccessTitle": "Workspace restored",
+  "@snapshotsRestoreSuccessTitle": {
+    "description": "Title of the banner shown after a successful restore."
+  },
+  "snapshotsRestoreSuccessMessage": "A safety snapshot of the previous state was saved.",
+  "@snapshotsRestoreSuccessMessage": {
+    "description": "Message of the banner shown after a successful restore."
+  },
+  "snapshotsRestoreFailedTitle": "Restore failed",
+  "@snapshotsRestoreFailedTitle": {
+    "description": "Title of the banner shown when a restore fails."
+  },
+  "snapshotsRestoreConflict": "The run is active. Restore is only possible when it is not running.",
+  "@snapshotsRestoreConflict": {
+    "description": "Message when the backend rejects a restore with a conflict."
+  },
+  "snapshotsDismissTooltip": "Dismiss",
+  "@snapshotsDismissTooltip": {
+    "description": "Semantic label of the dismiss button on restore banners."
+  },
+  "runsStatusCancelling": "Cancelling",
+  "@runsStatusCancelling": {
+    "description": "Display label for RunStatus.cancelling."
+  },
+  "runsStatusCancellationUncertain": "Cancellation uncertain",
+  "@runsStatusCancellationUncertain": {
+    "description": "Display label for RunStatus.cancellationUncertain."
+  },
+  "runsStatusIdle": "Idle",
+  "@runsStatusIdle": {
+    "description": "Display label for HiveNodeStatus.idle."
+  },
+  "runsNewAction": "New run",
+  "@runsNewAction": {
+    "description": "Primary button label to start a new run from the Runs page."
+  },
+  "workflowsRunAction": "Run workflow",
+  "@workflowsRunAction": {
+    "description": "Button label and tooltip to start a run from a workflow."
+  },
+  "startRunDialogTitle": "Start run",
+  "@startRunDialogTitle": {
+    "description": "Title of the Start Run dialog."
+  },
+  "startRunWorkflowLabel": "Workflow",
+  "@startRunWorkflowLabel": {
+    "description": "Label for the workflow selector in the Start Run dialog."
+  },
+  "startRunWorkflowPlaceholder": "Select a workflow",
+  "@startRunWorkflowPlaceholder": {
+    "description": "Placeholder text when no workflow is selected in the Start Run dialog."
+  },
+  "startRunNoWorkflowsMessage": "Create a workflow before starting a run.",
+  "@startRunNoWorkflowsMessage": {
+    "description": "Message shown in the Start Run dialog when no workflows exist."
+  },
+  "startRunWorkspaceLabel": "Workspace folder",
+  "@startRunWorkspaceLabel": {
+    "description": "Label for the workspace folder path input in the Start Run dialog."
+  },
+  "startRunWorkspaceHint": "Path to workspace folder",
+  "@startRunWorkspaceHint": {
+    "description": "Placeholder hint for the workspace folder path input."
+  },
+  "startRunBrowseAction": "Browse",
+  "@startRunBrowseAction": {
+    "description": "Button label to open the folder picker in the Start Run dialog."
+  },
+  "startRunIsolationLabel": "Workspace isolation",
+  "@startRunIsolationLabel": {
+    "description": "Label for the workspace isolation mode selector."
+  },
+  "startRunIsolationDirect": "Direct",
+  "@startRunIsolationDirect": {
+    "description": "Option label for direct workspace isolation mode."
+  },
+  "startRunIsolationDirectDescription": "Run directly in the selected folder.",
+  "@startRunIsolationDirectDescription": {
+    "description": "Helper description for direct workspace isolation mode."
+  },
+  "startRunIsolationWorktree": "Worktree",
+  "@startRunIsolationWorktree": {
+    "description": "Option label for git worktree isolation mode."
+  },
+  "startRunIsolationWorktreeDescription": "Isolate changes in a dedicated git worktree.",
+  "@startRunIsolationWorktreeDescription": {
+    "description": "Helper description for git worktree isolation mode."
+  },
+  "startRunWorktreeUnavailableNoGit": "Git is not installed; worktree isolation is unavailable.",
+  "@startRunWorktreeUnavailableNoGit": {
+    "description": "Message explaining why worktree mode is disabled when git is not available."
+  },
+  "startRunWorktreeUnavailableNotRepo": "Select a git repository with at least one commit to use worktree isolation.",
+  "@startRunWorktreeUnavailableNotRepo": {
+    "description": "Message explaining why worktree mode is disabled when the folder is not a git repo with commits."
+  },
+  "startRunCheckingCapabilities": "Checking workspace git capabilities...",
+  "@startRunCheckingCapabilities": {
+    "description": "Status message while checking workspace capabilities."
+  },
+  "startRunValidationWorkflowRequired": "Select a workflow.",
+  "@startRunValidationWorkflowRequired": {
+    "description": "Validation error when submitting Start Run without a workflow."
+  },
+  "startRunValidationWorkspaceRequired": "Choose a workspace folder.",
+  "@startRunValidationWorkspaceRequired": {
+    "description": "Validation error when submitting Start Run without a workspace folder."
+  },
+  "startRunConfirmAction": "Start run",
+  "@startRunConfirmAction": {
+    "description": "Confirm button label in the Start Run dialog."
+  },
+  "startRunStartingAction": "Starting...",
+  "@startRunStartingAction": {
+    "description": "Button label while a Start Run request is in flight."
+  },
+  "startRunConflictError": "A direct run is already active on this workspace folder. Choose worktree isolation or wait for the active run to finish.",
+  "@startRunConflictError": {
+    "description": "Error message shown when starting a second direct run on the same workspace returns 409 Conflict."
+  },
+  "startRunInputLabel": "Run input",
+  "@startRunInputLabel": {
+    "description": "Label for the optional run input field in the Start Run dialog."
+  },
+  "startRunInputHint": "Optional instructions for the entry node...",
+  "@startRunInputHint": {
+    "description": "Placeholder text for the run input field in the Start Run dialog."
+  },
+  "startRunInputHelper": "Optional. Passed only to the workflow's entry node.",
+  "@startRunInputHelper": {
+    "description": "Helper text below the run input field in the Start Run dialog."
+  },
+  "runDetailInputLabel": "Run input",
+  "@runDetailInputLabel": {
+    "description": "Section label for the run input card on the Run Detail page."
+  },
+  "runDetailInputShowMore": "Show more",
+  "@runDetailInputShowMore": {
+    "description": "Button label to expand a long run input on the Run Detail page."
+  },
+  "runDetailInputShowLess": "Show less",
+  "@runDetailInputShowLess": {
+    "description": "Button label to collapse a long run input on the Run Detail page."
+  },
+  "runDetailCancelAction": "Cancel",
+  "@runDetailCancelAction": {
+    "description": "Header button label to cancel an active run."
+  },
+  "runDetailCancellingAction": "Cancelling...",
+  "@runDetailCancellingAction": {
+    "description": "Header button label while a run is in cancelling state."
+  },
+  "runDetailRetryCancelAction": "Retry cancel",
+  "@runDetailRetryCancelAction": {
+    "description": "Header button label to retry cancelling a cancellationUncertain run."
+  },
+  "runDetailResumeAction": "Resume",
+  "@runDetailResumeAction": {
+    "description": "Header button label to resume an interrupted run."
+  },
+  "runDetailResumingAction": "Resuming...",
+  "@runDetailResumingAction": {
+    "description": "Header button label while a resume request is in flight."
+  },
+  "runDetailGraphTitle": "Workflow graph",
+  "@runDetailGraphTitle": {
+    "description": "Heading for the read-only live workflow graph in the Run Monitor."
+  },
+  "runDetailFollowActiveBadge": "Following active",
+  "@runDetailFollowActiveBadge": {
+    "description": "Badge label indicating the Output tab automatically follows the active node."
+  },
+  "runDetailFollowActiveButton": "Follow active",
+  "@runDetailFollowActiveButton": {
+    "description": "Button label to re-enable auto-following the active node."
+  },
+  "runDetailTabOutput": "Output",
+  "@runDetailTabOutput": {
+    "description": "Inspector tab label for live node output logs."
+  },
+  "runDetailTabOutputs": "Outputs",
+  "@runDetailTabOutputs": {
+    "description": "Inspector tab label for the chat-style list of node summaries."
+  },
+  "runDetailOutputsTitle": "Outputs",
+  "@runDetailOutputsTitle": {
+    "description": "Heading and empty-state title of the chat-style node outputs panel."
+  },
+  "runDetailOutputsEmpty": "No node has published a message yet.",
+  "@runDetailOutputsEmpty": {
+    "description": "Empty state of the Outputs panel when no node published a summary."
+  },
+  "runDetailTabEvents": "Events",
+  "@runDetailTabEvents": {
+    "description": "Inspector tab label for the chronological run event log."
+  },
+  "runDetailTabCheckpoints": "Checkpoints",
+  "@runDetailTabCheckpoints": {
+    "description": "Inspector tab label for saved run checkpoints."
+  },
+  "runDetailTabSnapshots": "Snapshots",
+  "@runDetailTabSnapshots": {
+    "description": "Inspector tab label for workspace snapshots."
+  },
+  "runDetailOutputTitle": "Node output",
+  "@runDetailOutputTitle": {
+    "description": "Semantic label and heading for the node output viewer."
+  },
+  "runDetailOutputSelectNode": "Select a node on the graph or wait for a node to start.",
+  "@runDetailOutputSelectNode": {
+    "description": "Empty state message when no node is selected or active yet."
+  },
+  "runDetailOutputEmpty": "No output yet.",
+  "@runDetailOutputEmpty": {
+    "description": "Empty state text inside the log stream viewer when a node has emitted no output."
+  },
+  "runDetailOutputAttemptLabel": "Attempt",
+  "@runDetailOutputAttemptLabel": {
+    "description": "Label for the attempt selector dropdown in the Output tab."
+  },
+  "runDetailOutputAttemptOption": "Attempt #{attempt}",
+  "@runDetailOutputAttemptOption": {
+    "description": "Option label in the attempt selector.",
+    "placeholders": {
+      "attempt": {
+        "type": "int"
+      }
+    }
+  },
+  "runDetailOutputJumpToBottom": "Jump to bottom",
+  "@runDetailOutputJumpToBottom": {
+    "description": "Button label to jump to the bottom of the live log stream."
+  },
+  "runDetailOutputStderrLabel": "Error",
+  "@runDetailOutputStderrLabel": {
+    "description": "Semantic prefix announced before stderr log lines."
+  },
+  "runDetailOutputTruncatedNotice": "Showing the most recent lines; earlier output was truncated.",
+  "@runDetailOutputTruncatedNotice": {
+    "description": "Notice shown when the fetched node log response was truncated."
+  },
+  "runTerminalModeWatchLabel": "Watching (read-only)",
+  "@runTerminalModeWatchLabel": {
+    "description": "Header mode label for HiveTerminalView in Watch mode."
+  },
+  "runTerminalModeInteractiveLabel": "You have control",
+  "@runTerminalModeInteractiveLabel": {
+    "description": "Header mode label for HiveTerminalView in Interactive mode."
+  },
+  "runTerminalModeEndedLabel": "Session ended",
+  "@runTerminalModeEndedLabel": {
+    "description": "Header mode label for HiveTerminalView when the node has finished."
+  },
+  "runTerminalEndedEmptyNote": "This terminal session has ended. View the node's stored logs in the Output tab.",
+  "@runTerminalEndedEmptyNote": {
+    "description": "Empty-terminal note shown in Ended mode when no live terminal output was captured."
+  },
+  "runTerminalBadgeWatch": "Watch",
+  "@runTerminalBadgeWatch": {
+    "description": "Badge label indicating the terminal is in read-only Watch mode."
+  },
+  "runTerminalBadgeInteractive": "Interactive",
+  "@runTerminalBadgeInteractive": {
+    "description": "Badge label indicating the user has taken over terminal input."
+  },
+  "runTerminalBadgeEnded": "Ended",
+  "@runTerminalBadgeEnded": {
+    "description": "Badge label indicating the terminal session has ended."
+  },
+  "runTerminalTakeOverAction": "Take over",
+  "@runTerminalTakeOverAction": {
+    "description": "Button label to switch the embedded terminal from Watch to Interactive mode."
+  },
+  "runTerminalReleaseAction": "Release",
+  "@runTerminalReleaseAction": {
+    "description": "Button label to return the embedded terminal from Interactive to Watch mode."
+  },
+  "runTerminalSemanticLabel": "{nodeLabel} terminal",
+  "@runTerminalSemanticLabel": {
+    "description": "Accessibility label for the embedded terminal region of a node.",
+    "placeholders": {
+      "nodeLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "navPausesPendingSemantic": "Pauses, {count} pending",
+  "@navPausesPendingSemantic": {
+    "description": "Accessibility label for the Pauses side rail destination when pending pauses exist.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pausesLoadErrorTitle": "Unable to load pauses",
+  "@pausesLoadErrorTitle": {
+    "description": "Error title when the Pauses inbox fails to load."
+  },
+  "pausesRetryAction": "Retry",
+  "@pausesRetryAction": {
+    "description": "Button label to retry loading the Pauses inbox."
+  },
+  "pausesKindApproval": "Approval",
+  "@pausesKindApproval": {
+    "description": "Badge label for a human approval pause."
+  },
+  "pausesKindQuestion": "Question",
+  "@pausesKindQuestion": {
+    "description": "Badge label for an ask_human question pause."
+  },
+  "pausesStatusPending": "Pending",
+  "@pausesStatusPending": {
+    "description": "Semantic status label for a pending pause."
+  },
+  "pausesWaitingJustNow": "Just now",
+  "@pausesWaitingJustNow": {
+    "description": "Waiting duration label for a pause created less than a minute ago."
+  },
+  "pausesWaitingMinutes": "{minutes}m ago",
+  "@pausesWaitingMinutes": {
+    "description": "Waiting duration label in minutes.",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "pausesWaitingHours": "{hours}h ago",
+  "@pausesWaitingHours": {
+    "description": "Waiting duration label in hours.",
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "pausesWaitingDays": "{days}d ago",
+  "@pausesWaitingDays": {
+    "description": "Waiting duration label in days.",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "pausesSelectPrompt": "Select a pause to review and respond.",
+  "@pausesSelectPrompt": {
+    "description": "Placeholder text in the detail pane when no pause is selected."
+  },
+  "pausesOpenRunAction": "Open run",
+  "@pausesOpenRunAction": {
+    "description": "Ghost button label to navigate to the pause's run detail page."
+  },
+  "pausesOpenRunSemantic": "Open run {runId}",
+  "@pausesOpenRunSemantic": {
+    "description": "Accessibility label for the open-run link button.",
+    "placeholders": {
+      "runId": {
+        "type": "String"
+      }
+    }
+  },
+  "pausesFeedbackLabel": "Feedback",
+  "@pausesFeedbackLabel": {
+    "description": "Field label for optional approval/rejection feedback."
+  },
+  "pausesFeedbackHint": "Optional feedback...",
+  "@pausesFeedbackHint": {
+    "description": "Placeholder text for optional approval/rejection feedback."
+  },
+  "pausesApproveAction": "Approve",
+  "@pausesApproveAction": {
+    "description": "Primary button label to approve a human approval pause."
+  },
+  "pausesRejectAction": "Reject",
+  "@pausesRejectAction": {
+    "description": "Secondary button label to reject a human approval pause."
+  },
+  "pausesAnswerLabel": "Answer",
+  "@pausesAnswerLabel": {
+    "description": "Field label for the ask_human answer input."
+  },
+  "pausesAnswerHint": "Type your answer...",
+  "@pausesAnswerHint": {
+    "description": "Placeholder text for the ask_human answer input."
+  },
+  "pausesSubmitAnswerAction": "Submit Answer",
+  "@pausesSubmitAnswerAction": {
+    "description": "Primary button label to submit an ask_human answer."
+  },
+  "pausesSubmittingLabel": "Submitting...",
+  "@pausesSubmittingLabel": {
+    "description": "Status/button label while a pause response is being submitted."
+  },
+  "pausesAnswerRequiredError": "Please enter an answer before submitting.",
+  "@pausesAnswerRequiredError": {
+    "description": "Validation error shown when submitting a blank ask_human answer."
+  },
+  "pausesConflictMessage": "This pause was already resolved or cancelled.",
+  "@pausesConflictMessage": {
+    "description": "Banner message shown when answering a pause returns HTTP 409 conflict."
+  },
+  "pausesDismissNoticeSemantic": "Dismiss notice",
+  "@pausesDismissNoticeSemantic": {
+    "description": "Accessibility label for dismissing a pause inbox banner."
+  },
+  "pausesSubmitErrorTitle": "Unable to submit response",
+  "@pausesSubmitErrorTitle": {
+    "description": "Banner title when submitting a pause answer fails."
+  },
+  "pausesListItemSemantic": "{kind}: {workflowName}, {nodeLabel}, waiting {waiting}",
+  "@pausesListItemSemantic": {
+    "description": "Accessibility label for a pause item in the master list.",
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      },
+      "workflowName": {
+        "type": "String"
+      },
+      "nodeLabel": {
+        "type": "String"
+      },
+      "waiting": {
+        "type": "String"
+      }
+    }
+  },
+  "pausesAnnounceCreated": "New pause waiting: {nodeLabel}",
+  "@pausesAnnounceCreated": {
+    "description": "Live-region announcement when a new pause arrives.",
+    "placeholders": {
+      "nodeLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeConfigSendPromptToStdinLabel": "Send prompt to stdin",
+  "@nodeConfigSendPromptToStdinLabel": {
+    "description": "Switch label for TerminalHarnessNodeConfig.sendPromptToStdin in the workflow inspector."
+  },
+  "pausesAnnounceResolved": "Pause resolved: {nodeLabel}",
+  "@pausesAnnounceResolved": {
+    "description": "Live-region announcement when a pause is resolved or cancelled.",
+    "placeholders": {
+      "nodeLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "pausesUnknownError": "An unexpected error occurred.",
+  "@pausesUnknownError": {
+    "description": "Fallback error message when a pause operation fails."
+  },
+  "pausesFailureNetwork": "Could not reach the local backend. Check the connection and try again.",
+  "@pausesFailureNetwork": {
+    "description": "Localized error message when a pause request fails due to a network/socket failure."
+  },
+  "pausesFailureNotFound": "This pause could not be found.",
+  "@pausesFailureNotFound": {
+    "description": "Localized error message when a pause record is not found."
+  },
+  "pausesFailureValidation": "The submitted response is invalid.",
+  "@pausesFailureValidation": {
+    "description": "Localized error message when a pause answer fails validation."
+  },
+  "pausesFailureBackend": "The local backend encountered an error while processing pauses.",
+  "@pausesFailureBackend": {
+    "description": "Localized error message when the backend returns an error for a pause request."
+  },
+  "pausesRemoteResolvedNotice": "Pause \"{nodeLabel}\" was resolved or cancelled externally.",
+  "@pausesRemoteResolvedNotice": {
+    "description": "Notice shown when the currently selected pause is resolved or cancelled remotely.",
+    "placeholders": {
+      "nodeLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "overviewPageSubtitle": "Live operational status across active runs, agents, and pending pauses.",
+  "@overviewPageSubtitle": {
+    "description": "Subtitle on the Overview page header."
+  },
+  "overviewRefreshAction": "Refresh",
+  "@overviewRefreshAction": {
+    "description": "Button label to refresh the Overview dashboard."
+  },
+  "overviewViewAllAction": "View all",
+  "@overviewViewAllAction": {
+    "description": "Ghost button label linking from an Overview section to its full list page."
+  },
+  "overviewEmptyCta": "Browse workflows",
+  "@overviewEmptyCta": {
+    "description": "Primary call-to-action button on the Overview empty state to open Workflows."
+  },
+  "overviewSectionActiveRuns": "Active Runs",
+  "@overviewSectionActiveRuns": {
+    "description": "Section header for currently active runs on Overview."
+  },
+  "overviewSectionActiveNodes": "Active Agents & Nodes",
+  "@overviewSectionActiveNodes": {
+    "description": "Section header for currently executing or paused nodes and agents on Overview."
+  },
+  "overviewSectionPendingPauses": "Pending Pauses",
+  "@overviewSectionPendingPauses": {
+    "description": "Section header for pending human-in-the-loop pauses on Overview."
+  },
+  "overviewSectionMetrics": "Overview Metrics",
+  "@overviewSectionMetrics": {
+    "description": "Section header for operational metric tiles on Overview."
+  },
+  "overviewSectionRecentRuns": "Recent Runs",
+  "@overviewSectionRecentRuns": {
+    "description": "Section header for recent non-active runs on Overview."
+  },
+  "overviewActiveRunsEmpty": "No active runs right now.",
+  "@overviewActiveRunsEmpty": {
+    "description": "Inline empty message when no runs are active while other sections have content."
+  },
+  "overviewActiveNodesEmpty": "No nodes executing right now.",
+  "@overviewActiveNodesEmpty": {
+    "description": "Inline empty message when no nodes are active while other sections have content."
+  },
+  "overviewPendingPausesEmpty": "No pending pauses.",
+  "@overviewPendingPausesEmpty": {
+    "description": "Inline empty message when no pauses are pending while other sections have content."
+  },
+  "overviewActiveNodeCount": "{count, plural, =0{0 active nodes} =1{1 active node} other{{count} active nodes}}",
+  "@overviewActiveNodeCount": {
+    "description": "Active node count shown on an active run card.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "overviewOpenRunSemanticLabel": "Open run for {workflowName}",
+  "@overviewOpenRunSemanticLabel": {
+    "description": "Semantics label for clicking an active or recent run card on Overview.",
+    "placeholders": {
+      "workflowName": {
+        "type": "String"
+      }
+    }
+  },
+  "overviewOpenNodeRunSemanticLabel": "Open run for {nodeName} in {workflowName}",
+  "@overviewOpenNodeRunSemanticLabel": {
+    "description": "Semantics label for clicking an active node/agent card on Overview.",
+    "placeholders": {
+      "nodeName": {
+        "type": "String"
+      },
+      "workflowName": {
+        "type": "String"
+      }
+    }
+  },
+  "overviewApproveAction": "Approve",
+  "@overviewApproveAction": {
+    "description": "Inline approve button label on a simple human-approval pause card."
+  },
+  "overviewRejectAction": "Reject",
+  "@overviewRejectAction": {
+    "description": "Inline reject button label on a simple human-approval pause card."
+  },
+  "overviewOpenPauseAction": "Respond in Pauses",
+  "@overviewOpenPauseAction": {
+    "description": "Navigation button label on pause cards that require feedback or an answer."
+  },
+  "overviewMetricActiveRuns": "Active runs",
+  "@overviewMetricActiveRuns": {
+    "description": "Label for the focal active runs metric tile."
+  },
+  "overviewMetricActiveNodes": "Active nodes",
+  "@overviewMetricActiveNodes": {
+    "description": "Label for the active nodes metric tile."
+  },
+  "overviewMetricPendingPauses": "Pending pauses",
+  "@overviewMetricPendingPauses": {
+    "description": "Label for the pending pauses metric tile."
+  },
+  "overviewMetricSucceeded24h": "24h succeeded",
+  "@overviewMetricSucceeded24h": {
+    "description": "Label for the 24-hour succeeded runs metric tile."
+  },
+  "overviewMetricFailed24h": "24h failed",
+  "@overviewMetricFailed24h": {
+    "description": "Label for the 24-hour failed runs metric tile."
+  },
+  "overviewMetricNeedsAttentionSemantic": "{label}: {count}, needs attention",
+  "@overviewMetricNeedsAttentionSemantic": {
+    "description": "Semantics label for metric tiles with a warning or danger count.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "overviewLoadErrorTitle": "Failed to load overview",
+  "@overviewLoadErrorTitle": {
+    "description": "Title shown when the initial Overview snapshot load fails."
+  },
+  "overviewRetryAction": "Retry",
+  "@overviewRetryAction": {
+    "description": "Button label to retry loading Overview."
+  },
+  "overviewDismissAction": "Dismiss",
+  "@overviewDismissAction": {
+    "description": "Semantics label to dismiss an inline error banner on Overview."
+  },
+  "overviewPauseActionErrorTitle": "Could not submit decision",
+  "@overviewPauseActionErrorTitle": {
+    "description": "Title of the inline error banner on a pause card when Approve or Reject fails."
+  },
+  "overviewFailureNetwork": "Could not reach the local backend. Check the connection and try again.",
+  "@overviewFailureNetwork": {
+    "description": "Localized error message when an Overview request fails due to a network/socket error."
+  },
+  "overviewFailureNotFound": "The requested pause or run could not be found.",
+  "@overviewFailureNotFound": {
+    "description": "Localized error message when a resource is not found."
+  },
+  "overviewFailureValidation": "The request could not be validated.",
+  "@overviewFailureValidation": {
+    "description": "Localized error message when an Overview request fails validation."
+  },
+  "overviewFailureConflict": "This pause was already resolved or cancelled.",
+  "@overviewFailureConflict": {
+    "description": "Localized error message when an inline pause decision returns 409 Conflict."
+  },
+  "overviewFailureBackend": "The local backend encountered an error.",
+  "@overviewFailureBackend": {
+    "description": "Localized error message when the backend returns an unexpected error."
+  },
+  "overviewFailureUnexpected": "An unexpected error occurred.",
+  "@overviewFailureUnexpected": {
+    "description": "Fallback localized error message on Overview."
+  },
+  "windowMinimize": "Minimize",
+  "@windowMinimize": {
+    "description": "Accessible label and tooltip for the window minimize button."
+  },
+  "windowMaximize": "Maximize",
+  "@windowMaximize": {
+    "description": "Accessible label and tooltip for the window maximize button."
+  },
+  "windowRestore": "Restore",
+  "@windowRestore": {
+    "description": "Accessible label and tooltip for the window restore button when maximized."
+  },
+  "windowCloseToTray": "Close to tray",
+  "@windowCloseToTray": {
+    "description": "Accessible label and tooltip for the window close-to-tray button."
+  }
+}

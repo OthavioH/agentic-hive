@@ -1,32 +1,34 @@
 import 'package:agentic_hive_shared/src/json_fields.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'api_error.freezed.dart';
+part 'api_error.g.dart';
 
 /// The body of every HTTP error response: `{"error": {...}}`.
-final class ApiError {
+@Freezed(toJson: false)
+sealed class ApiError with _$ApiError {
   /// Creates an error body.
-  const new({required this.code, required this.message, this.requestId});
+  const factory({
+    required String code,
+    required String message,
+    String? requestId,
+    Map<String, String>? details,
+  }) = _ApiError;
+
+  const new _();
 
   /// Decodes an error body; throws a [FormatException] on a bad shape.
-  factory fromJson(JsonMap json) {
-    final error = readObject(json, 'error');
-    return ApiError(
-      code: readField<String>(error, 'code'),
-      message: readField<String>(error, 'message'),
-      requestId: readField<String?>(error, 'requestId'),
-    );
-  }
-
-  /// A stable, machine-readable error code from [ApiErrorCode].
-  final String code;
-
-  /// A human-readable description. Never contains a stack trace.
-  final String message;
-
-  /// The id of the request that failed, also sent as `X-Request-Id`.
-  final String? requestId;
+  factory fromJson(JsonMap json) =>
+      parseJson(readObject(json, 'error'), _$ApiErrorFromJson);
 
   /// Encodes this error as the JSON response body.
   JsonMap toJson() => {
-    'error': {'code': code, 'message': message, 'requestId': ?requestId},
+    'error': {
+      'code': code,
+      'message': message,
+      'requestId': ?requestId,
+      'details': ?details,
+    },
   };
 }
 
@@ -37,6 +39,12 @@ abstract final class ApiErrorCode {
 
   /// No route matches the request (`404`).
   static const notFound = 'not_found';
+
+  /// The request payload or parameters failed validation (`400`).
+  static const badRequest = 'bad_request';
+
+  /// The request conflicts with the current state of a resource (`409`).
+  static const conflict = 'conflict';
 
   /// The request carried an `Origin` header (`403`).
   static const originNotAllowed = 'origin_not_allowed';

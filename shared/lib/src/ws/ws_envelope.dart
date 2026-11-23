@@ -1,19 +1,26 @@
 import 'dart:convert';
 
 import 'package:agentic_hive_shared/src/json_fields.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'ws_envelope.freezed.dart';
+part 'ws_envelope.g.dart';
 
 /// The frame every WebSocket message travels in:
 /// `{"type": "...", "id": "...", "payload": {...}}`.
-final class WsEnvelope {
+@freezed
+sealed class WsEnvelope with _$WsEnvelope {
   /// Creates an envelope.
-  const new({required this.type, required this.id, this.payload = const {}});
+  const factory({
+    required String type,
+    required String id,
+    @Default(<String, Object?>{}) JsonMap payload,
+  }) = _WsEnvelope;
+
+  const new _();
 
   /// Decodes an envelope; throws a [FormatException] on a bad shape.
-  factory fromJson(JsonMap json) => WsEnvelope(
-    type: readField<String>(json, 'type'),
-    id: readField<String>(json, 'id'),
-    payload: json['payload'] == null ? const {} : readObject(json, 'payload'),
-  );
+  factory fromJson(JsonMap json) => parseJson(json, _$WsEnvelopeFromJson);
 
   /// Decodes a text frame. Throws a [FormatException] for anything that is
   /// not a valid envelope.
@@ -24,18 +31,6 @@ final class WsEnvelope {
     }
     return WsEnvelope.fromJson(decoded);
   }
-
-  /// One of the values in `WsMessageType`.
-  final String type;
-
-  /// Unique id of this message, used by replies to point back at it.
-  final String id;
-
-  /// Message body; its shape depends on [type].
-  final JsonMap payload;
-
-  /// Encodes this envelope as JSON.
-  JsonMap toJson() => {'type': type, 'id': id, 'payload': payload};
 
   /// Encodes this envelope as a text frame.
   String encode() => jsonEncode(toJson());

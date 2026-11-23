@@ -1,0 +1,2 @@
+scripts:
+  setup: dart run tool/codegen.dart
