@@ -41,6 +41,7 @@ export 'src/runs/run_output_stream.dart';
 export 'src/runs/run_status.dart';
 export 'src/runs/run_summary.dart';
 export 'src/settings/app_settings.dart';
+export 'src/settings/execution_settings.dart';
 export 'src/settings/update_settings_request.dart';
 export 'src/workflows/workflow.dart';
 export 'src/workflows/workflow_dtos.dart';

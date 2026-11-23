@@ -6,6 +6,7 @@ import 'package:agentic_hive_backend/src/api/overview/overview_handler.dart';
 import 'package:agentic_hive_backend/src/api/pauses/pauses_handler.dart';
 import 'package:agentic_hive_backend/src/api/result_contract/result_contract_handler.dart';
 import 'package:agentic_hive_backend/src/api/runs/runs_handler.dart';
+import 'package:agentic_hive_backend/src/api/settings/execution_settings_handler.dart';
 import 'package:agentic_hive_backend/src/api/settings/settings_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/api/workspace/workspace_handler.dart';
@@ -37,6 +38,7 @@ import 'package:agentic_hive_backend/src/data/runs/drift_run_repository.dart';
 import 'package:agentic_hive_backend/src/data/runs/file_run_log_store.dart';
 import 'package:agentic_hive_backend/src/data/runs/process_tree_killer_factory.dart';
 import 'package:agentic_hive_backend/src/data/settings/drift_settings_repository.dart';
+import 'package:agentic_hive_backend/src/data/settings/file_workspace_settings_store.dart';
 import 'package:agentic_hive_backend/src/data/settings/os_executable_validator.dart';
 import 'package:agentic_hive_backend/src/data/workflows/drift_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/data/workspace/drift_snapshot_repository.dart';
@@ -74,8 +76,10 @@ import 'package:agentic_hive_backend/src/domain/runs/run_recovery_service.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_service.dart';
 import 'package:agentic_hive_backend/src/domain/settings/executable_validator.dart';
+import 'package:agentic_hive_backend/src/domain/settings/execution_settings_service.dart';
 import 'package:agentic_hive_backend/src/domain/settings/settings_repository.dart';
 import 'package:agentic_hive_backend/src/domain/settings/settings_service.dart';
+import 'package:agentic_hive_backend/src/domain/settings/workspace_settings_store.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
@@ -363,6 +367,26 @@ Future<void> registerDependencies(
       ),
       dependsOn: [WorkspaceService],
     )
+    ..registerSingletonWithDependencies<SettingsRepository>(
+      () => DriftSettingsRepository(di<AppDatabase>()),
+      dependsOn: [AppDatabase],
+    )
+    ..registerSingleton<WorkspaceSettingsStore>(
+      FileWorkspaceSettingsStore(pathContext: platformPaths.context),
+    )
+    ..registerSingletonWithDependencies<ExecutionSettingsService>(
+      () => DefaultExecutionSettingsService(
+        settings: di<SettingsRepository>(),
+        workspaces: di<WorkspaceRepository>(),
+        store: di<WorkspaceSettingsStore>(),
+        shellProvider: di<DefaultShellProvider>(),
+      ),
+      dependsOn: [SettingsRepository, WorkspaceRepository],
+    )
+    ..registerSingletonWithDependencies<ExecutionSettingsHandler>(
+      () => ExecutionSettingsHandler(di<ExecutionSettingsService>()),
+      dependsOn: [ExecutionSettingsService],
+    )
     ..registerSingletonWithDependencies<ActiveRunLookup>(
       () => RunRepositoryActiveRunLookup(di<RunRepository>()),
       dependsOn: [RunRepository],
@@ -453,6 +477,7 @@ Future<void> registerDependencies(
         workflows: di<WorkflowRepository>(),
         workflowValidator: di<WorkflowValidator>(),
         workspaces: di<WorkspaceService>(),
+        executionSettings: di<ExecutionSettingsService>(),
         engine: di<GraphEngine>(),
         logStore: di<RunLogStore>(),
         pathContext: platformPaths.context,
@@ -465,6 +490,7 @@ Future<void> registerDependencies(
         WorkspacePreparationService,
         WorkflowRepository,
         WorkspaceService,
+        ExecutionSettingsService,
         GraphEngine,
       ],
       dispose: (service) => service.dispose(),
@@ -532,10 +558,6 @@ Future<void> registerDependencies(
       return watcher;
     }, dispose: (watcher) => watcher.close())
     ..registerSingleton<ExecutableValidator>(currentExecutableValidator())
-    ..registerSingletonWithDependencies<SettingsRepository>(
-      () => DriftSettingsRepository(di<AppDatabase>()),
-      dependsOn: [AppDatabase],
-    )
     ..registerSingletonWithDependencies<SettingsService>(
       () => DefaultSettingsService(
         repository: di<SettingsRepository>(),
@@ -602,6 +624,7 @@ Future<void> registerDependencies(
           workspacesHandler: di<WorkspacesHandler>(),
           worktreesHandler: di<WorktreesHandler>(),
           settingsHandler: di<SettingsHandler>(),
+          executionSettingsHandler: di<ExecutionSettingsHandler>(),
         ),
         socket: LocalSocket(
           config.socketPath,
@@ -622,6 +645,7 @@ Future<void> registerDependencies(
         WorkspacesHandler,
         WorktreesHandler,
         SettingsHandler,
+        ExecutionSettingsHandler,
         WsGateway,
       ],
       dispose: (server) => server.stop(),
