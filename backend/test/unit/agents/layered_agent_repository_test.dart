@@ -52,21 +52,30 @@ void main() {
     expect(detail.scope, AgentScope.workspace);
   });
 
-  test('workspace agent overrides a global agent with the same id', () async {
-    await _write(globalDir, 'reviewer', 'Global Reviewer', 'global prompt');
-    await _write(workspaceDir, 'reviewer', 'Ws Reviewer', 'workspace prompt');
+  test('workspace agent overrides a global agent with the same name, '
+      'whatever the file names', () async {
+    await _write(globalDir, 'reviewer', 'Reviewer', 'global prompt');
+    await _write(workspaceDir, 'team-reviewer', 'Reviewer', 'workspace prompt');
 
+    // The global id now resolves to the workspace agent with the same name.
     final detail = (await layered.getById('reviewer')).valueOrNull!;
     expect(detail.scope, AgentScope.workspace);
     expect(detail.prompt, 'workspace prompt');
 
     final list = (await layered.list()).valueOrNull!;
-    final entries = list.where((s) => s.id == 'reviewer').toList();
-    expect(entries, hasLength(2));
-    final ws = entries.singleWhere((s) => s.scope == AgentScope.workspace);
-    final global = entries.singleWhere((s) => s.scope == AgentScope.global);
+    final ws = list.singleWhere((s) => s.id == 'team-reviewer');
+    final global = list.singleWhere((s) => s.id == 'reviewer');
     expect(ws.overridden, isFalse);
     expect(global.overridden, isTrue);
+  });
+
+  test('agents with the same file name but different names do not override '
+      'each other in the list', () async {
+    await _write(globalDir, 'reviewer', 'Global Reviewer', 'global prompt');
+    await _write(workspaceDir, 'reviewer', 'Ws Reviewer', 'workspace prompt');
+
+    final list = (await layered.list()).valueOrNull!;
+    expect(list.where((s) => s.overridden), isEmpty);
   });
 
   test('falls back to global when the workspace has no such agent', () async {

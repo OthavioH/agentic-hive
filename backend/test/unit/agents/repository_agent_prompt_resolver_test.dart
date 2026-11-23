@@ -14,7 +14,17 @@ final class _FakeAgentRepository implements AgentRepository {
       responses[id] ?? FailureResult(NotFoundFailure('Agent "$id" not found.'));
 
   @override
-  Future<Result<List<AgentSummary>>> list() => throw UnimplementedError();
+  Future<Result<List<AgentSummary>>> list() async => Success([
+    for (final result in responses.values)
+      if (result.valueOrNull case final detail?)
+        AgentSummary(
+          id: detail.id,
+          name: detail.name,
+          contentHash: detail.contentHash,
+          updatedAt: detail.updatedAt,
+          parseError: detail.parseError,
+        ),
+  ]);
 
   @override
   Future<Result<AgentDetail>> create(CreateAgentRequest request) =>
@@ -30,6 +40,7 @@ final class _FakeAgentRepository implements AgentRepository {
 
 AgentDetail _detail({
   String id = 'reviewer',
+  String name = 'Reviewer',
   String prompt = 'Review the diff carefully.',
   List<String> allowedTools = const <String>[],
   List<String> deniedTools = const <String>[],
@@ -37,7 +48,7 @@ AgentDetail _detail({
   String? rawContent,
 }) => AgentDetail(
   id: id,
-  name: 'Reviewer',
+  name: name,
   contentHash: 'hash',
   updatedAt: DateTime.utc(2026),
   allowedTools: allowedTools,
@@ -185,6 +196,21 @@ void _workspaceScopedTests() {
         expect(requestedRoot, '/repo');
       },
     );
+
+    test('workspace agent overrides the global agent with the same name, '
+        'even under a different file id', () async {
+      global.responses['reviewer'] = Success(_detail(prompt: 'global'));
+      workspace.responses['team-reviewer'] = Success(
+        _detail(id: 'team-reviewer', prompt: 'workspace'),
+      );
+
+      final result = await resolver.resolvePrompt(
+        'reviewer',
+        workspaceRoot: '/repo',
+      );
+
+      expect(result.valueOrNull, 'workspace');
+    });
 
     test(
       'falls back to the global agent when the workspace has none',

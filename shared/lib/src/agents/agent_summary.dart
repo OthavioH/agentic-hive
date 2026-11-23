@@ -8,7 +8,7 @@ part 'agent_summary.g.dart';
 /// Summary of an agent `.md` file in the library.
 ///
 /// [scope] says where the file lives. [overridden] is true for a global agent
-/// shadowed by a workspace agent with the same id in the same listing.
+/// shadowed by a workspace agent with the same `name` in the same listing.
 @freezed
 sealed class AgentSummary with _$AgentSummary {
   /// Creates an agent summary.

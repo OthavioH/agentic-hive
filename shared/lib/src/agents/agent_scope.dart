@@ -4,7 +4,7 @@ enum AgentScope {
   global,
 
   /// `<workspace root>/.agents/agents`, overriding a global agent with the
-  /// same id.
+  /// same `name`.
   workspace;
 
   /// Parses an [AgentScope] by its enum [name], throwing a [FormatException]
