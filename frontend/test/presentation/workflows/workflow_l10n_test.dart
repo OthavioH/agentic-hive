@@ -45,4 +45,42 @@ void main() {
       );
     });
   });
+
+  test('delete flow plurals', () {
+    expect(
+      l10n.workflowsDeleteActiveRunsMessage(1, 'Release Flow'),
+      '1 run of "Release Flow" is running. Stop it and delete?',
+    );
+    expect(
+      l10n.workflowsDeleteActiveRunsMessage(2, 'Release Flow'),
+      '2 runs of "Release Flow" are running. Stop them and delete?',
+    );
+    expect(
+      l10n.workflowsDeletingStoppingRuns(2, 3),
+      'Deleting… (stopping 2 of 3 runs)',
+    );
+    expect(
+      l10n.workflowsDeletingStoppingRuns(0, 1),
+      'Deleting… (stopping 0 of 1 run)',
+    );
+    expect(
+      l10n.workflowsDeletePartialNotice(1),
+      'Workflow deleted. 1 run could not be confirmed as stopped and was '
+      'kept so you can retry.',
+    );
+    expect(
+      l10n.workflowsDeletePartialNotice(3),
+      'Workflow deleted. 3 runs could not be confirmed as stopped and were '
+      'kept so you can retry.',
+    );
+    expect(
+      l10n.workflowsDeleteKeptRunsDetail(1),
+      '1 run could not be confirmed as stopped and was kept so you can retry.',
+    );
+    expect(
+      l10n.workflowsDeleteKeptRunsDetail(2),
+      '2 runs could not be confirmed as stopped and were kept so you can '
+      'retry.',
+    );
+  });
 }

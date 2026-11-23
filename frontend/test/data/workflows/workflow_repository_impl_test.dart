@@ -2,9 +2,10 @@ import 'package:agentic_hive_frontend/core/backend/backend_client.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_client_provider.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_web_socket_session.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
-import 'package:agentic_hive_frontend/data/workflows/workflow_deletion_events.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_deletion_providers.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
+import 'package:agentic_hive_frontend/domain/workflows/workflow_deletion_events.dart';
+import 'package:agentic_hive_frontend/domain/workflows/workflow_deletion_update.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +14,10 @@ final class _EmptyDeletionEvents implements WorkflowDeletionEventsSource {
   @override
   Stream<WorkflowDeletionFinished> get finished =>
       const Stream<WorkflowDeletionFinished>.empty();
+
+  @override
+  Stream<WorkflowDeletionStatus> get progress =>
+      const Stream<WorkflowDeletionStatus>.empty();
 }
 
 final class _FakeBackendClient implements BackendClient {
@@ -180,18 +185,47 @@ void main() {
           ).toJson(),
         );
       client.calls.clear();
-      final delRes = await repo.deleteWorkflow('wf-1');
+      final delUpdates = await repo.deleteWorkflow('wf-1').toList();
       expect(client.calls, [
         'DELETE /api/v1/workflows/wf-1',
         'GET /api/v1/workflow-deletions/op-1',
       ]);
-      expect(delRes.isSuccess, isTrue);
+      expect(delUpdates.last, isA<WorkflowDeletionSucceeded>());
 
       client.nextResponse = Success(valid.toJson());
       final valRes = await repo.validateWorkflow(sampleWorkflow);
       expect(client.lastMethod, 'POST');
       expect(client.lastPath, '/api/v1/workflows/validate');
       expect(valRes.valueOrNull?.isValid, isTrue);
+    });
+
+    test('deleteWorkflow sends scope, revision and force', () async {
+      final client = _FakeBackendClient()
+        ..nextResponse = const FailureResult(NotFoundFailure('gone'));
+      final container = ProviderContainer.test(
+        overrides: [
+          backendClientProvider.overrideWithValue(client),
+          workflowDeletionEventsSourceProvider.overrideWithValue(
+            _EmptyDeletionEvents(),
+          ),
+        ],
+      );
+
+      final updates = await container
+          .read(workflowRepositoryProvider)
+          .deleteWorkflow(
+            'wf-1',
+            workspaceId: 'ws-1',
+            revision: 'r1',
+            force: true,
+          )
+          .toList();
+
+      expect(
+        client.calls.first,
+        'DELETE /api/v1/workflows/wf-1?workspaceId=ws-1&revision=r1&force=true',
+      );
+      expect(updates, [isA<WorkflowDeletionSucceeded>()]);
     });
 
     test(

@@ -36,9 +36,12 @@ abstract interface class WorkflowRemoteDataSource {
   });
 
   /// Starts deleting a workflow (`DELETE /api/v1/workflows/:id`, `202`).
+  /// [revision] is the expected revision; [force] stops active runs first.
   Future<Result<WorkflowDeletionAccepted>> deleteWorkflow(
     String id, {
     String? workspaceId,
+    String? revision,
+    bool force = false,
   });
 
   /// Reads workflow deletion operation status.
@@ -132,11 +135,18 @@ final class HttpWorkflowRemoteDataSource implements WorkflowRemoteDataSource {
   Future<Result<WorkflowDeletionAccepted>> deleteWorkflow(
     String id, {
     String? workspaceId,
+    String? revision,
+    bool force = false,
   }) async {
     final encodedId = Uri.encodeComponent(id);
+    final query = <String, String>{
+      'workspaceId': ?workspaceId,
+      'revision': ?revision,
+      if (force) 'force': 'true',
+    };
     final result = await _client.sendJsonRequest(
       'DELETE',
-      '$_basePath/$encodedId${_scopeQuery(workspaceId)}',
+      '$_basePath/$encodedId${query.isEmpty ? '' : '?${Uri(queryParameters: query).query}'}',
     );
     return _decode(result, WorkflowDeletionAccepted.fromJson);
   }

@@ -1,14 +1,15 @@
 import 'dart:async';
 
 import 'package:agentic_hive_frontend/core/result/result.dart';
-import 'package:agentic_hive_frontend/data/workflows/workflow_deletion_events.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_remote_data_source.dart';
+import 'package:agentic_hive_frontend/domain/workflows/workflow_deletion_events.dart';
+import 'package:agentic_hive_frontend/domain/workflows/workflow_deletion_update.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 /// [WorkflowRepository] backed by [WorkflowRemoteDataSource].
 final class WorkflowRepositoryImpl implements WorkflowRepository {
-  /// Creates a repository delegating to [_remoteDataSource]; deletions wait on
+  /// Creates a repository delegating to [_remoteDataSource]; deletions follow
   /// [_deletionEvents] and fall back to polling every [pollInterval].
   new(
     this._remoteDataSource, {
@@ -62,83 +63,151 @@ final class WorkflowRepositoryImpl implements WorkflowRepository {
     workspaceId: workspaceId,
   );
 
-  /// Deletes a workflow and waits for its operation to finish (ADR 0027).
-  ///
-  /// A `404` on the request itself counts as success (already deleted). The
-  /// finish event wins when it arrives; otherwise the status is polled.
+  /// Follows a deletion (ADR 0027): live events win and the status is polled
+  /// every [pollInterval] as a fallback. A `404` on the request is success
+  /// (already deleted). Events that arrive before the `202` are kept.
   @override
-  Future<Result<void>> deleteWorkflow(String id, {String? workspaceId}) async {
-    final buffered = <String, WorkflowDeletionFinished>{};
-    final completion = Completer<Result<void>>();
+  Stream<WorkflowDeletionUpdate> deleteWorkflow(
+    String id, {
+    String? workspaceId,
+    String? revision,
+    bool force = false,
+  }) {
+    final out = StreamController<WorkflowDeletionUpdate>();
+    final ended = Completer<void>();
+    out.onListen = () {
+      unawaited(
+        _follow(
+          out,
+          ended,
+          id,
+          workspaceId: workspaceId,
+          revision: revision,
+          force: force,
+        ),
+      );
+    };
+    out.onCancel = () {
+      if (!ended.isCompleted) ended.complete();
+    };
+    return out.stream;
+  }
+
+  Future<void> _follow(
+    StreamController<WorkflowDeletionUpdate> out,
+    Completer<void> ended,
+    String id, {
+    required String? workspaceId,
+    required String? revision,
+    required bool force,
+  }) async {
     String? operationId;
-    final subscription = _deletionEvents?.finished.listen((event) {
-      buffered[event.operationId] = event;
-      if (event.operationId == operationId) {
-        _complete(completion, _resultForEvent(event));
+    final earlyProgress = <WorkflowDeletionStatus>[];
+    final earlyFinished = <WorkflowDeletionFinished>[];
+
+    void emit(WorkflowDeletionUpdate update) {
+      if (ended.isCompleted) return;
+      out.add(update);
+      if (update is WorkflowDeletionEnded) ended.complete();
+    }
+
+    void onProgress(WorkflowDeletionStatus status) {
+      if (operationId == null) {
+        earlyProgress.add(status);
+        return;
       }
-    });
+      if (status.operationId != operationId) return;
+      if (status.phase == WorkflowDeletionPhase.done) return;
+      emit(_progressed(status));
+    }
+
+    void onFinished(WorkflowDeletionFinished event) {
+      if (operationId == null) {
+        earlyFinished.add(event);
+        return;
+      }
+      if (event.operationId != operationId) return;
+      emit(_endedFor(event));
+    }
+
+    final events = _deletionEvents;
+    final subscriptions = <StreamSubscription<Object?>>[
+      if (events != null) ...<StreamSubscription<Object?>>[
+        events.progress.listen(onProgress),
+        events.finished.listen(onFinished),
+      ],
+    ];
     try {
-      final deletion = await _remoteDataSource.deleteWorkflow(
+      final accepted = await _remoteDataSource.deleteWorkflow(
         id,
         workspaceId: workspaceId,
+        revision: revision,
+        force: force,
       );
-      if (deletion case FailureResult<WorkflowDeletionAccepted>(
-        :final failure,
-      )) {
-        if (failure is NotFoundFailure) return const Success(null);
-        return FailureResult(failure);
+      switch (accepted) {
+        case FailureResult(:final failure) when failure is NotFoundFailure:
+          emit(const WorkflowDeletionSucceeded());
+        case FailureResult(:final failure):
+          emit(WorkflowDeletionRejected(failure));
+        case Success(:final value):
+          operationId = value.operationId;
+          emit(WorkflowDeletionStarted(operationId: value.operationId));
+          earlyProgress.forEach(onProgress);
+          earlyFinished.forEach(onFinished);
+          unawaited(_poll(id, workspaceId, value.operationId, ended, emit));
+          await ended.future;
       }
-      final acceptedId = deletion.valueOrNull!.operationId;
-      operationId = acceptedId;
-      final early = buffered[acceptedId];
-      if (early != null) _complete(completion, _resultForEvent(early));
-      unawaited(_pollUntilFinished(id, workspaceId, acceptedId, completion));
-      return await completion.future;
     } finally {
-      await subscription?.cancel();
+      for (final subscription in subscriptions) {
+        await subscription.cancel();
+      }
+      await out.close();
     }
   }
 
-  Future<void> _pollUntilFinished(
+  Future<void> _poll(
     String id,
     String? workspaceId,
     String operationId,
-    Completer<Result<void>> completion,
+    Completer<void> ended,
+    void Function(WorkflowDeletionUpdate) emit,
   ) async {
-    while (!completion.isCompleted) {
+    while (!ended.isCompleted) {
       await Future<void>.delayed(pollInterval);
-      if (completion.isCompleted) return;
+      if (ended.isCompleted) return;
       final status = await _remoteDataSource.getWorkflowDeletion(operationId);
+      if (ended.isCompleted) return;
       switch (status) {
         case Success(:final value)
             when value.phase == WorkflowDeletionPhase.done:
-          _complete(
-            completion,
+          emit(
             value.outcome == WorkflowDeletionOutcome.deleted
-                ? const Success(null)
-                : FailureResult(
+                ? WorkflowDeletionSucceeded(
+                    deletedRuns: value.runsDeleted,
+                    orphanedRuns: value.orphanedRuns,
+                  )
+                : WorkflowDeletionFailed(
                     BackendFailure(
                       value.errorMessage ?? 'Workflow deletion failed.',
                       code: value.errorCode,
                     ),
+                    deletedRuns: value.runsDeleted,
+                    orphanedRuns: value.orphanedRuns,
                   ),
           );
-        case Success():
-          break;
+        case Success(:final value):
+          emit(_progressed(value));
         case FailureResult(:final failure) when failure is NotFoundFailure:
-          _complete(
-            completion,
-            await _resultForVanishedOperation(id, workspaceId),
-          );
+          emit(await _endedForVanishedOperation(id, workspaceId));
         case FailureResult(:final failure):
-          _complete(completion, FailureResult(failure));
+          emit(WorkflowDeletionFailed(failure));
       }
     }
   }
 
   /// The operation is gone (restart or eviction): the workflow being absent
   /// means it was deleted; still present means the operation was lost.
-  Future<Result<void>> _resultForVanishedOperation(
+  Future<WorkflowDeletionEnded> _endedForVanishedOperation(
     String id,
     String? workspaceId,
   ) async {
@@ -147,28 +216,39 @@ final class WorkflowRepositoryImpl implements WorkflowRepository {
       workspaceId: workspaceId,
     );
     return switch (current) {
-      Success() => const FailureResult(
+      Success() => const WorkflowDeletionFailed(
         UnexpectedFailure(
           'Workflow deletion was interrupted. Delete it again.',
         ),
       ),
       FailureResult(:final failure) when failure is NotFoundFailure =>
-        const Success(null),
-      FailureResult(:final failure) => FailureResult(failure),
+        const WorkflowDeletionSucceeded(),
+      FailureResult(:final failure) => WorkflowDeletionFailed(failure),
     };
   }
 
-  static void _complete(
-    Completer<Result<void>> completion,
-    Result<void> result,
-  ) {
-    if (!completion.isCompleted) completion.complete(result);
-  }
+  static WorkflowDeletionProgressed _progressed(
+    WorkflowDeletionStatus status,
+  ) => WorkflowDeletionProgressed(
+    phase: status.phase,
+    runsToStop: status.runsToStop,
+    runsStopped: status.runsStopped,
+    runsDeleted: status.runsDeleted,
+  );
 
-  Result<void> _resultForEvent(WorkflowDeletionFinished event) =>
-      event.failure == null
-      ? const Success(null)
-      : FailureResult(event.failure!);
+  static WorkflowDeletionEnded _endedFor(WorkflowDeletionFinished event) {
+    final failure = event.failure;
+    return failure == null
+        ? WorkflowDeletionSucceeded(
+            deletedRuns: event.deletedRuns,
+            orphanedRuns: event.orphanedRuns,
+          )
+        : WorkflowDeletionFailed(
+            failure,
+            deletedRuns: event.deletedRuns,
+            orphanedRuns: event.orphanedRuns,
+          );
+  }
 
   @override
   Future<Result<WorkflowValidationResult>> validateWorkflow(

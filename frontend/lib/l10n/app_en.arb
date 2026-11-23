@@ -851,6 +851,102 @@
   "@workflowsDeleteConfirm": {
     "description": "Confirm button label in the delete workflow dialog."
   },
+  "workflowsDeleteActiveRunsMessage": "{count, plural, =1{1 run of \"{name}\" is running. Stop it and delete?} other{{count} runs of \"{name}\" are running. Stop them and delete?}}",
+  "@workflowsDeleteActiveRunsMessage": {
+    "description": "Message of the second delete dialog, shown when the workflow has active runs. Asks to stop them and delete.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workflowsDeleteStopRunsConfirm": "Stop runs and delete",
+  "@workflowsDeleteStopRunsConfirm": {
+    "description": "Confirm button label of the dialog that stops active runs before deleting a workflow."
+  },
+  "workflowsDeletingStatus": "Deleting…",
+  "@workflowsDeletingStatus": {
+    "description": "Status label on a workflow row while its deletion runs, before any phase is known."
+  },
+  "workflowsDeletingStoppingRuns": "{total, plural, =1{Deleting… (stopping {stopped} of 1 run)} other{Deleting… (stopping {stopped} of {total} runs)}}",
+  "@workflowsDeletingStoppingRuns": {
+    "description": "Status label on a workflow row while its active runs are being stopped.",
+    "placeholders": {
+      "stopped": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "workflowsDeletingRemovingRuns": "Deleting… (removing runs)",
+  "@workflowsDeletingRemovingRuns": {
+    "description": "Status label on a workflow row while its runs are being removed."
+  },
+  "workflowsDeletedNotice": "Workflow deleted.",
+  "@workflowsDeletedNotice": {
+    "description": "Success notice after a workflow was deleted and no run was kept."
+  },
+  "workflowsDeletePartialNotice": "{count, plural, =1{Workflow deleted. 1 run could not be confirmed as stopped and was kept so you can retry.} other{Workflow deleted. {count} runs could not be confirmed as stopped and were kept so you can retry.}}",
+  "@workflowsDeletePartialNotice": {
+    "description": "Warning notice after a workflow was deleted but some runs were kept.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workflowsDeleteFailedTitle": "Could not delete \"{name}\".",
+  "@workflowsDeleteFailedTitle": {
+    "description": "Title of the error notice when a workflow deletion failed.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workflowsDeleteKeptRunsDetail": "{count, plural, =1{1 run could not be confirmed as stopped and was kept so you can retry.} other{{count} runs could not be confirmed as stopped and were kept so you can retry.}}",
+  "@workflowsDeleteKeptRunsDetail": {
+    "description": "Detail of the error notice listing the runs kept by a failed deletion.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workflowsReloadAction": "Reload",
+  "@workflowsReloadAction": {
+    "description": "Button label of the delete error notice after a revision conflict: reloads the list so the user can confirm the delete again."
+  },
+  "workflowsDismissNoticeAction": "Dismiss notice",
+  "@workflowsDismissNoticeAction": {
+    "description": "Semantic label of the button that dismisses a notice on the Workflows page."
+  },
+  "workflowsOpenActionDeleting": "Open {name}. Unavailable while the workflow is being deleted.",
+  "@workflowsOpenActionDeleting": {
+    "description": "Semantic label of a workflow row while it is being deleted; explains why opening is unavailable.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workflowsRunActionDeleting": "Run workflow. Unavailable while the workflow is being deleted.",
+  "@workflowsRunActionDeleting": {
+    "description": "Semantic label of the run button while the workflow is being deleted."
+  },
+  "workflowsDuplicateActionDeleting": "Duplicate workflow. Unavailable while the workflow is being deleted.",
+  "@workflowsDuplicateActionDeleting": {
+    "description": "Semantic label of the duplicate button while the workflow is being deleted."
+  },
+  "workflowsDeleteActionDeleting": "Delete workflow. Unavailable while the workflow is being deleted.",
+  "@workflowsDeleteActionDeleting": {
+    "description": "Semantic label of the delete button while the workflow is being deleted."
+  },
   "workflowsNodeCount": "{count, plural, =0{0 nodes} =1{1 node} other{{count} nodes}}",
   "@workflowsNodeCount": {
     "description": "Node count label on a workflow summary card.",

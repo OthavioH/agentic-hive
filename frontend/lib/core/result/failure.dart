@@ -26,13 +26,23 @@ final class NetworkFailure extends Failure {
 /// The backend returned a non-success response or protocol error.
 final class BackendFailure extends Failure {
   /// Creates a backend failure.
-  const new(super.message, {this.code, this.statusCode});
+  const new(
+    super.message, {
+    this.code,
+    this.statusCode,
+    this.details = const <String, String>{},
+  });
 
   /// Optional machine-readable error code from the backend.
   final String? code;
 
   /// Optional HTTP status code from the backend.
   final int? statusCode;
+
+  /// Optional per-key details from the backend `ApiError.details`
+  /// (`workflow_has_active_runs`: run id to status name, oldest first;
+  /// `revision_conflict`: `currentRevision`).
+  final Map<String, String> details;
 }
 
 /// The requested resource does not exist.

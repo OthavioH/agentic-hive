@@ -287,7 +287,12 @@ final class UnixSocketBackendClient implements BackendClient {
         details: details ?? const <String, String>{},
       );
     }
-    return BackendFailure(message, code: code, statusCode: statusCode);
+    return BackendFailure(
+      message,
+      code: code,
+      statusCode: statusCode,
+      details: details ?? const <String, String>{},
+    );
   }
 
   @override
@@ -528,6 +533,7 @@ final class UnixSocketBackendClient implements BackendClient {
           message,
           code: apiError?.code,
           statusCode: response.statusCode,
+          details: apiError?.details ?? const <String, String>{},
         ),
       );
     } on TimeoutException catch (error) {

@@ -11,6 +11,7 @@ import 'package:agentic_hive_frontend/domain/pauses/pause_event.dart';
 import 'package:agentic_hive_frontend/domain/pauses/pause_repository.dart';
 import 'package:agentic_hive_frontend/domain/runs/run_repository.dart';
 import 'package:agentic_hive_frontend/domain/settings/settings_repository.dart';
+import 'package:agentic_hive_frontend/domain/workflows/workflow_deletion_update.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_frontend/domain/workspace/workspace_selection_store.dart';
 import 'package:agentic_hive_frontend/domain/workspace/workspace_tree_changes_source.dart';
@@ -138,8 +139,12 @@ final class _FakeWorkflowRepo implements WorkflowRepository {
   ) => throw UnimplementedError();
 
   @override
-  Future<Result<void>> deleteWorkflow(String id, {String? workspaceId}) =>
-      throw UnimplementedError();
+  Stream<WorkflowDeletionUpdate> deleteWorkflow(
+    String id, {
+    String? workspaceId,
+    String? revision,
+    bool force = false,
+  }) => throw UnimplementedError();
 
   @override
   Future<Result<WorkflowResponse>> duplicateWorkflow(

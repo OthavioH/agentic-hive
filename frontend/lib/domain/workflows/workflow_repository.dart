@@ -1,4 +1,5 @@
 import 'package:agentic_hive_frontend/core/result/result.dart';
+import 'package:agentic_hive_frontend/domain/workflows/workflow_deletion_update.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 /// Repository contract for managing saved workflow definitions.
@@ -34,9 +35,18 @@ abstract interface class WorkflowRepository {
     String? workspaceId,
   });
 
-  /// Deletes the workflow identified by [id] in the scope of [workspaceId]
-  /// (global when `null`).
-  Future<Result<void>> deleteWorkflow(String id, {String? workspaceId});
+  /// Deletes the workflow [id] of [workspaceId] (global when `null`) as an
+  /// asynchronous operation (ADR 0027) and reports it: a
+  /// [WorkflowDeletionStarted] on `202`, [WorkflowDeletionProgressed] while it
+  /// runs, then exactly one [WorkflowDeletionEnded], after which the stream
+  /// closes. [revision] is the expected revision; [force] stops active runs
+  /// first.
+  Stream<WorkflowDeletionUpdate> deleteWorkflow(
+    String id, {
+    String? workspaceId,
+    String? revision,
+    bool force = false,
+  });
 
   /// Validates [workflow] without persisting changes.
   Future<Result<WorkflowValidationResult>> validateWorkflow(Workflow workflow);

@@ -1,5 +1,6 @@
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
+import 'package:agentic_hive_frontend/domain/workflows/workflow_deletion_update.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflow_editor_controller.dart';
@@ -113,8 +114,12 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
-  Future<Result<void>> deleteWorkflow(String id, {String? workspaceId}) async =>
-      const Success<void>(null);
+  Stream<WorkflowDeletionUpdate> deleteWorkflow(
+    String id, {
+    String? workspaceId,
+    String? revision,
+    bool force = false,
+  }) => Stream.value(const WorkflowDeletionSucceeded());
 }
 
 Widget _buildEditorHost() {
