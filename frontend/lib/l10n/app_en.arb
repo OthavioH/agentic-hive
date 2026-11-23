@@ -3108,5 +3108,9 @@
   "workspaceRemoveActiveRunsConflict": "Cannot remove workspace while runs are active. Finish or cancel active runs first.",
   "@workspaceRemoveActiveRunsConflict": {
     "description": "Error message when removing a workspace is rejected with 409 because runs are active."
+  },
+  "sideRailTreeMissingWorktreeLabel": "Removed worktrees",
+  "@sideRailTreeMissingWorktreeLabel": {
+    "description": "Fallback group label in the side rail tree for runs whose worktree no longer exists."
   }
 }

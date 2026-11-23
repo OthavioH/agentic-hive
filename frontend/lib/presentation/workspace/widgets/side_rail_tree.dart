@@ -332,9 +332,14 @@ class _SideRailTreeContent extends ConsumerWidget {
     DateTime now,
   ) {
     final wt = wtNode.worktree;
-    final wtLabel = wt.isPrimary ? l10n.sideRailTreePrimaryLabel : wt.name;
-    final wtSubtitle =
-        wt.branch ?? (workspace.isGit ? l10n.sideRailTreeDetachedHead : null);
+    final wtLabel = wtNode.isFallback
+        ? l10n.sideRailTreeMissingWorktreeLabel
+        : wt.isPrimary
+        ? l10n.sideRailTreePrimaryLabel
+        : wt.name;
+    final wtSubtitle = wtNode.isFallback
+        ? null
+        : wt.branch ?? (workspace.isGit ? l10n.sideRailTreeDetachedHead : null);
 
     final activeLimit = wtNode.showAllActive
         ? wtNode.activeRuns.length
@@ -357,7 +362,11 @@ class _SideRailTreeContent extends ConsumerWidget {
         label: wtLabel,
         subtitle: wtSubtitle,
         leading: HiveIcon(
-          wt.isPrimary ? HiveIcons.folder : HiveIcons.branch,
+          wtNode.isFallback
+              ? HiveIcons.clock
+              : wt.isPrimary
+              ? HiveIcons.folder
+              : HiveIcons.branch,
           size: spacing.space2,
           color: colors.onSurfaceMuted,
         ),
@@ -366,44 +375,50 @@ class _SideRailTreeContent extends ConsumerWidget {
             ? l10n.sideRailTreeCollapseWorktree(wtLabel)
             : l10n.sideRailTreeExpandWorktree(wtLabel),
         onToggleExpand: () => onToggleWorktree(workspace.id, wt.id),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            if (wt.isPrimary && workspace.isGit)
-              HiveBadge(
-                label: l10n.sideRailTreePrimaryBadge,
-                tone: HiveBadgeTone.accentMuted,
+        trailing: wtNode.isFallback
+            ? null
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  if (wt.isPrimary && workspace.isGit)
+                    HiveBadge(
+                      label: l10n.sideRailTreePrimaryBadge,
+                      tone: HiveBadgeTone.accentMuted,
+                    ),
+                  if (wt.isPrimary &&
+                      workspace.isGit &&
+                      wt.hasUncommittedChanges)
+                    SizedBox(width: spacing.spaceHalf),
+                  if (wt.hasUncommittedChanges)
+                    HiveIcon(
+                      HiveIcons.edit,
+                      key: Key('tree_worktree_dirty_${workspace.id}_${wt.id}'),
+                      size: spacing.space2,
+                      color: colors.warning,
+                      semanticLabel: l10n.sideRailTreeDirtyBadge,
+                    ),
+                  SizedBox(width: spacing.spaceHalf),
+                  HiveIconButton(
+                    key: Key('tree_start_run_${workspace.id}_${wt.id}'),
+                    icon: HiveIcons.play,
+                    size: HiveButtonSize.small,
+                    semanticLabel: l10n.sideRailTreeStartRunTooltip(wtLabel),
+                    onPressed: () => onStartRun(workspace, wt),
+                  ),
+                  if (!wt.isPrimary) ...<Widget>[
+                    SizedBox(width: spacing.spaceHalf),
+                    HiveIconButton(
+                      key: Key('tree_remove_worktree_${workspace.id}_${wt.id}'),
+                      icon: HiveIcons.delete,
+                      size: HiveButtonSize.small,
+                      semanticLabel: l10n.sideRailTreeRemoveWorktreeTooltip(
+                        wtLabel,
+                      ),
+                      onPressed: () => onRemoveWorktree(workspace, wtNode),
+                    ),
+                  ],
+                ],
               ),
-            if (wt.isPrimary && workspace.isGit && wt.hasUncommittedChanges)
-              SizedBox(width: spacing.spaceHalf),
-            if (wt.hasUncommittedChanges)
-              HiveIcon(
-                HiveIcons.edit,
-                key: Key('tree_worktree_dirty_${workspace.id}_${wt.id}'),
-                size: spacing.space2,
-                color: colors.warning,
-                semanticLabel: l10n.sideRailTreeDirtyBadge,
-              ),
-            SizedBox(width: spacing.spaceHalf),
-            HiveIconButton(
-              key: Key('tree_start_run_${workspace.id}_${wt.id}'),
-              icon: HiveIcons.play,
-              size: HiveButtonSize.small,
-              semanticLabel: l10n.sideRailTreeStartRunTooltip(wtLabel),
-              onPressed: () => onStartRun(workspace, wt),
-            ),
-            if (!wt.isPrimary) ...<Widget>[
-              SizedBox(width: spacing.spaceHalf),
-              HiveIconButton(
-                key: Key('tree_remove_worktree_${workspace.id}_${wt.id}'),
-                icon: HiveIcons.delete,
-                size: HiveButtonSize.small,
-                semanticLabel: l10n.sideRailTreeRemoveWorktreeTooltip(wtLabel),
-                onPressed: () => onRemoveWorktree(workspace, wtNode),
-              ),
-            ],
-          ],
-        ),
         onPressed: () => onSelectWorkspace(workspace.id),
       ),
       if (wtNode.expanded) ...<Widget>[

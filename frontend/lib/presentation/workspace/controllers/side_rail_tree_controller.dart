@@ -47,6 +47,7 @@ final class SideRailWorktreeNode {
     this.expanded = true,
     this.showAllActive = false,
     this.showAllRecent = false,
+    this.isFallback = false,
   });
 
   /// Underlying worktree metadata.
@@ -67,6 +68,10 @@ final class SideRailWorktreeNode {
   /// Whether all [recentRuns] are shown instead of capping at 3.
   final bool showAllRecent;
 
+  /// Whether this is the synthetic fallback group for runs whose worktree no
+  /// longer exists on disk.
+  final bool isFallback;
+
   /// Returns a copy with updated fields.
   SideRailWorktreeNode copyWith({
     Worktree? worktree,
@@ -75,6 +80,7 @@ final class SideRailWorktreeNode {
     bool? expanded,
     bool? showAllActive,
     bool? showAllRecent,
+    bool? isFallback,
   }) => SideRailWorktreeNode(
     worktree: worktree ?? this.worktree,
     activeRuns: activeRuns ?? this.activeRuns,
@@ -82,6 +88,7 @@ final class SideRailWorktreeNode {
     expanded: expanded ?? this.expanded,
     showAllActive: showAllActive ?? this.showAllActive,
     showAllRecent: showAllRecent ?? this.showAllRecent,
+    isFallback: isFallback ?? this.isFallback,
   );
 }
 
@@ -192,6 +199,10 @@ class SideRailTreeController extends _$SideRailTreeController {
 
   /// Window in hours for finished runs shown in the tree.
   static const int recentWindowHours = 24;
+
+  /// Synthetic worktree ID for the fallback group holding runs whose worktree
+  /// no longer exists.
+  static const String missingWorktreesGroupId = '__missing_worktrees__';
 
   static const int _runsFetchLimit = 200;
 
@@ -437,25 +448,21 @@ class SideRailTreeController extends _$SideRailTreeController {
   ) async {
     final workspaces = registryState.workspaces;
     final listWorktrees = ref.read(listWorktreesProvider);
-    final listRuns = ref.read(listRunsProvider);
     final listPauses = ref.read(listPendingPausesUseCaseProvider);
     final now = ref.read(sideRailTreeClockProvider)();
 
     final worktreeFutures = <Future<Result<List<Worktree>>>>[
       for (final ws in workspaces) listWorktrees(ws.id),
     ];
-    final runsFuture = listRuns(limit: _runsFetchLimit, offset: 0);
-    final pausesFuture = listPauses();
-
-    final worktreeResults = await Future.wait<Result<List<Worktree>>>(
-      worktreeFutures,
-    );
-    final runsResult = await runsFuture;
-    final pausesResult = await pausesFuture;
+    final (worktreeResults, runsResult, pausesResult) = await (
+      Future.wait<Result<List<Worktree>>>(worktreeFutures),
+      _fetchTreeRuns(now),
+      listPauses(),
+    ).wait;
 
     final allRuns = switch (runsResult) {
-      Success<RunsListResponse>(:final value) => value.items,
-      FailureResult<RunsListResponse>(:final failure) =>
+      Success<List<RunSummary>>(:final value) => value,
+      FailureResult<List<RunSummary>>(:final failure) =>
         Error.throwWithStackTrace(failure, StackTrace.current),
     };
 
@@ -497,6 +504,17 @@ class SideRailTreeController extends _$SideRailTreeController {
         for (final wt in effectiveWorktrees)
           _buildWorktreeNode(ws.id, wt, wsRuns, now),
       ];
+      final orphanRuns = wsRuns
+          .where(
+            (run) => !effectiveWorktrees.any((wt) => _matchesWorktree(run, wt)),
+          )
+          .toList();
+      if (orphanRuns.isNotEmpty) {
+        final fallbackNode = _buildFallbackWorktreeNode(ws.id, orphanRuns, now);
+        if (fallbackNode != null) {
+          worktreeNodes.add(fallbackNode);
+        }
+      }
 
       nodes.add(
         SideRailWorkspaceNode(
@@ -516,6 +534,64 @@ class SideRailTreeController extends _$SideRailTreeController {
     );
   }
 
+  Future<Result<List<RunSummary>>> _fetchTreeRuns(DateTime now) async {
+    final listRuns = ref.read(listRunsProvider);
+    final byId = <String, RunSummary>{};
+
+    // Fetch all active runs per active status so older active runs are never
+    // clipped by recent finished runs.
+    for (final status in RunStatus.values.where((s) => s.isActive)) {
+      var offset = 0;
+      while (true) {
+        final result = await listRuns(
+          status: status,
+          limit: _runsFetchLimit,
+          offset: offset,
+        );
+        switch (result) {
+          case FailureResult<RunsListResponse>(:final failure):
+            return FailureResult<List<RunSummary>>(failure);
+          case Success<RunsListResponse>(:final value):
+            for (final run in value.items) {
+              byId[run.id] = run;
+            }
+            offset += value.items.length;
+            if (value.items.isEmpty || offset >= value.total) {
+              break;
+            }
+            continue;
+        }
+        break;
+      }
+    }
+
+    // Fetch recent runs (last 24h) via client-side paging.
+    var offset = 0;
+    while (true) {
+      final result = await listRuns(limit: _runsFetchLimit, offset: offset);
+      switch (result) {
+        case FailureResult<RunsListResponse>(:final failure):
+          return FailureResult<List<RunSummary>>(failure);
+        case Success<RunsListResponse>(:final value):
+          var sawRecent = false;
+          for (final run in value.items) {
+            byId[run.id] = run;
+            if (run.status.isActive || _isWithinRecentWindow(run, now)) {
+              sawRecent = true;
+            }
+          }
+          offset += value.items.length;
+          if (value.items.isEmpty || offset >= value.total || !sawRecent) {
+            break;
+          }
+          continue;
+      }
+      break;
+    }
+
+    return Success<List<RunSummary>>(byId.values.toList());
+  }
+
   SideRailWorktreeNode _buildWorktreeNode(
     String workspaceId,
     Worktree worktree,
@@ -525,18 +601,50 @@ class SideRailTreeController extends _$SideRailTreeController {
     final matching = workspaceRuns
         .where((run) => _matchesWorktree(run, worktree))
         .toList();
+    return _groupRunsIntoWorktreeNode(
+      workspaceId: workspaceId,
+      worktree: worktree,
+      matchingRuns: matching,
+      now: now,
+    );
+  }
 
+  SideRailWorktreeNode? _buildFallbackWorktreeNode(
+    String workspaceId,
+    List<RunSummary> orphanRuns,
+    DateTime now,
+  ) {
+    final node = _groupRunsIntoWorktreeNode(
+      workspaceId: workspaceId,
+      worktree: const Worktree(
+        id: missingWorktreesGroupId,
+        name: '',
+        path: '',
+        isPrimary: false,
+        hasUncommittedChanges: false,
+      ),
+      matchingRuns: orphanRuns,
+      now: now,
+      isFallback: true,
+    );
+    if (node.activeRuns.isEmpty && node.recentRuns.isEmpty) return null;
+    return node;
+  }
+
+  SideRailWorktreeNode _groupRunsIntoWorktreeNode({
+    required String workspaceId,
+    required Worktree worktree,
+    required List<RunSummary> matchingRuns,
+    required DateTime now,
+    bool isFallback = false,
+  }) {
     final active = <RunSummary>[];
     final recent = <RunSummary>[];
-    for (final run in matching) {
+    for (final run in matchingRuns) {
       if (run.status.isActive) {
         active.add(run);
-      } else {
-        final referenceTime = run.finishedAt ?? run.startedAt;
-        final age = now.difference(referenceTime);
-        if (!age.isNegative && age.inMinutes <= recentWindowHours * 60) {
-          recent.add(run);
-        }
+      } else if (_isWithinRecentWindow(run, now)) {
+        recent.add(run);
       }
     }
 
@@ -554,7 +662,14 @@ class SideRailTreeController extends _$SideRailTreeController {
       expanded: _worktreeExpanded[key] ?? true,
       showAllActive: _showAllActive[key] ?? false,
       showAllRecent: _showAllRecent[key] ?? false,
+      isFallback: isFallback,
     );
+  }
+
+  static bool _isWithinRecentWindow(RunSummary run, DateTime now) {
+    final referenceTime = run.finishedAt ?? run.startedAt;
+    final age = now.difference(referenceTime);
+    return !age.isNegative && age.inMinutes <= recentWindowHours * 60;
   }
 
   static List<Worktree> _orderPrimaryFirst(List<Worktree> worktrees) {

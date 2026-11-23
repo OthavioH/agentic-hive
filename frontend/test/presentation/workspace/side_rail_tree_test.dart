@@ -60,8 +60,15 @@ final class _FakeRunsRepo implements RunRepository {
     await listGate?.future;
     final failure = listFailure;
     if (failure != null) return FailureResult<RunsListResponse>(failure);
+    final filtered = status == null
+        ? runs
+        : runs.where((r) => r.status == status).toList();
+    final start = offset ?? 0;
+    final page = limit == null
+        ? filtered.skip(start).toList()
+        : filtered.skip(start).take(limit).toList();
     return Success<RunsListResponse>(
-      RunsListResponse(items: runs, total: runs.length),
+      RunsListResponse(items: page, total: filtered.length),
     );
   }
 
@@ -1017,6 +1024,61 @@ void main() {
               )
               .selected,
           isFalse,
+        );
+      },
+    );
+  });
+
+  group('missing worktree fallback group', () {
+    testWidgets(
+      'renders orphan runs in Removed worktrees group without start/remove '
+      'buttons',
+      (tester) async {
+        workspaceRepo
+          ..workspaces = <Workspace>[makeWorkspace()]
+          ..worktreesByWorkspaceId['ws-1'] = <Worktree>[makeWorktree()];
+        runsRepo.runs = <RunSummary>[
+          _makeRun(
+            id: 'run-orphan',
+            workspaceId: 'ws-1',
+            workflowName: 'Orphan Workflow',
+            status: RunStatus.running,
+            startedAt: DateTime.utc(2026, 11, 22, 11, 57),
+            worktreePath: '/data/worktrees/ws-1/gone',
+          ),
+        ];
+
+        await tester.pumpWidget(
+          _buildRouterApp(
+            workspaceRepo: workspaceRepo,
+            selectionStore: selectionStore,
+            runsRepo: runsRepo,
+            pauseRepo: pauseRepo,
+            fixedNow: fixedNow,
+            changes: changes,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Removed worktrees'), findsOneWidget);
+        expect(find.text('Orphan Workflow'), findsOneWidget);
+        expect(
+          find.byKey(
+            const Key(
+              'tree_start_run_ws-1_'
+              '${SideRailTreeController.missingWorktreesGroupId}',
+            ),
+          ),
+          findsNothing,
+        );
+        expect(
+          find.byKey(
+            const Key(
+              'tree_remove_worktree_ws-1_'
+              '${SideRailTreeController.missingWorktreesGroupId}',
+            ),
+          ),
+          findsNothing,
         );
       },
     );

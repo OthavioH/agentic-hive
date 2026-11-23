@@ -44,8 +44,15 @@ final class _FakeRunsRepo implements RunRepository {
     listCalls++;
     final failure = listFailure;
     if (failure != null) return FailureResult<RunsListResponse>(failure);
+    final filtered = status == null
+        ? runs
+        : runs.where((r) => r.status == status).toList();
+    final start = offset ?? 0;
+    final page = limit == null
+        ? filtered.skip(start).toList()
+        : filtered.skip(start).take(limit).toList();
     return Success<RunsListResponse>(
-      RunsListResponse(items: runs, total: runs.length),
+      RunsListResponse(items: page, total: filtered.length),
     );
   }
 
@@ -512,7 +519,7 @@ void main() {
         ..emit(WorkspaceTreeChange.run);
       await pumpEventQueue();
 
-      expect(runsRepo.listCalls - before, 1);
+      expect(runsRepo.listCalls - before, before);
       expect(current(container).workspaces, isNotEmpty);
     });
 
@@ -534,7 +541,7 @@ void main() {
       gate.complete();
       await pumpEventQueue();
 
-      expect(runsRepo.listCalls - before, 2);
+      expect(runsRepo.listCalls - before, before * 2);
       expect(current(container).workspaces, isNotEmpty);
     });
 
@@ -614,5 +621,72 @@ void main() {
       expect(after.isGlobalSelected, isTrue);
       expect(after.currentWorkspaceId, isNull);
     });
+  });
+
+  group('older active runs and missing worktrees', () {
+    test('loads active runs even beyond 200 newer finished runs', () async {
+      workspaceRepo
+        ..workspaces = <Workspace>[makeWorkspace()]
+        ..worktreesByWorkspaceId['ws-1'] = <Worktree>[makeWorktree()];
+
+      // 210 newer finished runs, plus 1 older active run at the end.
+      final oldTime = DateTime.utc(2026, 11, 17, 12);
+      runsRepo.runs = <RunSummary>[
+        for (var i = 0; i < 210; i++)
+          _makeRun(
+            id: 'done-$i',
+            workspaceId: 'ws-1',
+            status: RunStatus.succeeded,
+            startedAt: DateTime.utc(2026, 11, 10).add(Duration(hours: i)),
+            finishedAt: DateTime.utc(2026, 11, 10).add(Duration(hours: i + 1)),
+          ),
+        _makeRun(id: 'old-active', workspaceId: 'ws-1', startedAt: oldTime),
+      ];
+
+      final container = createContainer();
+      final tree = await container.read(sideRailTreeControllerProvider.future);
+      final primaryNode = tree.workspaces.single.worktrees.single;
+      expect(primaryNode.activeRuns.map((r) => r.id), <String>['old-active']);
+    });
+
+    test(
+      'places runs whose worktree no longer exists in a fallback group',
+      () async {
+        workspaceRepo
+          ..workspaces = <Workspace>[makeWorkspace()]
+          ..worktreesByWorkspaceId['ws-1'] = <Worktree>[makeWorktree()];
+        runsRepo.runs = <RunSummary>[
+          _makeRun(
+            id: 'orphan-active',
+            workspaceId: 'ws-1',
+            startedAt: DateTime.utc(2026, 11, 22, 11, 55),
+            worktreePath: '/data/worktrees/ws-1/deleted-wt',
+          ),
+          _makeRun(
+            id: 'orphan-recent',
+            workspaceId: 'ws-1',
+            status: RunStatus.succeeded,
+            startedAt: DateTime.utc(2026, 11, 22, 10),
+            finishedAt: DateTime.utc(2026, 11, 22, 11),
+            worktreePath: '/data/worktrees/ws-1/deleted-wt-2',
+          ),
+        ];
+
+        final container = createContainer();
+        final tree = await container.read(
+          sideRailTreeControllerProvider.future,
+        );
+        final worktrees = tree.workspaces.single.worktrees;
+        expect(worktrees, hasLength(2));
+        expect(worktrees[0].isFallback, isFalse);
+        expect(worktrees[1].isFallback, isTrue);
+        expect(worktrees[1].activeRuns.map((r) => r.id), <String>[
+          'orphan-active',
+        ]);
+        expect(worktrees[1].recentRuns.map((r) => r.id), <String>[
+          'orphan-recent',
+        ]);
+      },
+    );
   });
 }
