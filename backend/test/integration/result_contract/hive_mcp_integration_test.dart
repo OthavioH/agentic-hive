@@ -13,62 +13,7 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../http/support/harness.dart';
-
-final class _McpStdioClient {
-  new(this._process) {
-    _lines = _process.stdout
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
-        .asBroadcastStream();
-  }
-
-  final Process _process;
-  late final Stream<String> _lines;
-  int _nextId = 1;
-
-  Future<Map<String, Object?>> sendRequest(
-    String method, [
-    Map<String, Object?>? params,
-  ]) async {
-    final id = _nextId++;
-    final payload = <String, Object?>{
-      'jsonrpc': '2.0',
-      'id': id,
-      'method': method,
-      'params': ?params,
-    };
-    _process.stdin.writeln(jsonEncode(payload));
-    await _process.stdin.flush();
-
-    final line = await _lines
-        .firstWhere((raw) {
-          if (raw.trim().isEmpty) return false;
-          final decoded = jsonDecode(raw);
-          return decoded is Map<String, Object?> && decoded['id'] == id;
-        })
-        .timeout(ioTimeout);
-    return jsonDecode(line) as Map<String, Object?>;
-  }
-
-  Future<void> sendNotification(
-    String method, [
-    Map<String, Object?>? params,
-  ]) async {
-    final payload = <String, Object?>{
-      'jsonrpc': '2.0',
-      'method': method,
-      'params': ?params,
-    };
-    _process.stdin.writeln(jsonEncode(payload));
-    await _process.stdin.flush();
-  }
-
-  Future<void> close() async {
-    await _process.stdin.close();
-    _process.kill();
-    await _process.exitCode.timeout(ioTimeout);
-  }
-}
+import '../mcp_tools/support/mcp_stdio_client.dart';
 
 void main() {
   late Directory tempDir;
@@ -91,7 +36,7 @@ void main() {
     addTearDown(() => backend.stop().timeout(ioTimeout));
   });
 
-  Future<_McpStdioClient> spawnMcp({
+  Future<McpStdioClient> spawnMcp({
     required String runId,
     required String nodeId,
     required int attempt,
@@ -109,7 +54,7 @@ void main() {
       '--attempt',
       attempt.toString(),
     ]);
-    final client = _McpStdioClient(process);
+    final client = McpStdioClient(process);
     addTearDown(client.close);
     return client;
   }

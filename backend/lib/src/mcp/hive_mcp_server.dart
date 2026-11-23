@@ -2,23 +2,34 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:agentic_hive_backend/src/mcp/hive_mcp_backend_client.dart';
+import 'package:agentic_hive_backend/src/mcp/hive_mcp_tool_catalog.dart';
+import 'package:agentic_hive_backend/src/mcp/hive_mcp_tools_client.dart';
 import 'package:dart_mcp/server.dart';
 
 /// Stateless stdio MCP server exposing `report_result` and `ask_human`
 /// (ADR 0003, ADR 0015).
 final class HiveMcpServer extends MCPServer with ToolsSupport {
   /// Creates the MCP server over [channel] forwarding tool calls to [client].
-  new(super.channel, {required this.client, super.protocolLogSink})
-    : super.fromStreamChannel(
-        implementation: Implementation(name: 'hive-mcp', version: '0.1.0'),
-        instructions:
-            'Use report_result to submit your final node outcome and '
-            'ask_human when you need clarification from the user.',
-      );
+  new(
+    super.channel, {
+    required this.client,
+    required this.tools,
+    super.protocolLogSink,
+  }) : super.fromStreamChannel(
+         implementation: Implementation(name: 'hive-mcp', version: '0.1.0'),
+         instructions:
+             'Manage Agentic Hive workflows only through these tools, never by '
+             'editing workspace workflow files. Workflow tools take an '
+             'optional workspace (id, root path or "global"); report_result '
+             'and ask_human work only inside a run.',
+       );
 
   /// Unix-socket client forwarding tool calls to the local backend, or `null`
   /// when running outside an active Agentic Hive run.
   final HiveMcpBackendClient? client;
+
+  /// Forwards the backend-served workflow tools (ADR 0026).
+  final HiveMcpToolForwarder tools;
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
@@ -77,7 +88,22 @@ final class HiveMcpServer extends MCPServer with ToolsSupport {
       _handleAskHuman,
     );
 
+    for (final tool in HiveMcpToolCatalog.backendTools) {
+      registerTool(tool, (request) => _forward(tool.name, request));
+    }
+
     return super.initialize(request);
+  }
+
+  Future<CallToolResult> _forward(String name, CallToolRequest request) async {
+    final result = await tools.callTool(
+      name,
+      request.arguments ?? const <String, Object?>{},
+    );
+    return CallToolResult(
+      isError: result.isError ? true : null,
+      content: <Content>[TextContent(text: result.message)],
+    );
   }
 
   static const _outsideRunMessage =

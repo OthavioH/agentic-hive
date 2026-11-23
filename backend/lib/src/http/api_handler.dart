@@ -1,6 +1,7 @@
 import 'package:agentic_hive_backend/src/api/agents/agents_handler.dart';
 import 'package:agentic_hive_backend/src/api/agents/agents_migration_handler.dart';
 import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
+import 'package:agentic_hive_backend/src/api/mcp_tools/mcp_tools_handler.dart';
 import 'package:agentic_hive_backend/src/api/overview/overview_handler.dart';
 import 'package:agentic_hive_backend/src/api/pauses/pauses_handler.dart';
 import 'package:agentic_hive_backend/src/api/result_contract/result_contract_handler.dart';
@@ -38,6 +39,7 @@ Handler buildApiHandler({
   HarnessesHandler? harnessesHandler,
   WorkflowHandler? workflowHandler,
   ResultContractHandler? resultContractHandler,
+  McpToolsHandler? mcpToolsHandler,
   RunsHandler? runsHandler,
   PausesHandler? pausesHandler,
   OverviewHandler? overviewHandler,
@@ -145,6 +147,9 @@ Handler buildApiHandler({
         '/api/v1/internal/runs/<runId>/nodes/<nodeId>/attempts/<attempt>/ask-human',
         resultContractHandler.askHuman,
       );
+  }
+  if (mcpToolsHandler != null) {
+    router.post('/api/v1/internal/mcp/tools/<name>', mcpToolsHandler.call);
   }
 
   return const Pipeline()

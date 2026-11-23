@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:agentic_hive_backend/src/api/agents/agents_handler.dart';
 import 'package:agentic_hive_backend/src/api/agents/agents_migration_handler.dart';
 import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
+import 'package:agentic_hive_backend/src/api/mcp_tools/mcp_tools_handler.dart';
 import 'package:agentic_hive_backend/src/api/overview/overview_handler.dart';
 import 'package:agentic_hive_backend/src/api/pauses/pauses_handler.dart';
 import 'package:agentic_hive_backend/src/api/result_contract/result_contract_handler.dart';
@@ -62,6 +63,12 @@ import 'package:agentic_hive_backend/src/domain/harnesses/harness_detector.dart'
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_mcp_installer.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_service.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/mcp_scope_resolver.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/mcp_tool_registry.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/get_workflow_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/list_workflows_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/list_workspaces_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/workflow_text_formatter.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_registry.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/pty_session.dart';
@@ -528,6 +535,49 @@ Future<void> registerDependencies(
       () => WorkflowHandler(service: di<WorkflowService>()),
       dependsOn: [WorkflowService],
     )
+    ..registerSingletonWithDependencies<McpScopeResolver>(
+      () => McpScopeResolver(
+        workspaces: di<WorkspaceRepository>(),
+        worktreesDir: config.worktreesDir,
+        path: platformPaths.context,
+      ),
+      dependsOn: [WorkspaceRepository],
+    )
+    ..registerSingletonWithDependencies<McpToolRegistry>(
+      () {
+        const formatter = WorkflowTextFormatter();
+        final scopes = di<McpScopeResolver>();
+        final workflows = di<WorkflowService>();
+        return McpToolRegistry([
+          ListWorkspacesTool(
+            workspaces: di<WorkspaceRepository>(),
+            globalWorkflows: di<WorkflowRepository>(),
+            workspaceWorkflows: di<WorkspaceWorkflowRepository>(),
+            formatter: formatter,
+          ),
+          ListWorkflowsTool(
+            scopes: scopes,
+            workflows: workflows,
+            formatter: formatter,
+          ),
+          GetWorkflowTool(
+            scopes: scopes,
+            workflows: workflows,
+            formatter: formatter,
+          ),
+        ]);
+      },
+      dependsOn: [
+        McpScopeResolver,
+        WorkflowService,
+        WorkflowRepository,
+        WorkspaceRepository,
+      ],
+    )
+    ..registerSingletonWithDependencies<McpToolsHandler>(
+      () => McpToolsHandler(registry: di<McpToolRegistry>()),
+      dependsOn: [McpToolRegistry],
+    )
     ..registerSingletonWithDependencies<RunsHandler>(
       () => RunsHandler(service: di<RunService>()),
       dependsOn: [RunService],
@@ -666,6 +716,7 @@ Future<void> registerDependencies(
           harnessesHandler: di<HarnessesHandler>(),
           workflowHandler: di<WorkflowHandler>(),
           resultContractHandler: di<ResultContractHandler>(),
+          mcpToolsHandler: di<McpToolsHandler>(),
           runsHandler: di<RunsHandler>(),
           pausesHandler: di<PausesHandler>(),
           overviewHandler: di<OverviewHandler>(),
@@ -687,6 +738,7 @@ Future<void> registerDependencies(
         StatusHandler,
         AgentDirectoryWatcher,
         WorkflowHandler,
+        McpToolsHandler,
         RunsHandler,
         PausesHandler,
         OverviewHandler,
