@@ -64,6 +64,7 @@ abstract base class HarnessNode extends Node {
       if (trimmedAgentId != null && trimmedAgentId.isNotEmpty) {
         final agentResult = await agentPromptResolver.resolvePrompt(
           trimmedAgentId,
+          workspaceRoot: context.workspaceRoot,
         );
         if (agentResult case FailureResult<String>(:final failure)) {
           return FailureResult(failure);
@@ -219,6 +220,7 @@ abstract base class HarnessNode extends Node {
       if (trimmedAgentId != null && trimmedAgentId.isNotEmpty) {
         final agentResult = await agentPromptResolver.resolveAgent(
           trimmedAgentId,
+          workspaceRoot: context.workspaceRoot,
         );
         if (agentResult case FailureResult<ResolvedAgent>(:final failure)) {
           return FailureResult(failure);

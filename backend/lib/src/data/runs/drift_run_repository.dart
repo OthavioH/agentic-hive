@@ -28,6 +28,7 @@ final class DriftRunRepository implements RunRepository {
                 run.workflowDefinition.toJson(),
               ),
               workspacePath: run.workspacePath,
+              workspaceId: Value(run.workspaceId),
               status: run.status.name,
               startedAt: run.startedAt.toUtc().toIso8601String(),
               finishedAt: Value(run.finishedAt?.toUtc().toIso8601String()),
@@ -120,6 +121,7 @@ final class DriftRunRepository implements RunRepository {
               id: row.id,
               workflowId: row.workflowId,
               workflowName: row.workflowName,
+              workspaceId: row.workspaceId,
               status: RunStatus.fromName(row.status),
               startedAt: DateTime.parse(row.startedAt).toUtc(),
               finishedAt: row.finishedAt == null
@@ -380,6 +382,7 @@ final class DriftRunRepository implements RunRepository {
       workflowName: row.workflowName,
       workflowDefinition: Workflow.fromJson(decodedWorkflow),
       workspacePath: row.workspacePath,
+      workspaceId: row.workspaceId,
       status: RunStatus.fromName(row.status),
       startedAt: DateTime.parse(row.startedAt).toUtc(),
       finishedAt: row.finishedAt == null

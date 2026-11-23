@@ -157,8 +157,15 @@ final class _FakeAgentPromptResolver implements AgentPromptResolver {
   final Map<String, List<String>> allowedTools;
   final Map<String, List<String>> deniedTools;
 
+  /// Workspace root the last lookup carried.
+  String? lastWorkspaceRoot;
+
   @override
-  Future<Result<String>> resolvePrompt(String agentId) async {
+  Future<Result<String>> resolvePrompt(
+    String agentId, {
+    String? workspaceRoot,
+  }) async {
+    lastWorkspaceRoot = workspaceRoot;
     final prompt = prompts[agentId];
     if (prompt == null) {
       return FailureResult(NotFoundFailure('Agent "$agentId" not found.'));
@@ -167,7 +174,11 @@ final class _FakeAgentPromptResolver implements AgentPromptResolver {
   }
 
   @override
-  Future<Result<ResolvedAgent>> resolveAgent(String agentId) async {
+  Future<Result<ResolvedAgent>> resolveAgent(
+    String agentId, {
+    String? workspaceRoot,
+  }) async {
+    lastWorkspaceRoot = workspaceRoot;
     final prompt = prompts[agentId];
     if (prompt == null) {
       return FailureResult(NotFoundFailure('Agent "$agentId" not found.'));

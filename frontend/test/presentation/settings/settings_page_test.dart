@@ -21,7 +21,6 @@ final class _FakeSettingsRepository implements SettingsRepository {
       agentsDir: '/custom/agents',
       effectiveAgentsDir: '/custom/agents',
       defaultAgentsDir: '/default/agents',
-      defaultWorkspaceDir: '/workspace',
       harnessOverrides: <HarnessId, String>{
         HarnessId.claudeCode: '/usr/local/bin/claude',
       },
@@ -175,15 +174,10 @@ void main() {
         expect(find.text('/picked/agents'), findsNothing);
         expect(find.text('/custom/agents'), findsOneWidget);
 
-        // Reset Agents folder, Clear workspace, Browse Codex executable.
+        // Reset Agents folder, Browse Codex executable.
         await tester.tap(
           find.byKey(
             const ValueKey<String>('settings_agents_dir_reset_button'),
-          ),
-        );
-        await tester.tap(
-          find.byKey(
-            const ValueKey<String>('settings_workspace_dir_clear_button'),
           ),
         );
         final codexBrowse = find.byKey(
@@ -210,7 +204,6 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(repo.lastRequest?.agentsDir, isNull);
-        expect(repo.lastRequest?.defaultWorkspaceDir, isNull);
         expect(
           repo.lastRequest?.harnessOverrides[HarnessId.codex],
           '/picked/codex',

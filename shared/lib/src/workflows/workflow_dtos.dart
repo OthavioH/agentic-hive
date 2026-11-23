@@ -2,6 +2,7 @@ import 'package:agentic_hive_shared/src/json_fields.dart';
 import 'package:agentic_hive_shared/src/workflows/workflow.dart';
 import 'package:agentic_hive_shared/src/workflows/workflow_edge.dart';
 import 'package:agentic_hive_shared/src/workflows/workflow_node.dart';
+import 'package:agentic_hive_shared/src/workflows/workflow_scope.dart';
 import 'package:agentic_hive_shared/src/workflows/workflow_summary.dart';
 import 'package:agentic_hive_shared/src/workflows/workflow_validation.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
@@ -20,6 +21,9 @@ sealed class CreateWorkflowRequest with _$CreateWorkflowRequest {
     @Default(<WorkflowEdge>[]) List<WorkflowEdge> edges,
     String? entryNodeId,
     @Default(1) int schemaVersion,
+
+    /// Workspace that owns the workflow; `null` creates a global workflow.
+    String? workspaceId,
   }) = _CreateWorkflowRequest;
 
   /// Decodes a create-workflow request; throws a [FormatException] on a bad
@@ -92,6 +96,8 @@ sealed class WorkflowResponse with _$WorkflowResponse {
   const factory({
     required Workflow workflow,
     required WorkflowValidationResult validation,
+    @Default(WorkflowScope.global) WorkflowScope scope,
+    String? workspaceId,
   }) = _WorkflowResponse;
 
   /// Decodes a workflow response; throws a [FormatException] on a bad shape.

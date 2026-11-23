@@ -290,7 +290,7 @@ void main() {
     test('StartRunRequest round-trips through JSON', () {
       const dto = StartRunRequest(
         workflowId: 'wf-1',
-        workspacePath: '/tmp/ws',
+        workspaceId: 'ws-1',
         workspaceIsolationMode: WorkspaceIsolationMode.direct,
         ignorePatterns: ['build/', '*.tmp'],
         input: 'Audit auth middleware',
@@ -299,15 +299,67 @@ void main() {
       expect(json['input'], 'Audit auth middleware');
       expect(StartRunRequest.fromJson(json), dto);
 
-      const minimal = StartRunRequest(
-        workflowId: 'wf-2',
-        workspacePath: '/tmp/ws2',
-      );
+      const minimal = StartRunRequest(workflowId: 'wf-2', workspaceId: 'ws-2');
       final minimalJson = minimal.toJson();
       expect(minimalJson.containsKey('workspaceIsolationMode'), isFalse);
       expect(minimalJson.containsKey('ignorePatterns'), isFalse);
       expect(minimalJson.containsKey('input'), isFalse);
       expect(StartRunRequest.fromJson(minimalJson), minimal);
+    });
+
+    test('StartRunRequest requires workspaceId and drops workspacePath', () {
+      expect(
+        () => StartRunRequest.fromJson(<String, Object?>{'workflowId': 'wf'}),
+        throwsFormatException,
+      );
+      final json = const StartRunRequest(
+        workflowId: 'wf',
+        workspaceId: 'ws',
+      ).toJson();
+      expect(json.containsKey('workspacePath'), isFalse);
+    });
+
+    test('StartRunRequest carries each run target through JSON', () {
+      const targets = <RunTarget>[
+        RunTarget.primary(),
+        RunTarget.worktree(worktreeId: 'feature-x'),
+        RunTarget.newWorktree(),
+        RunTarget.newWorktree(
+          name: 'spike',
+          branch: 'hive/spike',
+          baseBranch: 'main',
+        ),
+      ];
+      for (final target in targets) {
+        final dto = StartRunRequest(
+          workflowId: 'wf',
+          workspaceId: 'ws',
+          target: target,
+        );
+        expect(StartRunRequest.fromJson(dto.toJson()), dto);
+      }
+    });
+
+    test('RunTarget uses a type discriminator and rejects unknown types', () {
+      expect(const RunTarget.primary().toJson(), {'type': 'primary'});
+      expect(const RunTarget.worktree(worktreeId: 'a').toJson(), {
+        'type': 'worktree',
+        'worktreeId': 'a',
+      });
+      expect(
+        () => RunTarget.fromJson(<String, Object?>{'type': 'nope'}),
+        throwsFormatException,
+      );
+      expect(
+        () => RunTarget.fromJson(<String, Object?>{'type': 'worktree'}),
+        throwsFormatException,
+      );
+    });
+
+    test('StartRunRequest target is optional', () {
+      const request = StartRunRequest(workflowId: 'wf', workspaceId: 'ws');
+      expect(request.target, isNull);
+      expect(request.toJson().containsKey('target'), isFalse);
     });
 
     test('RunNodeLogsResponse round-trips through JSON', () {

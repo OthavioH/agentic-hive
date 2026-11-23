@@ -1,12 +1,16 @@
 import 'package:agentic_hive_backend/src/api/agents/agents_handler.dart';
+import 'package:agentic_hive_backend/src/api/agents/agents_migration_handler.dart';
 import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
 import 'package:agentic_hive_backend/src/api/overview/overview_handler.dart';
 import 'package:agentic_hive_backend/src/api/pauses/pauses_handler.dart';
 import 'package:agentic_hive_backend/src/api/result_contract/result_contract_handler.dart';
 import 'package:agentic_hive_backend/src/api/runs/runs_handler.dart';
+import 'package:agentic_hive_backend/src/api/settings/execution_settings_handler.dart';
 import 'package:agentic_hive_backend/src/api/settings/settings_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/api/workspace/workspace_handler.dart';
+import 'package:agentic_hive_backend/src/api/workspace/workspaces_handler.dart';
+import 'package:agentic_hive_backend/src/api/worktrees/worktrees_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/health_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/shutdown_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
@@ -30,6 +34,7 @@ Handler buildApiHandler({
   required ShutdownHandler shutdownHandler,
   required Handler webSocketHandler,
   AgentsHandler? agentsHandler,
+  AgentsMigrationHandler? agentsMigrationHandler,
   HarnessesHandler? harnessesHandler,
   WorkflowHandler? workflowHandler,
   ResultContractHandler? resultContractHandler,
@@ -37,7 +42,10 @@ Handler buildApiHandler({
   PausesHandler? pausesHandler,
   OverviewHandler? overviewHandler,
   WorkspaceHandler? workspaceHandler,
+  WorkspacesHandler? workspacesHandler,
+  WorktreesHandler? worktreesHandler,
   SettingsHandler? settingsHandler,
+  ExecutionSettingsHandler? executionSettingsHandler,
 }) {
   final router = Router(notFoundHandler: _notFound)
     ..get('/health', healthHandler)
@@ -63,6 +71,31 @@ Handler buildApiHandler({
         workspaceHandler.restoreSnapshot,
       );
   }
+  if (worktreesHandler != null) {
+    router
+      ..get('/api/v1/workspaces/<id>/worktrees', worktreesHandler.list)
+      ..post('/api/v1/workspaces/<id>/worktrees', worktreesHandler.create)
+      ..delete(
+        '/api/v1/workspaces/<id>/worktrees/<worktreeId>',
+        worktreesHandler.remove,
+      );
+  }
+  if (executionSettingsHandler != null) {
+    router
+      ..get('/api/v1/settings/execution', executionSettingsHandler.getGlobal)
+      ..put('/api/v1/settings/execution', executionSettingsHandler.putGlobal)
+      ..get(
+        '/api/v1/workspaces/<id>/settings',
+        executionSettingsHandler.getWorkspace,
+      )
+      ..put(
+        '/api/v1/workspaces/<id>/settings',
+        executionSettingsHandler.putWorkspace,
+      );
+  }
+  if (workspacesHandler != null) {
+    router.mount('/api/v1/workspaces', workspacesHandler.call);
+  }
   if (runsHandler != null) {
     router.mount('/api/v1/runs', runsHandler.call);
   }
@@ -76,6 +109,15 @@ Handler buildApiHandler({
       ..post('/api/v1/harnesses/refresh', harnessesHandler.refreshAll)
       ..post('/api/v1/harnesses/<id>/refresh', harnessesHandler.refreshOne)
       ..post('/api/v1/harnesses/<id>/mcp/install', harnessesHandler.installMcp);
+  }
+
+  if (agentsMigrationHandler != null) {
+    router
+      ..get('/api/v1/agent-library/migration', agentsMigrationHandler.get)
+      ..post(
+        '/api/v1/agent-library/migration/dismiss',
+        agentsMigrationHandler.dismiss,
+      );
   }
 
   if (agentsHandler != null) {

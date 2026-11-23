@@ -20,6 +20,9 @@ final class _FakePlatformPaths implements PlatformPaths {
   String defaultDataDir() => _defaultDataDir;
 
   @override
+  String homeDir() => p.join(p.dirname(_defaultDataDir), 'home');
+
+  @override
   int get maxSocketPathBytes => 107;
 
   @override
@@ -69,6 +72,16 @@ void main() {
       expect(config.dataDir, p.normalize(defaultDataDir));
       expect(config.webSocketPingInterval, AppConfig.defaultPingInterval);
       expect(config.logRetentionDays, AppConfig.defaultLogRetentionDays);
+    });
+
+    test('uses ~/.agents/agents as the global agents folder', () async {
+      final config = await loader().load();
+
+      expect(
+        config.agentsDir,
+        p.join(p.dirname(defaultDataDir), 'home', '.agents', 'agents'),
+      );
+      expect(config.legacyAgentsDir, p.join(config.dataDir, 'agents'));
     });
 
     test('uses the defaults when no dev candidate exists', () async {

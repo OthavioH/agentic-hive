@@ -1,16 +1,41 @@
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/data/runs/run_providers.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
+import 'package:agentic_hive_frontend/data/workspace/workspace_providers.dart';
 import 'package:agentic_hive_frontend/domain/runs/run_repository.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_repository.dart';
+import 'package:agentic_hive_frontend/domain/workspace/workspace_selection_store.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/runs/pages/runs_page.dart';
+import 'package:agentic_hive_frontend/presentation/workspace/controllers/workspace_registry_controller.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart' show Override;
+
+import '../workspace/fake_workspace_repository.dart';
+
+final class _FakeSelectionStore implements WorkspaceSelectionStore {
+  String? savedId;
+
+  @override
+  Future<String?> load() async => savedId;
+
+  @override
+  Future<void> save(String? workspaceId) async {
+    savedId = workspaceId;
+  }
+}
+
+List<Override> _workspaceOverrides() => [
+  workspaceRepositoryProvider.overrideWithValue(
+    FakeWorkspaceRepository(workspaces: <Workspace>[makeWorkspace()]),
+  ),
+  workspaceSelectionStoreProvider.overrideWithValue(_FakeSelectionStore()),
+];
 
 final class _FakeRunRepository implements RunRepository {
   final DateTime now = DateTime.utc(2026, 11, 21, 4, 30);
@@ -23,6 +48,7 @@ final class _FakeRunRepository implements RunRepository {
       ..addAll(<RunSummary>[
         RunSummary(
           id: 'run-active',
+          workspaceId: 'ws-1',
           workflowId: 'wf-1',
           workflowName: 'Active Pipeline',
           status: RunStatus.running,
@@ -31,6 +57,7 @@ final class _FakeRunRepository implements RunRepository {
         ),
         RunSummary(
           id: 'run-done',
+          workspaceId: 'ws-1',
           workflowId: 'wf-2',
           workflowName: 'Completed Pipeline',
           status: RunStatus.succeeded,
@@ -107,29 +134,32 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   final DateTime now = DateTime.utc(2026, 11, 21, 4, 30);
 
   @override
-  Future<Result<List<WorkflowSummary>>> listWorkflows() async =>
-      Success(<WorkflowSummary>[
-        WorkflowSummary(
-          id: 'wf-1',
-          name: 'Active Pipeline',
-          nodeCount: 1,
-          edgeCount: 0,
-          hasValidationErrors: false,
-          updatedAt: now,
-        ),
-        WorkflowSummary(
-          id: 'wf-2',
-          name: 'Completed Pipeline',
-          nodeCount: 2,
-          edgeCount: 1,
-          hasValidationErrors: false,
-          updatedAt: now,
-        ),
-      ]);
+  Future<Result<List<WorkflowSummary>>> listWorkflows({
+    String? workspaceId,
+  }) async => Success(<WorkflowSummary>[
+    WorkflowSummary(
+      id: 'wf-1',
+      name: 'Active Pipeline',
+      nodeCount: 1,
+      edgeCount: 0,
+      hasValidationErrors: false,
+      updatedAt: now,
+    ),
+    WorkflowSummary(
+      id: 'wf-2',
+      name: 'Completed Pipeline',
+      nodeCount: 2,
+      edgeCount: 1,
+      hasValidationErrors: false,
+      updatedAt: now,
+    ),
+  ]);
 
   @override
-  Future<Result<WorkflowResponse>> getWorkflow(String id) async =>
-      const FailureResult(NotFoundFailure('unused'));
+  Future<Result<WorkflowResponse>> getWorkflow(
+    String id, {
+    String? workspaceId,
+  }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Future<Result<WorkflowResponse>> createWorkflow(
@@ -139,17 +169,20 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   @override
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
-    UpdateWorkflowRequest request,
-  ) async => const FailureResult(NotFoundFailure('unused'));
+    UpdateWorkflowRequest request, {
+    String? workspaceId,
+  }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
+    String? workspaceId,
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
-  Future<Result<void>> deleteWorkflow(String id) async => const Success(null);
+  Future<Result<void>> deleteWorkflow(String id, {String? workspaceId}) async =>
+      const Success(null);
 
   @override
   Future<Result<WorkflowValidationResult>> validateWorkflow(
@@ -199,6 +232,7 @@ void main() {
           workflowRepositoryProvider.overrideWithValue(
             _FakeWorkflowRepository(),
           ),
+          ..._workspaceOverrides(),
         ],
         child: _buildRouterHost(),
       ),
@@ -224,6 +258,7 @@ void main() {
             workflowRepositoryProvider.overrideWithValue(
               _FakeWorkflowRepository(),
             ),
+            ..._workspaceOverrides(),
           ],
           child: _buildRouterHost(),
         ),
@@ -267,6 +302,7 @@ void main() {
             workflowRepositoryProvider.overrideWithValue(
               _FakeWorkflowRepository(),
             ),
+            ..._workspaceOverrides(),
           ],
           child: _buildRouterHost(),
         ),
@@ -300,6 +336,7 @@ void main() {
         repo.items.add(
           RunSummary(
             id: 'run-$i',
+            workspaceId: 'ws-1',
             workflowId: 'wf-1',
             workflowName: 'Pipeline $i',
             status: RunStatus.succeeded,
@@ -317,6 +354,7 @@ void main() {
             workflowRepositoryProvider.overrideWithValue(
               _FakeWorkflowRepository(),
             ),
+            ..._workspaceOverrides(),
           ],
           child: _buildRouterHost(),
         ),
@@ -353,6 +391,7 @@ void main() {
         ..items.add(
           RunSummary(
             id: 'run-int',
+            workspaceId: 'ws-1',
             workflowId: 'wf-1',
             workflowName: 'Interrupted Flow',
             status: RunStatus.interrupted,
@@ -368,6 +407,7 @@ void main() {
             workflowRepositoryProvider.overrideWithValue(
               _FakeWorkflowRepository(),
             ),
+            ..._workspaceOverrides(),
           ],
           child: _buildRouterHost(),
         ),
@@ -377,6 +417,62 @@ void main() {
       final l10n = AppLocalizations.of(tester.element(find.byType(RunsPage)))!;
       expect(find.text(l10n.runsDurationInProgress), findsNothing);
       expect(find.text(l10n.runsStatusInterrupted), findsAtLeastNWidgets(1));
+    },
+  );
+
+  testWidgets(
+    'shows explanatory empty state and hides runs when Global is selected',
+    (tester) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final repo = _FakeRunRepository()
+        ..items.add(
+          RunSummary(
+            id: 'run-ws1',
+            workspaceId: 'ws-1',
+            workflowId: 'wf-1',
+            workflowName: 'Workspace Pipeline',
+            status: RunStatus.running,
+            startedAt: DateTime.utc(2026, 11, 21, 4, 30),
+            checkpointCount: 1,
+          ),
+        );
+      final wsRepo = FakeWorkspaceRepository(
+        workspaces: <Workspace>[makeWorkspace()],
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          runRepositoryProvider.overrideWithValue(repo),
+          workflowRepositoryProvider.overrideWithValue(
+            _FakeWorkflowRepository(),
+          ),
+          workspaceRepositoryProvider.overrideWithValue(wsRepo),
+          workspaceSelectionStoreProvider.overrideWithValue(
+            _FakeSelectionStore(),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(workspaceRegistryControllerProvider.future);
+      container
+          .read(workspaceRegistryControllerProvider.notifier)
+          .selectGlobal();
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: _buildRouterHost(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final l10n = AppLocalizations.of(tester.element(find.byType(RunsPage)))!;
+      expect(find.text('Workspace Pipeline'), findsNothing);
+      expect(find.text(l10n.runsGlobalEmptyTitle), findsOneWidget);
+      expect(find.text(l10n.runsGlobalEmptyDescription), findsOneWidget);
     },
   );
 }

@@ -2,8 +2,33 @@ import 'package:agentic_hive_frontend/core/backend/backend_client.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
-/// Remote data source for workspace capabilities and snapshots.
+/// Remote data source for workspace registry, capabilities and snapshots.
 abstract interface class WorkspaceRemoteDataSource {
+  /// `GET /api/v1/workspaces`.
+  Future<Result<List<Workspace>>> listWorkspaces();
+
+  /// `POST /api/v1/workspaces`.
+  Future<Result<Workspace>> createWorkspace(CreateWorkspaceRequest request);
+
+  /// `PATCH /api/v1/workspaces/:id`.
+  Future<Result<Workspace>> renameWorkspace(
+    String id,
+    UpdateWorkspaceRequest request,
+  );
+
+  /// `DELETE /api/v1/workspaces/:id`.
+  Future<Result<void>> unregisterWorkspace(String id);
+
+  /// `GET /api/v1/workspaces/:id/worktrees`.
+  Future<Result<List<Worktree>>> listWorktrees(String workspaceId);
+
+  /// `DELETE /api/v1/workspaces/:id/worktrees/:worktreeId`.
+  Future<Result<RemoveWorktreeResponse>> removeWorktree(
+    String workspaceId,
+    String worktreeId, {
+    bool force = false,
+  });
+
   /// `GET /api/v1/workspace/capabilities`.
   Future<Result<WorkspaceCapabilities>> getCapabilities({String? path});
 
@@ -26,6 +51,74 @@ final class HttpWorkspaceRemoteDataSource implements WorkspaceRemoteDataSource {
   const new(this._client);
 
   final BackendClient _client;
+
+  @override
+  Future<Result<List<Workspace>>> listWorkspaces() async {
+    final result = await _client.sendJsonRequest('GET', '/api/v1/workspaces');
+    return _decode(
+      result,
+      (json) => WorkspaceListResponse.fromJson(json).items,
+    );
+  }
+
+  @override
+  Future<Result<Workspace>> createWorkspace(
+    CreateWorkspaceRequest request,
+  ) async {
+    final result = await _client.sendJsonRequest(
+      'POST',
+      '/api/v1/workspaces',
+      body: request.toJson(),
+    );
+    return _decode(result, Workspace.fromJson);
+  }
+
+  @override
+  Future<Result<Workspace>> renameWorkspace(
+    String id,
+    UpdateWorkspaceRequest request,
+  ) async {
+    final result = await _client.sendJsonRequest(
+      'PATCH',
+      '/api/v1/workspaces/${Uri.encodeComponent(id)}',
+      body: request.toJson(),
+    );
+    return _decode(result, Workspace.fromJson);
+  }
+
+  @override
+  Future<Result<void>> unregisterWorkspace(String id) async {
+    final result = await _client.sendJsonRequest(
+      'DELETE',
+      '/api/v1/workspaces/${Uri.encodeComponent(id)}',
+    );
+    return result.map((_) {});
+  }
+
+  @override
+  Future<Result<List<Worktree>>> listWorktrees(String workspaceId) async {
+    final result = await _client.sendJsonRequest(
+      'GET',
+      '/api/v1/workspaces/${Uri.encodeComponent(workspaceId)}/worktrees',
+    );
+    return _decode(result, (json) => WorktreeListResponse.fromJson(json).items);
+  }
+
+  @override
+  Future<Result<RemoveWorktreeResponse>> removeWorktree(
+    String workspaceId,
+    String worktreeId, {
+    bool force = false,
+  }) async {
+    final uri = Uri(
+      path:
+          '/api/v1/workspaces/${Uri.encodeComponent(workspaceId)}'
+          '/worktrees/${Uri.encodeComponent(worktreeId)}',
+      queryParameters: force ? const <String, String>{'force': 'true'} : null,
+    );
+    final result = await _client.sendJsonRequest('DELETE', uri.toString());
+    return _decode(result, RemoveWorktreeResponse.fromJson);
+  }
 
   @override
   Future<Result<WorkspaceCapabilities>> getCapabilities({String? path}) async {

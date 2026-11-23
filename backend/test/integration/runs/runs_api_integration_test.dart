@@ -33,12 +33,21 @@ void main() {
   late Directory workspaceDir;
   late Backend backend;
   late SocketHttpClient http;
+  late String workspaceId;
 
   setUp(() async {
     dataDir = (await createTempDir()).path;
     workspaceDir = await createTempDir();
     backend = await startBackend(dataDir);
     http = SocketHttpClient(backend.socketPath);
+    final registered = await http.post(
+      '/api/v1/workspaces',
+      body: jsonEncode(
+        CreateWorkspaceRequest(rootPath: workspaceDir.path).toJson(),
+      ),
+    );
+    expect(registered.statusCode, 201);
+    workspaceId = Workspace.fromJson(registered.json).id;
   });
 
   tearDown(() {
@@ -104,7 +113,7 @@ Future<void> main() async {
       body: jsonEncode(
         StartRunRequest(
           workflowId: workflow.id,
-          workspacePath: workspaceDir.path,
+          workspaceId: workspaceId,
           workspaceIsolationMode: WorkspaceIsolationMode.direct,
         ).toJson(),
       ),
@@ -128,7 +137,7 @@ Future<void> main() async {
       body: jsonEncode(
         StartRunRequest(
           workflowId: workflow.id,
-          workspacePath: workspaceDir.path,
+          workspaceId: workspaceId,
           workspaceIsolationMode: WorkspaceIsolationMode.direct,
         ).toJson(),
       ),
@@ -242,7 +251,7 @@ Future<void> main() => Future<void>.delayed(const Duration(milliseconds: 300));
       final body = jsonEncode(
         StartRunRequest(
           workflowId: workflow.id,
-          workspacePath: workspaceDir.path,
+          workspaceId: workspaceId,
           workspaceIsolationMode: WorkspaceIsolationMode.direct,
         ).toJson(),
       );
@@ -274,7 +283,7 @@ Future<void> main() => Future<void>.delayed(const Duration(seconds: 60));
       body: jsonEncode(
         StartRunRequest(
           workflowId: workflow.id,
-          workspacePath: workspaceDir.path,
+          workspaceId: workspaceId,
           workspaceIsolationMode: WorkspaceIsolationMode.direct,
         ).toJson(),
       ),

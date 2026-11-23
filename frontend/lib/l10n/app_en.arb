@@ -442,6 +442,26 @@
   "@agentsSelectPromptDescription": {
     "description": "Empty state description in the detail pane when no agent is selected."
   },
+  "agentsScopeWorkspaceBadge": "Workspace",
+  "@agentsScopeWorkspaceBadge": {
+    "description": "Scope badge on agent list items stored in the current workspace folder."
+  },
+  "agentsScopeGlobalBadge": "Global",
+  "@agentsScopeGlobalBadge": {
+    "description": "Scope badge on agent list items stored in the global agent library."
+  },
+  "agentsOverriddenBadge": "Overridden",
+  "@agentsOverriddenBadge": {
+    "description": "Badge on a global agent shadowed by a workspace agent with the same id."
+  },
+  "agentsScopeGlobalOption": "Global",
+  "@agentsScopeGlobalOption": {
+    "description": "Segment that switches the Agents page to manage only global agents."
+  },
+  "agentsScopeControlLabel": "Agent scope",
+  "@agentsScopeControlLabel": {
+    "description": "Accessibility label of the control choosing between the current workspace and Global agents."
+  },
   "agentsParseErrorBadge": "Parse error",
   "@agentsParseErrorBadge": {
     "description": "Badge label on agent list items whose .md file failed to parse."
@@ -640,6 +660,18 @@
   "@agentsExternalDeletedMessage": {
     "description": "Banner message when the currently open agent is deleted externally."
   },
+  "agentsMigrationBannerTitle": "Some agents were not moved",
+  "@agentsMigrationBannerTitle": {
+    "description": "Title of the banner listing agent files left in the old agents folder because a different file with the same name already exists in the new one."
+  },
+  "agentsMigrationBannerMessage": "These files exist in both {legacyDir} and {targetDir} with different content. The copy in {targetDir} was kept and the other one was left untouched. Compare them and delete the one you do not need.",
+  "@agentsMigrationBannerMessage": {
+    "description": "Explanation under the agents migration banner title.",
+    "placeholders": {
+      "legacyDir": {"type": "String"},
+      "targetDir": {"type": "String"}
+    }
+  },
   "agentsDismissTooltip": "Dismiss",
   "@agentsDismissTooltip": {
     "description": "Semantics label for dismissing an inline banner or toast."
@@ -776,6 +808,18 @@
   "workflowsDuplicateAction": "Duplicate workflow",
   "@workflowsDuplicateAction": {
     "description": "Semantic label and tooltip for duplicating a workflow."
+  },
+  "workflowsScopeWorkspaceBadge": "Workspace",
+  "@workflowsScopeWorkspaceBadge": {
+    "description": "Badge on a workflow stored in the current workspace folder."
+  },
+  "workflowsScopeGlobalBadge": "Global",
+  "@workflowsScopeGlobalBadge": {
+    "description": "Badge on a workflow shared by every workspace, and the Global option when creating one."
+  },
+  "workflowsScopeControlLabel": "Workflow scope",
+  "@workflowsScopeControlLabel": {
+    "description": "Accessibility label of the control choosing where a new workflow is stored."
   },
   "workflowsDeleteAction": "Delete workflow",
   "@workflowsDeleteAction": {
@@ -1422,14 +1466,6 @@
       }
     }
   },
-  "settingsDefaultWorkspaceLabel": "Default workspace",
-  "@settingsDefaultWorkspaceLabel": {
-    "description": "Label for the Default workspace text field."
-  },
-  "settingsDefaultWorkspaceHint": "Optional default workspace folder",
-  "@settingsDefaultWorkspaceHint": {
-    "description": "Placeholder text for the Default workspace text field."
-  },
   "settingsBrowse": "Browse",
   "@settingsBrowse": {
     "description": "Button label to open the native file or folder picker."
@@ -2023,21 +2059,65 @@
   "@startRunNoWorkflowsMessage": {
     "description": "Message shown in the Start Run dialog when no workflows exist."
   },
-  "startRunWorkspaceLabel": "Workspace folder",
+  "startRunWorkspaceLabel": "Workspace",
   "@startRunWorkspaceLabel": {
     "description": "Label for the workspace folder path input in the Start Run dialog."
   },
-  "startRunWorkspaceHint": "Path to workspace folder",
-  "@startRunWorkspaceHint": {
-    "description": "Placeholder hint for the workspace folder path input."
-  },
-  "startRunBrowseAction": "Browse",
-  "@startRunBrowseAction": {
-    "description": "Button label to open the folder picker in the Start Run dialog."
+  "startRunNoWorkspacesMessage": "Register a workspace before starting a run.",
+  "@startRunNoWorkspacesMessage": {
+    "description": "Warning shown in the Start run dialog when no workspace is registered."
   },
   "startRunIsolationLabel": "Workspace isolation",
   "@startRunIsolationLabel": {
     "description": "Label for the workspace isolation mode selector."
+  },
+  "startRunTargetLabel": "Where to run",
+  "@startRunTargetLabel": {
+    "description": "Label for the run target selector in the Start Run dialog."
+  },
+  "startRunTargetPrimary": "Primary checkout",
+  "@startRunTargetPrimary": {
+    "description": "Option label to run in the workspace's primary checkout."
+  },
+  "startRunTargetPrimaryDescription": "Run directly in the workspace's primary checkout.",
+  "@startRunTargetPrimaryDescription": {
+    "description": "Helper description for running in the primary checkout."
+  },
+  "startRunTargetExistingWorktree": "Existing worktree",
+  "@startRunTargetExistingWorktree": {
+    "description": "Option label to run in an existing git worktree."
+  },
+  "startRunTargetExistingWorktreeDescription": "Run inside an existing persistent worktree.",
+  "@startRunTargetExistingWorktreeDescription": {
+    "description": "Helper description for running in an existing worktree."
+  },
+  "startRunTargetNewWorktree": "New worktree",
+  "@startRunTargetNewWorktree": {
+    "description": "Option label to create and run in a new git worktree."
+  },
+  "startRunTargetNewWorktreeDescription": "Create a new worktree on a dedicated branch.",
+  "@startRunTargetNewWorktreeDescription": {
+    "description": "Helper description for creating a new worktree."
+  },
+  "startRunExistingWorktreeLabel": "Worktree",
+  "@startRunExistingWorktreeLabel": {
+    "description": "Label for the existing worktree dropdown in the Start Run dialog."
+  },
+  "startRunExistingWorktreeHint": "Select a worktree",
+  "@startRunExistingWorktreeHint": {
+    "description": "Placeholder for the existing worktree dropdown."
+  },
+  "startRunNewWorktreeBranchLabel": "Branch name",
+  "@startRunNewWorktreeBranchLabel": {
+    "description": "Label for the new worktree branch name input in the Start Run dialog."
+  },
+  "startRunNewWorktreeBranchHint": "Optional (defaults to hive/<runId>)",
+  "@startRunNewWorktreeBranchHint": {
+    "description": "Placeholder for the new worktree branch name input."
+  },
+  "startRunNonGitExplanation": "This workspace is not a git repository, so worktree options are hidden. Runs use the primary checkout directly with shadow snapshots.",
+  "@startRunNonGitExplanation": {
+    "description": "Explanation shown in the Start Run dialog when worktree options are hidden for a non-git workspace."
   },
   "startRunIsolationDirect": "Direct",
   "@startRunIsolationDirect": {
@@ -2070,10 +2150,6 @@
   "startRunValidationWorkflowRequired": "Select a workflow.",
   "@startRunValidationWorkflowRequired": {
     "description": "Validation error when submitting Start Run without a workflow."
-  },
-  "startRunValidationWorkspaceRequired": "Choose a workspace folder.",
-  "@startRunValidationWorkspaceRequired": {
-    "description": "Validation error when submitting Start Run without a workspace folder."
   },
   "startRunConfirmAction": "Start run",
   "@startRunConfirmAction": {
@@ -2608,6 +2684,482 @@
   "overviewFailureUnexpected": "An unexpected error occurred.",
   "@overviewFailureUnexpected": {
     "description": "Fallback localized error message on Overview."
+  },
+  "workspaceCurrentLabel": "Current workspace",
+  "@workspaceCurrentLabel": {
+    "description": "Label for the active workspace selector in the shell bar."
+  },
+  "workspaceNoneSelected": "No workspace registered",
+  "@workspaceNoneSelected": {
+    "description": "Placeholder text shown when no workspaces are registered."
+  },
+  "workspaceLoading": "Loading workspaces…",
+  "@workspaceLoading": {
+    "description": "Status text while registered workspaces are loading."
+  },
+  "workspaceLoadError": "Could not load workspaces",
+  "@workspaceLoadError": {
+    "description": "Error label when loading registered workspaces fails."
+  },
+  "workspaceRetryAction": "Retry",
+  "@workspaceRetryAction": {
+    "description": "Button label to retry loading workspaces."
+  },
+  "workspaceManageAction": "Workspaces",
+  "@workspaceManageAction": {
+    "description": "Button label to open the workspace registry dialog."
+  },
+  "workspaceRegistryTitle": "Workspaces",
+  "@workspaceRegistryTitle": {
+    "description": "Title of the workspace registry dialog."
+  },
+  "workspaceRegistrySubtitle": "Register a folder once to organize runs and scoped definitions.",
+  "@workspaceRegistrySubtitle": {
+    "description": "Subtitle of the workspace registry dialog."
+  },
+  "workspaceEmptyTitle": "No workspaces yet",
+  "@workspaceEmptyTitle": {
+    "description": "Empty state title in the workspace registry dialog."
+  },
+  "workspaceEmptyMessage": "Add a folder below to register your first workspace.",
+  "@workspaceEmptyMessage": {
+    "description": "Empty state message in the workspace registry dialog."
+  },
+  "workspaceAddFolderLabel": "Folder path",
+  "@workspaceAddFolderLabel": {
+    "description": "Label for the workspace folder path input."
+  },
+  "workspaceAddFolderHint": "Select or enter an absolute folder path",
+  "@workspaceAddFolderHint": {
+    "description": "Hint for the workspace folder path input."
+  },
+  "workspaceAddBrowseAction": "Browse",
+  "@workspaceAddBrowseAction": {
+    "description": "Button label to browse for a workspace folder."
+  },
+  "workspaceAddNameLabel": "Workspace name",
+  "@workspaceAddNameLabel": {
+    "description": "Label for the workspace display name input."
+  },
+  "workspaceAddNameHint": "Defaults to folder name",
+  "@workspaceAddNameHint": {
+    "description": "Hint for the workspace display name input."
+  },
+  "workspaceAddAction": "Add workspace",
+  "@workspaceAddAction": {
+    "description": "Primary button label to register a new workspace."
+  },
+  "workspaceGitBadge": "Git",
+  "@workspaceGitBadge": {
+    "description": "Badge shown on a git-backed workspace."
+  },
+  "workspaceActiveRunsBadge": "{count, plural, =1{1 active run} other{{count} active runs}}",
+  "@workspaceActiveRunsBadge": {
+    "description": "Badge showing how many active runs belong to a workspace.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workspaceRenameTooltip": "Rename {name}",
+  "@workspaceRenameTooltip": {
+    "description": "Tooltip and semantic label for renaming a workspace.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceSettingsTooltip": "Settings of {name}",
+  "@workspaceSettingsTooltip": {
+    "description": "Tooltip and semantic label for opening the execution settings of a workspace.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceSettingsTitle": "Settings of {name}",
+  "@workspaceSettingsTitle": {
+    "description": "Title of the workspace execution settings dialog.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceSettingsSubtitle": "Override the global execution settings for this workspace only. Settings you leave on inherit follow the global value.",
+  "@workspaceSettingsSubtitle": {
+    "description": "Explains what the workspace execution settings dialog does."
+  },
+  "workspaceSettingsMachineNote": "CLI paths and the theme are global only and cannot be overridden here.",
+  "@workspaceSettingsMachineNote": {
+    "description": "Tells the user which settings a workspace cannot override."
+  },
+  "workspaceSettingsLoadError": "Could not load the workspace settings.",
+  "@workspaceSettingsLoadError": {
+    "description": "Error title when the workspace settings fail to load."
+  },
+  "workspaceSettingsSaveAction": "Save",
+  "@workspaceSettingsSaveAction": {
+    "description": "Button that stores the workspace settings overrides."
+  },
+  "workspaceSettingsSaveError": "Could not save the workspace settings.",
+  "@workspaceSettingsSaveError": {
+    "description": "Error title when saving the workspace settings fails."
+  },
+  "workspaceSettingsIsolationLabel": "Default isolation mode",
+  "@workspaceSettingsIsolationLabel": {
+    "description": "Label of the default isolation mode setting."
+  },
+  "workspaceSettingsInheritOption": "Inherit",
+  "@workspaceSettingsInheritOption": {
+    "description": "Segment that makes a workspace follow the global setting."
+  },
+  "workspaceSettingsIsolationDirect": "Direct",
+  "@workspaceSettingsIsolationDirect": {
+    "description": "Segment for the direct isolation mode."
+  },
+  "workspaceSettingsIsolationWorktree": "Worktree",
+  "@workspaceSettingsIsolationWorktree": {
+    "description": "Segment for the worktree isolation mode."
+  },
+  "workspaceSettingsInheritedValue": "Inherited: {value}",
+  "@workspaceSettingsInheritedValue": {
+    "description": "Shows the global value a setting falls back to.",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceSettingsPatternsOverrideLabel": "Override snapshot ignore patterns",
+  "@workspaceSettingsPatternsOverrideLabel": {
+    "description": "Switch that enables a workspace-specific list of snapshot ignore patterns."
+  },
+  "workspaceSettingsPatternsLabel": "Snapshot ignore patterns",
+  "@workspaceSettingsPatternsLabel": {
+    "description": "Label of the snapshot ignore patterns list."
+  },
+  "workspaceSettingsPatternItemLabel": "Pattern",
+  "@workspaceSettingsPatternItemLabel": {
+    "description": "Accessibility label of one ignore pattern field."
+  },
+  "workspaceSettingsPatternPlaceholder": "build/",
+  "@workspaceSettingsPatternPlaceholder": {
+    "description": "Placeholder of an empty ignore pattern field."
+  },
+  "workspaceSettingsPatternAdd": "Add pattern",
+  "@workspaceSettingsPatternAdd": {
+    "description": "Button that adds an ignore pattern."
+  },
+  "workspaceSettingsPatternRemove": "Remove pattern",
+  "@workspaceSettingsPatternRemove": {
+    "description": "Accessibility label of the button that removes an ignore pattern."
+  },
+  "workspaceSettingsPatternsInherited": "Inherited patterns: {patterns}",
+  "@workspaceSettingsPatternsInherited": {
+    "description": "Lists the global ignore patterns a workspace falls back to.",
+    "placeholders": {
+      "patterns": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceSettingsPatternsNone": "none",
+  "@workspaceSettingsPatternsNone": {
+    "description": "Shown when there are no ignore patterns."
+  },
+  "workspaceSettingsPatternsEmpty": "No patterns: every file is snapshotted.",
+  "@workspaceSettingsPatternsEmpty": {
+    "description": "Shown when the workspace overrides the patterns with an empty list."
+  },
+  "workspaceSettingsShellLabel": "Default shell",
+  "@workspaceSettingsShellLabel": {
+    "description": "Label of the default shell setting."
+  },
+  "workspaceSettingsShellHint": "Leave empty to inherit: {value}",
+  "@workspaceSettingsShellHint": {
+    "description": "Hint of the default shell field, naming the global value.",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceRemoveTooltip": "Remove {name}",
+  "@workspaceRemoveTooltip": {
+    "description": "Tooltip and semantic label for removing a workspace.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceRenameTitle": "Rename workspace",
+  "@workspaceRenameTitle": {
+    "description": "Title of the rename workspace dialog."
+  },
+  "workspaceRenameSave": "Save",
+  "@workspaceRenameSave": {
+    "description": "Save button label in the rename workspace dialog."
+  },
+  "workspaceRenameCancel": "Cancel",
+  "@workspaceRenameCancel": {
+    "description": "Cancel button label in the rename workspace dialog."
+  },
+  "workspaceRemoveTitle": "Remove workspace?",
+  "@workspaceRemoveTitle": {
+    "description": "Title of the unregister workspace confirmation dialog."
+  },
+  "workspaceRemoveMessage": "Remove \"{name}\" from the workspace list? This only unregisters it and does not delete any files on disk.",
+  "@workspaceRemoveMessage": {
+    "description": "Confirmation message when removing a workspace with no active runs.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceRemoveActiveRunsMessage": "\"{name}\" has {count, plural, =1{1 active run} other{{count} active runs}}. Removing only unregisters the workspace and does not delete any files on disk, but active runs must finish or be cancelled first.",
+  "@workspaceRemoveActiveRunsMessage": {
+    "description": "Warning confirmation message when removing a workspace with active runs.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workspaceRemoveConfirm": "Remove",
+  "@workspaceRemoveConfirm": {
+    "description": "Destructive confirm button label to unregister a workspace."
+  },
+  "workspaceRemoveCancel": "Cancel",
+  "@workspaceRemoveCancel": {
+    "description": "Cancel button label in the remove workspace dialog."
+  },
+  "workspaceCloseAction": "Close",
+  "@workspaceCloseAction": {
+    "description": "Close button label in the workspace registry dialog."
+  },
+  "workspaceErrorPathRequired": "Enter or select a folder path.",
+  "@workspaceErrorPathRequired": {
+    "description": "Validation error when adding a workspace without a folder path."
+  },
+  "workspaceErrorNameRequired": "Enter a workspace name.",
+  "@workspaceErrorNameRequired": {
+    "description": "Validation error when renaming a workspace to an empty name."
+  },
+  "workspaceErrorNetwork": "Could not reach the local backend.",
+  "@workspaceErrorNetwork": {
+    "description": "Error message when a workspace request fails with NetworkFailure."
+  },
+  "workspaceErrorConflict": "That workspace folder is already registered or has active runs.",
+  "@workspaceErrorConflict": {
+    "description": "Error message when a workspace request fails with a 409 conflict."
+  },
+  "workspaceErrorUnexpected": "Could not complete the workspace action.",
+  "@workspaceErrorUnexpected": {
+    "description": "Fallback error message for workspace operations."
+  },
+  "sideRailTreeTitle": "Workspaces",
+  "@sideRailTreeTitle": {
+    "description": "Header title of the side rail workspace/worktree/run tree."
+  },
+  "sideRailTreeRefreshTooltip": "Refresh workspace tree",
+  "@sideRailTreeRefreshTooltip": {
+    "description": "Tooltip and semantic label for refreshing the side rail tree."
+  },
+  "sideRailTreeLoadErrorTitle": "Could not load workspace tree",
+  "@sideRailTreeLoadErrorTitle": {
+    "description": "Error title when loading the side rail tree fails."
+  },
+  "sideRailTreeRetryAction": "Retry",
+  "@sideRailTreeRetryAction": {
+    "description": "Button label to retry loading the side rail tree."
+  },
+  "sideRailTreeEmptyTitle": "No workspaces yet",
+  "@sideRailTreeEmptyTitle": {
+    "description": "Empty state title in the side rail tree when no workspaces are registered."
+  },
+  "sideRailTreeEmptyMessage": "Register a workspace to see its worktrees and runs.",
+  "@sideRailTreeEmptyMessage": {
+    "description": "Empty state message in the side rail tree."
+  },
+  "sideRailTreePrimaryLabel": "primary",
+  "@sideRailTreePrimaryLabel": {
+    "description": "Label for the primary checkout item in the side rail tree."
+  },
+  "sideRailTreePrimaryBadge": "primary",
+  "@sideRailTreePrimaryBadge": {
+    "description": "Badge label on the primary checkout row."
+  },
+  "sideRailTreeDirtyBadge": "uncommitted",
+  "@sideRailTreeDirtyBadge": {
+    "description": "Badge label when a worktree has uncommitted changes."
+  },
+  "sideRailTreeDetachedHead": "detached HEAD",
+  "@sideRailTreeDetachedHead": {
+    "description": "Subtitle shown when a git worktree has a detached HEAD."
+  },
+  "sideRailTreeStartRunTooltip": "Start run in {target}",
+  "@sideRailTreeStartRunTooltip": {
+    "description": "Semantic label for the Start Run button on a worktree row.",
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "sideRailTreeSeeAll": "See all ({count} more)",
+  "@sideRailTreeSeeAll": {
+    "description": "Action row to expand more than 3 runs in a worktree group.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sideRailTreeShowLess": "Show less",
+  "@sideRailTreeShowLess": {
+    "description": "Action row to collapse an expanded run list back to 3 items."
+  },
+  "sideRailTreeNoRuns": "No active or recent runs",
+  "@sideRailTreeNoRuns": {
+    "description": "Muted row shown when a worktree has no active or 24h runs."
+  },
+  "sideRailTreeActiveRunsSemantic": "{count, plural, =1{1 active run} other{{count} active runs}}",
+  "@sideRailTreeActiveRunsSemantic": {
+    "description": "Accessibility label for the active runs badge on a workspace row.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sideRailTreePendingPausesSemantic": "{count, plural, =1{1 pending pause} other{{count} pending pauses}}",
+  "@sideRailTreePendingPausesSemantic": {
+    "description": "Accessibility label for the pending pauses badge on a workspace row.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sideRailTreeExpandWorkspace": "Expand {name}",
+  "@sideRailTreeExpandWorkspace": {
+    "description": "Accessibility label for expanding a workspace row.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sideRailTreeCollapseWorkspace": "Collapse {name}",
+  "@sideRailTreeCollapseWorkspace": {
+    "description": "Accessibility label for collapsing a workspace row.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sideRailTreeExpandWorktree": "Expand {name}",
+  "@sideRailTreeExpandWorktree": {
+    "description": "Accessibility label for expanding a worktree row.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sideRailTreeCollapseWorktree": "Collapse {name}",
+  "@sideRailTreeCollapseWorktree": {
+    "description": "Accessibility label for collapsing a worktree row.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sideRailTreeRemoveWorktreeTooltip": "Remove worktree {name}",
+  "@sideRailTreeRemoveWorktreeTooltip": {
+    "description": "Tooltip for removing a non-primary worktree in the side rail tree.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "worktreeRemoveTitle": "Remove worktree?",
+  "@worktreeRemoveTitle": {
+    "description": "Confirmation dialog title when removing a worktree."
+  },
+  "worktreeRemoveMessage": "Remove worktree \"{name}\"? Its branch is deleted only if merged.",
+  "@worktreeRemoveMessage": {
+    "description": "Confirmation dialog message when removing a worktree.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "worktreeRemoveConfirm": "Remove",
+  "@worktreeRemoveConfirm": {
+    "description": "Confirm button label when removing a worktree."
+  },
+  "worktreeRemoveCancel": "Cancel",
+  "@worktreeRemoveCancel": {
+    "description": "Cancel button label when removing a worktree."
+  },
+  "worktreeRemoveDirtyTitle": "Worktree has uncommitted changes",
+  "@worktreeRemoveDirtyTitle": {
+    "description": "Second confirmation dialog title when force-removing a dirty worktree."
+  },
+  "worktreeRemoveDirtyMessage": "Worktree \"{name}\" has uncommitted changes. Force removing it will permanently discard them. Continue?",
+  "@worktreeRemoveDirtyMessage": {
+    "description": "Second confirmation dialog message when force-removing a dirty worktree.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "worktreeRemoveForceConfirm": "Discard & remove",
+  "@worktreeRemoveForceConfirm": {
+    "description": "Confirm button label for force-removing a dirty worktree."
+  },
+  "worktreeRemoveBranchKeptNotice": "Worktree removed; its branch was kept because it is not merged.",
+  "@worktreeRemoveBranchKeptNotice": {
+    "description": "Fallback notice when a removed worktree's branch was kept."
+  },
+  "worktreeRemoveError": "Could not remove worktree.",
+  "@worktreeRemoveError": {
+    "description": "Fallback error message when removing a worktree fails."
+  },
+  "runsGlobalEmptyTitle": "Runs belong to a workspace",
+  "@runsGlobalEmptyTitle": {
+    "description": "Empty state title on the Runs page when Global is selected."
+  },
+  "runsGlobalEmptyDescription": "Select a workspace in the side rail to view its runs. Only workflows and agents can be global.",
+  "@runsGlobalEmptyDescription": {
+    "description": "Empty state description on the Runs page when Global is selected."
+  },
+  "sideRailTreeGlobalLabel": "Global",
+  "@sideRailTreeGlobalLabel": {
+    "description": "Label for the fixed Global entry in the side rail tree."
+  },
+  "workspaceRemoveActiveRunsConflict": "Cannot remove workspace while runs are active. Finish or cancel active runs first.",
+  "@workspaceRemoveActiveRunsConflict": {
+    "description": "Error message when removing a workspace is rejected with 409 because runs are active."
+  },
+  "sideRailTreeMissingWorktreeLabel": "Removed worktrees",
+  "@sideRailTreeMissingWorktreeLabel": {
+    "description": "Fallback group label in the side rail tree for runs whose worktree no longer exists."
   },
   "windowMinimize": "Minimize",
   "@windowMinimize": {

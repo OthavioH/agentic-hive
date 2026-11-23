@@ -12,9 +12,13 @@ import 'package:agentic_hive_frontend/data/settings/settings_repository_impl.dar
 import 'package:agentic_hive_frontend/data/window/window_providers.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_providers.dart';
+import 'package:agentic_hive_frontend/data/workspace/workspace_settings_providers.dart';
+import 'package:agentic_hive_frontend/data/workspace/workspace_tree_changes_providers.dart';
 import 'package:agentic_hive_frontend/domain/agents/create_agent_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/delete_agent_use_case.dart';
+import 'package:agentic_hive_frontend/domain/agents/dismiss_agents_migration_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/get_agent_use_case.dart';
+import 'package:agentic_hive_frontend/domain/agents/get_agents_migration_status_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/list_agents_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/update_agent_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/watch_agent_changes_use_case.dart';
@@ -63,10 +67,22 @@ import 'package:agentic_hive_frontend/domain/workflows/use_cases/get_workflow.da
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/list_workflows.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/update_workflow.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/validate_workflow.dart';
+import 'package:agentic_hive_frontend/domain/workflows/use_cases/watch_workflow_changes.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/create_workspace.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/get_snapshot_diff.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/get_workspace_capabilities.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/get_workspace_settings.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/list_run_snapshots.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/list_workspaces.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/list_worktrees.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/load_last_workspace_id.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/remove_worktree.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/rename_workspace.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/restore_snapshot.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/save_last_workspace_id.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/unregister_workspace.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/update_workspace_settings.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/watch_workspace_tree_changes.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'use_case_providers.g.dart';
@@ -100,6 +116,18 @@ DeleteAgentUseCase deleteAgentUseCase(Ref ref) =>
 @riverpod
 WatchAgentChangesUseCase watchAgentChangesUseCase(Ref ref) =>
     WatchAgentChangesUseCase(ref.watch(agentRepositoryProvider));
+
+/// Provides [GetAgentsMigrationStatusUseCase].
+@riverpod
+GetAgentsMigrationStatusUseCase getAgentsMigrationStatusUseCase(Ref ref) =>
+    GetAgentsMigrationStatusUseCase(
+      ref.watch(agentsMigrationRepositoryProvider),
+    );
+
+/// Provides [DismissAgentsMigrationUseCase].
+@riverpod
+DismissAgentsMigrationUseCase dismissAgentsMigrationUseCase(Ref ref) =>
+    DismissAgentsMigrationUseCase(ref.watch(agentsMigrationRepositoryProvider));
 
 /// Provides [GetHarnessesUseCase].
 @riverpod
@@ -155,6 +183,16 @@ DuplicateWorkflow duplicateWorkflow(Ref ref) =>
 @riverpod
 DeleteWorkflow deleteWorkflow(Ref ref) =>
     DeleteWorkflow(ref.watch(workflowRepositoryProvider));
+
+/// Provides [WatchWorkflowChanges].
+@riverpod
+WatchWorkflowChanges watchWorkflowChanges(Ref ref) =>
+    WatchWorkflowChanges(ref.watch(workflowChangesSourceProvider));
+
+/// Provides [WatchWorkspaceTreeChanges].
+@riverpod
+WatchWorkspaceTreeChanges watchWorkspaceTreeChanges(Ref ref) =>
+    WatchWorkspaceTreeChanges(ref.watch(workspaceTreeChangesSourceProvider));
 
 /// Provides [ValidateWorkflow].
 @riverpod
@@ -297,6 +335,56 @@ GetOverviewUseCase getOverviewUseCase(Ref ref) =>
 @riverpod
 WatchOverviewEventsUseCase watchOverviewEventsUseCase(Ref ref) =>
     WatchOverviewEventsUseCase(ref.watch(overviewRepositoryProvider));
+
+/// Provides [ListWorkspaces].
+@riverpod
+ListWorkspaces listWorkspaces(Ref ref) =>
+    ListWorkspaces(ref.watch(workspaceRepositoryProvider));
+
+/// Provides [CreateWorkspace].
+@riverpod
+CreateWorkspace createWorkspace(Ref ref) =>
+    CreateWorkspace(ref.watch(workspaceRepositoryProvider));
+
+/// Provides [RenameWorkspace].
+@riverpod
+RenameWorkspace renameWorkspace(Ref ref) =>
+    RenameWorkspace(ref.watch(workspaceRepositoryProvider));
+
+/// Provides [UnregisterWorkspace].
+@riverpod
+UnregisterWorkspace unregisterWorkspace(Ref ref) =>
+    UnregisterWorkspace(ref.watch(workspaceRepositoryProvider));
+
+/// Provides [GetWorkspaceSettings].
+@riverpod
+GetWorkspaceSettings getWorkspaceSettings(Ref ref) =>
+    GetWorkspaceSettings(ref.watch(workspaceSettingsRepositoryProvider));
+
+/// Provides [UpdateWorkspaceSettings].
+@riverpod
+UpdateWorkspaceSettings updateWorkspaceSettings(Ref ref) =>
+    UpdateWorkspaceSettings(ref.watch(workspaceSettingsRepositoryProvider));
+
+/// Provides [LoadLastWorkspaceId].
+@riverpod
+LoadLastWorkspaceId loadLastWorkspaceId(Ref ref) =>
+    LoadLastWorkspaceId(ref.watch(workspaceSelectionStoreProvider));
+
+/// Provides [SaveLastWorkspaceId].
+@riverpod
+SaveLastWorkspaceId saveLastWorkspaceId(Ref ref) =>
+    SaveLastWorkspaceId(ref.watch(workspaceSelectionStoreProvider));
+
+/// Provides [ListWorktrees].
+@riverpod
+ListWorktrees listWorktrees(Ref ref) =>
+    ListWorktrees(ref.watch(workspaceRepositoryProvider));
+
+/// Provides [RemoveWorktree].
+@riverpod
+RemoveWorktree removeWorktree(Ref ref) =>
+    RemoveWorktree(ref.watch(workspaceRepositoryProvider));
 
 /// Provides [GetWindowChromeUseCase].
 @riverpod

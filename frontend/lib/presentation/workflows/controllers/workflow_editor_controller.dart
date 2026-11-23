@@ -133,10 +133,19 @@ class WorkflowEditorController extends _$WorkflowEditorController {
   int _idCounter = 0;
   int _validationSeq = 0;
   int _focusSeq = 0;
+  String? _workspaceId;
 
+  /// Loads [workflowId] from the scope of [workspaceId]; `null` is the global
+  /// scope. Saving writes back to the same scope.
   @override
-  Future<WorkflowEditorState> build(String workflowId) async {
-    final result = await ref.read(getWorkflowProvider).call(workflowId);
+  Future<WorkflowEditorState> build(
+    String workflowId, {
+    String? workspaceId,
+  }) async {
+    _workspaceId = workspaceId;
+    final result = await ref
+        .read(getWorkflowProvider)
+        .call(workflowId, workspaceId: workspaceId);
     return switch (result) {
       Success<WorkflowResponse>(:final value) => WorkflowEditorState(
         workflow: value.workflow,
@@ -497,6 +506,7 @@ class WorkflowEditorController extends _$WorkflowEditorController {
             entryNodeId: draft.entryNodeId,
             schemaVersion: draft.schemaVersion,
           ),
+          workspaceId: _workspaceId,
         );
     if (!ref.mounted) return result;
 

@@ -5,6 +5,7 @@ import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/runs/widgets/start_run_dialog.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflows_list_controller.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/utils/workflow_l10n.dart';
+import 'package:agentic_hive_frontend/presentation/workspace/controllers/workspace_registry_controller.dart';
 import 'package:agentic_hive_frontend/routes/app_routes.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
@@ -32,18 +33,36 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
 
   Future<void> _showCreateDialog(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
-    final created = await HiveDialog.show<Workflow>(
+    final workspace = ref
+        .read(workspaceRegistryControllerProvider)
+        .value
+        ?.currentWorkspace;
+    final created = await HiveDialog.show<_CreatedWorkflow>(
       context: context,
       barrierLabel: l10n.workflowsCancelAction,
       builder: (dialogContext) => _CreateWorkflowDialog(
-        onCreate: (name, description) => ref
-            .read(workflowsListControllerProvider.notifier)
-            .createWorkflow(name: name, description: description),
+        workspaceName: workspace?.name,
+        onCreate: (name, description, global) async {
+          final workspaceId = global ? null : workspace?.id;
+          final result = await ref
+              .read(workflowsListControllerProvider.notifier)
+              .createWorkflow(
+                name: name,
+                description: description,
+                workspaceId: workspaceId,
+              );
+          return result.map(
+            (workflow) => (workflow: workflow, workspaceId: workspaceId),
+          );
+        },
       ),
     );
 
     if (created != null && context.mounted) {
-      WorkflowEditorRoute(id: created.id).go(context);
+      WorkflowEditorRoute(
+        id: created.workflow.id,
+        workspaceId: created.workspaceId,
+      ).go(context);
     }
   }
 
@@ -76,7 +95,7 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
     if (!confirmed || !mounted) return;
     await ref
         .read(workflowsListControllerProvider.notifier)
-        .deleteWorkflow(workflow.id);
+        .deleteWorkflow(workflow.id, workspaceId: workflow.workspaceId);
   }
 
   @override
@@ -212,6 +231,11 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
                                       .add_Hm()
                                       .format(summary.updatedAt.toLocal());
                                   final hasErrors = summary.hasValidationErrors;
+                                  final isWorkspaceScope =
+                                      summary.scope == WorkflowScope.workspace;
+                                  final scopeLabel = isWorkspaceScope
+                                      ? l10n.workflowsScopeWorkspaceBadge
+                                      : l10n.workflowsScopeGlobalBadge;
                                   final statusLabel = hasErrors
                                       ? l10n.workflowsStatusInvalid
                                       : l10n.workflowsStatusValid;
@@ -229,6 +253,7 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
                                         ? null
                                         : () => WorkflowEditorRoute(
                                             id: summary.id,
+                                            workspaceId: summary.workspaceId,
                                           ).go(context),
                                     child: Row(
                                       children: <Widget>[
@@ -259,6 +284,19 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
                                                   HiveBadge(
                                                     label: statusLabel,
                                                     tone: statusTone,
+                                                  ),
+                                                  SizedBox(
+                                                    width: spacing.space1,
+                                                  ),
+                                                  HiveBadge(
+                                                    key: Key(
+                                                      'scope_${summary.id}',
+                                                    ),
+                                                    label: scopeLabel,
+                                                    tone: isWorkspaceScope
+                                                        ? HiveBadgeTone
+                                                              .accentMuted
+                                                        : HiveBadgeTone.neutral,
                                                   ),
                                                 ],
                                               ),
@@ -351,6 +389,8 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
                                               : () => unawaited(
                                                   controller.duplicateWorkflow(
                                                     summary.id,
+                                                    workspaceId:
+                                                        summary.workspaceId,
                                                   ),
                                                 ),
                                         ),
@@ -389,10 +429,19 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
   }
 }
 
-class _CreateWorkflowDialog extends StatefulWidget {
-  const new({required this.onCreate});
+typedef _CreatedWorkflow = ({Workflow workflow, String? workspaceId});
 
-  final Future<Result<Workflow>> Function(String name, String description)
+class _CreateWorkflowDialog extends StatefulWidget {
+  const new({required this.onCreate, this.workspaceName});
+
+  /// Name of the current workspace; `null` offers only the Global scope.
+  final String? workspaceName;
+
+  final Future<Result<_CreatedWorkflow>> Function(
+    String name,
+    String description,
+    bool global,
+  )
   onCreate;
 
   @override
@@ -404,6 +453,7 @@ class _CreateWorkflowDialogState extends State<_CreateWorkflowDialog> {
   final TextEditingController _descriptionController = TextEditingController();
   String? _nameError;
   bool _isSubmitting = false;
+  bool _global = false;
 
   @override
   void dispose() {
@@ -425,10 +475,14 @@ class _CreateWorkflowDialogState extends State<_CreateWorkflowDialog> {
       _nameError = null;
       _isSubmitting = true;
     });
-    final result = await widget.onCreate(name, _descriptionController.text);
+    final result = await widget.onCreate(
+      name,
+      _descriptionController.text,
+      _global,
+    );
     if (!mounted) return;
     result.fold(
-      onSuccess: (workflow) => Navigator.of(context).pop(workflow),
+      onSuccess: (created) => Navigator.of(context).pop(created),
       onFailure: (failure) {
         setState(() {
           _nameError = WorkflowL10n.localizeFailure(l10n, failure);
@@ -457,6 +511,21 @@ class _CreateWorkflowDialogState extends State<_CreateWorkflowDialog> {
             autofocus: true,
             onSubmitted: (_) => unawaited(_submit()),
           ),
+          if (widget.workspaceName != null) ...<Widget>[
+            SizedBox(height: spacing.space2),
+            HiveSegmentedControl<bool>(
+              segments: <HiveSegment<bool>>[
+                HiveSegment<bool>(value: false, label: widget.workspaceName!),
+                HiveSegment<bool>(
+                  value: true,
+                  label: l10n.workflowsScopeGlobalBadge,
+                ),
+              ],
+              selected: _global,
+              onChanged: (global) => setState(() => _global = global),
+              semanticLabel: l10n.workflowsScopeControlLabel,
+            ),
+          ],
           SizedBox(height: spacing.space2),
           HiveTextField(
             key: const Key('create_workflow_description_field'),

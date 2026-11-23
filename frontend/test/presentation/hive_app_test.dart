@@ -289,7 +289,13 @@ void main() {
         expect(find.byType(HiveSideRail), findsOneWidget);
         expect(find.byType(OverviewPage), findsOneWidget);
         expect(find.byType(HivePageHeader), findsOneWidget);
-        expect(find.byType(HiveEmptyState), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(OverviewPage),
+            matching: find.byType(HiveEmptyState),
+          ),
+          findsOneWidget,
+        );
 
         final l10n = l10nFrom(tester);
 

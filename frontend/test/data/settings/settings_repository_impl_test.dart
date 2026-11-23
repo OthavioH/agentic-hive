@@ -64,7 +64,6 @@ void main() {
     agentsDir: '/custom/agents',
     effectiveAgentsDir: '/custom/agents',
     defaultAgentsDir: '/default/agents',
-    defaultWorkspaceDir: '/workspace',
     harnessOverrides: <HarnessId, String>{
       HarnessId.claudeCode: '/usr/local/bin/claude',
     },

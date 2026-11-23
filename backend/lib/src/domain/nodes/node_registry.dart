@@ -8,6 +8,7 @@ import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/terminal_harness_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/validator_nodes.dart';
 import 'package:agentic_hive_backend/src/domain/runs/process_tree_killer.dart';
+import 'package:agentic_hive_backend/src/domain/settings/execution_settings_service.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 /// Factory function instantiating a [Node].
@@ -27,6 +28,9 @@ final class NodeRegistry {
   new();
 
   /// Creates a registry populated with all 10 canonical node types.
+  ///
+  /// [executionSettings] is resolved lazily, when a node is created, so it can
+  /// be registered after the registry.
   factory withDefaults({
     required NodeProcessRunner processRunner,
     required PtyRunner ptyRunner,
@@ -35,6 +39,7 @@ final class NodeRegistry {
     required HumanApprovalPort approvalPort,
     required AgentPromptResolver agentPromptResolver,
     ProcessTreeKiller? processTreeKiller,
+    ExecutionSettingsService Function()? executionSettings,
   }) {
     final registry = NodeRegistry();
     registry
@@ -75,6 +80,7 @@ final class NodeRegistry {
         () => TerminalHarnessNode(
           ptyRunner: ptyRunner,
           defaultShellProvider: defaultShellProvider,
+          executionSettings: executionSettings?.call(),
           resultContract: resultContract,
           agentPromptResolver: agentPromptResolver,
           processTreeKiller: processTreeKiller,

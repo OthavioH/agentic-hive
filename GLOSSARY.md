@@ -35,18 +35,34 @@ _Avoid_: server, daemon (in anything user-facing)
 ## Execution
 
 **Run**:
-One execution of a workflow, with its own state, history and workspace.
+One execution of a workflow, with its own state and history, belonging to one workspace and working in one of its worktrees or its primary checkout.
 _Avoid_: job, instance, execution
 
 **Run input**:
 Optional free-text task input provided when starting a run and passed to the entry node.
 
 **Workspace**:
-The folder where the nodes of a run work. It can be any folder, not necessarily a repository.
-_Avoid_: project, repo, sandbox
+A registered entity with an id, a name and exactly one root folder, unique per folder. Every run belongs to a workspace. The folder can be any folder, not necessarily a repository.
+_Avoid_: project, repo, sandbox, working folder
+
+**Primary checkout**:
+The workspace's root folder itself, where the user's own files live. Runs there work directly, with snapshots.
+_Avoid_: main worktree, root copy
+
+**Run target**:
+Where a run executes inside its workspace: the primary checkout, an existing worktree, or a new worktree created for the run. A run started without a target uses the primary checkout. The folder the target resolves to (the workspace root or one of its worktrees) is the run's _target folder_, and at most one run is active per target folder.
+_Avoid_: run location, run mode
+
+**Global scope**:
+The level of definitions (workflows, agents, execution settings) available in every workspace.
+_Avoid_: user scope, shared
+
+**Workspace scope**:
+The level of definitions that belong to one workspace and live in its folder. A workspace agent overrides a global agent of the same name.
+_Avoid_: project scope, local scope
 
 **Snapshot**:
-The saved state of the workspace files before a node, used to roll back.
+The saved state of the run's working folder before a node, used to roll back.
 _Avoid_: backup, commit
 
 **Shadow repository**:
@@ -54,7 +70,7 @@ The isolated git repository kept outside the user's workspace where snapshots fo
 _Avoid_: shadow git, hidden repo, backup repo
 
 **Worktree**:
-An isolated working copy created from a user's git repository on a dedicated branch for a run.
+A named, persistent working copy of a git workspace on its own branch. Runs can use it one at a time, and it is removed only when the user asks.
 _Avoid_: clone, sandbox, temp copy
 
 **Checkpoint**:

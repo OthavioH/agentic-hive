@@ -12,8 +12,14 @@ import 'package:path/path.dart' as p;
 /// [agentsDir].
 final class LocalAgentRepository implements AgentRepository {
   /// Creates a repository rooted at [agentsDir] using [pathContext].
-  new({required this.agentsDir, p.Context? pathContext})
-    : _path = pathContext ?? p.context;
+  new({
+    required this.agentsDir,
+    this.scope = AgentScope.global,
+    p.Context? pathContext,
+  }) : _path = pathContext ?? p.context;
+
+  /// Scope stamped on every agent this repository returns.
+  final AgentScope scope;
 
   /// Directory containing flat `<id>.md` agent files.
   String agentsDir;
@@ -62,7 +68,9 @@ final class LocalAgentRepository implements AgentRepository {
           bytes: bytes,
           updatedAt: stat.modified.toUtc(),
         );
-        summaries.add(AgentMarkdownCodec.toSummary(decoded.detail));
+        summaries.add(
+          AgentMarkdownCodec.toSummary(decoded.detail.copyWith(scope: scope)),
+        );
       }
       summaries.sort((a, b) => a.id.compareTo(b.id));
       return Success(summaries);
@@ -92,7 +100,7 @@ final class LocalAgentRepository implements AgentRepository {
         bytes: bytes,
         updatedAt: stat.modified.toUtc(),
       );
-      return Success(decoded.detail);
+      return Success(decoded.detail.copyWith(scope: scope));
     } on FileSystemException catch (e) {
       return FailureResult(
         PersistenceFailure('Failed to read agent "$id".', cause: e),
@@ -141,6 +149,7 @@ final class LocalAgentRepository implements AgentRepository {
           allowedTools: request.allowedTools,
           deniedTools: request.deniedTools,
           prompt: request.prompt,
+          scope: scope,
           contentHash: AgentMarkdownCodec.computeContentHash(bytes),
           updatedAt: stat.modified.toUtc(),
         ),
@@ -220,6 +229,7 @@ final class LocalAgentRepository implements AgentRepository {
           allowedTools: request.allowedTools,
           deniedTools: request.deniedTools,
           prompt: request.prompt,
+          scope: scope,
           contentHash: AgentMarkdownCodec.computeContentHash(newBytes),
           updatedAt: updatedStat.modified.toUtc(),
         ),

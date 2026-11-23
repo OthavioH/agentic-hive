@@ -10,5 +10,6 @@ final class GetAgentUseCase {
   final AgentRepository _repository;
 
   /// Fetches the full detail for agent [id].
-  Future<Result<AgentDetail>> call(String id) => _repository.getAgent(id);
+  Future<Result<AgentDetail>> call(String id, {String? workspaceId}) =>
+      _repository.getAgent(id, workspaceId: workspaceId);
 }

@@ -37,7 +37,7 @@ void main() {
       );
 
       expect(dbFile.existsSync(), isTrue);
-      expect(di<AppDatabase>().schemaVersion, 7);
+      expect(di<AppDatabase>().schemaVersion, 8);
       final status = await di<DatabaseHealthCheck>().check();
       expect(status.ok, isTrue);
 
@@ -45,7 +45,7 @@ void main() {
       resetDone = true;
 
       // Read the file through a separate connection.
-      expect(await readUserVersion(dbFile), 7);
+      expect(await readUserVersion(dbFile), 8);
       expect(
         (await readMetadataRows(dbFile)).keys,
         contains(AppDatabase.installedAtKey),

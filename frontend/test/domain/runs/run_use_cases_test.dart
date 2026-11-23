@@ -164,7 +164,7 @@ void main() {
 
       const startReq = StartRunRequest(
         workflowId: 'wf-1',
-        workspacePath: '/tmp',
+        workspaceId: 'ws-1',
         workspaceIsolationMode: WorkspaceIsolationMode.worktree,
       );
       final startRes = await container.read(startRunProvider).call(startReq);

@@ -9,13 +9,46 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'run_dtos.freezed.dart';
 part 'run_dtos.g.dart';
 
+/// Where a run executes inside its workspace (ADR 0025).
+///
+/// At most one run is active per target folder, the primary checkout included.
+@Freezed(unionKey: 'type')
+sealed class RunTarget with _$RunTarget {
+  /// The workspace's primary checkout, in direct mode.
+  const factory primary() = RunTargetPrimary;
+
+  /// An existing worktree of the workspace, by its [worktreeId].
+  const factory worktree({required String worktreeId}) = RunTargetWorktree;
+
+  /// A worktree created on the fly for this run.
+  ///
+  /// [name] defaults to the run id, [branch] to `hive/<runId>` and
+  /// [baseBranch] to the branch checked out in the primary checkout.
+  const factory newWorktree({
+    String? name,
+    String? branch,
+    String? baseBranch,
+  }) = RunTargetNewWorktree;
+
+  /// Decodes a run target; throws a [FormatException] on a bad shape.
+  factory fromJson(JsonMap json) => parseJson(json, _$RunTargetFromJson);
+}
+
 /// Request body for `POST /api/v1/runs`.
+///
+/// The run belongs to a workspace (ADR 0025): [workspaceId] is the id of a
+/// registered workspace. There is no path in the request. [target] says where
+/// the run executes; when null the run executes in the primary checkout
+/// (direct). The default isolation mode is a client-side default: clients
+/// preselect a target from the effective execution settings. The server
+/// ignores [workspaceIsolationMode].
 @freezed
 sealed class StartRunRequest with _$StartRunRequest {
   /// Creates a start-run request.
   const factory({
     required String workflowId,
-    required String workspacePath,
+    required String workspaceId,
+    RunTarget? target,
     WorkspaceIsolationMode? workspaceIsolationMode,
     List<String>? ignorePatterns,
     String? input,
