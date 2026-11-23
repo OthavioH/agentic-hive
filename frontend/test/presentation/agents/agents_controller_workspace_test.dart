@@ -182,8 +182,9 @@ void main() {
       ['planner'],
     );
 
-    controller.startCreate();
-    controller.updateName('New Global');
+    controller
+      ..startCreate()
+      ..updateName('New Global');
     await controller.save();
     expect(agents.createCalls.last, isNull);
   });

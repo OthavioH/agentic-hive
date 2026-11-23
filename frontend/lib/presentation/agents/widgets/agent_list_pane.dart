@@ -258,19 +258,19 @@ class _AgentListTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                Row(
+                Text(
+                  displayTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: typography.labelLarge.copyWith(
+                    color: colors.onSurface,
+                  ),
+                ),
+                SizedBox(height: spacing.spaceHalf),
+                Wrap(
+                  spacing: spacing.space1,
+                  runSpacing: spacing.spaceHalf,
                   children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        displayTitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: typography.labelLarge.copyWith(
-                          color: colors.onSurface,
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: spacing.space1),
                     HiveBadge(
                       label: agent.scope == AgentScope.workspace
                           ? l10n.agentsScopeWorkspaceBadge
@@ -279,21 +279,17 @@ class _AgentListTile extends StatelessWidget {
                           ? HiveBadgeTone.accentMuted
                           : HiveBadgeTone.neutral,
                     ),
-                    if (agent.overridden) ...<Widget>[
-                      SizedBox(width: spacing.space1),
+                    if (agent.overridden)
                       HiveBadge(
                         label: l10n.agentsOverriddenBadge,
                         tone: HiveBadgeTone.warning,
                       ),
-                    ],
-                    if (agent.parseError != null) ...<Widget>[
-                      SizedBox(width: spacing.space1),
+                    if (agent.parseError != null)
                       HiveBadge(
                         label: l10n.agentsParseErrorBadge,
                         tone: HiveBadgeTone.danger,
                         icon: HiveIcons.alert,
                       ),
-                    ],
                   ],
                 ),
                 SizedBox(height: spacing.spaceHalf),

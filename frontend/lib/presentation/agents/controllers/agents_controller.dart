@@ -6,6 +6,7 @@ import 'package:agentic_hive_frontend/domain/agents/agent_slug.dart';
 import 'package:agentic_hive_frontend/presentation/agents/controllers/agents_state.dart';
 import 'package:agentic_hive_frontend/presentation/workspace/controllers/workspace_registry_controller.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'agents_controller.g.dart';
@@ -633,9 +634,10 @@ class AgentsController extends _$AgentsController {
     };
     return <AgentSummary>[
       for (final item in items)
-        item.scope == AgentScope.global
-            ? item.copyWith(overridden: workspaceIds.contains(item.id))
-            : item,
+        if (item.scope == AgentScope.global)
+          item.copyWith(overridden: workspaceIds.contains(item.id))
+        else
+          item,
     ];
   }
 
