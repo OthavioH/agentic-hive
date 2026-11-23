@@ -71,6 +71,21 @@ void main() {
       );
     });
 
+    test(
+      'maps StaleRevisionFailure to 409 revision_conflict with currentRevision '
+      'detail',
+      () {
+        final mapped = mapFailureToHttp(
+          const StaleRevisionFailure('msg', currentRevision: 'abcd'),
+        );
+
+        expect(mapped.statusCode, 409);
+        expect(mapped.error.code, ApiErrorCode.revisionConflict);
+        expect(mapped.error.message, 'msg');
+        expect(mapped.error.details, {'currentRevision': 'abcd'});
+      },
+    );
+
     test('maps PersistenceFailure to 500 internal_error without leaking '
         'details', () {
       final mapped = mapFailureToHttp(

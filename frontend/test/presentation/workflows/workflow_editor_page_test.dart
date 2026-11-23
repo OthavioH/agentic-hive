@@ -18,6 +18,8 @@ import 'package:material_ui/material_ui.dart';
 final class _FakeWorkflowRepository implements WorkflowRepository {
   final DateTime now = DateTime.utc(2026, 11, 20, 12);
   int saveCalls = 0;
+  int getCalls = 0;
+  Result<WorkflowResponse>? saveOverride;
 
   Workflow stored = Workflow(
     id: 'wf-1',
@@ -44,6 +46,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
     String id, {
     String? workspaceId,
   }) async {
+    getCalls++;
     return Success(WorkflowResponse(workflow: stored, validation: validation));
   }
 
@@ -54,6 +57,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
     String? workspaceId,
   }) async {
     saveCalls++;
+    if (saveOverride != null) return saveOverride!;
     stored = stored.copyWith(
       name: request.name,
       description: request.description,
@@ -439,4 +443,96 @@ void main() {
       expect(find.byType(WorkflowEditorPage), findsNothing);
     },
   );
+
+  testWidgets(
+    'a revision conflict on save shows the reload dialog and reload refetches',
+    (tester) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final repo = _FakeWorkflowRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+          child: _buildEditorHost(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final l10n = AppLocalizations.of(
+        tester.element(find.byType(WorkflowEditorPage)),
+      )!;
+
+      await tester.tap(
+        find.byKey(const Key('palette_item_${NodeTypeId.command}')),
+      );
+      await tester.pumpAndSettle();
+
+      repo.saveOverride = const FailureResult(
+        BackendFailure(
+          'changed',
+          code: ApiErrorCode.revisionConflict,
+          statusCode: 409,
+        ),
+      );
+      await tester.tap(find.byKey(const Key('editor_save_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.editorRevisionConflictTitle), findsOneWidget);
+      expect(find.text(l10n.editorRevisionConflictMessage), findsOneWidget);
+      expect(find.text(l10n.editorRevisionConflictBadge), findsOneWidget);
+
+      repo.saveOverride = null;
+      await tester.tap(find.text(l10n.editorReloadAction));
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.editorRevisionConflictTitle), findsNothing);
+      expect(repo.getCalls, 2);
+      expect(find.text(l10n.editorSavedBadge), findsOneWidget);
+    },
+  );
+
+  testWidgets('keep editing closes the conflict dialog and keeps the draft', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final repo = _FakeWorkflowRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+        child: _buildEditorHost(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(WorkflowEditorPage)),
+    )!;
+
+    await tester.tap(
+      find.byKey(const Key('palette_item_${NodeTypeId.command}')),
+    );
+    await tester.pumpAndSettle();
+
+    repo.saveOverride = const FailureResult(
+      BackendFailure(
+        'changed',
+        code: ApiErrorCode.revisionConflict,
+        statusCode: 409,
+      ),
+    );
+    await tester.tap(find.byKey(const Key('editor_save_button')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text(l10n.editorKeepEditingAction));
+    await tester.pumpAndSettle();
+
+    expect(find.text(l10n.editorRevisionConflictTitle), findsNothing);
+    expect(find.text(l10n.editorUnsavedBadge), findsOneWidget);
+    expect(repo.getCalls, 1);
+  });
 }

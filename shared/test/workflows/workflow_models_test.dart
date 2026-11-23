@@ -168,6 +168,32 @@ void main() {
 
       expect(decoded, summary);
     });
+
+    test('round-trips revision through JSON', () {
+      final summary = WorkflowSummary(
+        id: 'wf-1',
+        name: 'Build and Verify',
+        nodeCount: 2,
+        edgeCount: 1,
+        hasValidationErrors: false,
+        updatedAt: updatedAt,
+        revision: 'abc123',
+      );
+
+      final encoded = summary.toJson();
+      expect(encoded['revision'], 'abc123');
+      expect(WorkflowSummary.fromJson(_overTheWire(encoded)), summary);
+
+      final withoutRevision = WorkflowSummary(
+        id: 'wf-1',
+        name: 'Build and Verify',
+        nodeCount: 2,
+        edgeCount: 1,
+        hasValidationErrors: false,
+        updatedAt: updatedAt,
+      );
+      expect(withoutRevision.toJson().containsKey('revision'), isFalse);
+    });
   });
 
   group('WorkflowValidationResult', () {
@@ -288,6 +314,38 @@ void main() {
       final decoded = WorkflowResponse.fromJson(_overTheWire(resp.toJson()));
 
       expect(decoded, resp);
+    });
+
+    test('UpdateWorkflowRequest carries an optional revision', () {
+      const withRev = UpdateWorkflowRequest(
+        name: 'Updated Flow',
+        revision: 'r1',
+      );
+      final encodedWith = withRev.toJson();
+      expect(encodedWith['revision'], 'r1');
+      expect(
+        UpdateWorkflowRequest.fromJson(_overTheWire(encodedWith)),
+        withRev,
+      );
+
+      const withoutRev = UpdateWorkflowRequest(name: 'Updated Flow');
+      expect(withoutRev.toJson().containsKey('revision'), isFalse);
+      expect(
+        UpdateWorkflowRequest.fromJson(_overTheWire(withoutRev.toJson())),
+        withoutRev,
+      );
+    });
+
+    test('WorkflowResponse carries an optional revision', () {
+      final resp = WorkflowResponse(
+        workflow: sampleWorkflow,
+        validation: const WorkflowValidationResult(isValid: true),
+        revision: 'r1',
+      );
+
+      final encoded = resp.toJson();
+      expect(encoded['revision'], 'r1');
+      expect(WorkflowResponse.fromJson(_overTheWire(encoded)), resp);
     });
   });
 }

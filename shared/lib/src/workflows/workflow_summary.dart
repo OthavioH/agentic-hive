@@ -19,6 +19,10 @@ sealed class WorkflowSummary with _$WorkflowSummary {
     String? description,
     @Default(WorkflowScope.global) WorkflowScope scope,
     String? workspaceId,
+
+    /// Content hash of the workflow definition for optimistic concurrency;
+    /// always set by the backend.
+    String? revision,
   }) = _WorkflowSummary;
 
   /// Decodes a workflow summary; throws a [FormatException] on a bad shape.

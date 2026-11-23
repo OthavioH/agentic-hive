@@ -233,4 +233,132 @@ void main() {
     final error = ApiError.fromJson(await readJson(resp));
     expect(error.code, ApiErrorCode.originNotAllowed);
   });
+
+  test('GET list and GET by id expose revision', () async {
+    final created = WorkflowResponse.fromJson(
+      await readJson(
+        await handler(
+          _jsonRequest(
+            '/api/v1/workflows',
+            method: 'POST',
+            body: const CreateWorkflowRequest(name: 'One').toJson(),
+          ),
+        ),
+      ),
+    );
+
+    final list = WorkflowListResponse.fromJson(
+      await readJson(await handler(buildRequest('/api/v1/workflows'))),
+    );
+    expect(list.workflows.single.revision, matches(RegExp(r'^[0-9a-f]{16}$')));
+
+    final fetched = WorkflowResponse.fromJson(
+      await readJson(
+        await handler(buildRequest('/api/v1/workflows/${created.workflow.id}')),
+      ),
+    );
+    expect(fetched.revision, list.workflows.single.revision);
+  });
+
+  test('PUT with a stale revision answers 409 revision_conflict and changes '
+      'nothing', () async {
+    final created = WorkflowResponse.fromJson(
+      await readJson(
+        await handler(
+          _jsonRequest(
+            '/api/v1/workflows',
+            method: 'POST',
+            body: const CreateWorkflowRequest(name: 'Init').toJson(),
+          ),
+        ),
+      ),
+    );
+    final r0 = created.revision!;
+
+    final okResp = await handler(
+      _jsonRequest(
+        '/api/v1/workflows/${created.workflow.id}',
+        method: 'PUT',
+        body: UpdateWorkflowRequest(name: 'A', revision: r0).toJson(),
+      ),
+    );
+    expect(okResp.statusCode, 200);
+    final r1 = WorkflowResponse.fromJson(await readJson(okResp)).revision!;
+    expect(r1, isNot(r0));
+
+    final staleResp = await handler(
+      _jsonRequest(
+        '/api/v1/workflows/${created.workflow.id}',
+        method: 'PUT',
+        body: UpdateWorkflowRequest(name: 'B', revision: r0).toJson(),
+      ),
+    );
+    expect(staleResp.statusCode, 409);
+    final error = ApiError.fromJson(await readJson(staleResp));
+    expect(error.code, ApiErrorCode.revisionConflict);
+    expect(error.details?['currentRevision'], r1);
+
+    final fetched = WorkflowResponse.fromJson(
+      await readJson(
+        await handler(buildRequest('/api/v1/workflows/${created.workflow.id}')),
+      ),
+    );
+    expect(fetched.workflow.name, 'A');
+  });
+
+  test('PUT without revision still succeeds', () async {
+    final created = WorkflowResponse.fromJson(
+      await readJson(
+        await handler(
+          _jsonRequest(
+            '/api/v1/workflows',
+            method: 'POST',
+            body: const CreateWorkflowRequest(name: 'Init').toJson(),
+          ),
+        ),
+      ),
+    );
+
+    final resp = await handler(
+      _jsonRequest(
+        '/api/v1/workflows/${created.workflow.id}',
+        method: 'PUT',
+        body: const UpdateWorkflowRequest(name: 'Updated').toJson(),
+      ),
+    );
+    expect(resp.statusCode, 200);
+  });
+
+  test(
+    'DELETE with a stale revision answers 409 and keeps the workflow',
+    () async {
+    final created = WorkflowResponse.fromJson(
+      await readJson(
+        await handler(
+          _jsonRequest(
+            '/api/v1/workflows',
+            method: 'POST',
+            body: const CreateWorkflowRequest(name: 'Init').toJson(),
+          ),
+        ),
+      ),
+    );
+
+    final staleDel = await handler(
+      buildRequest(
+        '/api/v1/workflows/${created.workflow.id}'
+        '?revision=0000000000000000',
+        method: 'DELETE',
+      ),
+    );
+    expect(staleDel.statusCode, 409);
+
+    final okDel = await handler(
+      buildRequest(
+        '/api/v1/workflows/${created.workflow.id}?revision=${created.revision}',
+        method: 'DELETE',
+      ),
+    );
+    expect(okDel.statusCode, 200);
+  });
 }

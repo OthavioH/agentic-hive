@@ -127,6 +127,7 @@ void main() {
     expect(created.workflow?.name, 'Deploy');
     expect(created.workflow?.scope, WorkflowScope.workspace);
     expect(created.workflow?.workspaceId, 'ws-1');
+    expect(created.workflow?.revision, matches(RegExp(r'^[0-9a-f]{16}$')));
 
     await file.writeAsString(jsonEncode(_workflowJson('Deploy v2')));
     await _waitFor(

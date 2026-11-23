@@ -948,6 +948,22 @@
   "@editorKeepEditingAction": {
     "description": "Cancel button label to stay in the graph editor."
   },
+  "editorRevisionConflictTitle": "Workflow changed elsewhere",
+  "@editorRevisionConflictTitle": {
+    "description": "Title of the dialog shown when saving fails because the workflow changed since it was opened."
+  },
+  "editorRevisionConflictMessage": "This workflow was changed outside this editor since you opened it. Reload it to get the latest version? Your unsaved changes will be lost.",
+  "@editorRevisionConflictMessage": {
+    "description": "Message of the revision-conflict dialog."
+  },
+  "editorReloadAction": "Reload",
+  "@editorReloadAction": {
+    "description": "Button that reloads the workflow from the backend, discarding the draft."
+  },
+  "editorRevisionConflictBadge": "Changed elsewhere",
+  "@editorRevisionConflictBadge": {
+    "description": "Toolbar error badge after a save failed with a revision conflict."
+  },
   "editorInspectorWorkflowTitle": "Workflow",
   "@editorInspectorWorkflowTitle": {
     "description": "Inspector panel header when no node or edge is selected."

@@ -39,6 +39,7 @@ final class WorkflowEditorState {
     this.isValidating = false,
     this.saveFailure,
     this.focusRequest,
+    this.revision,
   });
 
   /// Current editable workflow draft.
@@ -67,6 +68,15 @@ final class WorkflowEditorState {
 
   /// Latest pan/focus target requested by clicking a validation issue.
   final EditorFocusRequest? focusRequest;
+
+  /// Revision of [savedWorkflow] as last read from the backend.
+  final String? revision;
+
+  /// Whether the last save failed because the workflow changed elsewhere.
+  bool get hasRevisionConflict => switch (saveFailure) {
+    BackendFailure(code: ApiErrorCode.revisionConflict) => true,
+    _ => false,
+  };
 
   /// Whether [workflow] has unsaved local edits compared to [savedWorkflow].
   bool get isDirty {
@@ -108,6 +118,7 @@ final class WorkflowEditorState {
     bool? isValidating,
     Failure? Function()? saveFailure,
     EditorFocusRequest? Function()? focusRequest,
+    String? Function()? revision,
   }) {
     return WorkflowEditorState(
       workflow: workflow ?? this.workflow,
@@ -123,6 +134,7 @@ final class WorkflowEditorState {
       isValidating: isValidating ?? this.isValidating,
       saveFailure: saveFailure != null ? saveFailure() : this.saveFailure,
       focusRequest: focusRequest != null ? focusRequest() : this.focusRequest,
+      revision: revision != null ? revision() : this.revision,
     );
   }
 }
@@ -151,6 +163,7 @@ class WorkflowEditorController extends _$WorkflowEditorController {
         workflow: value.workflow,
         savedWorkflow: value.workflow,
         validation: value.validation,
+        revision: value.revision,
       ),
       FailureResult<WorkflowResponse>(:final failure) =>
         Error.throwWithStackTrace(failure, StackTrace.current),
@@ -505,6 +518,7 @@ class WorkflowEditorController extends _$WorkflowEditorController {
             edges: draft.edges,
             entryNodeId: draft.entryNodeId,
             schemaVersion: draft.schemaVersion,
+            revision: current.revision,
           ),
           workspaceId: _workspaceId,
         );
@@ -522,6 +536,7 @@ class WorkflowEditorController extends _$WorkflowEditorController {
             validation: value.validation,
             isSaving: false,
             saveFailure: () => null,
+            revision: () => value.revision,
           ),
         );
         return Success<WorkflowResponse>(value);
@@ -532,6 +547,9 @@ class WorkflowEditorController extends _$WorkflowEditorController {
         return FailureResult<WorkflowResponse>(failure);
     }
   }
+
+  /// Discards the local draft and loads the workflow again from the backend.
+  void reload() => ref.invalidateSelf();
 
   void _applyDraft(
     WorkflowEditorState current,

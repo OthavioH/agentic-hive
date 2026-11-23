@@ -10,6 +10,8 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   final DateTime now = DateTime.utc(2026, 11, 20, 12);
   int validateCalls = 0;
   int updateCalls = 0;
+  String revision = 'rev-1';
+  String? lastRequestRevision;
   Result<WorkflowResponse>? saveOverride;
 
   WorkflowValidationResult nextValidation = const WorkflowValidationResult(
@@ -32,7 +34,11 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
     String? workspaceId,
   }) async {
     return Success(
-      WorkflowResponse(workflow: stored, validation: nextValidation),
+      WorkflowResponse(
+        workflow: stored,
+        validation: nextValidation,
+        revision: revision,
+      ),
     );
   }
 
@@ -43,6 +49,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
     String? workspaceId,
   }) async {
     updateCalls++;
+    lastRequestRevision = request.revision;
     if (saveOverride != null) return saveOverride!;
     stored = stored.copyWith(
       name: request.name,
@@ -51,8 +58,13 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
       edges: request.edges,
       entryNodeId: request.entryNodeId,
     );
+    revision = 'rev-${updateCalls + 1}';
     return Success(
-      WorkflowResponse(workflow: stored, validation: nextValidation),
+      WorkflowResponse(
+        workflow: stored,
+        validation: nextValidation,
+        revision: revision,
+      ),
     );
   }
 
@@ -253,6 +265,107 @@ void main() {
       final savedState = container.read(provider).requireValue;
       expect(savedState.isDirty, isFalse);
       expect(savedState.workflow.name, 'Renamed Flow');
+    });
+
+    test('save sends the loaded revision and stores the new one', () async {
+      final repo = _FakeWorkflowRepository();
+      final container = ProviderContainer.test(
+        overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+      );
+
+      final provider = workflowEditorControllerProvider('wf-1');
+      await container.read(provider.future);
+      final notifier = container.read(provider.notifier)
+        ..updateWorkflowMetadata(name: 'First Edit');
+
+      await notifier.save();
+      expect(repo.lastRequestRevision, 'rev-1');
+      expect(container.read(provider).requireValue.revision, 'rev-2');
+
+      notifier.updateWorkflowMetadata(name: 'Second Edit');
+      await notifier.save();
+      expect(repo.lastRequestRevision, 'rev-2');
+    });
+
+    test(
+      'save conflict exposes hasRevisionConflict and keeps the draft',
+      () async {
+        final repo = _FakeWorkflowRepository();
+        final container = ProviderContainer.test(
+          overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+        );
+
+        final provider = workflowEditorControllerProvider('wf-1');
+        await container.read(provider.future);
+        final notifier = container.read(provider.notifier)
+          ..updateWorkflowMetadata(name: 'Draft');
+        repo.saveOverride = const FailureResult(
+          BackendFailure(
+            'changed',
+            code: ApiErrorCode.revisionConflict,
+            statusCode: 409,
+          ),
+        );
+
+        await notifier.save();
+        final state = container.read(provider).requireValue;
+        expect(state.hasRevisionConflict, isTrue);
+        expect(state.isDirty, isTrue);
+        expect(state.isSaving, isFalse);
+      },
+    );
+
+    test('a generic 409 is not a revision conflict', () async {
+      final repo = _FakeWorkflowRepository();
+      final container = ProviderContainer.test(
+        overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+      );
+
+      final provider = workflowEditorControllerProvider('wf-1');
+      await container.read(provider.future);
+      final notifier = container.read(provider.notifier)
+        ..updateWorkflowMetadata(name: 'Draft');
+      repo.saveOverride = const FailureResult(
+        BackendFailure('x', code: ApiErrorCode.conflict, statusCode: 409),
+      );
+
+      await notifier.save();
+      expect(
+        container.read(provider).requireValue.hasRevisionConflict,
+        isFalse,
+      );
+    });
+
+    test('reload discards the draft and loads the latest workflow', () async {
+      final repo = _FakeWorkflowRepository();
+      final container = ProviderContainer.test(
+        overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+      );
+
+      final provider = workflowEditorControllerProvider('wf-1');
+      await container.read(provider.future);
+      final notifier = container.read(provider.notifier)
+        ..updateWorkflowMetadata(name: 'Draft');
+      repo.saveOverride = const FailureResult(
+        BackendFailure(
+          'changed',
+          code: ApiErrorCode.revisionConflict,
+          statusCode: 409,
+        ),
+      );
+      await notifier.save();
+
+      repo
+        ..stored = repo.stored.copyWith(name: 'Remote')
+        ..revision = 'rev-9'
+        ..saveOverride = null;
+
+      notifier.reload();
+      final reloaded = await container.read(provider.future);
+      expect(reloaded.workflow.name, 'Remote');
+      expect(reloaded.revision, 'rev-9');
+      expect(reloaded.isDirty, isFalse);
+      expect(reloaded.saveFailure, isNull);
     });
   });
 }

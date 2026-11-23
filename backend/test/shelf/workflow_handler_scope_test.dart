@@ -181,4 +181,47 @@ void main() {
 
     expect(response.statusCode, 404);
   });
+
+  test(
+    'a workspace workflow edited by hand gets a new revision and refuses the '
+    'stale one',
+    () async {
+      final created = WorkflowResponse.fromJson(
+        await _json(
+          await handler.call(
+            _request('POST', '/', {'name': 'Deploy', 'workspaceId': 'ws-1'}),
+          ),
+        ),
+      );
+      final r0 = created.revision!;
+
+      final file = File('${root.path}/.agentic-hive/workflows/deploy.json');
+      final raw = jsonDecode(file.readAsStringSync()) as Map<String, Object?>;
+      raw['name'] = 'Hand Edited';
+      file.writeAsStringSync(jsonEncode(raw));
+
+      final fetched = WorkflowResponse.fromJson(
+        await _json(
+          await handler.call(_request('GET', '/deploy?workspaceId=ws-1')),
+        ),
+      );
+      expect(fetched.revision, isNot(r0));
+
+      final stalePut = await handler.call(
+        _request('PUT', '/deploy?workspaceId=ws-1', {
+          'name': 'Overwrite',
+          'revision': r0,
+        }),
+      );
+      expect(stalePut.statusCode, 409);
+      expect(
+        ApiError.fromJson(await _json(stalePut)).code,
+        ApiErrorCode.revisionConflict,
+      );
+
+      final persisted =
+          jsonDecode(file.readAsStringSync()) as Map<String, Object?>;
+      expect(persisted['name'], 'Hand Edited');
+    },
+  );
 }

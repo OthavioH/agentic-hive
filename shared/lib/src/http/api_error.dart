@@ -46,6 +46,10 @@ abstract final class ApiErrorCode {
   /// The request conflicts with the current state of a resource (`409`).
   static const conflict = 'conflict';
 
+  /// The resource changed since the client read it (`409`);
+  /// `details.currentRevision` holds the current revision.
+  static const revisionConflict = 'revision_conflict';
+
   /// The request carried an `Origin` header (`403`).
   static const originNotAllowed = 'origin_not_allowed';
 

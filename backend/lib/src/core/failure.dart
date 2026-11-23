@@ -34,6 +34,15 @@ final class ConflictFailure extends Failure {
   const new(super.message);
 }
 
+/// The resource changed since the client read it (`409`, ADR 0026).
+final class StaleRevisionFailure extends Failure {
+  /// Creates a stale-revision failure carrying the [currentRevision].
+  const new(super.message, {required this.currentRevision});
+
+  /// Revision the resource has now.
+  final String currentRevision;
+}
+
 /// A persistence operation (for example SQLite) failed (`500`).
 final class PersistenceFailure extends Failure {
   /// Creates a persistence failure.

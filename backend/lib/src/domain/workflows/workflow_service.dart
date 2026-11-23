@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_revision.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_slug.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workspace_workflow_repository.dart';
@@ -37,6 +40,7 @@ final class WorkflowService {
   final WorkspaceRepository? _workspaces;
   final String Function() _generateId;
   final DateTime Function() _now;
+  final Map<String, Future<void>> _writeQueue = <String, Future<void>>{};
 
   /// Lists global workflows, plus the ones of [workspaceId] when given, as
   /// summaries with their validation status. Same-named workflows from both
@@ -104,16 +108,22 @@ final class WorkflowService {
   }
 
   /// Updates an existing workflow [id], refreshing `updatedAt`.
+  ///
+  /// When `request.revision` is non-blank, fails with [StaleRevisionFailure]
+  /// if the stored workflow's revision differs.
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
     UpdateWorkflowRequest request, {
     String? workspaceId,
-  }) async {
+  }) => _serialized(id, workspaceId, () async {
     final existingResult = await _load(id, workspaceId);
     if (existingResult case FailureResult<Workflow>(:final failure)) {
       return FailureResult(failure);
     }
     final existing = existingResult.valueOrNull!;
+    if (_staleRevision(existing, request.revision) case final stale?) {
+      return FailureResult(stale);
+    }
     final updated = Workflow(
       id: existing.id,
       name: request.name,
@@ -137,10 +147,28 @@ final class WorkflowService {
       result = await scoped.repository.update(scoped.rootPath, updated);
     }
     return result.map((saved) => _response(saved, workspaceId));
-  }
+  });
 
   /// Deletes the workflow with [id].
-  Future<Result<void>> deleteWorkflow(String id, {String? workspaceId}) async {
+  ///
+  /// When [expectedRevision] is non-blank, fails with [StaleRevisionFailure]
+  /// if the stored workflow's revision differs.
+  Future<Result<void>> deleteWorkflow(
+    String id, {
+    String? workspaceId,
+    String? expectedRevision,
+  }) => _serialized(id, workspaceId, () async {
+    final trimmed = expectedRevision?.trim();
+    if (trimmed != null && trimmed.isNotEmpty) {
+      final existingResult = await _load(id, workspaceId);
+      if (existingResult case FailureResult<Workflow>(:final failure)) {
+        return FailureResult(failure);
+      }
+      if (_staleRevision(existingResult.valueOrNull!, trimmed)
+          case final stale?) {
+        return FailureResult(stale);
+      }
+    }
     if (workspaceId == null) return await _repository.delete(id);
     final target = await _resolveTarget(workspaceId);
     if (target case FailureResult<_Target>(:final failure)) {
@@ -148,7 +176,7 @@ final class WorkflowService {
     }
     final scoped = target.valueOrNull!;
     return await scoped.repository.delete(scoped.rootPath, id);
-  }
+  });
 
   /// Clones an existing workflow [id] into a new workflow of the same scope.
   Future<Result<WorkflowResponse>> duplicateWorkflow(
@@ -259,6 +287,7 @@ final class WorkflowService {
       updatedAt: workflow.updatedAt,
       scope: scope,
       workspaceId: workspaceId,
+      revision: workflowRevision(workflow),
     );
   }
 
@@ -270,7 +299,43 @@ final class WorkflowService {
             ? WorkflowScope.global
             : WorkflowScope.workspace,
         workspaceId: workspaceId,
+        revision: workflowRevision(workflow),
       );
+
+  /// Runs [action] after every earlier write to the same workflow finished.
+  Future<T> _serialized<T>(
+    String id,
+    String? workspaceId,
+    Future<T> Function() action,
+  ) async {
+    final key = '${workspaceId ?? ''}\u0000$id';
+    final previous = _writeQueue[key] ?? Future<void>.value();
+    final done = Completer<void>();
+    _writeQueue[key] = done.future;
+    try {
+      await previous;
+      return await action();
+    } finally {
+      done.complete();
+      if (identical(_writeQueue[key], done.future)) {
+        unawaited(_writeQueue.remove(key));
+      }
+    }
+  }
+
+  /// `null` when [expected] is absent/blank or matches [current]; otherwise
+  /// the stale-revision failure.
+  StaleRevisionFailure? _staleRevision(Workflow current, String? expected) {
+    final trimmed = expected?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    final actual = workflowRevision(current);
+    if (actual == trimmed) return null;
+    return StaleRevisionFailure(
+      'Workflow "${current.id}" changed since it was read. '
+      'Read it again and reapply your change.',
+      currentRevision: actual,
+    );
+  }
 }
 
 final class _Target {

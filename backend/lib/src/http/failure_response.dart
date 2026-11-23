@@ -39,6 +39,15 @@ HttpFailureMapping mapFailureToHttp(Failure failure, {String? requestId}) =>
           requestId: requestId,
         ),
       ),
+      StaleRevisionFailure(:final message, :final currentRevision) => (
+        statusCode: 409,
+        error: ApiError(
+          code: ApiErrorCode.revisionConflict,
+          message: message,
+          requestId: requestId,
+          details: {'currentRevision': currentRevision},
+        ),
+      ),
       HarnessMcpInstallFailure(:final message) => (
         statusCode: 500,
         error: ApiError(

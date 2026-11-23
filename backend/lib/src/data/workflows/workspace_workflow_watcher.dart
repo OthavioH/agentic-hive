@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/data/workflows/file_workspace_workflow_repository.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_revision.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workspace_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_repository.dart';
@@ -174,6 +175,7 @@ final class WorkspaceWorkflowWatcher {
             updatedAt: value.updatedAt,
             scope: WorkflowScope.workspace,
             workspaceId: workspace.id,
+            revision: workflowRevision(value),
           ),
         ),
         // An unreadable or half-written file is not listed, so clients treat

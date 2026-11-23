@@ -32,6 +32,9 @@ _Avoid_: frontend, client, UI (in anything user-facing)
 The local process that runs workflows and keeps state. It keeps running after the app closes.
 _Avoid_: server, daemon (in anything user-facing)
 
+**Revision**:
+Short content hash of a workflow definition (timestamps excluded) returned on every workflow read; writes that carry a stale revision are refused with `409 revision_conflict` (ADR 0026).
+
 ## Execution
 
 **Run**:

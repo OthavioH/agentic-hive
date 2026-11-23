@@ -94,5 +94,9 @@ void main() {
         ),
       );
     });
+
+    test('revisionConflict code is revision_conflict', () {
+      expect(ApiErrorCode.revisionConflict, 'revision_conflict');
+    });
   });
 }

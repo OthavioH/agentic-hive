@@ -75,6 +75,7 @@ final class WorkflowHandler {
     final result = await _service.deleteWorkflow(
       id,
       workspaceId: _workspaceId(request),
+      expectedRevision: _revision(request),
     );
     return switch (result) {
       Success<void>() => jsonResponse(200, {'id': id, 'deleted': true}),
@@ -105,6 +106,12 @@ final class WorkflowHandler {
   /// The `workspaceId` query parameter; absent or blank means the global scope.
   String? _workspaceId(Request request) {
     final value = request.url.queryParameters['workspaceId']?.trim();
+    return value == null || value.isEmpty ? null : value;
+  }
+
+  /// The `revision` query parameter; absent or blank means no check.
+  String? _revision(Request request) {
+    final value = request.url.queryParameters['revision']?.trim();
     return value == null || value.isEmpty ? null : value;
   }
 

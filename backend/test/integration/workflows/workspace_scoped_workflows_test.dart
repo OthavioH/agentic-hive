@@ -162,6 +162,7 @@ void main() {
     expect(payload.id, 'pulled');
     expect(payload.workspaceId, workspace.id);
     expect(payload.workflow?.name, 'Pulled from git');
+    expect(payload.workflow?.revision, isNotNull);
 
     final listed = WorkflowListResponse.fromJson(
       (await http.get('/api/v1/workflows?workspaceId=${workspace.id}')).json,

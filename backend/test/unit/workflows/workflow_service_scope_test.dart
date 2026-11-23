@@ -1,6 +1,7 @@
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_revision.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workspace_workflow_repository.dart';
@@ -273,5 +274,50 @@ void main() {
     expect(copy.workflow.name, 'Deploy (Copy)');
     expect(copy.workflow.id, 'deploy-copy');
     expect(globalRepository.store, isEmpty);
+  });
+
+  test(
+    'workspace reads carry a revision and a stale update is refused',
+    () async {
+      final created = (await service.createWorkflow(
+        const CreateWorkflowRequest(name: 'Deploy', workspaceId: 'ws-1'),
+      )).valueOrNull!;
+      final r0 = created.revision!;
+
+      final updated = (await service.updateWorkflow(
+        'deploy',
+        UpdateWorkflowRequest(name: 'Deploy v2', revision: r0),
+        workspaceId: 'ws-1',
+      )).valueOrNull!;
+      expect(updated.revision, workflowRevision(updated.workflow));
+
+      final stale = await service.updateWorkflow(
+        'deploy',
+        UpdateWorkflowRequest(name: 'Deploy v3', revision: r0),
+        workspaceId: 'ws-1',
+      );
+      expect(stale.failureOrNull, isA<StaleRevisionFailure>());
+
+      final list = (await service.listWorkflows(workspaceId: 'ws-1'))
+          .valueOrNull!;
+      expect(
+        list.workflows.single.revision,
+        workflowRevision(updated.workflow),
+      );
+    },
+  );
+
+  test('a stale revision on workspace delete keeps the file', () async {
+    await service.createWorkflow(
+      const CreateWorkflowRequest(name: 'Deploy', workspaceId: 'ws-1'),
+    );
+
+    final result = await service.deleteWorkflow(
+      'deploy',
+      workspaceId: 'ws-1',
+      expectedRevision: '0000000000000000',
+    );
+    expect(result.failureOrNull, isA<StaleRevisionFailure>());
+    expect(fileRepository.store, hasLength(1));
   });
 }
