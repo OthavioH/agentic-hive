@@ -247,10 +247,11 @@ void main() {
     expect(updated.workflow.id, 'deploy');
     expect(globalRepository.store['wf-1']!.name, 'Deploy');
 
-    expect(
-      await service.deleteWorkflow('deploy', workspaceId: 'ws-1'),
-      isA<Success<DeleteWorkflowResponse>>(),
-    );
+    final deletion = (await service.deleteWorkflow(
+      'deploy',
+      workspaceId: 'ws-1',
+    )).valueOrNull!;
+    await service.whenDeletionFinished(deletion.operationId);
     expect(fileRepository.store, isEmpty);
     expect(globalRepository.store, hasLength(1));
   });
@@ -349,9 +350,9 @@ void main() {
 
         final result = await cascadingService.deleteWorkflow('g1');
 
-        expect(
-          result.valueOrNull,
-          const DeleteWorkflowResponse(id: 'g1', deletedRuns: 3),
+        expect(result.valueOrNull, isA<WorkflowDeletionAccepted>());
+        await cascadingService.whenDeletionFinished(
+          result.valueOrNull!.operationId,
         );
         expect(deleter.calls, [('g1', null, false)]);
         expect(globalRepository.store.containsKey('g1'), isFalse);
@@ -369,9 +370,9 @@ void main() {
         workspaceId: 'ws-1',
       );
 
-      expect(
-        result.valueOrNull,
-        const DeleteWorkflowResponse(id: 'review', deletedRuns: 2),
+      expect(result.valueOrNull, isA<WorkflowDeletionAccepted>());
+      await cascadingService.whenDeletionFinished(
+        result.valueOrNull!.operationId,
       );
       expect(deleter.calls, [('review', 'ws-1', false)]);
       expect(fileRepository.store, isEmpty);
@@ -381,15 +382,13 @@ void main() {
       await cascadingService.createWorkflow(
         const CreateWorkflowRequest(name: 'Global'),
       );
-      const failure = WorkflowHasActiveRunsFailure(
-        'x',
-        activeRuns: {'r1': RunStatus.running},
-      );
-      deleter.result = const FailureResult(failure);
+      deleter.activeRuns = {'r1': RunStatus.running};
 
       final result = await cascadingService.deleteWorkflow('g1');
 
-      expect(result.failureOrNull, same(failure));
+      final failure = result.failureOrNull! as WorkflowHasActiveRunsFailure;
+      expect(failure.activeRuns, {'r1': RunStatus.running});
+      expect(deleter.calls, isEmpty);
       expect(globalRepository.store.containsKey('g1'), isTrue);
     });
 
@@ -410,13 +409,9 @@ void main() {
 
       final result = await cascadingService.deleteWorkflow('g1', force: true);
 
-      expect(
-        result.valueOrNull,
-        const DeleteWorkflowResponse(
-          id: 'g1',
-          deletedRuns: 2,
-          orphanedRuns: ['r9'],
-        ),
+      expect(result.valueOrNull, isA<WorkflowDeletionAccepted>());
+      await cascadingService.whenDeletionFinished(
+        result.valueOrNull!.operationId,
       );
       expect(deleter.calls, [('g1', null, true)]);
       expect(globalRepository.store.containsKey('g1'), isFalse);
@@ -444,10 +439,7 @@ void main() {
 
         final result = await service.deleteWorkflow('wf-1');
 
-        expect(
-          result.valueOrNull,
-          const DeleteWorkflowResponse(id: 'wf-1', deletedRuns: 0),
-        );
+        expect(result.valueOrNull, isA<WorkflowDeletionAccepted>());
       },
     );
   });
@@ -459,11 +451,21 @@ final class _RecordingRunsDeleter implements WorkflowRunsDeleter {
   );
   final List<(String, String?, bool)> calls = <(String, String?, bool)>[];
 
+  /// Active runs reported for the workflow (run id to status).
+  Map<String, RunStatus> activeRuns = const {};
+
+  @override
+  Future<Result<Map<String, RunStatus>>> activeRunsOfWorkflow(
+    String workflowId, {
+    String? workspaceId,
+  }) async => Success(activeRuns);
+
   @override
   Future<Result<WorkflowRunsDeletion>> deleteRunsOfWorkflow(
     String workflowId, {
     String? workspaceId,
     bool force = false,
+    WorkflowRunsProgressListener? onProgress,
   }) async {
     calls.add((workflowId, workspaceId, force));
     return result;

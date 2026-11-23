@@ -25,6 +25,18 @@ void main() {
       },
     );
 
+    test('maps workflow_deleting to workflowsFailureDeleting', () {
+      const failure = BackendFailure(
+        'x',
+        code: ApiErrorCode.workflowDeleting,
+        statusCode: 409,
+      );
+      expect(
+        WorkflowL10n.localizeFailure(l10n, failure),
+        l10n.workflowsFailureDeleting,
+      );
+    });
+
     test('maps other BackendFailures to the generic backend copy', () {
       const failure = BackendFailure('x', code: ApiErrorCode.conflict);
       expect(

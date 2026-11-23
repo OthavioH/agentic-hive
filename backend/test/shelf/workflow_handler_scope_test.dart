@@ -131,7 +131,7 @@ void main() {
     final deleted = await handler.call(
       _request('DELETE', '/deploy?workspaceId=ws-1'),
     );
-    expect(deleted.statusCode, 200);
+    expect(deleted.statusCode, 202);
     expect(
       (await handler.call(_request('GET', '/deploy?workspaceId=ws-1')))
           .statusCode,

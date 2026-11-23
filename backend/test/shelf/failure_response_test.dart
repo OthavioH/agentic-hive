@@ -8,6 +8,21 @@ import 'support.dart';
 
 void main() {
   group('mapFailureToHttp', () {
+    test('maps WorkflowDeletingFailure to 409 workflow_deleting with '
+        'details.operationId', () {
+      final mapped = mapFailureToHttp(
+        const WorkflowDeletingFailure(
+          'Workflow "wf-1" is being deleted.',
+          operationId: 'op-1',
+        ),
+      );
+
+      expect(mapped.statusCode, 409);
+      expect(mapped.error.code, ApiErrorCode.workflowDeleting);
+      expect(mapped.error.message, 'Workflow "wf-1" is being deleted.');
+      expect(mapped.error.details, {'operationId': 'op-1'});
+    });
+
     test('maps NotFoundFailure to 404 not_found with message', () {
       final mapped = mapFailureToHttp(
         const NotFoundFailure('Workflow not found.'),

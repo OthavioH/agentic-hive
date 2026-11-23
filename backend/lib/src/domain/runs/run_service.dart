@@ -11,6 +11,7 @@ import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_log_store.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
 import 'package:agentic_hive_backend/src/domain/settings/execution_settings_service.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_registry.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_runs_deleter.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
@@ -45,6 +46,7 @@ final class RunService implements WorkflowRunsDeleter {
     this._engine,
     this._canceller,
     this._logStore,
+    this._deletions,
     p.Context? pathContext,
     String Function()? generateId,
     DateTime Function()? now,
@@ -83,6 +85,7 @@ final class RunService implements WorkflowRunsDeleter {
 
   RunCanceller? get _effectiveCanceller => _canceller ?? _engine;
   final RunLogStore? _logStore;
+  final WorkflowDeletionRegistry? _deletions;
   final p.Context _pathContext;
   final String Function() _generateId;
   final DateTime Function() _now;
@@ -154,6 +157,18 @@ final class RunService implements WorkflowRunsDeleter {
     if (workspaceId.isEmpty) {
       return const FailureResult(
         ValidationFailure('Field "workspaceId" must not be blank.'),
+      );
+    }
+    final deletions = _deletions;
+    final deleting =
+        deletions?.runningFor(workflowId, workspaceId: workspaceId) ??
+        deletions?.runningFor(workflowId);
+    if (deleting != null) {
+      return FailureResult(
+        WorkflowDeletingFailure(
+          'Workflow "$workflowId" is being deleted.',
+          operationId: deleting.id,
+        ),
       );
     }
     final workspaceService = _workspaces;
@@ -798,15 +813,45 @@ final class RunService implements WorkflowRunsDeleter {
   /// global workflow: runs in any workspace) and cleans their shadow
   /// repositories and logs. Worktrees are kept (ADR 0025).
   ///
-  /// Pre-existing `cancellationUncertain` runs are kept as orphans
-  /// (`workflowId` cleared, `workflowName` preserved). With [force], active
-  /// runs are cancelled concurrently and awaited until settled; any that end
-  /// unconfirmed are also kept as orphans (#104 R5–R7).
+  /// Lists active runs (`running`, `paused`, and `cancelling`) of [workflowId]
+  /// in [workspaceId]'s scope, oldest first. A null scope matches all.
+  @override
+  Future<Result<Map<String, RunStatus>>> activeRunsOfWorkflow(
+    String workflowId, {
+    String? workspaceId,
+  }) async {
+    final activeRuns = <Run>[];
+    for (final status in [
+      RunStatus.running,
+      RunStatus.paused,
+      RunStatus.cancelling,
+    ]) {
+      final result = await _runs.listByStatus(status);
+      if (result case FailureResult<List<Run>>(:final failure)) {
+        return FailureResult(failure);
+      }
+      activeRuns.addAll(result.valueOrNull!);
+    }
+    final matching =
+        activeRuns
+            .where(
+              (run) =>
+                  run.workflowId == workflowId &&
+                  (workspaceId == null || run.workspaceId == workspaceId),
+            )
+            .toList()
+          ..sort((a, b) {
+            return a.startedAt.compareTo(b.startedAt);
+          });
+    return Success({for (final run in matching) run.id: run.status});
+  }
+
   @override
   Future<Result<WorkflowRunsDeletion>> deleteRunsOfWorkflow(
     String workflowId, {
     String? workspaceId,
     bool force = false,
+    WorkflowRunsProgressListener? onProgress,
   }) async {
     final uncertainResult = await _runs.listByStatus(
       RunStatus.cancellationUncertain,
@@ -826,6 +871,7 @@ final class RunService implements WorkflowRunsDeleter {
       workflowId,
       workspaceId: workspaceId,
       orphanIds: preExistingIds,
+      onProgress: onProgress,
     );
     if (!force) return first;
     if (first case FailureResult<WorkflowRunsDeletion>(
@@ -838,8 +884,26 @@ final class RunService implements WorkflowRunsDeleter {
         );
       }
       final ids = activeRuns.keys.toList(growable: false);
+      onProgress?.call(
+        WorkflowRunsProgress(
+          phase: WorkflowDeletionPhase.stoppingRuns,
+          runsToStop: ids.length,
+        ),
+      );
+      var stopped = 0;
       final unconfirmed = await Future.wait([
-        for (final id in ids) _cancelAndCheckUnconfirmed(canceller, id),
+        for (final id in ids)
+          _cancelAndCheckUnconfirmed(canceller, id).then((result) {
+            stopped++;
+            onProgress?.call(
+              WorkflowRunsProgress(
+                phase: WorkflowDeletionPhase.stoppingRuns,
+                runsToStop: ids.length,
+                runsStopped: stopped,
+              ),
+            );
+            return result;
+          }),
       ]);
       final allOrphans =
           <({String id, DateTime? startedAt})>[
@@ -859,6 +923,7 @@ final class RunService implements WorkflowRunsDeleter {
         workflowId,
         workspaceId: workspaceId,
         orphanIds: orphanIds,
+        onProgress: onProgress,
       );
     }
     return first;
@@ -868,6 +933,7 @@ final class RunService implements WorkflowRunsDeleter {
     String workflowId, {
     String? workspaceId,
     List<String> orphanIds = const [],
+    WorkflowRunsProgressListener? onProgress,
   }) async {
     final deleted = await _runs.deleteAllOfWorkflow(
       workflowId,
@@ -878,8 +944,18 @@ final class RunService implements WorkflowRunsDeleter {
       return FailureResult(failure);
     }
     final ids = deleted.valueOrNull!;
-    for (final id in ids) {
+    onProgress?.call(
+      const WorkflowRunsProgress(phase: WorkflowDeletionPhase.deletingRuns),
+    );
+    for (var i = 0; i < ids.length; i++) {
+      final id = ids[i];
       await _cleanUpRunArtifacts(id);
+      onProgress?.call(
+        WorkflowRunsProgress(
+          phase: WorkflowDeletionPhase.deletingRuns,
+          runsDeleted: i + 1,
+        ),
+      );
     }
     return Success(
       WorkflowRunsDeletion(deletedRuns: ids.length, orphanedRuns: orphanIds),

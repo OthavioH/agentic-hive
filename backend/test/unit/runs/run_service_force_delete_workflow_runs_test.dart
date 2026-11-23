@@ -5,6 +5,7 @@ import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_canceller.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_log_store.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_service.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_runs_deleter.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:test/test.dart';
 
@@ -397,4 +398,187 @@ void main() {
       expect(logStore.deletedRunIds, contains('r2'));
     },
   );
+
+  group('activeRunsOfWorkflow', () {
+    test(
+      'lists running, paused and cancelling runs of the scope oldest first',
+      () async {
+        await runs.create(
+          makeRun(
+            id: 'r3',
+            workflowId: 'wf-1',
+            workspaceId: 'ws-1',
+            status: RunStatus.running,
+            startedAt: DateTime.utc(2026, 11, 20, 12),
+          ),
+        );
+        await runs.create(
+          makeRun(
+            id: 'r1',
+            workflowId: 'wf-1',
+            workspaceId: 'ws-1',
+            status: RunStatus.paused,
+            startedAt: DateTime.utc(2026, 11, 20, 9),
+          ),
+        );
+        await runs.create(
+          makeRun(
+            id: 'r2',
+            workflowId: 'wf-1',
+            workspaceId: 'ws-1',
+            status: RunStatus.cancelling,
+            startedAt: DateTime.utc(2026, 11, 20, 10),
+          ),
+        );
+        await runs.create(
+          makeRun(
+            id: 'r4',
+            workflowId: 'wf-1',
+            workspaceId: 'ws-1',
+            status: RunStatus.succeeded,
+            startedAt: DateTime.utc(2026, 11, 20, 8),
+          ),
+        );
+        await runs.create(
+          makeRun(
+            id: 'r5',
+            workflowId: 'wf-2',
+            workspaceId: 'ws-1',
+            status: RunStatus.running,
+          ),
+        );
+        await runs.create(
+          makeRun(
+            id: 'r6',
+            workflowId: 'wf-1',
+            workspaceId: 'ws-2',
+            status: RunStatus.running,
+          ),
+        );
+
+        final result = await service.activeRunsOfWorkflow(
+          'wf-1',
+          workspaceId: 'ws-1',
+        );
+
+        expect(result.valueOrNull!.keys.toList(), ['r1', 'r2', 'r3']);
+        expect(result.valueOrNull!.values.toList(), [
+          RunStatus.paused,
+          RunStatus.cancelling,
+          RunStatus.running,
+        ]);
+      },
+    );
+
+    test('without workspaceId matches every workspace', () async {
+      await runs.create(
+        makeRun(
+          id: 'r1',
+          workflowId: 'wf-1',
+          workspaceId: 'ws-1',
+          status: RunStatus.running,
+          startedAt: DateTime.utc(2026, 11, 20, 9),
+        ),
+      );
+      await runs.create(
+        makeRun(
+          id: 'r2',
+          workflowId: 'wf-1',
+          workspaceId: 'ws-2',
+          status: RunStatus.running,
+          startedAt: DateTime.utc(2026, 11, 20, 10),
+        ),
+      );
+      await runs.create(
+        makeRun(
+          id: 'r3',
+          workflowId: 'wf-1',
+          status: RunStatus.running,
+          startedAt: DateTime.utc(2026, 11, 20, 11),
+        ),
+      );
+      await runs.create(
+        makeRun(id: 'r4', workflowId: 'wf-2', status: RunStatus.running),
+      );
+
+      final result = await service.activeRunsOfWorkflow('wf-1');
+
+      expect(result.valueOrNull!.keys.toList(), ['r1', 'r2', 'r3']);
+    });
+  });
+
+  group('progress', () {
+    List<(WorkflowDeletionPhase, int, int, int)> tuples(
+      List<WorkflowRunsProgress> events,
+    ) => [
+      for (final e in events)
+        (e.phase, e.runsToStop, e.runsStopped, e.runsDeleted),
+    ];
+
+    test('reports stopping_runs per settled cancel and deleting_runs per '
+        'cleaned run', () async {
+      await runs.create(
+        makeRun(id: 'r1', workflowId: 'wf-1', status: RunStatus.running),
+      );
+      await runs.create(
+        makeRun(id: 'r2', workflowId: 'wf-1', status: RunStatus.running),
+      );
+      await runs.create(
+        makeRun(id: 'r3', workflowId: 'wf-1', status: RunStatus.succeeded),
+      );
+      canceller.outcomes['r1'] = RunStatus.cancelled;
+      canceller.outcomes['r2'] = RunStatus.cancelled;
+      final events = <WorkflowRunsProgress>[];
+
+      final result = await service.deleteRunsOfWorkflow(
+        'wf-1',
+        force: true,
+        onProgress: events.add,
+      );
+
+      expect(result.valueOrNull?.deletedRuns, 3);
+      expect(tuples(events), [
+        (WorkflowDeletionPhase.stoppingRuns, 2, 0, 0),
+        (WorkflowDeletionPhase.stoppingRuns, 2, 1, 0),
+        (WorkflowDeletionPhase.stoppingRuns, 2, 2, 0),
+        (WorkflowDeletionPhase.deletingRuns, 0, 0, 0),
+        (WorkflowDeletionPhase.deletingRuns, 0, 0, 1),
+        (WorkflowDeletionPhase.deletingRuns, 0, 0, 2),
+        (WorkflowDeletionPhase.deletingRuns, 0, 0, 3),
+      ]);
+    });
+
+    test('without active runs reports only deleting_runs', () async {
+      await runs.create(
+        makeRun(id: 'r1', workflowId: 'wf-1', status: RunStatus.succeeded),
+      );
+      final events = <WorkflowRunsProgress>[];
+
+      await service.deleteRunsOfWorkflow(
+        'wf-1',
+        force: true,
+        onProgress: events.add,
+      );
+
+      expect(tuples(events), [
+        (WorkflowDeletionPhase.deletingRuns, 0, 0, 0),
+        (WorkflowDeletionPhase.deletingRuns, 0, 0, 1),
+      ]);
+    });
+
+    test('a refused non-forced deletion reports no progress', () async {
+      await runs.create(
+        makeRun(id: 'r1', workflowId: 'wf-1', status: RunStatus.running),
+      );
+      final events = <WorkflowRunsProgress>[];
+
+      final result = await service.deleteRunsOfWorkflow(
+        'wf-1',
+        onProgress: events.add,
+      );
+
+      expect(result.failureOrNull, isA<WorkflowHasActiveRunsFailure>());
+      expect(events, isEmpty);
+    });
+  });
 }

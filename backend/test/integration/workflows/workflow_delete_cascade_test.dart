@@ -93,6 +93,17 @@ void main() {
     fail('Run $runId did not finish within 30s');
   }
 
+  Future<WorkflowDeletionStatus> waitForDeletion(String operationId) async {
+    for (var i = 0; i < 300; i++) {
+      final res = await http.get('/api/v1/workflow-deletions/$operationId');
+      expect(res.statusCode, 200);
+      final status = WorkflowDeletionStatus.fromJson(res.json);
+      if (status.phase == WorkflowDeletionPhase.done) return status;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    fail('Deletion $operationId did not finish within 30s');
+  }
+
   Future<String> writeQuickScript() async {
     final script = File(p.join(workspaceDir.path, 'quick.dart'));
     await script.writeAsString("void main() { print('hi'); }\n");
@@ -131,8 +142,13 @@ Future<void> main() async {
     }
 
     final delRes = await http.delete('/api/v1/workflows/${workflow.id}');
-    expect(delRes.statusCode, 200);
-    expect(DeleteWorkflowResponse.fromJson(delRes.json).deletedRuns, 2);
+    expect(delRes.statusCode, 202);
+    final accepted = WorkflowDeletionAccepted.fromJson(delRes.json);
+    expect(accepted.workflowId, workflow.id);
+    final status = await waitForDeletion(accepted.operationId);
+    expect(status.outcome, WorkflowDeletionOutcome.deleted);
+    expect(status.runsDeleted, 2);
+    expect(status.orphanedRuns, isEmpty);
 
     for (final runId in [r1.id, r2.id]) {
       expect((await http.get('/api/v1/runs/$runId')).statusCode, 404);
@@ -174,8 +190,12 @@ Future<void> main() async {
     final delRes = await http.delete(
       '/api/v1/workflows/${wsFlow.id}?workspaceId=$workspaceId',
     );
-    expect(delRes.statusCode, 200);
-    expect(DeleteWorkflowResponse.fromJson(delRes.json).deletedRuns, 1);
+    expect(delRes.statusCode, 202);
+    final accepted = WorkflowDeletionAccepted.fromJson(delRes.json);
+    expect(accepted.workflowId, wsFlow.id);
+    final status = await waitForDeletion(accepted.operationId);
+    expect(status.outcome, WorkflowDeletionOutcome.deleted);
+    expect(status.runsDeleted, 1);
 
     final wsFile = File(
       p.join(
@@ -234,13 +254,31 @@ Future<void> main() async {
       await Future<void>.delayed(const Duration(milliseconds: 50));
     }
 
+    final stopwatch = Stopwatch()..start();
     final delRes = await http.delete(
       '/api/v1/workflows/${workflow.id}?force=true',
     );
-    expect(delRes.statusCode, 200);
-    final body = DeleteWorkflowResponse.fromJson(delRes.json);
-    expect(body.deletedRuns, 1);
-    expect(body.orphanedRuns, isEmpty);
+    stopwatch.stop();
+    expect(delRes.statusCode, 202);
+    expect(stopwatch.elapsed, lessThan(const Duration(seconds: 2)));
+    final accepted = WorkflowDeletionAccepted.fromJson(delRes.json);
+
+    final listed = WorkflowListResponse.fromJson(
+      (await http.get('/api/v1/workflows')).json,
+    ).workflows.where((summary) => summary.id == workflow.id);
+    final current = await http.get(
+      '/api/v1/workflow-deletions/${accepted.operationId}',
+    );
+    final deleting = WorkflowDeletionStatus.fromJson(current.json);
+    expect(
+      deleting.phase == WorkflowDeletionPhase.done || listed.single.deleting,
+      isTrue,
+    );
+
+    final status = await waitForDeletion(accepted.operationId);
+    expect(status.outcome, WorkflowDeletionOutcome.deleted);
+    expect(status.runsDeleted, 1);
+    expect(status.orphanedRuns, isEmpty);
 
     expect((await http.get('/api/v1/runs/${run.id}')).statusCode, 404);
     expect(
@@ -249,5 +287,11 @@ Future<void> main() async {
     );
     expect(File(scriptPath).existsSync(), isTrue);
     expect(workspaceDir.existsSync(), isTrue);
+  });
+
+  test('GET /api/v1/workflow-deletions/unknown answers 404', () async {
+    final res = await http.get('/api/v1/workflow-deletions/unknown');
+
+    expect(res.statusCode, 404);
   });
 }

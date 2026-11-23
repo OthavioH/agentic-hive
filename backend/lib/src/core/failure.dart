@@ -52,6 +52,16 @@ final class WorkflowHasActiveRunsFailure extends Failure {
   final Map<String, RunStatus> activeRuns;
 }
 
+/// The workflow is being deleted; edits, duplicates and new runs are
+/// refused until the operation ends (`409`, ADR 0027).
+final class WorkflowDeletingFailure extends Failure {
+  /// Creates the failure for the running deletion [operationId].
+  const new(super.message, {required this.operationId});
+
+  /// Id of the running deletion operation.
+  final String operationId;
+}
+
 /// A persistence operation (for example SQLite) failed (`500`).
 final class PersistenceFailure extends Failure {
   /// Creates a persistence failure.

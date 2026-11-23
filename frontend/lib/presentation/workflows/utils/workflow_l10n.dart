@@ -24,6 +24,8 @@ abstract final class WorkflowL10n {
         l10n.editorRevisionConflictBadge,
       BackendFailure(code: ApiErrorCode.workflowHasActiveRuns) =>
         l10n.workflowsFailureActiveRuns,
+      BackendFailure(code: ApiErrorCode.workflowDeleting) =>
+        l10n.workflowsFailureDeleting,
       BackendFailure() => l10n.workflowsFailureBackend,
       UnexpectedFailure() => l10n.workflowsFailureUnexpected,
     };

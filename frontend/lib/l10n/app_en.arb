@@ -1185,6 +1185,10 @@
   "@workflowsFailureActiveRuns": {
     "description": "Error shown when deleting a workflow is refused because some of its runs are running, paused or cancelling."
   },
+  "workflowsFailureDeleting": "This workflow is being deleted.",
+  "@workflowsFailureDeleting": {
+    "description": "Error shown when editing, duplicating or running a workflow that is being deleted."
+  },
   "workflowsFailureUnexpected": "An unexpected error occurred while processing the workflow.",
   "@workflowsFailureUnexpected": {
     "description": "Localized error message when a workflow operation fails with an UnexpectedFailure."

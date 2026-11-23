@@ -8,6 +8,7 @@ import 'package:agentic_hive_backend/src/api/result_contract/result_contract_han
 import 'package:agentic_hive_backend/src/api/runs/runs_handler.dart';
 import 'package:agentic_hive_backend/src/api/settings/execution_settings_handler.dart';
 import 'package:agentic_hive_backend/src/api/settings/settings_handler.dart';
+import 'package:agentic_hive_backend/src/api/workflows/workflow_deletion_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/api/workspace/workspace_handler.dart';
 import 'package:agentic_hive_backend/src/api/workspace/workspaces_handler.dart';
@@ -38,6 +39,7 @@ Handler buildApiHandler({
   AgentsMigrationHandler? agentsMigrationHandler,
   HarnessesHandler? harnessesHandler,
   WorkflowHandler? workflowHandler,
+  WorkflowDeletionHandler? workflowDeletionHandler,
   ResultContractHandler? resultContractHandler,
   McpToolsHandler? mcpToolsHandler,
   RunsHandler? runsHandler,
@@ -59,6 +61,12 @@ Handler buildApiHandler({
   }
   if (workflowHandler != null) {
     router.mount('/api/v1/workflows', workflowHandler.call);
+  }
+  if (workflowDeletionHandler != null) {
+    router.get(
+      '/api/v1/workflow-deletions/<operationId>',
+      workflowDeletionHandler.getById,
+    );
   }
   if (workspaceHandler != null) {
     router
