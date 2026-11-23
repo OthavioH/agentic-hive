@@ -45,5 +45,128 @@ abstract final class HiveMcpToolCatalog {
         additionalProperties: false,
       ),
     ),
+    Tool(
+      name: 'create_workflow',
+      description:
+          'Create a workflow from nodes and edges. Returns its id, revision '
+          'and validation; graph problems are saved as a draft.',
+      inputSchema: ObjectSchema(
+        properties: <String, Schema>{
+          'name': StringSchema(description: 'Workflow name.'),
+          'description': StringSchema(description: 'Optional description.'),
+          'nodes': ListSchema(
+            description: 'Nodes with short unique ids and node types.',
+            items: ObjectSchema(
+              properties: <String, Schema>{
+                'id': StringSchema(),
+                'type': StringSchema(),
+                'label': StringSchema(),
+                'config': ObjectSchema(),
+                'position': ObjectSchema(
+                  properties: <String, Schema>{
+                    'x': NumberSchema(),
+                    'y': NumberSchema(),
+                  },
+                  required: const <String>['x', 'y'],
+                ),
+              },
+              required: const <String>['id', 'type', 'label'],
+            ),
+          ),
+          'edges': ListSchema(
+            description: 'Edges with from/to ids and a source output.',
+            items: ObjectSchema(
+              properties: <String, Schema>{
+                'from': StringSchema(),
+                'to': StringSchema(),
+                'output': StringSchema(),
+                'maxRetries': IntegerSchema(),
+              },
+              required: const <String>['from', 'to', 'output'],
+            ),
+          ),
+          'entryNodeId': StringSchema(),
+          'workspace': _workspace,
+        },
+        required: const <String>['name', 'nodes', 'edges', 'entryNodeId'],
+        additionalProperties: false,
+      ),
+    ),
+    Tool(
+      name: 'duplicate_workflow',
+      description: 'Copy a workflow in the same scope with an optional name.',
+      inputSchema: ObjectSchema(
+        properties: <String, Schema>{
+          'id': StringSchema(description: 'Workflow id from list_workflows.'),
+          'name': StringSchema(description: 'Optional name of the copy.'),
+          'workspace': _workspace,
+        },
+        required: const <String>['id'],
+        additionalProperties: false,
+      ),
+    ),
+    Tool(
+      name: 'edit_workflow',
+      description:
+          'Apply patch operations to a workflow as one transaction. Needs the '
+          'revision you read; returns a summary, the new revision and '
+          'validation.',
+      inputSchema: ObjectSchema(
+        properties: <String, Schema>{
+          'id': StringSchema(description: 'Workflow id from list_workflows.'),
+          'revision': StringSchema(
+            description:
+                'Revision from your last get_workflow or list_workflows.',
+          ),
+          'operations': ListSchema(
+            description:
+                'Applied in order; if one fails none is applied. '
+                'add_node {id, type, label, config?, position?}; '
+                'update_node {id, label?, config?} (config merges, null '
+                'removes a key); remove_node {id} (also its edges); '
+                'connect {from, to, output, maxRetries?}; '
+                'disconnect {from, to, output?}; set_entry {id}; '
+                'set_meta {name?, description?}.',
+            minItems: 1,
+            items: ObjectSchema(
+              properties: <String, Schema>{
+                'op': UntitledSingleSelectEnumSchema(
+                  values: const <String>[
+                    'add_node',
+                    'update_node',
+                    'remove_node',
+                    'connect',
+                    'disconnect',
+                    'set_entry',
+                    'set_meta',
+                  ],
+                ),
+                'id': StringSchema(),
+                'type': StringSchema(),
+                'label': StringSchema(),
+                'config': ObjectSchema(),
+                'position': ObjectSchema(
+                  properties: <String, Schema>{
+                    'x': NumberSchema(),
+                    'y': NumberSchema(),
+                  },
+                  required: const <String>['x', 'y'],
+                ),
+                'from': StringSchema(),
+                'to': StringSchema(),
+                'output': StringSchema(),
+                'maxRetries': IntegerSchema(),
+                'name': StringSchema(),
+                'description': StringSchema(),
+              },
+              required: const <String>['op'],
+            ),
+          ),
+          'workspace': _workspace,
+        },
+        required: const <String>['id', 'revision', 'operations'],
+        additionalProperties: false,
+      ),
+    ),
   ];
 }

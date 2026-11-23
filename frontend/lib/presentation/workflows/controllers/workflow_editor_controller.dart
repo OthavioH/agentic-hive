@@ -140,6 +140,9 @@ final class WorkflowEditorState {
 }
 
 /// Manages editing, selection, validation, and saving of a single workflow.
+///
+/// An external change to the open workflow (for example an MCP edit) reloads
+/// it when there is no unsaved draft.
 @riverpod
 class WorkflowEditorController extends _$WorkflowEditorController {
   int _idCounter = 0;
@@ -155,6 +158,16 @@ class WorkflowEditorController extends _$WorkflowEditorController {
     String? workspaceId,
   }) async {
     _workspaceId = workspaceId;
+    final changes = ref.read(watchWorkflowChangesProvider).call().listen((
+      payload,
+    ) {
+      if (payload.kind == WorkflowChangeKind.updated &&
+          payload.id == workflowId &&
+          payload.workspaceId == workspaceId) {
+        unawaited(_reloadIfClean(workflowId, payload.workflow?.revision));
+      }
+    });
+    ref.onDispose(() => unawaited(changes.cancel()));
     final result = await ref
         .read(getWorkflowProvider)
         .call(workflowId, workspaceId: workspaceId);
@@ -168,6 +181,39 @@ class WorkflowEditorController extends _$WorkflowEditorController {
       FailureResult<WorkflowResponse>(:final failure) =>
         Error.throwWithStackTrace(failure, StackTrace.current),
     };
+  }
+
+  /// Reloads after an external change unless the user has a draft (E2-E5).
+  Future<void> _reloadIfClean(String workflowId, String? revision) async {
+    final current = state.asData?.value;
+    if (current == null) return;
+    if (revision != null && revision == current.revision) return;
+    if (current.isDirty || current.isSaving) return;
+    final result = await ref
+        .read(getWorkflowProvider)
+        .call(workflowId, workspaceId: _workspaceId);
+    if (!ref.mounted) return;
+    final latest = state.asData?.value;
+    if (latest == null || latest.isDirty || latest.isSaving) return;
+    if (result case Success<WorkflowResponse>(:final value)) {
+      _validationSeq++;
+      final nodeId = latest.selectedNodeId;
+      final edgeId = latest.selectedEdgeId;
+      state = AsyncData(
+        latest.copyWith(
+          workflow: value.workflow,
+          savedWorkflow: value.workflow,
+          validation: value.validation,
+          revision: () => value.revision,
+          isValidating: false,
+          saveFailure: () => null,
+          selectedNodeId: () =>
+              value.workflow.nodes.any((n) => n.id == nodeId) ? nodeId : null,
+          selectedEdgeId: () =>
+              value.workflow.edges.any((e) => e.id == edgeId) ? edgeId : null,
+        ),
+      );
+    }
   }
 
   /// Selects a node and clears any edge selection.

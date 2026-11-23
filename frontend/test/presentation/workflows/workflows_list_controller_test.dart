@@ -320,6 +320,26 @@ void main() {
         await Future<void>.delayed(Duration.zero);
         expect(repo.listedScopes.length, before + 1);
       });
+
+      test('a live change of a global workflow reloads the list', () async {
+        workspaces.workspaces = [makeWorkspace(name: 'One')];
+        final repo = _FakeWorkflowRepository()..seedDefaults();
+        final container = scopedContainer(repo);
+        await container.read(workspaceRegistryControllerProvider.future);
+        await container.read(workflowsListControllerProvider.future);
+        final before = repo.listedScopes.length;
+
+        changes.add(
+          const WorkflowsChangedPayload(
+            kind: WorkflowChangeKind.created,
+            id: 'g',
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(repo.listedScopes.length, before + 1);
+      });
     });
 
     test('surfaces load error in AsyncError', () async {
