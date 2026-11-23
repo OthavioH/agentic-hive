@@ -15,6 +15,10 @@ void main() {
     expect(Worktree.fromJson(worktree.toJson()), worktree);
   });
 
+  test('the primary checkout has a fixed id', () {
+    expect(primaryWorktreeId, 'primary');
+  });
+
   test('CreateWorktreeRequest and RemoveWorktreeResponse decode', () {
     final request = CreateWorktreeRequest.fromJson({'name': 'x'});
     expect(request.branch, isNull);

@@ -25,9 +25,6 @@ final class WorktreeService {
     p.Context? pathContext,
   }) : _path = pathContext ?? p.context;
 
-  /// Id of the primary checkout in a worktree list.
-  static const primaryId = 'primary';
-
   static final _validName = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
 
   final GitClient _git;
@@ -56,7 +53,7 @@ final class WorktreeService {
       final name = _path.basename(entry.path);
       items.add(
         Worktree(
-          id: isPrimary ? primaryId : name,
+          id: isPrimary ? primaryWorktreeId : name,
           name: isPrimary ? _path.basename(workspace.rootPath) : name,
           path: entry.path,
           isPrimary: isPrimary,
@@ -79,11 +76,11 @@ final class WorktreeService {
       );
     }
     final name = request.name.trim();
-    if (!_validName.hasMatch(name) || name == primaryId) {
+    if (!_validName.hasMatch(name) || name == primaryWorktreeId) {
       return FailureResult(
         ValidationFailure(
           'Worktree name "$name" is invalid: use letters, digits, ".", "_" '
-          'and "-", starting with a letter or digit ("$primaryId" is '
+          'and "-", starting with a letter or digit ("$primaryWorktreeId" is '
           'reserved).',
         ),
       );
@@ -160,7 +157,7 @@ final class WorktreeService {
     String id, {
     bool force = false,
   }) async {
-    if (id == primaryId) {
+    if (id == primaryWorktreeId) {
       return const FailureResult(
         ValidationFailure('The primary checkout cannot be removed.'),
       );
