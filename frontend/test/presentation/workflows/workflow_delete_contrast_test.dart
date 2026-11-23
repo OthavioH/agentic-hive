@@ -423,7 +423,7 @@ void main() {
     });
   }
 
-  test('contrast report', () {
+  tearDownAll(() {
     reportRows.forEach(debugPrint);
   });
 }
