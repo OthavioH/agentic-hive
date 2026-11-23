@@ -88,3 +88,13 @@ _Avoid_: current step, live node
 **Active agent**:
 An agent that an active node is executing right now. An agent is never active on its own: it is only active through a node of a run.
 _Avoid_: online agent, running agent (an agent is a file, not a service)
+
+## Distribution
+
+**Release**:
+A published version of the product: a GitHub pre-release for a `vX.Y.Z` tag on `master` with one Bundle archive per released OS and a `SHA256SUMS` file.
+_Avoid_: build, drop, distribution (as a noun for one version)
+
+**Bundle**:
+The folder a user runs: the app executable with the backend's `dart build cli` output in a `backend/` folder next to it (`backend/bin/server`, `backend/bin/hive_mcp`, and `backend/lib/` with SQLite and, on Linux, the executables' compiled programs).
+_Avoid_: package, install folder, distribution

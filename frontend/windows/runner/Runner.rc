@@ -92,7 +92,7 @@ BEGIN
             VALUE "CompanyName", "dev.othavioh" "\0"
             VALUE "FileDescription", "Agentic Hive" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "Agentic Hive" "\0"
+            VALUE "InternalName", "agentic_hive" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 dev.othavioh. All rights reserved." "\0"
             VALUE "OriginalFilename", "agentic_hive.exe" "\0"
             VALUE "ProductName", "Agentic Hive" "\0"
