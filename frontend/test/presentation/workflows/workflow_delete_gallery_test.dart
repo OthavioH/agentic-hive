@@ -205,15 +205,18 @@ Future<void> _capture(
     );
   }
 
-  await tester.runAsync(() async {
-    final boundary =
-        boundaryKey.currentContext!.findRenderObject()!
-            as RenderRepaintBoundary;
-    final image = await boundary.toImage();
-    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    final bytes = byteData!.buffer.asUint8List();
-    File(_galleryPath('${name}_$dimensions')).writeAsBytesSync(bytes);
-  });
+  // Pass `--dart-define=HIVE_UPDATE_GALLERY=true` to regenerate the gallery PNGs.
+  if (const bool.fromEnvironment('HIVE_UPDATE_GALLERY')) {
+    await tester.runAsync(() async {
+      final boundary =
+          boundaryKey.currentContext!.findRenderObject()!
+              as RenderRepaintBoundary;
+      final image = await boundary.toImage();
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      final bytes = byteData!.buffer.asUint8List();
+      File(_galleryPath('${name}_$dimensions')).writeAsBytesSync(bytes);
+    });
+  }
   handle.dispose();
   for (final controller in repo.live) {
     await controller.close();
