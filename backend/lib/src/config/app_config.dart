@@ -50,8 +50,14 @@ final class AppConfig {
   /// The `server.json` file read by the frontend.
   String get serverInfoPath => p.join(dataDir, 'server.json');
 
-  /// The folder where agent `.md` files are stored.
-  String get agentsDir => _agentsDir ?? p.join(dataDir, 'agents');
+  /// The global agents folder: the user's shared library `~/.agents/agents`
+  /// (ADR 0022). Falls back to [legacyAgentsDir] only when the configuration
+  /// gives no folder, as in tests that build a bare [AppConfig].
+  String get agentsDir => _agentsDir ?? legacyAgentsDir;
+
+  /// The former global agents folder inside the data folder, migrated into
+  /// [agentsDir] at startup.
+  String get legacyAgentsDir => p.join(dataDir, 'agents');
 
   /// The folder where per-run shadow git repositories are stored.
   String get snapshotsDir => p.join(dataDir, 'snapshots');

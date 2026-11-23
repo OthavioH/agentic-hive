@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:agentic_hive_backend/src/config/app_config.dart';
 import 'package:agentic_hive_backend/src/config/platform_paths.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/data/agents/agents_directory_migration.dart';
 import 'package:agentic_hive_backend/src/di/dependencies.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_recovery_service.dart';
 import 'package:agentic_hive_backend/src/domain/settings/settings_service.dart';
@@ -46,6 +47,10 @@ final class Backend {
     await Directory(config.dataDir).create(recursive: true);
     await paths.restrictToOwner(config.dataDir);
     await Directory(config.agentsDir).create(recursive: true);
+    await AgentsDirectoryMigration(
+      legacyDir: config.legacyAgentsDir,
+      targetDir: config.agentsDir,
+    ).run();
 
     // Fail fast, before opening the database or touching the log files, when
     // the path is too long or another backend already serves this folder.
