@@ -11,6 +11,7 @@ import 'package:agentic_hive_backend/src/domain/nodes/pty_session.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/terminal_harness_node.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_coordinator.dart';
 import 'package:agentic_hive_backend/src/domain/runs/process_tree_killer.dart';
+import 'package:agentic_hive_backend/src/domain/settings/execution_settings_service.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:test/test.dart';
 
@@ -48,6 +49,30 @@ final class _FakeShellProvider implements DefaultShellProvider {
 
   @override
   final String defaultShell;
+}
+
+final class _FakeExecutionSettings implements ExecutionSettingsService {
+  new(this.shell);
+
+  final String shell;
+  final List<String> requestedWorkspaceIds = <String>[];
+
+  @override
+  Future<Result<EffectiveExecutionSettings>> effectiveFor(
+    String workspaceId,
+  ) async {
+    requestedWorkspaceIds.add(workspaceId);
+    return Success(
+      EffectiveExecutionSettings(
+        defaultIsolationMode: WorkspaceIsolationMode.direct,
+        ignorePatterns: const <String>[],
+        defaultShell: shell,
+      ),
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
 }
 
 final class _FakeAgentPromptResolver implements AgentPromptResolver {
@@ -332,6 +357,35 @@ void main() {
 
         expect(result.isSuccess, isTrue);
         expect(ptyRunner.lastInvocation!.executable, '/usr/bin/fish');
+      },
+    );
+
+    test(
+      'uses the effective workspace default shell instead of the OS default',
+      () async {
+        final ptyRunner = _FakePtyRunner();
+        final settings = _FakeExecutionSettings('/opt/custom-shell');
+        final node = TerminalHarnessNode(
+          ptyRunner: ptyRunner,
+          defaultShellProvider: const _FakeShellProvider('/usr/bin/fish'),
+          executionSettings: settings,
+          resultContract: _FakeResultContract(),
+          agentPromptResolver: _FakeAgentPromptResolver(),
+        );
+
+        final result = await node.execute(
+          NodeExecutionContext(
+            runId: 'run-1',
+            nodeId: 'term-1',
+            workspacePath: workspaceDir.path,
+            workspaceId: 'ws-1',
+            config: const <String, Object?>{'additionalInstructions': 'go'},
+          ),
+        );
+
+        expect(result.isSuccess, isTrue);
+        expect(settings.requestedWorkspaceIds, ['ws-1']);
+        expect(ptyRunner.lastInvocation!.executable, '/opt/custom-shell');
       },
     );
 

@@ -1250,6 +1250,7 @@ final class GraphEngine {
           nodeId: id,
           workspacePath: _workspaceOf(x.run),
           workspaceRoot: x.run.workspacePath,
+          workspaceId: x.run.workspaceId,
           attempt: attempt,
           availableOutputs: node.availableOutputs,
           config: workflowNode.config,

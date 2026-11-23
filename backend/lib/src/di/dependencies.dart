@@ -300,6 +300,7 @@ Future<void> registerDependencies(
         approvalPort: di<HumanApprovalPort>(),
         agentPromptResolver: di<AgentPromptResolver>(),
         processTreeKiller: di<ProcessTreeKiller>(),
+        executionSettings: () => di<ExecutionSettingsService>(),
       ),
     )
     ..registerSingleton<WorkflowValidator>(
