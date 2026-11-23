@@ -89,6 +89,7 @@ import 'package:agentic_hive_backend/src/domain/workflows/workspace_workflow_rep
 import 'package:agentic_hive_backend/src/domain/workspace/shadow_snapshot_service.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/snapshot_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_capabilities_service.dart';
+import 'package:agentic_hive_backend/src/domain/workspace/workspace_events.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_preparation_service.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_service.dart';
@@ -108,6 +109,7 @@ import 'package:agentic_hive_backend/src/server/server_info_file.dart';
 import 'package:agentic_hive_backend/src/version.dart';
 import 'package:agentic_hive_backend/src/ws/connection_registry.dart';
 import 'package:agentic_hive_backend/src/ws/ws_gateway.dart';
+import 'package:agentic_hive_backend/src/ws/ws_workspace_events.dart';
 import 'package:get_it/get_it.dart';
 
 Future<void> _noOpShutdown() async {}
@@ -383,6 +385,7 @@ Future<void> registerDependencies(
       () => WorkspacesHandler(
         service: di<WorkspaceService>(),
         onChanged: () => di<WorkspaceAgentWatchers>().sync(),
+        events: di<WorkspaceEvents>(),
       ),
       dependsOn: [WorkspaceService],
     )
@@ -423,6 +426,7 @@ Future<void> registerDependencies(
       () => WorktreesHandler(
         workspaces: di<WorkspaceService>(),
         worktrees: di<WorktreeService>(),
+        events: di<WorkspaceEvents>(),
       ),
       dependsOn: [WorkspaceService, WorktreeService],
     )
@@ -551,6 +555,9 @@ Future<void> registerDependencies(
       dependsOn: [OverviewService],
     )
     ..registerSingleton<ConnectionRegistry>(ConnectionRegistry())
+    ..registerSingleton<WorkspaceEvents>(
+      WsWorkspaceEvents(di<ConnectionRegistry>()),
+    )
     ..registerSingleton<AgentService>(
       AgentService(
         di<AgentRepository>(),

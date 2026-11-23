@@ -18,6 +18,13 @@ abstract final class WsMessageType {
   /// disk.
   static const workflowsChanged = 'workflows.changed';
 
+  /// Server → client, broadcast when a workspace is registered, updated or
+  /// unregistered.
+  static const workspacesChanged = 'workspaces.changed';
+
+  /// Server → client, broadcast when a worktree is created or removed.
+  static const worktreesChanged = 'worktrees.changed';
+
   /// Server → client, broadcast when a harness's detected status changes.
   static const harnessStatusUpdated = 'harness.status_updated';
 

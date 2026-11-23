@@ -78,6 +78,8 @@ export 'src/ws/run_unsubscribe_payload.dart';
 export 'src/ws/server_hello_payload.dart';
 export 'src/ws/settings_updated_payload.dart';
 export 'src/ws/workflows_changed_payload.dart';
+export 'src/ws/workspaces_changed_payload.dart';
+export 'src/ws/worktrees_changed_payload.dart';
 export 'src/ws/ws_close_code.dart';
 export 'src/ws/ws_envelope.dart';
 export 'src/ws/ws_error_payload.dart';

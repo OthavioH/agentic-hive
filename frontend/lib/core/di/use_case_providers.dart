@@ -12,6 +12,7 @@ import 'package:agentic_hive_frontend/data/settings/settings_repository_impl.dar
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_settings_providers.dart';
+import 'package:agentic_hive_frontend/data/workspace/workspace_tree_changes_providers.dart';
 import 'package:agentic_hive_frontend/domain/agents/create_agent_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/delete_agent_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/get_agent_use_case.dart';
@@ -68,6 +69,7 @@ import 'package:agentic_hive_frontend/domain/workspace/use_cases/restore_snapsho
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/save_last_workspace_id.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/unregister_workspace.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/update_workspace_settings.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/watch_workspace_tree_changes.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'use_case_providers.g.dart';
@@ -161,6 +163,11 @@ DeleteWorkflow deleteWorkflow(Ref ref) =>
 @riverpod
 WatchWorkflowChanges watchWorkflowChanges(Ref ref) =>
     WatchWorkflowChanges(ref.watch(workflowChangesSourceProvider));
+
+/// Provides [WatchWorkspaceTreeChanges].
+@riverpod
+WatchWorkspaceTreeChanges watchWorkspaceTreeChanges(Ref ref) =>
+    WatchWorkspaceTreeChanges(ref.watch(workspaceTreeChangesSourceProvider));
 
 /// Provides [ValidateWorkflow].
 @riverpod

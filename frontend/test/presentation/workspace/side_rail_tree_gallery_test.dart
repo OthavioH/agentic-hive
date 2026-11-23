@@ -6,10 +6,12 @@ import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/data/pauses/pause_providers.dart';
 import 'package:agentic_hive_frontend/data/runs/run_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_providers.dart';
+import 'package:agentic_hive_frontend/data/workspace/workspace_tree_changes_providers.dart';
 import 'package:agentic_hive_frontend/domain/pauses/pause_event.dart';
 import 'package:agentic_hive_frontend/domain/pauses/pause_repository.dart';
 import 'package:agentic_hive_frontend/domain/runs/run_repository.dart';
 import 'package:agentic_hive_frontend/domain/workspace/workspace_selection_store.dart';
+import 'package:agentic_hive_frontend/domain/workspace/workspace_tree_changes_source.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/shell/widgets/app_shell.dart';
 import 'package:agentic_hive_frontend/presentation/workspace/controllers/side_rail_tree_controller.dart';
@@ -37,6 +39,12 @@ final class _FakeSelectionStore implements WorkspaceSelectionStore {
   Future<void> save(String? workspaceId) async {
     savedId = workspaceId;
   }
+}
+
+final class _NoChangesSource implements WorkspaceTreeChangesSource {
+  @override
+  Stream<WorkspaceTreeChange> get changes =>
+      const Stream<WorkspaceTreeChange>.empty();
 }
 
 final class _FakeRunsRepo implements RunRepository {
@@ -163,6 +171,7 @@ Future<void> _capture(
       runRepositoryProvider.overrideWithValue(runsRepo),
       pauseRepositoryProvider.overrideWithValue(pauseRepo),
       sideRailTreeClockProvider.overrideWithValue(() => fixedNow),
+      workspaceTreeChangesSourceProvider.overrideWithValue(_NoChangesSource()),
     ],
   );
 

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/domain/workspace/workspace_events.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_service.dart';
 import 'package:agentic_hive_backend/src/domain/worktrees/worktree_service.dart';
 import 'package:agentic_hive_backend/src/http/failure_response.dart';
@@ -11,10 +12,15 @@ import 'package:shelf/shelf.dart';
 /// HTTP handler for `/api/v1/workspaces/{id}/worktrees` (ADR 0022).
 final class WorktreesHandler {
   /// Creates a handler backed by the workspace and worktree services.
-  const new({required this._workspaces, required this._worktrees});
+  const new({
+    required this._workspaces,
+    required this._worktrees,
+    this._events,
+  });
 
   final WorkspaceService _workspaces;
   final WorktreeService _worktrees;
+  final WorkspaceEvents? _events;
 
   /// `GET /api/v1/workspaces/{id}/worktrees`.
   Future<Response> list(Request request, String id) async {
@@ -62,6 +68,14 @@ final class WorktreesHandler {
       );
     }
     final result = await _worktrees.create(workspace.valueOrNull!, body);
+    if (result case Success<Worktree>(:final value)) {
+      _events?.worktreeChanged(
+        WorktreeChangeKind.created,
+        id,
+        value.id,
+        worktree: value,
+      );
+    }
     return switch (result) {
       Success<Worktree>(:final value) => jsonResponse(201, value),
       FailureResult<Worktree>(:final failure) => failureResponse(
@@ -83,6 +97,9 @@ final class WorktreesHandler {
       worktreeId,
       force: request.url.queryParameters['force'] == 'true',
     );
+    if (result is Success<RemoveWorktreeResponse>) {
+      _events?.worktreeChanged(WorktreeChangeKind.removed, id, worktreeId);
+    }
     return switch (result) {
       Success<RemoveWorktreeResponse>(:final value) => jsonResponse(200, value),
       FailureResult<RemoveWorktreeResponse>(:final failure) => failureResponse(

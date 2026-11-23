@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:agentic_hive_frontend/core/di/use_case_providers.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
+import 'package:agentic_hive_frontend/domain/workspace/workspace_tree_changes_source.dart';
 import 'package:agentic_hive_frontend/presentation/workspace/controllers/workspace_registry_controller.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:flutter/foundation.dart' show immutable;
@@ -12,6 +15,26 @@ part 'side_rail_tree_controller.g.dart';
 @riverpod
 DateTime Function() sideRailTreeClock(Ref ref) =>
     () => DateTime.now().toUtc();
+
+const int _liveReloadDebounceMs = 250;
+const int _elapsedTickSeconds = 1;
+
+/// Quiet period that groups a burst of live change events into one reload.
+@riverpod
+Duration sideRailTreeDebounce(Ref ref) =>
+    const Duration(milliseconds: _liveReloadDebounceMs);
+
+/// Current UTC time, emitted again every second so elapsed times in the tree
+/// keep counting while runs are active.
+@riverpod
+Stream<DateTime> sideRailTreeNow(Ref ref) async* {
+  final clock = ref.watch(sideRailTreeClockProvider);
+  yield clock();
+  yield* Stream<DateTime>.periodic(
+    const Duration(seconds: _elapsedTickSeconds),
+    (_) => clock(),
+  );
+}
 
 /// One worktree branch (or primary checkout) inside a [SideRailWorkspaceNode].
 @immutable
@@ -171,8 +194,14 @@ class SideRailTreeController extends _$SideRailTreeController {
   final Map<String, bool> _showAllActive = <String, bool>{};
   final Map<String, bool> _showAllRecent = <String, bool>{};
 
+  Timer? _debounceTimer;
+  bool _registryChanged = false;
+  bool _reloading = false;
+  bool _reloadAgain = false;
+
   @override
   Future<SideRailTreeState> build() async {
+    _listenForChanges();
     final registryState = await ref.watch(
       workspaceRegistryControllerProvider.future,
     );
@@ -206,6 +235,84 @@ class SideRailTreeController extends _$SideRailTreeController {
       } else {
         state = AsyncError<SideRailTreeState>(failure, stackTrace);
       }
+    }
+  }
+
+  void _listenForChanges() {
+    final subscription = ref
+        .read(watchWorkspaceTreeChangesProvider)()
+        .listen(_onChange);
+    ref.onDispose(() {
+      unawaited(subscription.cancel());
+      _debounceTimer?.cancel();
+      _debounceTimer = null;
+      _reloadAgain = false;
+    });
+  }
+
+  void _onChange(WorkspaceTreeChange change) {
+    if (change == WorkspaceTreeChange.workspace ||
+        change == WorkspaceTreeChange.resync) {
+      _registryChanged = true;
+    }
+    if (_debounceTimer?.isActive ?? false) return;
+    _debounceTimer = Timer(
+      ref.read(sideRailTreeDebounceProvider),
+      () => unawaited(_reloadLive()),
+    );
+  }
+
+  /// Reloads the tree after a live change, one reload at a time. A change that
+  /// arrives during a reload schedules exactly one more.
+  Future<void> _reloadLive() async {
+    if (!ref.mounted) return;
+    if (_reloading) {
+      _reloadAgain = true;
+      return;
+    }
+    _reloading = true;
+    try {
+      do {
+        _reloadAgain = false;
+        await _reloadOnce();
+      } while (_reloadAgain && ref.mounted);
+    } finally {
+      _reloading = false;
+    }
+  }
+
+  Future<void> _reloadOnce() async {
+    final current = state.value;
+    if (current == null) return;
+    if (_registryChanged) {
+      // The registry feeds other pages too; refreshing it rebuilds this tree.
+      _registryChanged = false;
+      await ref.read(workspaceRegistryControllerProvider.notifier).refresh();
+      return;
+    }
+    try {
+      final workspacesResult = await ref.read(listWorkspacesProvider)();
+      if (!ref.mounted) return;
+      final workspaces = switch (workspacesResult) {
+        Success<List<Workspace>>(:final value) => value,
+        FailureResult<List<Workspace>>(:final failure) =>
+          Error.throwWithStackTrace(failure, StackTrace.current),
+      };
+      final registry = ref.read(workspaceRegistryControllerProvider).value;
+      final loaded = await _loadTree(
+        WorkspaceRegistryState(
+          workspaces: workspaces,
+          currentWorkspaceId:
+              registry?.currentWorkspaceId ?? current.currentWorkspaceId,
+        ),
+      );
+      if (!ref.mounted) return;
+      state = AsyncData<SideRailTreeState>(loaded);
+    } on Failure catch (failure) {
+      if (!ref.mounted) return;
+      state = AsyncData<SideRailTreeState>(
+        current.copyWith(isRefreshing: false, refreshFailure: () => failure),
+      );
     }
   }
 

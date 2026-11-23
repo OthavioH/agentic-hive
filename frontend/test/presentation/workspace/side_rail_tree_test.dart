@@ -6,13 +6,16 @@ import 'package:agentic_hive_frontend/data/runs/run_providers.dart';
 import 'package:agentic_hive_frontend/data/settings/settings_repository_impl.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_providers.dart';
+import 'package:agentic_hive_frontend/data/workspace/workspace_tree_changes_providers.dart';
 import 'package:agentic_hive_frontend/domain/pauses/pause_event.dart';
 import 'package:agentic_hive_frontend/domain/pauses/pause_repository.dart';
 import 'package:agentic_hive_frontend/domain/runs/run_repository.dart';
 import 'package:agentic_hive_frontend/domain/settings/settings_repository.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_frontend/domain/workspace/workspace_selection_store.dart';
+import 'package:agentic_hive_frontend/domain/workspace/workspace_tree_changes_source.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
+import 'package:agentic_hive_frontend/presentation/runs/utils/run_l10n.dart';
 import 'package:agentic_hive_frontend/presentation/runs/widgets/start_run_dialog.dart';
 import 'package:agentic_hive_frontend/presentation/workspace/controllers/side_rail_tree_controller.dart';
 import 'package:agentic_hive_frontend/presentation/workspace/widgets/side_rail_tree.dart';
@@ -44,6 +47,9 @@ final class _FakeRunsRepo implements RunRepository {
   List<RunSummary> runs = <RunSummary>[];
   Failure? listFailure;
 
+  /// When set, `listRuns` waits for it, keeping a reload in flight.
+  Completer<void>? listGate;
+
   @override
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
@@ -51,6 +57,7 @@ final class _FakeRunsRepo implements RunRepository {
     int? limit,
     int? offset,
   }) async {
+    await listGate?.future;
     final failure = listFailure;
     if (failure != null) return FailureResult<RunsListResponse>(failure);
     return Success<RunsListResponse>(
@@ -171,6 +178,27 @@ final class _FakeSettingsRepo implements SettingsRepository {
       const Stream<AppSettings>.empty();
 }
 
+final class _FakeChangesSource implements WorkspaceTreeChangesSource {
+  final StreamController<WorkspaceTreeChange> controller =
+      StreamController<WorkspaceTreeChange>.broadcast();
+
+  @override
+  Stream<WorkspaceTreeChange> get changes => controller.stream;
+
+  void emit(WorkspaceTreeChange change) => controller.add(change);
+}
+
+Pause _pendingPause(String runId, DateTime createdAt) => Pause(
+  id: 'pause-$runId',
+  runId: runId,
+  nodeId: 'n-1',
+  kind: PauseKind.humanApproval,
+  workflowName: 'Flow',
+  nodeLabel: 'Approve',
+  status: PauseStatus.pending,
+  createdAt: createdAt,
+);
+
 RunSummary _makeRun({
   required String id,
   required String workspaceId,
@@ -196,6 +224,8 @@ Widget _buildRouterApp({
   required _FakeRunsRepo runsRepo,
   required _FakePauseRepo pauseRepo,
   required DateTime fixedNow,
+  required _FakeChangesSource changes,
+  DateTime Function()? clock,
   void Function(String path)? onRoute,
   double textScale = 1.0,
 }) {
@@ -207,7 +237,9 @@ Widget _buildRouterApp({
       pauseRepositoryProvider.overrideWithValue(pauseRepo),
       workflowRepositoryProvider.overrideWithValue(_FakeWorkflowRepo()),
       settingsRepositoryProvider.overrideWithValue(_FakeSettingsRepo()),
-      sideRailTreeClockProvider.overrideWithValue(() => fixedNow),
+      sideRailTreeClockProvider.overrideWithValue(clock ?? () => fixedNow),
+      workspaceTreeChangesSourceProvider.overrideWithValue(changes),
+      sideRailTreeDebounceProvider.overrideWithValue(Duration.zero),
     ],
   );
   final router = GoRouter(
@@ -255,6 +287,9 @@ Widget _buildRouterApp({
   );
 }
 
+const int oneSecond = 1;
+const int fiveSeconds = 5;
+
 void main() {
   final fixedNow = DateTime.utc(2026, 11, 22, 12);
 
@@ -262,12 +297,15 @@ void main() {
   late _FakeSelectionStore selectionStore;
   late _FakeRunsRepo runsRepo;
   late _FakePauseRepo pauseRepo;
+  late _FakeChangesSource changes;
 
   setUp(() {
     workspaceRepo = FakeWorkspaceRepository();
     selectionStore = _FakeSelectionStore();
     runsRepo = _FakeRunsRepo();
     pauseRepo = _FakePauseRepo();
+    changes = _FakeChangesSource();
+    addTearDown(changes.controller.close);
   });
 
   testWidgets('renders empty state when no workspaces are registered', (
@@ -280,6 +318,7 @@ void main() {
         runsRepo: runsRepo,
         pauseRepo: pauseRepo,
         fixedNow: fixedNow,
+        changes: changes,
       ),
     );
     await tester.pumpAndSettle();
@@ -297,6 +336,7 @@ void main() {
         runsRepo: runsRepo,
         pauseRepo: pauseRepo,
         fixedNow: fixedNow,
+        changes: changes,
       ),
     );
     await tester.pumpAndSettle();
@@ -380,6 +420,7 @@ void main() {
         runsRepo: runsRepo,
         pauseRepo: pauseRepo,
         fixedNow: fixedNow,
+        changes: changes,
         onRoute: (path) => navigatedTo = path,
       ),
     );
@@ -463,6 +504,7 @@ void main() {
         runsRepo: runsRepo,
         pauseRepo: pauseRepo,
         fixedNow: fixedNow,
+        changes: changes,
         textScale: 1.6,
       ),
     );
@@ -470,5 +512,284 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.text('Large Text Workspace'), findsOneWidget);
+  });
+
+  group('captured gallery states', () {
+    testWidgets('a non-git workspace shows only its primary folder, with no '
+        'branch, badge or dirty indicator', (tester) async {
+      workspaceRepo
+        ..workspaces = <Workspace>[
+          makeWorkspace(
+            id: 'ws-docs',
+            name: 'Docs',
+            rootPath: '/docs/notes',
+            isGit: false,
+          ),
+        ]
+        ..worktreesByWorkspaceId['ws-docs'] = <Worktree>[];
+      runsRepo.runs = <RunSummary>[
+        _makeRun(
+          id: 'run-docs',
+          workspaceId: 'ws-docs',
+          workflowName: 'Summarize',
+          status: RunStatus.succeeded,
+          startedAt: DateTime.utc(2026, 11, 22, 11, 30),
+          finishedAt: DateTime.utc(2026, 11, 22, 11, 40),
+        ),
+      ];
+
+      await tester.pumpWidget(
+        _buildRouterApp(
+          workspaceRepo: workspaceRepo,
+          selectionStore: selectionStore,
+          runsRepo: runsRepo,
+          pauseRepo: pauseRepo,
+          fixedNow: fixedNow,
+          changes: changes,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Docs'), findsOneWidget);
+      expect(
+        find.byKey(const Key('tree_worktree_ws-docs_primary')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('tree_start_run_ws-docs_primary')), findsOne);
+      expect(find.byType(HiveBadge), findsNothing);
+      expect(
+        find.byKey(const Key('tree_worktree_dirty_ws-docs_primary')),
+        findsNothing,
+      );
+      expect(find.text('Summarize'), findsOneWidget);
+    });
+
+    testWidgets('a run with a pending pause is highlighted, with its '
+        'workspace, and other runs are not', (tester) async {
+      workspaceRepo
+        ..workspaces = <Workspace>[makeWorkspace(activeRunCount: 2)]
+        ..worktreesByWorkspaceId['ws-1'] = <Worktree>[makeWorktree()];
+      runsRepo.runs = <RunSummary>[
+        _makeRun(
+          id: 'run-paused',
+          workspaceId: 'ws-1',
+          workflowName: 'Review',
+          status: RunStatus.paused,
+          startedAt: DateTime.utc(2026, 11, 22, 11, 50),
+          worktreePath: '/tmp/ws-1',
+        ),
+        _makeRun(
+          id: 'run-busy',
+          workspaceId: 'ws-1',
+          workflowName: 'Build',
+          status: RunStatus.running,
+          startedAt: DateTime.utc(2026, 11, 22, 11, 55),
+          worktreePath: '/tmp/ws-1',
+        ),
+      ];
+      pauseRepo.pauses = <Pause>[_pendingPause('run-paused', fixedNow)];
+
+      await tester.pumpWidget(
+        _buildRouterApp(
+          workspaceRepo: workspaceRepo,
+          selectionStore: selectionStore,
+          runsRepo: runsRepo,
+          pauseRepo: pauseRepo,
+          fixedNow: fixedNow,
+          changes: changes,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      HiveTreeItem item(String key) =>
+          tester.widget<HiveTreeItem>(find.byKey(Key(key)));
+      expect(item('tree_run_run-paused').highlighted, isTrue);
+      expect(item('tree_run_run-busy').highlighted, isFalse);
+      expect(item('tree_workspace_ws-1').highlighted, isTrue);
+    });
+  });
+
+  group('live updates', () {
+    testWidgets('a pause created while the tree is open highlights its run '
+        'without a refresh', (tester) async {
+      workspaceRepo
+        ..workspaces = <Workspace>[makeWorkspace(activeRunCount: 1)]
+        ..worktreesByWorkspaceId['ws-1'] = <Worktree>[makeWorktree()];
+      runsRepo.runs = <RunSummary>[
+        _makeRun(
+          id: 'run-1',
+          workspaceId: 'ws-1',
+          workflowName: 'Review',
+          status: RunStatus.running,
+          startedAt: DateTime.utc(2026, 11, 22, 11, 50),
+          worktreePath: '/tmp/ws-1',
+        ),
+      ];
+      await tester.pumpWidget(
+        _buildRouterApp(
+          workspaceRepo: workspaceRepo,
+          selectionStore: selectionStore,
+          runsRepo: runsRepo,
+          pauseRepo: pauseRepo,
+          fixedNow: fixedNow,
+          changes: changes,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<HiveTreeItem>(find.byKey(const Key('tree_run_run-1')))
+            .highlighted,
+        isFalse,
+      );
+
+      runsRepo.runs = <RunSummary>[
+        _makeRun(
+          id: 'run-1',
+          workspaceId: 'ws-1',
+          workflowName: 'Review',
+          status: RunStatus.paused,
+          startedAt: DateTime.utc(2026, 11, 22, 11, 50),
+          worktreePath: '/tmp/ws-1',
+        ),
+      ];
+      pauseRepo.pauses = <Pause>[_pendingPause('run-1', fixedNow)];
+      changes.emit(WorkspaceTreeChange.pause);
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<HiveTreeItem>(find.byKey(const Key('tree_run_run-1')))
+            .highlighted,
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<HiveStatusDot>(
+              find.descendant(
+                of: find.byKey(const Key('tree_run_run-1')),
+                matching: find.byType(HiveStatusDot),
+              ),
+            )
+            .status,
+        RunL10n.nodeStatusFor(RunStatus.paused),
+      );
+    });
+
+    testWidgets('a run started while the tree is open appears and a worktree '
+        'created appears', (tester) async {
+      workspaceRepo
+        ..workspaces = <Workspace>[makeWorkspace()]
+        ..worktreesByWorkspaceId['ws-1'] = <Worktree>[makeWorktree()];
+      await tester.pumpWidget(
+        _buildRouterApp(
+          workspaceRepo: workspaceRepo,
+          selectionStore: selectionStore,
+          runsRepo: runsRepo,
+          pauseRepo: pauseRepo,
+          fixedNow: fixedNow,
+          changes: changes,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Fresh run'), findsNothing);
+
+      runsRepo.runs = <RunSummary>[
+        _makeRun(
+          id: 'run-new',
+          workspaceId: 'ws-1',
+          workflowName: 'Fresh run',
+          status: RunStatus.running,
+          startedAt: DateTime.utc(2026, 11, 22, 11, 59),
+          worktreePath: '/tmp/ws-1',
+        ),
+      ];
+      workspaceRepo.worktreesByWorkspaceId['ws-1'] = <Worktree>[
+        makeWorktree(),
+        makeWorktree(
+          id: 'feat-live',
+          name: 'feat-live',
+          path: '/data/worktrees/ws-1/feat-live',
+          isPrimary: false,
+          branch: 'feature/live',
+        ),
+      ];
+      changes
+        ..emit(WorkspaceTreeChange.run)
+        ..emit(WorkspaceTreeChange.worktree);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Fresh run'), findsOneWidget);
+      expect(find.text('feat-live'), findsOneWidget);
+    });
+
+    testWidgets('elapsed time of an active run keeps counting', (tester) async {
+      var now = DateTime.utc(2026, 11, 22, 12);
+      workspaceRepo
+        ..workspaces = <Workspace>[makeWorkspace(activeRunCount: 1)]
+        ..worktreesByWorkspaceId['ws-1'] = <Worktree>[makeWorktree()];
+      runsRepo.runs = <RunSummary>[
+        _makeRun(
+          id: 'run-1',
+          workspaceId: 'ws-1',
+          workflowName: 'Build',
+          status: RunStatus.running,
+          startedAt: DateTime.utc(2026, 11, 22, 11, 56),
+          worktreePath: '/tmp/ws-1',
+        ),
+      ];
+      await tester.pumpWidget(
+        _buildRouterApp(
+          workspaceRepo: workspaceRepo,
+          selectionStore: selectionStore,
+          runsRepo: runsRepo,
+          pauseRepo: pauseRepo,
+          fixedNow: fixedNow,
+          clock: () => now,
+          changes: changes,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('4m 0s'), findsOneWidget);
+
+      now = now.add(const Duration(seconds: fiveSeconds));
+      await tester.pump(const Duration(seconds: oneSecond));
+      await tester.pump();
+
+      expect(find.text('4m 5s'), findsOneWidget);
+      expect(find.text('4m 0s'), findsNothing);
+    });
+
+    testWidgets('a live reload keeps the tree on screen instead of '
+        'flashing the loading spinner', (tester) async {
+      workspaceRepo
+        ..workspaces = <Workspace>[makeWorkspace(name: 'Stable')]
+        ..worktreesByWorkspaceId['ws-1'] = <Worktree>[makeWorktree()];
+      await tester.pumpWidget(
+        _buildRouterApp(
+          workspaceRepo: workspaceRepo,
+          selectionStore: selectionStore,
+          runsRepo: runsRepo,
+          pauseRepo: pauseRepo,
+          fixedNow: fixedNow,
+          changes: changes,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final gate = Completer<void>();
+      runsRepo.listGate = gate;
+      workspaceRepo.workspaces = <Workspace>[makeWorkspace(name: 'Renamed')];
+      changes.emit(WorkspaceTreeChange.workspace);
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(HiveSpinner), findsNothing);
+      expect(find.byKey(const Key('tree_workspace_ws-1')), findsOneWidget);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('Renamed'), findsOneWidget);
+    });
   });
 }

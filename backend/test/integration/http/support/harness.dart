@@ -137,6 +137,13 @@ final class SocketHttpClient {
     String? body,
   }) => _send('PUT', pathAndQuery, headers: headers, body: body);
 
+  /// Sends `PATCH` to [pathAndQuery] with optional [headers] and [body].
+  Future<SocketResponse> patch(
+    String pathAndQuery, {
+    Map<String, String> headers = const {},
+    String? body,
+  }) => _send('PATCH', pathAndQuery, headers: headers, body: body);
+
   Future<SocketResponse> _send(
     String method,
     String pathAndQuery, {

@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/data/pauses/pause_providers.dart';
 import 'package:agentic_hive_frontend/data/runs/run_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_providers.dart';
+import 'package:agentic_hive_frontend/data/workspace/workspace_tree_changes_providers.dart';
 import 'package:agentic_hive_frontend/domain/pauses/pause_event.dart';
 import 'package:agentic_hive_frontend/domain/pauses/pause_repository.dart';
 import 'package:agentic_hive_frontend/domain/runs/run_repository.dart';
 import 'package:agentic_hive_frontend/domain/workspace/workspace_selection_store.dart';
+import 'package:agentic_hive_frontend/domain/workspace/workspace_tree_changes_source.dart';
 import 'package:agentic_hive_frontend/presentation/workspace/controllers/side_rail_tree_controller.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,6 +32,7 @@ final class _FakeSelectionStore implements WorkspaceSelectionStore {
 final class _FakeRunsRepo implements RunRepository {
   List<RunSummary> runs = <RunSummary>[];
   Failure? listFailure;
+  int listCalls = 0;
 
   @override
   Future<Result<RunsListResponse>> listRuns({
@@ -36,6 +41,7 @@ final class _FakeRunsRepo implements RunRepository {
     int? limit,
     int? offset,
   }) async {
+    listCalls++;
     final failure = listFailure;
     if (failure != null) return FailureResult<RunsListResponse>(failure);
     return Success<RunsListResponse>(
@@ -97,6 +103,16 @@ final class _FakePauseRepo implements PauseRepository {
   Stream<int> watchPendingPausesCount() => const Stream<int>.empty();
 }
 
+final class _FakeChangesSource implements WorkspaceTreeChangesSource {
+  final StreamController<WorkspaceTreeChange> controller =
+      StreamController<WorkspaceTreeChange>.broadcast();
+
+  @override
+  Stream<WorkspaceTreeChange> get changes => controller.stream;
+
+  void emit(WorkspaceTreeChange change) => controller.add(change);
+}
+
 RunSummary _makeRun({
   required String id,
   required String workspaceId,
@@ -125,12 +141,15 @@ void main() {
   late _FakeSelectionStore selectionStore;
   late _FakeRunsRepo runsRepo;
   late _FakePauseRepo pauseRepo;
+  late _FakeChangesSource changes;
 
   setUp(() {
     workspaceRepo = FakeWorkspaceRepository();
     selectionStore = _FakeSelectionStore();
     runsRepo = _FakeRunsRepo();
     pauseRepo = _FakePauseRepo();
+    changes = _FakeChangesSource();
+    addTearDown(changes.controller.close);
   });
 
   ProviderContainer createContainer() {
@@ -141,6 +160,8 @@ void main() {
         runRepositoryProvider.overrideWithValue(runsRepo),
         pauseRepositoryProvider.overrideWithValue(pauseRepo),
         sideRailTreeClockProvider.overrideWithValue(() => fixedNow),
+        workspaceTreeChangesSourceProvider.overrideWithValue(changes),
+        sideRailTreeDebounceProvider.overrideWithValue(Duration.zero),
       ],
     );
   }
@@ -300,5 +321,240 @@ void main() {
     state = await container.read(sideRailTreeControllerProvider.future);
     expect(state.currentWorkspaceId, 'ws-2');
     expect(selectionStore.savedId, 'ws-2');
+  });
+
+  group('live updates', () {
+    final startedAt = DateTime.utc(2026, 11, 22, 11, 55);
+
+    Future<ProviderContainer> loaded() async {
+      final container = createContainer()
+        ..listen(sideRailTreeControllerProvider, (_, _) {});
+      await container.read(sideRailTreeControllerProvider.future);
+      return container;
+    }
+
+    SideRailTreeState current(ProviderContainer container) =>
+        container.read(sideRailTreeControllerProvider).requireValue;
+
+    test('a run that pauses shows its new status and the pending-pause '
+        'highlight without a manual refresh', () async {
+      workspaceRepo
+        ..workspaces = <Workspace>[makeWorkspace(activeRunCount: 1)]
+        ..worktreesByWorkspaceId['ws-1'] = <Worktree>[makeWorktree()];
+      runsRepo.runs = <RunSummary>[
+        _makeRun(
+          id: 'run-1',
+          workspaceId: 'ws-1',
+          startedAt: startedAt,
+          worktreePath: '/tmp/ws-1',
+        ),
+      ];
+      final container = await loaded();
+      expect(current(container).pendingPauseRunIds, isEmpty);
+
+      runsRepo.runs = <RunSummary>[
+        _makeRun(
+          id: 'run-1',
+          workspaceId: 'ws-1',
+          status: RunStatus.paused,
+          startedAt: startedAt,
+          worktreePath: '/tmp/ws-1',
+        ),
+      ];
+      pauseRepo.pauses = <Pause>[
+        Pause(
+          id: 'p-1',
+          runId: 'run-1',
+          nodeId: 'n',
+          kind: PauseKind.humanApproval,
+          workflowName: 'Build',
+          nodeLabel: 'Approve',
+          status: PauseStatus.pending,
+          createdAt: startedAt,
+        ),
+      ];
+      changes.emit(WorkspaceTreeChange.pause);
+      await pumpEventQueue();
+
+      final tree = current(container);
+      expect(tree.pendingPauseRunIds, <String>{'run-1'});
+      expect(tree.workspaces.single.pendingPauseCount, 1);
+      expect(
+        tree.workspaces.single.worktrees.single.activeRuns.single.status,
+        RunStatus.paused,
+      );
+    });
+
+    test('a run that finishes moves from active to recent and the '
+        'workspace activity count drops', () async {
+      workspaceRepo
+        ..workspaces = <Workspace>[makeWorkspace(activeRunCount: 1)]
+        ..worktreesByWorkspaceId['ws-1'] = <Worktree>[makeWorktree()];
+      runsRepo.runs = <RunSummary>[
+        _makeRun(
+          id: 'run-1',
+          workspaceId: 'ws-1',
+          startedAt: startedAt,
+          worktreePath: '/tmp/ws-1',
+        ),
+      ];
+      final container = await loaded();
+      expect(current(container).workspaces.single.activeRunCount, 1);
+
+      workspaceRepo.workspaces = <Workspace>[makeWorkspace()];
+      runsRepo.runs = <RunSummary>[
+        _makeRun(
+          id: 'run-1',
+          workspaceId: 'ws-1',
+          status: RunStatus.succeeded,
+          startedAt: startedAt,
+          finishedAt: DateTime.utc(2026, 11, 22, 11, 58),
+          worktreePath: '/tmp/ws-1',
+        ),
+      ];
+      changes.emit(WorkspaceTreeChange.run);
+      await pumpEventQueue();
+
+      final node = current(container).workspaces.single;
+      expect(node.activeRunCount, 0);
+      expect(node.worktrees.single.activeRuns, isEmpty);
+      expect(node.worktrees.single.recentRuns.single.id, 'run-1');
+    });
+
+    test('a created worktree appears and a removed one disappears', () async {
+      workspaceRepo
+        ..workspaces = <Workspace>[makeWorkspace()]
+        ..worktreesByWorkspaceId['ws-1'] = <Worktree>[makeWorktree()];
+      final container = await loaded();
+      expect(current(container).workspaces.single.worktrees, hasLength(1));
+
+      workspaceRepo.worktreesByWorkspaceId['ws-1'] = <Worktree>[
+        makeWorktree(),
+        makeWorktree(
+          id: 'feat',
+          name: 'feat',
+          path: '/data/worktrees/ws-1/feat',
+          isPrimary: false,
+          branch: 'feat',
+        ),
+      ];
+      changes.emit(WorkspaceTreeChange.worktree);
+      await pumpEventQueue();
+      expect(
+        current(container).workspaces.single.worktrees
+            .map((w) => w.worktree.id),
+        <String>['primary', 'feat'],
+      );
+
+      workspaceRepo.worktreesByWorkspaceId['ws-1'] = <Worktree>[makeWorktree()];
+      changes.emit(WorkspaceTreeChange.worktree);
+      await pumpEventQueue();
+      expect(current(container).workspaces.single.worktrees, hasLength(1));
+    });
+
+    test('a registered or renamed workspace shows up live', () async {
+      workspaceRepo.workspaces = <Workspace>[makeWorkspace(name: 'One')];
+      final container = await loaded();
+
+      workspaceRepo.workspaces = <Workspace>[
+        makeWorkspace(name: 'Renamed'),
+        makeWorkspace(id: 'ws-2', name: 'Docs', isGit: false),
+      ];
+      changes.emit(WorkspaceTreeChange.workspace);
+      await pumpEventQueue();
+
+      final tree = current(container);
+      expect(tree.workspaces.map((w) => w.workspace.name), <String>[
+        'Renamed',
+        'Docs',
+      ]);
+      expect(tree.currentWorkspaceId, 'ws-1');
+    });
+
+    test('a reconnect resyncs the tree', () async {
+      workspaceRepo.workspaces = <Workspace>[makeWorkspace()];
+      final container = await loaded();
+      runsRepo.runs = <RunSummary>[
+        _makeRun(id: 'late', workspaceId: 'ws-1', startedAt: startedAt),
+      ];
+
+      changes.emit(WorkspaceTreeChange.resync);
+      await pumpEventQueue();
+
+      expect(
+        current(container).workspaces.single.worktrees.single.activeRuns,
+        hasLength(1),
+      );
+    });
+
+    test('keeps the expand choices across live updates', () async {
+      workspaceRepo.workspaces = <Workspace>[makeWorkspace()];
+      final container = await loaded();
+      container
+          .read(sideRailTreeControllerProvider.notifier)
+          .toggleWorkspaceExpanded('ws-1');
+
+      changes.emit(WorkspaceTreeChange.run);
+      await pumpEventQueue();
+
+      expect(current(container).workspaces.single.expanded, isFalse);
+    });
+
+    test('a burst of events triggers one reload, not one per event', () async {
+      workspaceRepo.workspaces = <Workspace>[makeWorkspace()];
+      final container = await loaded();
+      final before = runsRepo.listCalls;
+
+      changes
+        ..emit(WorkspaceTreeChange.run)
+        ..emit(WorkspaceTreeChange.run)
+        ..emit(WorkspaceTreeChange.pause)
+        ..emit(WorkspaceTreeChange.run);
+      await pumpEventQueue();
+
+      expect(runsRepo.listCalls - before, 1);
+      expect(current(container).workspaces, isNotEmpty);
+    });
+
+    test('an event during a reload schedules exactly one follow-up '
+        'reload', () async {
+      workspaceRepo.workspaces = <Workspace>[makeWorkspace()];
+      final container = await loaded();
+      final before = runsRepo.listCalls;
+      final gate = Completer<void>();
+      workspaceRepo.listWorkspacesGate = gate;
+
+      changes.emit(WorkspaceTreeChange.run);
+      await pumpEventQueue();
+      changes
+        ..emit(WorkspaceTreeChange.run)
+        ..emit(WorkspaceTreeChange.pause);
+      await pumpEventQueue();
+      workspaceRepo.listWorkspacesGate = null;
+      gate.complete();
+      await pumpEventQueue();
+
+      expect(runsRepo.listCalls - before, 2);
+      expect(current(container).workspaces, isNotEmpty);
+    });
+
+    test('a failed live reload keeps the tree and reports the failure, then '
+        'recovers on the next event', () async {
+      workspaceRepo.workspaces = <Workspace>[makeWorkspace()];
+      final container = await loaded();
+
+      runsRepo.listFailure = const NetworkFailure('offline');
+      changes.emit(WorkspaceTreeChange.run);
+      await pumpEventQueue();
+      var tree = current(container);
+      expect(tree.workspaces, hasLength(1));
+      expect(tree.refreshFailure, isA<NetworkFailure>());
+
+      runsRepo.listFailure = null;
+      changes.emit(WorkspaceTreeChange.run);
+      await pumpEventQueue();
+      tree = current(container);
+      expect(tree.refreshFailure, isNull);
+    });
   });
 }

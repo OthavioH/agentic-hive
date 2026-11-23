@@ -150,7 +150,14 @@ class _SideRailTreeContent extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final spacing = context.hiveSpacing;
     final colors = context.hiveColors;
-    final now = ref.read(sideRailTreeClockProvider)();
+    // Only tick while a run is active; finished runs show a fixed duration.
+    final hasActiveRun = state.workspaces.any(
+      (ws) => ws.worktrees.any((wt) => wt.activeRuns.isNotEmpty),
+    );
+    final now = hasActiveRun
+        ? ref.watch(sideRailTreeNowProvider).value ??
+              ref.read(sideRailTreeClockProvider)()
+        : ref.read(sideRailTreeClockProvider)();
 
     if (state.workspaces.isEmpty) {
       return HiveEmptyState(
