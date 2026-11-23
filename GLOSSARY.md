@@ -38,6 +38,10 @@ _Avoid_: server, daemon (in anything user-facing)
 One execution of a workflow, with its own state and history, belonging to one workspace and working in one of its worktrees or its primary checkout.
 _Avoid_: job, instance, execution
 
+**Pinned workflow**:
+The copy of a workflow that a run takes when it starts and executes until it ends. Editing the workflow never changes the pinned workflow of a run that is active or already finished; only runs started after the edit use the new version.
+_Avoid_: snapshot (which is about files), version, run workflow
+
 **Run input**:
 Optional free-text task input provided when starting a run and passed to the entry node.
 
