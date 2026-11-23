@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:agentic_hive_backend/src/backend.dart';
+import 'package:agentic_hive_backend/src/util/canonical_folder.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -174,7 +175,12 @@ Future<void> main() => Future<void>.delayed(const Duration(seconds: 60));
     expect(res.statusCode, 201);
     final run = Run.fromJson(res.json);
     expect(run.isolationMode, WorkspaceIsolationMode.worktree);
-    expect(p.normalize(run.worktreePath!), p.normalize(worktree.path));
+    // The run records the canonical folder (symlinks and Windows 8.3 short
+    // names resolved), so compare canonical forms the way the backend does.
+    expect(
+      canonicalFolder(run.worktreePath!, p.context),
+      canonicalFolder(worktree.path, p.context),
+    );
     expect(run.worktreeBranch, 'wt-one');
   });
 
