@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:agentic_hive_frontend/core/result/result.dart';
+import 'package:agentic_hive_frontend/data/workflows/workflow_deletion_providers.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_providers.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_changes_source.dart';
+import 'package:agentic_hive_frontend/domain/workflows/workflow_deletion_events.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_deletion_update.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_frontend/domain/workspace/workspace_selection_store.dart';
@@ -14,6 +16,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../workspace/fake_workspace_repository.dart';
+
+final class _FakeDeletionEvents implements WorkflowDeletionEventsSource {
+  final StreamController<WorkflowDeletionFinished> finishedController =
+      StreamController<WorkflowDeletionFinished>.broadcast();
+
+  @override
+  Stream<WorkflowDeletionFinished> get finished => finishedController.stream;
+
+  @override
+  Stream<WorkflowDeletionStatus> get progress =>
+      const Stream<WorkflowDeletionStatus>.empty();
+}
 
 final class _FakeWorkflowRepository implements WorkflowRepository {
   final DateTime now = DateTime.utc(2026, 11, 20, 12);
@@ -224,6 +238,68 @@ void main() {
             .any((w) => w.id == 'wf-2'),
         isFalse,
       );
+    });
+
+    group('deletions ended by another client', () {
+      late _FakeDeletionEvents events;
+      late _FakeWorkflowRepository repo;
+      late ProviderContainer container;
+
+      setUp(() async {
+        events = _FakeDeletionEvents();
+        repo = _FakeWorkflowRepository()..seedDefaults();
+        repo.items[0] = repo.items[0].copyWith(deleting: true);
+        container = ProviderContainer.test(
+          overrides: [
+            workflowRepositoryProvider.overrideWithValue(repo),
+            workspaceRepositoryProvider.overrideWithValue(
+              FakeWorkspaceRepository(),
+            ),
+            workflowDeletionEventsSourceProvider.overrideWithValue(events),
+          ],
+        );
+        await container.read(workspaceRegistryControllerProvider.future);
+        // Keep the auto-disposed list alive while the events arrive.
+        container.listen(workflowsListControllerProvider, (_, _) {});
+        await container.read(workflowsListControllerProvider.future);
+      });
+
+      tearDown(() => events.finishedController.close());
+
+      test('workflow.deleted clears the row whoever started it', () async {
+        events.finishedController.add(
+          const WorkflowDeletionFinished(
+            operationId: 'op-9',
+            workflowId: 'wf-1',
+          ),
+        );
+        await pumpEventQueue();
+
+        final ids = container
+            .read(workflowsListControllerProvider)
+            .requireValue
+            .workflows
+            .map((w) => w.id);
+        expect(ids, ['wf-2']);
+      });
+
+      test('workflow.delete.failed returns the row to normal', () async {
+        events.finishedController.add(
+          const WorkflowDeletionFinished(
+            operationId: 'op-9',
+            workflowId: 'wf-1',
+            failure: BackendFailure('Database is locked.'),
+          ),
+        );
+        await pumpEventQueue();
+
+        final workflows = container
+            .read(workflowsListControllerProvider)
+            .requireValue
+            .workflows;
+        expect(workflows.map((w) => w.id), ['wf-1', 'wf-2']);
+        expect(workflows.first.deleting, isFalse);
+      });
     });
 
     test('setDeleting marks only the workflow of that scope', () async {
