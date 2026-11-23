@@ -121,10 +121,11 @@ class WorkflowDeleteNoticeBanner extends StatelessWidget {
   }
 
   String _message(AppLocalizations l10n, Failure failure) => switch (failure) {
+    BackendFailure(:final message) when message.isNotEmpty => message,
     BackendFailure() ||
     NotFoundFailure() ||
     ValidationFailure() ||
-    ConflictFailure() => failure.message,
+    ConflictFailure() ||
     NetworkFailure() ||
     UnexpectedFailure() => WorkflowL10n.localizeFailure(l10n, failure),
   };

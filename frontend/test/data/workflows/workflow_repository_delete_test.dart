@@ -334,6 +334,27 @@ void main() {
     expect(failure.code, ApiErrorCode.internalError);
   });
 
+  test('polling a failed outcome without errorMessage emits empty message', () async {
+    remote.statuses = [
+      Success(
+        _status(
+          phase: WorkflowDeletionPhase.done,
+          outcome: WorkflowDeletionOutcome.failed,
+          errorCode: ApiErrorCode.internalError,
+        ),
+      ),
+    ];
+
+    final last =
+        (await collect(repository(withEvents: false).deleteWorkflow('wf-1')))
+                .last
+            as WorkflowDeletionFailed;
+
+    final failure = last.failure as BackendFailure;
+    expect(failure.message, isEmpty);
+    expect(failure.code, ApiErrorCode.internalError);
+  });
+
   test('a 404 on DELETE emits a single Succeeded and does not poll', () async {
     remote.deleteResult = const FailureResult(NotFoundFailure('gone'));
 

@@ -188,7 +188,7 @@ final class WorkflowRepositoryImpl implements WorkflowRepository {
                   )
                 : WorkflowDeletionFailed(
                     BackendFailure(
-                      value.errorMessage ?? 'Workflow deletion failed.',
+                      value.errorMessage ?? '',
                       code: value.errorCode,
                     ),
                     deletedRuns: value.runsDeleted,
