@@ -5,6 +5,7 @@ import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/data/workspace/git_client.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
 import 'package:agentic_hive_backend/src/domain/worktrees/active_run_lookup.dart';
+import 'package:agentic_hive_backend/src/util/canonical_folder.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:path/path.dart' as p;
 
@@ -177,8 +178,10 @@ final class WorktreeService {
     if (active case FailureResult<Set<String>>(:final failure)) {
       return FailureResult(failure);
     }
-    final key = _canonical(worktree.path);
-    if (active.valueOrNull!.any((folder) => _canonical(folder) == key)) {
+    final key = canonicalFolder(worktree.path, _path);
+    if (active.valueOrNull!.any(
+      (folder) => canonicalFolder(folder, _path) == key,
+    )) {
       return FailureResult(
         ConflictFailure('A run is active in worktree "$id".'),
       );
@@ -334,20 +337,8 @@ final class WorktreeService {
   }
 
   bool _isManaged(String folder) {
-    final base = _canonical(_worktreesDir);
-    return _path.isWithin(base, _canonical(folder));
-  }
-
-  String _canonical(String folder) {
-    try {
-      final dir = Directory(folder);
-      if (dir.existsSync()) {
-        return _path.canonicalize(dir.resolveSymbolicLinksSync());
-      }
-    } on FileSystemException {
-      // Fall back to path canonicalization below.
-    }
-    return _path.canonicalize(folder);
+    final base = canonicalFolder(_worktreesDir, _path);
+    return _path.isWithin(base, canonicalFolder(folder, _path));
   }
 }
 

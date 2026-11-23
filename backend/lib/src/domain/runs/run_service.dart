@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
@@ -18,6 +17,7 @@ import 'package:agentic_hive_backend/src/domain/workspace/workspace_preparation_
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_service.dart';
 import 'package:agentic_hive_backend/src/domain/worktrees/worktree_service.dart';
 import 'package:agentic_hive_backend/src/logging/log_event.dart';
+import 'package:agentic_hive_backend/src/util/canonical_folder.dart';
 import 'package:agentic_hive_backend/src/util/ids.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:logging/logging.dart';
@@ -187,7 +187,7 @@ final class RunService {
 
     // Claims [folder] for this run, or reports the conflicting active run.
     Future<ConflictFailure?> claim(String folder) async {
-      final key = _canonicalizeWorkspace(folder);
+      final key = canonicalFolder(folder, _pathContext);
       if (!_reservedFolders.add(key)) {
         return ConflictFailure(
           'An active run is already starting or executing in "$key".',
@@ -412,7 +412,7 @@ final class RunService {
     var launched = false;
     try {
       if (!engine.isExecuting(id)) {
-        normalizedWorkspace = _canonicalizeWorkspace(_runFolder(run));
+        normalizedWorkspace = canonicalFolder(_runFolder(run), _pathContext);
         if (!_reservedFolders.add(normalizedWorkspace)) {
           return FailureResult(
             ConflictFailure(
@@ -494,7 +494,7 @@ final class RunService {
       }
 
       {
-        normalizedWorkspace = _canonicalizeWorkspace(_runFolder(run));
+        normalizedWorkspace = canonicalFolder(_runFolder(run), _pathContext);
         if (!_reservedFolders.add(normalizedWorkspace)) {
           return FailureResult(
             ConflictFailure(
@@ -631,18 +631,6 @@ final class RunService {
     }
   }
 
-  String _canonicalizeWorkspace(String workspacePath) {
-    try {
-      final dir = Directory(workspacePath);
-      if (dir.existsSync()) {
-        return _pathContext.canonicalize(dir.resolveSymbolicLinksSync());
-      }
-    } on FileSystemException {
-      // Fall back to path canonicalization below.
-    }
-    return _pathContext.canonicalize(workspacePath);
-  }
-
   /// The folder a run executes in: its worktree, or the workspace root.
   static String _runFolder(Run run) => run.worktreePath ?? run.workspacePath;
 
@@ -659,7 +647,8 @@ final class RunService {
       if (listResult case FailureResult<List<Run>>()) continue;
       for (final active in listResult.valueOrNull!) {
         if (active.id == excludeRunId) continue;
-        if (_canonicalizeWorkspace(_runFolder(active)) == normalizedFolder) {
+        if (canonicalFolder(_runFolder(active), _pathContext) ==
+            normalizedFolder) {
           return ConflictFailure(
             'An active run ("${active.id}") is already executing in '
             '"$normalizedFolder".',
