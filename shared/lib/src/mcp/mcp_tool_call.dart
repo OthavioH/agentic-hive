@@ -15,7 +15,8 @@ sealed class McpToolCallRequest with _$McpToolCallRequest {
 
   /// Decodes an MCP tool call request; throws a [FormatException] on a bad
   /// shape.
-  factory fromJson(JsonMap json) => parseJson(json, _$McpToolCallRequestFromJson);
+  factory fromJson(JsonMap json) =>
+      parseJson(json, _$McpToolCallRequestFromJson);
 }
 
 /// Response body for `POST /api/v1/internal/mcp/tools/<name>`.
