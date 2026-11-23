@@ -4,6 +4,7 @@ import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_runs_deleter.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
 import 'package:agentic_hive_backend/src/http/api_handler.dart';
@@ -170,7 +171,11 @@ void main() {
       buildRequest('/api/v1/workflows/wf-1', method: 'DELETE'),
     );
     expect(delResp.statusCode, 200);
-    expect(await readJson(delResp), {'id': 'wf-1', 'deletedRuns': 0});
+    expect(await readJson(delResp), {
+      'id': 'wf-1',
+      'deletedRuns': 0,
+      'orphanedRuns': <Object?>[],
+    });
 
     // Get deleted returns 404 ApiError.
     final missingResp = await handler(buildRequest('/api/v1/workflows/wf-1'));
@@ -359,4 +364,115 @@ void main() {
     );
     expect(okDel.statusCode, 200);
   });
+
+  group('DELETE /api/v1/workflows/:id force', () {
+    late _RecordingRunsDeleter deleter;
+    late Handler forceHandler;
+
+    setUp(() async {
+      deleter = _RecordingRunsDeleter();
+      var counter = 0;
+      final forceService = WorkflowService(
+        repository: _FakeWorkflowRepository(),
+        validator: const WorkflowValidator(),
+        runsDeleter: deleter,
+        generateId: () => 'wf-${++counter}',
+        now: () => DateTime.utc(2026, 11, 20, 10),
+      );
+      forceHandler = buildApiHandler(
+        statusHandler: StatusHandler(
+          databaseHealthCheck: FakeDatabaseHealthCheck(
+            const DatabaseStatus(ok: true, schemaVersion: 2),
+          ),
+          version: '0.1.0',
+          dataDir: '/tmp',
+          startedAt: DateTime.utc(2026, 11, 20, 11),
+        ),
+        webSocketHandler: (_) => Response(418),
+        shutdownHandler: ShutdownHandler(onShutdown: () async {}),
+        workflowHandler: WorkflowHandler(service: forceService),
+      );
+      final createResp = await forceHandler(
+        _jsonRequest(
+          '/api/v1/workflows',
+          method: 'POST',
+          body: const CreateWorkflowRequest(name: 'Flow').toJson(),
+        ),
+      );
+      expect(createResp.statusCode, 201);
+    });
+
+    test('force=true forwards force and returns orphanedRuns', () async {
+      deleter.result = const Success(
+        WorkflowRunsDeletion(deletedRuns: 1, orphanedRuns: ['r2']),
+      );
+
+      final resp = await forceHandler(
+        buildRequest('/api/v1/workflows/wf-1?force=true', method: 'DELETE'),
+      );
+
+      expect(resp.statusCode, 200);
+      expect(await readJson(resp), {
+        'id': 'wf-1',
+        'deletedRuns': 1,
+        'orphanedRuns': ['r2'],
+      });
+      expect(deleter.calls.single.$3, isTrue);
+    });
+
+    test('no force parameter means force false', () async {
+      final resp = await forceHandler(
+        buildRequest('/api/v1/workflows/wf-1', method: 'DELETE'),
+      );
+
+      expect(resp.statusCode, 200);
+      expect(deleter.calls.single.$3, isFalse);
+    });
+
+    test('force=false means force false', () async {
+      final resp = await forceHandler(
+        buildRequest('/api/v1/workflows/wf-1?force=false', method: 'DELETE'),
+      );
+
+      expect(resp.statusCode, 200);
+      expect(deleter.calls.single.$3, isFalse);
+    });
+
+    test('an invalid force value is 400 and deletes nothing', () async {
+      final resp = await forceHandler(
+        buildRequest('/api/v1/workflows/wf-1?force=yes', method: 'DELETE'),
+      );
+
+      expect(resp.statusCode, 400);
+      final error = ApiError.fromJson(await readJson(resp));
+      expect(error.code, ApiErrorCode.badRequest);
+      expect(
+        error.message,
+        'Query parameter "force" must be "true" or "false".',
+      );
+      expect(deleter.calls, isEmpty);
+
+      final stillThere = await forceHandler(
+        buildRequest('/api/v1/workflows/wf-1'),
+      );
+      expect(stillThere.statusCode, 200);
+    });
+  });
+}
+
+final class _RecordingRunsDeleter implements WorkflowRunsDeleter {
+  Result<WorkflowRunsDeletion> result = const Success(
+    WorkflowRunsDeletion(deletedRuns: 0),
+  );
+  final List<(String, String?, bool)> calls = <(String, String?, bool)>[];
+
+  @override
+  Future<Result<WorkflowRunsDeletion>> deleteRunsOfWorkflow(
+    String workflowId, {
+    String? workspaceId,
+    bool force = false,
+  }) async {
+    calls.add((workflowId, workspaceId, force));
+    return result;
+  }
 }

@@ -84,7 +84,8 @@ void main() {
 
       final result = await service.deleteRunsOfWorkflow('wf-1');
 
-      expect(result.valueOrNull, 2);
+      expect(result.valueOrNull?.deletedRuns, 2);
+      expect(result.valueOrNull?.orphanedRuns, isEmpty);
       expect(logStore.deletedRunIds.toSet(), {'r1', 'r2'});
       expect(runs.runs.keys, ['r3']);
     },
@@ -129,7 +130,8 @@ void main() {
       workspaceId: 'ws-a',
     );
 
-    expect(result.valueOrNull, 1);
+    expect(result.valueOrNull?.deletedRuns, 1);
+    expect(result.valueOrNull?.orphanedRuns, isEmpty);
     expect(logStore.deletedRunIds, ['r1']);
     expect(runs.runs.keys, ['r2']);
   });

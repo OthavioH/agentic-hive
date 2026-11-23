@@ -115,6 +115,7 @@ final class InMemoryRunRepository implements RunRepository {
   Future<Result<List<String>>> deleteAllOfWorkflow(
     String workflowId, {
     String? workspaceId,
+    Set<String> orphanIds = const {},
   }) async {
     final matching =
         runs.values
@@ -125,9 +126,13 @@ final class InMemoryRunRepository implements RunRepository {
             )
             .toList()
           ..sort((a, b) => a.startedAt.compareTo(b.startedAt));
+    final kept = {
+      for (final run in matching)
+        if (orphanIds.contains(run.id)) run.id,
+    };
     final active = <String, RunStatus>{
       for (final run in matching)
-        if (run.status.isActive) run.id: run.status,
+        if (!kept.contains(run.id) && run.status.isActive) run.id: run.status,
     };
     if (active.isNotEmpty) {
       return FailureResult(
@@ -138,7 +143,16 @@ final class InMemoryRunRepository implements RunRepository {
         ),
       );
     }
-    final ids = [for (final run in matching) run.id]..forEach(runs.remove);
+    final ids = [
+      for (final run in matching)
+        if (!kept.contains(run.id)) run.id,
+    ]..forEach(runs.remove);
+    for (final id in kept) {
+      final run = runs[id];
+      if (run != null) {
+        runs[id] = run.copyWith(workflowId: null);
+      }
+    }
     return Success(ids);
   }
 }

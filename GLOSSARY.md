@@ -49,6 +49,9 @@ _Avoid_: snapshot (which is about files), version, run workflow
 **Run input**:
 Optional free-text task input provided when starting a run and passed to the entry node.
 
+**Orphaned run**:
+A run kept after its workflow was deleted because a forced delete could not confirm that its processes stopped. Its workflow id is cleared and its workflow name is kept; the user can retry its cancel and delete it.
+
 **Workspace**:
 A registered entity with an id, a name and exactly one root folder, unique per folder. Every run belongs to a workspace. The folder can be any folder, not necessarily a repository.
 _Avoid_: project, repo, sandbox, working folder
