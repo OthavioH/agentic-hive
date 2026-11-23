@@ -92,7 +92,9 @@ String _structureDump(WidgetTester tester) {
   return lines.join('\n');
 }
 
-final _updatedAt = DateTime.utc(2026, 11, 20, 12);
+// Local DateTime (not UTC) so `toLocal()` in WorkflowsPage is an identity
+// and renders "Nov 20, 2026 09:00" identically across all machine timezones.
+final _updatedAt = DateTime(2026, 11, 20, 9);
 
 /// Seeds the three real product workflows of the gallery.
 List<WorkflowSummary> _seed() => <WorkflowSummary>[
@@ -246,6 +248,14 @@ ScriptedWorkflowRepository _repo() =>
 
 void main() {
   setUpAll(_loadFonts);
+
+  test(
+    'fixture timestamp is local so rendered date text is timezone-independent',
+    () {
+      expect(_updatedAt.isUtc, isFalse);
+      expect(_updatedAt.toLocal(), _updatedAt);
+    },
+  );
 
   setUp(() {
     // Captures show keyboard focus (the Cancel focus of destructive dialogs)
