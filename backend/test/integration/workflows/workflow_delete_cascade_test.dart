@@ -218,7 +218,8 @@ Future<void> main() async {
     expect((await http.get('/api/v1/runs/${run.id}')).statusCode, 200);
   });
 
-  test('force=true: stops the active run, waits, then deletes the workflow and its runs', () async {
+  test('force=true: stops the active run, waits, then deletes the workflow '
+      'and its runs', () async {
     final scriptPath = await writeWaitingScript();
     final workflow = await createCommandWorkflow(scriptPath: scriptPath);
     final run = await startRun(workflow.id);

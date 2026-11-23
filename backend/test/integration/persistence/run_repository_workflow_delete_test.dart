@@ -261,7 +261,8 @@ void main() {
     expect(result.valueOrNull, isEmpty);
   });
 
-  test('orphanIds: clears workflowId of kept runs, keeps their name and deletes the rest', () async {
+  test('orphanIds: clears workflowId of kept runs, keeps their name '
+      'and deletes the rest', () async {
     final db = AppDatabase.open(dbFile);
     addTearDown(db.close);
 
@@ -330,7 +331,8 @@ void main() {
     },
   );
 
-  test('orphanIds: refuses and changes nothing when a run outside the set is active', () async {
+  test('orphanIds: refuses and changes nothing when a run outside the set '
+      'is active', () async {
     final db = AppDatabase.open(dbFile);
     addTearDown(db.close);
 

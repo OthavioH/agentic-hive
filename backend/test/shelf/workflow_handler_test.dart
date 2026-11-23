@@ -334,7 +334,8 @@ void main() {
     expect(resp.statusCode, 200);
   });
 
-  test('DELETE with a stale revision answers 409 and keeps the workflow', () async {
+  test('DELETE with a stale revision answers 409 and keeps the '
+      'workflow', () async {
     final created = WorkflowResponse.fromJson(
       await readJson(
         await handler(

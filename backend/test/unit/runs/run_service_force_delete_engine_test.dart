@@ -50,7 +50,8 @@ void main() {
     },
   );
 
-  test('a kill that cannot be confirmed orphans the run; retry cancel then delete works', () async {
+  test('a kill that cannot be confirmed orphans the run; '
+      'retry cancel then delete works', () async {
     final h = EngineHarness();
     final service = RunService(
       runs: h.runs,
