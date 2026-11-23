@@ -378,27 +378,25 @@ void main() {
     },
   );
 
-  test(
-    'progress events for a workflow with several runs never decrease '
-    'runsDeleted',
-    () async {
-      final id = await createWorkflow('Deploy');
-      deleter
-        ..script = [
-          const WorkflowRunsProgress(
-            phase: WorkflowDeletionPhase.deletingRuns,
-            runsDeleted: 1,
-          ),
-          const WorkflowRunsProgress(
-            phase: WorkflowDeletionPhase.deletingRuns,
-            runsDeleted: 2,
-          ),
-          const WorkflowRunsProgress(
-            phase: WorkflowDeletionPhase.deletingRuns,
-            runsDeleted: 3,
-          ),
-        ]
-        ..result = const Success(WorkflowRunsDeletion(deletedRuns: 3));
+  test('progress events for a workflow with several runs never decrease '
+      'runsDeleted', () async {
+    final id = await createWorkflow('Deploy');
+    deleter
+      ..script = [
+        const WorkflowRunsProgress(
+          phase: WorkflowDeletionPhase.deletingRuns,
+          runsDeleted: 1,
+        ),
+        const WorkflowRunsProgress(
+          phase: WorkflowDeletionPhase.deletingRuns,
+          runsDeleted: 2,
+        ),
+        const WorkflowRunsProgress(
+          phase: WorkflowDeletionPhase.deletingRuns,
+          runsDeleted: 3,
+        ),
+      ]
+      ..result = const Success(WorkflowRunsDeletion(deletedRuns: 3));
 
     final accepted = (await service.deleteWorkflow(id)).valueOrNull!;
     await finished(accepted.operationId);

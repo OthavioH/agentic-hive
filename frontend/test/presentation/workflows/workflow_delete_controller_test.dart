@@ -308,10 +308,8 @@ void main() {
     },
   );
 
-  test(
-    'recreated workflow with the same id is removed from list on second '
-    'deletion',
-    () async {
+  test('recreated workflow with the same id is removed from list on second '
+      'deletion', () async {
     container.listen(workflowsListControllerProvider, (_, _) {});
     await container.read(workflowsListControllerProvider.future);
     expect(
