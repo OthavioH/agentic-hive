@@ -14,6 +14,9 @@ import 'package:path/path.dart' as p;
 /// condition holds; this only turns a hang into a failure.
 const waitTimeout = Duration(seconds: 5);
 
+/// Upper bound for starting a backend, which opens the database and watchers.
+const startTimeout = Duration(seconds: 20);
+
 /// Creates a fresh, short temporary folder (Unix socket paths are limited to
 /// about 104 bytes).
 Future<Directory> createShortTempDir() =>
@@ -36,12 +39,29 @@ final class TestBackend {
   static Future<TestBackend> start() async {
     final logs = LogEvents();
     final dir = await createShortTempDir();
-    final backend = await Backend.start(
+    final di = GetIt.asNewInstance();
+    final starting = Backend.start(
       config: AppConfig(mode: RuntimeMode.development, dataDir: dir.path),
-      di: GetIt.asNewInstance(),
+      di: di,
       consoleOut: IOSink(_DiscardingConsumer()),
     );
-    return TestBackend._(backend, dir, logs);
+    try {
+      final backend = await starting.timeout(startTimeout);
+      return TestBackend._(backend, dir, logs);
+    } on Object {
+      // The caller never gets a TestBackend to dispose, so release everything
+      // here. A start still in flight is awaited first: resetting the
+      // container mid-registration breaks get_it and leaves files open.
+      try {
+        await starting.timeout(waitTimeout);
+      } on Object {
+        // Failed or stuck: reset below.
+      }
+      await di.reset();
+      await logs.dispose();
+      await deleteDir(dir);
+      rethrow;
+    }
   }
 
   /// The running backend.
