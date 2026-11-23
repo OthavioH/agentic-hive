@@ -145,14 +145,22 @@ class _WorkspaceRegistryDialogState
         .removeWorkspace(workspace.id);
     if (!mounted) return;
     if (result case FailureResult<void>(:final failure)) {
-      setState(() => _errorMessage = _localizeFailure(failure, l10n));
+      final is409 =
+          failure is ConflictFailure ||
+          (failure is BackendFailure && failure.statusCode == 409);
+      setState(
+        () => _errorMessage = is409 && failure.message.isEmpty
+            ? l10n.workspaceRemoveActiveRunsConflict
+            : _localizeFailure(failure, l10n),
+      );
     }
   }
 
   String _localizeFailure(Failure failure, AppLocalizations l10n) =>
       switch (failure) {
         NetworkFailure() => l10n.workspaceErrorNetwork,
-        ConflictFailure() => l10n.workspaceErrorConflict,
+        ConflictFailure(:final message) =>
+          message.isNotEmpty ? message : l10n.workspaceErrorConflict,
         BackendFailure(:final statusCode, :final message)
             when statusCode == 409 =>
           message.isNotEmpty ? message : l10n.workspaceErrorConflict,

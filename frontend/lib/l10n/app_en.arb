@@ -3104,5 +3104,9 @@
   "sideRailTreeGlobalLabel": "Global",
   "@sideRailTreeGlobalLabel": {
     "description": "Label for the fixed Global entry in the side rail tree."
+  },
+  "workspaceRemoveActiveRunsConflict": "Cannot remove workspace while runs are active. Finish or cancel active runs first.",
+  "@workspaceRemoveActiveRunsConflict": {
+    "description": "Error message when removing a workspace is rejected with 409 because runs are active."
   }
 }

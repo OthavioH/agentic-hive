@@ -1,3 +1,4 @@
+import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/data/settings/file_picker_repository_impl.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_providers.dart';
 import 'package:agentic_hive_frontend/domain/settings/file_picker_repository.dart';
@@ -237,6 +238,40 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repo.unregisterCalls, ['ws-1']);
+    },
+  );
+
+  testWidgets(
+    'WorkspaceRegistryDialog shows a clear message when remove returns 409',
+    (tester) async {
+      repo
+        ..workspaces = [makeWorkspace(name: 'Busy', activeRunCount: 2)]
+        ..unregisterWorkspaceResult = const FailureResult<void>(
+          ConflictFailure(''),
+        );
+
+      await tester.pumpWidget(
+        _wrap(
+          child: const WorkspaceRegistryDialog(),
+          repo: repo,
+          selectionStore: selectionStore,
+          filePicker: filePicker,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('workspace_remove_button_ws-1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Remove'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'Cannot remove workspace while runs are active. '
+          'Finish or cancel active runs first.',
+        ),
+        findsOneWidget,
+      );
     },
   );
 }
