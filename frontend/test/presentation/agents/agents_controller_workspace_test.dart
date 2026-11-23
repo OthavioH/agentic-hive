@@ -50,11 +50,11 @@ final class _ScopedRepository implements AgentRepository {
     final workspaceItems = workspaceId == null
         ? const <AgentDetail>[]
         : workspace.values.toList();
-    final ids = {for (final d in workspaceItems) d.id};
+    final names = {for (final d in workspaceItems) d.name.trim()};
     return Success([
       for (final d in workspaceItems) _summary(d),
       for (final d in global.values)
-        _summary(d).copyWith(overridden: ids.contains(d.id)),
+        _summary(d).copyWith(overridden: names.contains(d.name.trim())),
     ]);
   }
 
@@ -166,6 +166,83 @@ void main() {
       ]),
     );
   });
+
+  test('an override matches on the name, not on the file id', () async {
+    agents.global['reviewer-global'] = _detail(
+      'reviewer-global',
+      AgentScope.global,
+      name: 'Reviewer',
+    );
+    agents.workspace['reviewer-ws'] = _detail(
+      'reviewer-ws',
+      AgentScope.workspace,
+      name: 'Reviewer',
+    );
+    final container = await boot();
+    final controller = container.read(agentsControllerProvider.notifier);
+
+    final list = container.read(agentsControllerProvider).agents.value!;
+    expect(
+      [for (final a in list) '${a.id}:${a.scope.name}:${a.overridden}'],
+      unorderedEquals([
+        'reviewer-ws:workspace:false',
+        'reviewer-global:global:true',
+      ]),
+    );
+
+    // The global entry stays addressable by its own file id.
+    await controller.selectAgent('reviewer-global', scope: AgentScope.global);
+    expect(
+      container.read(agentsControllerProvider).detail.value?.id,
+      'reviewer-global',
+    );
+  });
+
+  test(
+    'live: a workspace agent with the same name flags the global one',
+    () async {
+      agents.global['reviewer-global'] = _detail(
+        'reviewer-global',
+        AgentScope.global,
+        name: 'Reviewer',
+      );
+      final container = await boot();
+      AgentSummary globalEntry() => container
+          .read(agentsControllerProvider)
+          .agents
+          .value!
+          .singleWhere((a) => a.scope == AgentScope.global);
+      expect(globalEntry().overridden, isFalse);
+
+      final workspaceSummary = AgentSummary(
+        id: 'reviewer-ws',
+        name: ' Reviewer ',
+        contentHash: 'h',
+        updatedAt: DateTime.utc(2026, 11, 22),
+        scope: AgentScope.workspace,
+      );
+      agents.changes.add(
+        AgentsChangedPayload(
+          kind: AgentChangeKind.created,
+          id: 'reviewer-ws',
+          workspaceId: 'ws-1',
+          agent: workspaceSummary,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(globalEntry().overridden, isTrue);
+
+      agents.changes.add(
+        const AgentsChangedPayload(
+          kind: AgentChangeKind.deleted,
+          id: 'reviewer-ws',
+          workspaceId: 'ws-1',
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(globalEntry().overridden, isFalse);
+    },
+  );
 
   test('Global view lists and edits only global agents', () async {
     agents.global['planner'] = _detail('planner', AgentScope.global);

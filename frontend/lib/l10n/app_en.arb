@@ -660,6 +660,18 @@
   "@agentsExternalDeletedMessage": {
     "description": "Banner message when the currently open agent is deleted externally."
   },
+  "agentsMigrationBannerTitle": "Some agents were not moved",
+  "@agentsMigrationBannerTitle": {
+    "description": "Title of the banner listing agent files left in the old agents folder because a different file with the same name already exists in the new one."
+  },
+  "agentsMigrationBannerMessage": "These files exist in both {legacyDir} and {targetDir} with different content. The copy in {targetDir} was kept and the other one was left untouched. Compare them and delete the one you do not need.",
+  "@agentsMigrationBannerMessage": {
+    "description": "Explanation under the agents migration banner title.",
+    "placeholders": {
+      "legacyDir": {"type": "String"},
+      "targetDir": {"type": "String"}
+    }
+  },
   "agentsDismissTooltip": "Dismiss",
   "@agentsDismissTooltip": {
     "description": "Semantics label for dismissing an inline banner or toast."

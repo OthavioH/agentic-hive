@@ -29,7 +29,8 @@ final class _SelectionStore implements WorkspaceSelectionStore {
 AgentSummary _summary(String id, AgentScope scope, {bool overridden = false}) =>
     AgentSummary(
       id: id,
-      name: '$id (${scope.name})',
+      // Same name across scopes: an override matches on the name (ADR 0022).
+      name: id,
       contentHash: 'h-$id-${scope.name}',
       updatedAt: DateTime.utc(2026, 11, 22),
       scope: scope,
@@ -131,7 +132,7 @@ void main() {
 
   testWidgets('the Global entry lists only global agents', (tester) async {
     await pump(tester);
-    expect(find.text('reviewer (workspace)'), findsOneWidget);
+    expect(find.widgetWithText(HiveBadge, 'Workspace'), findsOneWidget);
 
     await tester.tap(
       find.descendant(
@@ -142,7 +143,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(agents.listCalls.last, isNull);
-    expect(find.text('reviewer (workspace)'), findsNothing);
     expect(find.widgetWithText(HiveBadge, 'Workspace'), findsNothing);
   });
 
