@@ -65,9 +65,12 @@ import 'package:agentic_hive_backend/src/domain/harnesses/harness_service.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/mcp_scope_resolver.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/mcp_tool_registry.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/create_workflow_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/duplicate_workflow_tool.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/get_workflow_tool.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/list_workflows_tool.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/list_workspaces_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/workflow_create_input.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/workflow_text_formatter.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_registry.dart';
@@ -92,6 +95,7 @@ import 'package:agentic_hive_backend/src/domain/settings/execution_settings_serv
 import 'package:agentic_hive_backend/src/domain/settings/settings_repository.dart';
 import 'package:agentic_hive_backend/src/domain/settings/settings_service.dart';
 import 'package:agentic_hive_backend/src/domain/settings/workspace_settings_store.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_events.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
@@ -119,6 +123,7 @@ import 'package:agentic_hive_backend/src/server/server_info_file.dart';
 import 'package:agentic_hive_backend/src/version.dart';
 import 'package:agentic_hive_backend/src/ws/connection_registry.dart';
 import 'package:agentic_hive_backend/src/ws/ws_gateway.dart';
+import 'package:agentic_hive_backend/src/ws/ws_workflow_events.dart';
 import 'package:agentic_hive_backend/src/ws/ws_workspace_events.dart';
 import 'package:get_it/get_it.dart';
 
@@ -565,6 +570,21 @@ Future<void> registerDependencies(
             workflows: workflows,
             formatter: formatter,
           ),
+          CreateWorkflowTool(
+            scopes: scopes,
+            workflows: workflows,
+            parser: WorkflowCreateInputParser(
+              describe: di<NodeRegistry>().descriptorFor,
+            ),
+            formatter: formatter,
+            events: di<WorkflowEvents>(),
+          ),
+          DuplicateWorkflowTool(
+            scopes: scopes,
+            workflows: workflows,
+            formatter: formatter,
+            events: di<WorkflowEvents>(),
+          ),
         ]);
       },
       dependsOn: [
@@ -614,6 +634,9 @@ Future<void> registerDependencies(
     ..registerSingleton<ConnectionRegistry>(ConnectionRegistry())
     ..registerSingleton<WorkspaceEvents>(
       WsWorkspaceEvents(di<ConnectionRegistry>()),
+    )
+    ..registerSingleton<WorkflowEvents>(
+      WsWorkflowEvents(di<ConnectionRegistry>()),
     )
     ..registerSingleton<AgentService>(
       AgentService(

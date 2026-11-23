@@ -76,7 +76,14 @@ final class WorkflowTextFormatter {
       );
     }
 
-    final issues = r.validation.issues;
+    lines.add(validation(r.validation));
+    return lines.join('\n');
+  }
+
+  /// Formats a validation result as a compact block.
+  String validation(WorkflowValidationResult validation) {
+    final issues = validation.issues;
+    final lines = <String>[];
     if (issues.isEmpty) {
       lines.add('Validation: ok');
     } else {

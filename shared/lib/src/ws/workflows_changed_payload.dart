@@ -7,27 +7,27 @@ part 'workflows_changed_payload.g.dart';
 
 /// Kind of change reported in [WorkflowsChangedPayload].
 enum WorkflowChangeKind {
-  /// A new workspace workflow file appeared on disk.
+  /// A workflow was created.
   created,
 
-  /// An existing workspace workflow file was modified on disk.
+  /// A workflow was modified.
   updated,
 
-  /// A workspace workflow file was removed from disk.
+  /// A workflow was removed.
   deleted,
 }
 
 /// Payload of a `workflows.changed` WebSocket event.
 ///
-/// [workspaceId] names the workspace whose workflow folder changed. [workflow]
-/// is absent for a deletion.
+/// [workspaceId] names the workspace of the changed workflow, or is null for
+/// a global workflow. [workflow] is absent for a deletion.
 @freezed
 sealed class WorkflowsChangedPayload with _$WorkflowsChangedPayload {
   /// Creates a workflows-changed payload.
   const factory({
     required WorkflowChangeKind kind,
     required String id,
-    required String workspaceId,
+    String? workspaceId,
     WorkflowSummary? workflow,
   }) = _WorkflowsChangedPayload;
 

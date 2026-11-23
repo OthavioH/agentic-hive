@@ -70,7 +70,7 @@ final class WorkflowsListState {
 /// The list covers the global workflows plus those of the current workspace
 /// (each item carries its scope). With the Global entry selected, or without a
 /// workspace, only global workflows are listed. Workspace workflow files that
-/// change on disk refresh the list live.
+/// change on disk, and workflows written through MCP, refresh the list live.
 @riverpod
 class WorkflowsListController extends _$WorkflowsListController {
   /// Workspace whose workflows are listed besides the global ones; `null`
@@ -91,7 +91,7 @@ class WorkflowsListController extends _$WorkflowsListController {
     final changes = ref.read(watchWorkflowChangesProvider).call().listen((
       payload,
     ) {
-      if (payload.workspaceId == _workspaceId) {
+      if (payload.workspaceId == null || payload.workspaceId == _workspaceId) {
         unawaited(_reloadSilently());
       }
     });
