@@ -28,6 +28,7 @@ const Map<String, String> _useCases = <String, String>{
   'success · Default icon': 'Claude Code is ready',
   'Long message': '',
   'Danger · Default': 'Run workflow',
+  'Danger hover · Hovered': '',
   'Single-line · Focused': 'Workflow name',
   'Single-line · Error': 'Name is required.',
   'Multi-line · Default': 'Description',
@@ -56,6 +57,8 @@ const Map<String, String> _useCases = <String, String>{
   'ANSI palette': 'Take over',
   'Overview row': 'Succeeded today',
   'Long value and label': '1,284,356',
+  'Title bar · Restored': '',
+  'Title bar · Maximized': '',
 };
 
 void main() {

@@ -11,6 +11,7 @@ import 'package:agentic_hive_frontend/core/lifecycle/tray_service.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/window_lifecycle_service.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -121,6 +122,35 @@ final class _FakeWindowLifecycleService implements WindowLifecycleService {
   int exitCount = 0;
   bool disposed = false;
   bool exiting = false;
+  final ValueNotifier<bool> _isMaximized = ValueNotifier<bool>(false);
+
+  @override
+  bool get hasCustomTitleBar => true;
+
+  @override
+  bool get showSystemMenuOnRelease => false;
+
+  @override
+  ValueListenable<bool> get isMaximized => _isMaximized;
+
+  @override
+  void configureTitleBar() {}
+
+  @override
+  Future<Result<void>> setTitle(String title) async =>
+      const Success<void>(null);
+
+  @override
+  Future<void> minimize() async {}
+
+  @override
+  Future<void> toggleMaximize() async {}
+
+  @override
+  Future<void> startDragging() async {}
+
+  @override
+  Future<void> showSystemMenu(Offset globalPosition) async {}
 
   /// Simulates an OS quit request (`ApplicationQuitRequestedEvent`) that is
   /// cancelled and forwarded to [onQuitRequested] unless [exiting] or

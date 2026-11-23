@@ -9,6 +9,7 @@ import 'package:agentic_hive_frontend/data/pauses/pause_providers.dart';
 import 'package:agentic_hive_frontend/data/runs/run_providers.dart';
 import 'package:agentic_hive_frontend/data/settings/file_picker_repository_impl.dart';
 import 'package:agentic_hive_frontend/data/settings/settings_repository_impl.dart';
+import 'package:agentic_hive_frontend/data/window/window_providers.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_providers.dart';
 import 'package:agentic_hive_frontend/domain/agents/create_agent_use_case.dart';
@@ -28,6 +29,7 @@ import 'package:agentic_hive_frontend/domain/pauses/use_cases/answer_pause_use_c
 import 'package:agentic_hive_frontend/domain/pauses/use_cases/list_pending_pauses_use_case.dart';
 import 'package:agentic_hive_frontend/domain/pauses/use_cases/watch_pause_events_use_case.dart';
 import 'package:agentic_hive_frontend/domain/pauses/use_cases/watch_pending_pauses_count_use_case.dart';
+import 'package:agentic_hive_frontend/domain/runs/use_cases/build_run_output_messages.dart';
 import 'package:agentic_hive_frontend/domain/runs/use_cases/cancel_run.dart';
 import 'package:agentic_hive_frontend/domain/runs/use_cases/delete_run.dart';
 import 'package:agentic_hive_frontend/domain/runs/use_cases/get_node_logs.dart';
@@ -46,6 +48,14 @@ import 'package:agentic_hive_frontend/domain/settings/pick_directory.dart';
 import 'package:agentic_hive_frontend/domain/settings/pick_file.dart';
 import 'package:agentic_hive_frontend/domain/settings/update_settings.dart';
 import 'package:agentic_hive_frontend/domain/settings/watch_settings_updates.dart';
+import 'package:agentic_hive_frontend/domain/window/get_window_chrome_use_case.dart';
+import 'package:agentic_hive_frontend/domain/window/hide_window_to_tray_use_case.dart';
+import 'package:agentic_hive_frontend/domain/window/minimize_window_use_case.dart';
+import 'package:agentic_hive_frontend/domain/window/set_window_title_use_case.dart';
+import 'package:agentic_hive_frontend/domain/window/show_window_system_menu_use_case.dart';
+import 'package:agentic_hive_frontend/domain/window/start_window_drag_use_case.dart';
+import 'package:agentic_hive_frontend/domain/window/toggle_maximize_window_use_case.dart';
+import 'package:agentic_hive_frontend/domain/window/watch_window_maximized_use_case.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/create_workflow.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/delete_workflow.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/duplicate_workflow.dart';
@@ -169,6 +179,11 @@ GetRunEvents getRunEvents(Ref ref) =>
 GetRunCheckpoints getRunCheckpoints(Ref ref) =>
     GetRunCheckpoints(ref.watch(runRepositoryProvider));
 
+/// Provides [BuildRunOutputMessages].
+@riverpod
+BuildRunOutputMessages buildRunOutputMessages(Ref ref) =>
+    const BuildRunOutputMessages();
+
 /// Provides [DeleteRun].
 @riverpod
 DeleteRun deleteRun(Ref ref) => DeleteRun(ref.watch(runRepositoryProvider));
@@ -282,3 +297,43 @@ GetOverviewUseCase getOverviewUseCase(Ref ref) =>
 @riverpod
 WatchOverviewEventsUseCase watchOverviewEventsUseCase(Ref ref) =>
     WatchOverviewEventsUseCase(ref.watch(overviewRepositoryProvider));
+
+/// Provides [GetWindowChromeUseCase].
+@riverpod
+GetWindowChromeUseCase getWindowChromeUseCase(Ref ref) =>
+    GetWindowChromeUseCase(ref.watch(windowControlsRepositoryProvider));
+
+/// Provides [WatchWindowMaximizedUseCase].
+@riverpod
+WatchWindowMaximizedUseCase watchWindowMaximizedUseCase(Ref ref) =>
+    WatchWindowMaximizedUseCase(ref.watch(windowControlsRepositoryProvider));
+
+/// Provides [SetWindowTitleUseCase].
+@riverpod
+SetWindowTitleUseCase setWindowTitleUseCase(Ref ref) =>
+    SetWindowTitleUseCase(ref.watch(windowControlsRepositoryProvider));
+
+/// Provides [MinimizeWindowUseCase].
+@riverpod
+MinimizeWindowUseCase minimizeWindowUseCase(Ref ref) =>
+    MinimizeWindowUseCase(ref.watch(windowControlsRepositoryProvider));
+
+/// Provides [ToggleMaximizeWindowUseCase].
+@riverpod
+ToggleMaximizeWindowUseCase toggleMaximizeWindowUseCase(Ref ref) =>
+    ToggleMaximizeWindowUseCase(ref.watch(windowControlsRepositoryProvider));
+
+/// Provides [HideWindowToTrayUseCase].
+@riverpod
+HideWindowToTrayUseCase hideWindowToTrayUseCase(Ref ref) =>
+    HideWindowToTrayUseCase(ref.watch(windowControlsRepositoryProvider));
+
+/// Provides [StartWindowDragUseCase].
+@riverpod
+StartWindowDragUseCase startWindowDragUseCase(Ref ref) =>
+    StartWindowDragUseCase(ref.watch(windowControlsRepositoryProvider));
+
+/// Provides [ShowWindowSystemMenuUseCase].
+@riverpod
+ShowWindowSystemMenuUseCase showWindowSystemMenuUseCase(Ref ref) =>
+    ShowWindowSystemMenuUseCase(ref.watch(windowControlsRepositoryProvider));

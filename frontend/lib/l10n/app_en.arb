@@ -2147,6 +2147,18 @@
   "@runDetailTabOutput": {
     "description": "Inspector tab label for live node output logs."
   },
+  "runDetailTabOutputs": "Outputs",
+  "@runDetailTabOutputs": {
+    "description": "Inspector tab label for the chat-style list of node summaries."
+  },
+  "runDetailOutputsTitle": "Outputs",
+  "@runDetailOutputsTitle": {
+    "description": "Heading and empty-state title of the chat-style node outputs panel."
+  },
+  "runDetailOutputsEmpty": "No node has published a message yet.",
+  "@runDetailOutputsEmpty": {
+    "description": "Empty state of the Outputs panel when no node published a summary."
+  },
   "runDetailTabEvents": "Events",
   "@runDetailTabEvents": {
     "description": "Inspector tab label for the chronological run event log."
@@ -2596,5 +2608,21 @@
   "overviewFailureUnexpected": "An unexpected error occurred.",
   "@overviewFailureUnexpected": {
     "description": "Fallback localized error message on Overview."
+  },
+  "windowMinimize": "Minimize",
+  "@windowMinimize": {
+    "description": "Accessible label and tooltip for the window minimize button."
+  },
+  "windowMaximize": "Maximize",
+  "@windowMaximize": {
+    "description": "Accessible label and tooltip for the window maximize button."
+  },
+  "windowRestore": "Restore",
+  "@windowRestore": {
+    "description": "Accessible label and tooltip for the window restore button when maximized."
+  },
+  "windowCloseToTray": "Close to tray",
+  "@windowCloseToTray": {
+    "description": "Accessible label and tooltip for the window close-to-tray button."
   }
 }

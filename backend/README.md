@@ -97,7 +97,7 @@ The compiled executable runs in production mode: it logs at `INFO` and, unless `
 
 ### Release
 
-Releases are built by `.github/workflows/release.yml` (ADR 0023) for Windows and Linux. On each OS it builds the app with `flutter build <os> --release`, builds `backend/` into the app's output folder with the tool above (the **Bundle**), and smoke-tests it:
+Releases are built by `.github/workflows/release.yml` (ADR 0024) for Windows and Linux. On each OS it builds the app with `flutter build <os> --release`, builds `backend/` into the app's output folder with the tool above (the **Bundle**), and smoke-tests it:
 
 ```sh
 dart run tool/smoke_bundle.dart <bundle-dir>
@@ -109,7 +109,7 @@ Pushing a tag `vX.Y.Z` on `master` publishes a GitHub pre-release with `agentic-
 
 ### How the backend gets started
 
-> The app side is implemented: `ProcessBackendLauncher` (`frontend/lib/core/lifecycle/backend_launcher.dart`) starts `backend/bin/server` next to the app executable (ADR 0016, ADR 0023), or the path in `AGENTIC_HIVE_BACKEND_BIN`. The installer and the terminal command below are still pending.
+> The app side is implemented: `ProcessBackendLauncher` (`frontend/lib/core/lifecycle/backend_launcher.dart`) starts `backend/bin/server` next to the app executable (ADR 0016, ADR 0024), or the path in `AGENTIC_HIVE_BACKEND_BIN`. The installer and the terminal command below are still pending.
 
 **By the app (normal case).** The user never starts the backend by hand:
 

@@ -101,6 +101,7 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
       WidgetbookFolder(
         name: 'Layout',
         children: <WidgetbookNode>[
+          titleBarComponent(),
           pageHeaderComponent(),
           cardComponent(),
           emptyStateComponent(),

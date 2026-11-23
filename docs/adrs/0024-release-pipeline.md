@@ -4,6 +4,8 @@ status: accepted
 
 # Release pipeline and Bundle layout
 
+Amends ADR 0023 (custom title bar): the app's identifier is `dev.othavioh.agentic-hive` on Linux and macOS, because Apple bundle identifiers do not allow `_`, and the macOS product name is `agentic_hive` (bundle `agentic_hive.app`), so the executable is named `agentic_hive` on every OS and the launcher and Bundle tooling can rely on one name. Users still see "Agentic Hive" everywhere: the macOS `Info.plist` sets `CFBundleDisplayName` to it.
+
 The product had no way to be published. Pushing a tag `vX.Y.Z` on `master` now runs `.github/workflows/release.yml`, which builds a **Bundle** on Windows and Linux, smoke-tests it and publishes a GitHub pre-release. macOS is still only built in CI (ADR 0012). Spec: issue #92.
 
 ## Decision

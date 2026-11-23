@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/runs/controllers/run_detail_controller.dart';
 import 'package:agentic_hive_frontend/presentation/runs/utils/run_l10n.dart';
+import 'package:agentic_hive_frontend/presentation/runs/widgets/run_chat_outputs_panel.dart';
 import 'package:agentic_hive_frontend/presentation/runs/widgets/run_graph_view.dart';
 import 'package:agentic_hive_frontend/presentation/runs/widgets/run_inspector_tabs.dart';
 import 'package:agentic_hive_frontend/presentation/runs/widgets/run_output_panel.dart';
@@ -586,6 +587,9 @@ class _InspectorColumn extends StatelessWidget {
           child: switch (tab) {
             RunInspectorTab.output => RunOutputPanel(
               runId: runId,
+              detailState: detailState,
+            ),
+            RunInspectorTab.outputs => RunChatOutputsPanel(
               detailState: detailState,
             ),
             RunInspectorTab.events => _EventTimelineColumn(

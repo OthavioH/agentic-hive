@@ -145,6 +145,21 @@ WidgetbookComponent iconButtonComponent() {
           ),
         ),
       ],
+      for (final state in PreviewState.values)
+        WidgetbookUseCase(
+          name: 'Danger hover · ${state.label}',
+          builder: (context) => UseCaseFrame(
+            child: StatesPreview(
+              states: state.states,
+              builder: (controller) => HiveIconButton.dangerHover(
+                icon: HiveIcons.close,
+                semanticLabel: 'Close to tray',
+                statesController: controller,
+                onPressed: state.isDisabled ? null : _noop,
+              ),
+            ),
+          ),
+        ),
       WidgetbookUseCase(
         name: 'Sizes',
         builder: (context) => UseCaseFrame(
@@ -194,32 +209,49 @@ WidgetbookComponent iconButtonComponent() {
       ),
       WidgetbookUseCase(
         name: 'Playground',
-        builder: (context) => UseCaseFrame(
-          child: HiveIconButton(
-            icon: HiveIcons.refresh,
-            semanticLabel: context.knobs.string(
-              label: 'Semantic label',
-              initialValue: 'Re-check Gemini CLI',
-            ),
-            variant: context.knobs.object.dropdown<HiveButtonVariant>(
-              label: 'Variant',
-              options: HiveButtonVariant.values,
-              initialOption: HiveButtonVariant.secondary,
-              labelBuilder: (v) => v.name,
-            ),
-            size: context.knobs.object.dropdown<HiveButtonSize>(
-              label: 'Size',
-              options: HiveButtonSize.values,
-              initialOption: HiveButtonSize.medium,
-              labelBuilder: (v) => v.name,
-            ),
-            loading: context.knobs.boolean(label: 'Loading'),
-            onPressed:
-                context.knobs.boolean(label: 'Enabled', initialValue: true)
-                ? _noop
-                : null,
-          ),
-        ),
+        builder: (context) {
+          final semanticLabel = context.knobs.string(
+            label: 'Semantic label',
+            initialValue: 'Re-check Gemini CLI',
+          );
+          final variant = context.knobs.object.dropdown<HiveButtonVariant>(
+            label: 'Variant',
+            options: HiveButtonVariant.values,
+            initialOption: HiveButtonVariant.secondary,
+            labelBuilder: (v) => v.name,
+          );
+          final size = context.knobs.object.dropdown<HiveButtonSize>(
+            label: 'Size',
+            options: HiveButtonSize.values,
+            initialOption: HiveButtonSize.medium,
+            labelBuilder: (v) => v.name,
+          );
+          final dangerHover = context.knobs.boolean(label: 'Danger hover');
+          final loading = context.knobs.boolean(label: 'Loading');
+          final onPressed =
+              context.knobs.boolean(label: 'Enabled', initialValue: true)
+              ? _noop
+              : null;
+
+          return UseCaseFrame(
+            child: dangerHover
+                ? HiveIconButton.dangerHover(
+                    icon: HiveIcons.refresh,
+                    semanticLabel: semanticLabel,
+                    size: size,
+                    loading: loading,
+                    onPressed: onPressed,
+                  )
+                : HiveIconButton(
+                    icon: HiveIcons.refresh,
+                    semanticLabel: semanticLabel,
+                    variant: variant,
+                    size: size,
+                    loading: loading,
+                    onPressed: onPressed,
+                  ),
+          );
+        },
       ),
     ],
   );
@@ -490,6 +522,111 @@ class _RailShell extends StatefulWidget {
 
   @override
   State<_RailShell> createState() => _RailShellState();
+}
+
+/// `HiveTitleBar`: restored and maximized states.
+WidgetbookComponent titleBarComponent() {
+  const labels = HiveTitleBarLabels(
+    minimize: 'Minimize',
+    maximize: 'Maximize',
+    restore: 'Restore',
+    close: 'Close to tray',
+  );
+
+  Widget frame({required bool isMaximized}) {
+    return UseCaseFrame(
+      child: SizedBox(
+        width: 720,
+        child: HiveTitleBar(
+          isMaximized: isMaximized,
+          labels: labels,
+          onMinimize: _noop,
+          onToggleMaximize: _noop,
+          onClose: _noop,
+        ),
+      ),
+    );
+  }
+
+  return WidgetbookComponent(
+    name: 'HiveTitleBar',
+    useCases: <WidgetbookUseCase>[
+      WidgetbookUseCase(
+        name: 'Title bar · Restored',
+        builder: (context) => frame(isMaximized: false),
+      ),
+      WidgetbookUseCase(
+        name: 'Title bar · Maximized',
+        builder: (context) => frame(isMaximized: true),
+      ),
+      for (final state in <PreviewState>[
+        PreviewState.hovered,
+        PreviewState.focused,
+        PreviewState.pressed,
+      ])
+        WidgetbookUseCase(
+          name: 'Caption buttons · ${state.label}',
+          builder: (context) =>
+              UseCaseFrame(child: _CaptionButtonsPreview(state: state)),
+        ),
+    ],
+  );
+}
+
+/// The three caption buttons on the strip `background`, all seeded with the
+/// same [state] so hover, focus and pressed (and close on `danger`) can be
+/// reviewed side by side.
+class _CaptionButtonsPreview extends StatelessWidget {
+  const new({required this.state});
+
+  final PreviewState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = context.hiveSpacing;
+    Widget button({
+      required HiveIconData icon,
+      required String label,
+      bool dangerHover = false,
+    }) => StatesPreview(
+      states: state.states,
+      builder: (controller) => dangerHover
+          ? HiveIconButton.dangerHover(
+              icon: icon,
+              semanticLabel: label,
+              size: HiveButtonSize.small,
+              statesController: controller,
+              onPressed: _noop,
+            )
+          : HiveIconButton(
+              icon: icon,
+              semanticLabel: label,
+              size: HiveButtonSize.small,
+              statesController: controller,
+              onPressed: _noop,
+            ),
+    );
+
+    return ColoredBox(
+      color: context.hiveColors.background,
+      child: Padding(
+        padding: EdgeInsets.all(spacing.space1),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          spacing: spacing.spaceHalf,
+          children: <Widget>[
+            button(icon: HiveIcons.minimize, label: 'Minimize'),
+            button(icon: HiveIcons.maximize, label: 'Maximize'),
+            button(
+              icon: HiveIcons.close,
+              label: 'Close to tray',
+              dangerHover: true,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _RailShellState extends State<_RailShell> {
