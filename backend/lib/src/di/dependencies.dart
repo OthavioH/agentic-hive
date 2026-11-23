@@ -68,6 +68,7 @@ import 'package:agentic_hive_backend/src/domain/mcp_tools/building_blocks_text_f
 import 'package:agentic_hive_backend/src/domain/mcp_tools/mcp_scope_resolver.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/mcp_tool_registry.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/create_workflow_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/delete_workflow_tool.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/duplicate_workflow_tool.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/edit_workflow_tool.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/get_workflow_tool.dart';
@@ -608,6 +609,11 @@ Future<void> registerDependencies(
               describe: di<NodeRegistry>().descriptorFor,
             ),
             formatter: formatter,
+            events: di<WorkflowEvents>(),
+          ),
+          DeleteWorkflowTool(
+            scopes: scopes,
+            workflows: workflows,
             events: di<WorkflowEvents>(),
           ),
           ListBuildingBlocksTool(

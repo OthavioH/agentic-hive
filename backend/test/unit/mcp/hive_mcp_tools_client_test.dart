@@ -97,5 +97,20 @@ void main() {
       expect(r.isError, isTrue);
       expect(r.message, 'Nope.');
     });
+
+    test('delete_workflow waits up to 30 s, other tools 15 s', () {
+      expect(
+        HiveMcpToolsClient.timeoutFor('delete_workflow'),
+        const Duration(seconds: 30),
+      );
+      expect(
+        HiveMcpToolsClient.timeoutFor('edit_workflow'),
+        const Duration(seconds: 15),
+      );
+      expect(
+        HiveMcpToolsClient.timeoutFor('unknown'),
+        const Duration(seconds: 15),
+      );
+    });
   });
 }

@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_runs_deleter.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workspace_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_repository.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
@@ -122,4 +125,39 @@ final class MemoryWorkspaces implements WorkspaceRepository {
     required String name,
     required DateTime updatedAt,
   }) async => throw UnimplementedError();
+}
+
+/// Runs deleter whose deletion waits for [gate] and returns [outcome].
+final class GatedRunsDeleter implements WorkflowRunsDeleter {
+  /// Active runs answered to the synchronous check.
+  Map<String, RunStatus> activeRuns = const {};
+
+  /// When set, deletion waits for it.
+  Completer<void>? gate;
+
+  /// What the deletion returns.
+  Result<WorkflowRunsDeletion> outcome = const Success(
+    WorkflowRunsDeletion(deletedRuns: 0),
+  );
+
+  /// Values of `force` received by [deleteRunsOfWorkflow].
+  final forceCalls = <bool>[];
+
+  @override
+  Future<Result<Map<String, RunStatus>>> activeRunsOfWorkflow(
+    String workflowId, {
+    String? workspaceId,
+  }) async => Success(activeRuns);
+
+  @override
+  Future<Result<WorkflowRunsDeletion>> deleteRunsOfWorkflow(
+    String workflowId, {
+    String? workspaceId,
+    bool force = false,
+    WorkflowRunsProgressListener? onProgress,
+  }) async {
+    forceCalls.add(force);
+    await gate?.future;
+    return outcome;
+  }
 }
