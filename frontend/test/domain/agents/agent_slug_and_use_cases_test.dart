@@ -27,7 +27,7 @@ final class _FakeAgentRepository implements AgentRepository {
   );
 
   @override
-  Future<Result<List<AgentSummary>>> listAgents() async =>
+  Future<Result<List<AgentSummary>>> listAgents({String? workspaceId}) async =>
       Success(<AgentSummary>[
         AgentSummary(
           id: sampleDetail.id,
@@ -40,21 +40,28 @@ final class _FakeAgentRepository implements AgentRepository {
       ]);
 
   @override
-  Future<Result<AgentDetail>> getAgent(String id) async =>
-      Success(sampleDetail);
+  Future<Result<AgentDetail>> getAgent(
+    String id, {
+    String? workspaceId,
+  }) async => Success(sampleDetail);
 
   @override
-  Future<Result<AgentDetail>> createAgent(CreateAgentRequest request) async =>
+  Future<Result<AgentDetail>> createAgent(
+    CreateAgentRequest request, {
+    String? workspaceId,
+  }) async =>
       Success(sampleDetail.copyWith(id: request.id, name: request.name));
 
   @override
   Future<Result<AgentDetail>> updateAgent(
     String id,
-    UpdateAgentRequest request,
-  ) async => Success(sampleDetail.copyWith(name: request.name));
+    UpdateAgentRequest request, {
+    String? workspaceId,
+  }) async => Success(sampleDetail.copyWith(name: request.name));
 
   @override
-  Future<Result<void>> deleteAgent(String id) async => const Success(null);
+  Future<Result<void>> deleteAgent(String id, {String? workspaceId}) async =>
+      const Success(null);
 
   @override
   Stream<AgentsChangedPayload> watchAgentChanges() => changes.stream;

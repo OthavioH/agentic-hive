@@ -442,6 +442,26 @@
   "@agentsSelectPromptDescription": {
     "description": "Empty state description in the detail pane when no agent is selected."
   },
+  "agentsScopeWorkspaceBadge": "Workspace",
+  "@agentsScopeWorkspaceBadge": {
+    "description": "Scope badge on agent list items stored in the current workspace folder."
+  },
+  "agentsScopeGlobalBadge": "Global",
+  "@agentsScopeGlobalBadge": {
+    "description": "Scope badge on agent list items stored in the global agent library."
+  },
+  "agentsOverriddenBadge": "Overridden",
+  "@agentsOverriddenBadge": {
+    "description": "Badge on a global agent shadowed by a workspace agent with the same id."
+  },
+  "agentsScopeGlobalOption": "Global",
+  "@agentsScopeGlobalOption": {
+    "description": "Segment that switches the Agents page to manage only global agents."
+  },
+  "agentsScopeControlLabel": "Agent scope",
+  "@agentsScopeControlLabel": {
+    "description": "Accessibility label of the control choosing between the current workspace and Global agents."
+  },
   "agentsParseErrorBadge": "Parse error",
   "@agentsParseErrorBadge": {
     "description": "Badge label on agent list items whose .md file failed to parse."

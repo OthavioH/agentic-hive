@@ -11,7 +11,10 @@ import 'package:shelf_router/shelf_router.dart';
 /// HTTP handler for the `/api/v1/workspaces` routes (ADR 0022).
 final class WorkspacesHandler {
   /// Creates a handler backed by [_service].
-  new({required this._service, Handler? notFound}) {
+  ///
+  /// `onChanged` runs after a workspace is registered or unregistered, so
+  /// per-workspace file watchers can follow the registry.
+  new({required this._service, this._onChanged, Handler? notFound}) {
     _router = (notFound == null ? Router() : Router(notFoundHandler: notFound))
       ..get('/', _list)
       ..post('/', _create)
@@ -21,6 +24,7 @@ final class WorkspacesHandler {
   }
 
   final WorkspaceService _service;
+  final Future<void> Function()? _onChanged;
   late final Router _router;
 
   /// Dispatches one request under `/api/v1/workspaces`.
@@ -43,7 +47,9 @@ final class WorkspacesHandler {
   Future<Response> _create(Request request) async {
     final parsed = await _readBody(request, CreateWorkspaceRequest.fromJson);
     if (parsed.error != null) return parsed.error!;
-    return _mapResult(request, await _service.create(parsed.value!), 201);
+    final result = await _service.create(parsed.value!);
+    if (result is Success<Workspace>) await _onChanged?.call();
+    return _mapResult(request, result, 201);
   }
 
   Future<Response> _getById(Request request, String id) async =>
@@ -57,6 +63,7 @@ final class WorkspacesHandler {
 
   Future<Response> _delete(Request request, String id) async {
     final result = await _service.unregister(id);
+    if (result is Success<void>) await _onChanged?.call();
     return switch (result) {
       Success<void>() => jsonResponse(200, {'id': id, 'deleted': true}),
       FailureResult<void>(:final failure) => failureResponse(request, failure),

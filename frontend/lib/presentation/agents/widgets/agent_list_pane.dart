@@ -30,7 +30,7 @@ class AgentListPane extends StatefulWidget {
   final ValueChanged<String> onToggleTag;
 
   /// Called when an agent item is selected.
-  final ValueChanged<String> onSelectAgent;
+  final ValueChanged<AgentSummary> onSelectAgent;
 
   /// Called when the user triggers creating a new agent from the empty state.
   final VoidCallback onCreate;
@@ -198,12 +198,14 @@ class _AgentListPaneState extends State<AgentListPane> {
             final agent = filtered[index];
             final selected =
                 !widget.state.isCreating &&
-                widget.state.selectedAgentId == agent.id;
+                widget.state.selectedAgentId == agent.id &&
+                (widget.state.detail.value?.scope ?? agent.scope) ==
+                    agent.scope;
             return _AgentListTile(
               agent: agent,
               selected: selected,
               borderColor: selected ? colors.accent : colors.borderSubtle,
-              onTap: () => widget.onSelectAgent(agent.id),
+              onTap: () => widget.onSelectAgent(agent),
             );
           },
         );
@@ -268,6 +270,22 @@ class _AgentListTile extends StatelessWidget {
                         ),
                       ),
                     ),
+                    SizedBox(width: spacing.space1),
+                    HiveBadge(
+                      label: agent.scope == AgentScope.workspace
+                          ? l10n.agentsScopeWorkspaceBadge
+                          : l10n.agentsScopeGlobalBadge,
+                      tone: agent.scope == AgentScope.workspace
+                          ? HiveBadgeTone.accentMuted
+                          : HiveBadgeTone.neutral,
+                    ),
+                    if (agent.overridden) ...<Widget>[
+                      SizedBox(width: spacing.space1),
+                      HiveBadge(
+                        label: l10n.agentsOverriddenBadge,
+                        tone: HiveBadgeTone.warning,
+                      ),
+                    ],
                     if (agent.parseError != null) ...<Widget>[
                       SizedBox(width: spacing.space1),
                       HiveBadge(

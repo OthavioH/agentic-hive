@@ -52,14 +52,18 @@ final class _FakeShellProvider implements DefaultShellProvider {
 
 final class _FakeAgentPromptResolver implements AgentPromptResolver {
   @override
-  Future<Result<String>> resolvePrompt(String agentId) =>
-      Future<Result<String>>.value(Success('Agent prompt for $agentId'));
+  Future<Result<String>> resolvePrompt(
+    String agentId, {
+    String? workspaceRoot,
+  }) => Future<Result<String>>.value(Success('Agent prompt for $agentId'));
 
   @override
-  Future<Result<ResolvedAgent>> resolveAgent(String agentId) =>
-      Future<Result<ResolvedAgent>>.value(
-        Success(ResolvedAgent(prompt: 'Agent prompt for $agentId')),
-      );
+  Future<Result<ResolvedAgent>> resolveAgent(
+    String agentId, {
+    String? workspaceRoot,
+  }) => Future<Result<ResolvedAgent>>.value(
+    Success(ResolvedAgent(prompt: 'Agent prompt for $agentId')),
+  );
 }
 
 final class _FakeProcessTreeKiller implements ProcessTreeKiller {
