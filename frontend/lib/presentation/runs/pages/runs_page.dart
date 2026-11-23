@@ -105,6 +105,15 @@ class RunsPage extends ConsumerWidget {
                   ),
                 ),
                 data: (listState) {
+                  if (listState.isGlobalSelected) {
+                    return HiveFadeIn(
+                      child: HiveEmptyState(
+                        icon: HiveIcons.runs,
+                        title: l10n.runsGlobalEmptyTitle,
+                        message: l10n.runsGlobalEmptyDescription,
+                      ),
+                    );
+                  }
                   if (listState.runs.isEmpty && !listState.hasActiveFilters) {
                     return HiveFadeIn(
                       child: HiveEmptyState(
