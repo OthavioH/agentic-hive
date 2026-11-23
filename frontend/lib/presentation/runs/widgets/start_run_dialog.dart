@@ -186,9 +186,11 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
         .read(getWorkspaceCapabilitiesProvider)
         .call(path: workspace.rootPath);
     final worktreesFuture = ref.read(listWorktreesProvider).call(workspace.id);
+    final settingsFuture = _loadDefaultIsolationMode(workspace.id);
 
     final capsResult = await capsFuture;
     final worktreesResult = await worktreesFuture;
+    final defaultMode = await settingsFuture;
     if (!mounted || token != _capabilitiesToken) return;
 
     final caps = capsResult.valueOrNull;
@@ -199,13 +201,22 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
     var nextKind = _targetKind;
     var nextWorktreeId = _selectedWorktreeId;
 
-    if (!_appliedInitialWorktree) {
+    final defaultKind = defaultMode == WorkspaceIsolationMode.worktree
+        ? _RunTargetKind.newWorktree
+        : _RunTargetKind.primary;
+
+    if (_appliedInitialWorktree) {
+      // The user switched workspace: its own effective default applies.
+      nextKind = defaultKind;
+    } else {
       _appliedInitialWorktree = true;
       final initialWorktreeId = widget.initialWorktreeId;
-      if (initialWorktreeId == 'primary') {
+      if (initialWorktreeId == null) {
+        // The tree context wins; without one the effective default applies.
+        nextKind = defaultKind;
+      } else if (initialWorktreeId == primaryWorktreeId) {
         nextKind = _RunTargetKind.primary;
-      } else if (initialWorktreeId != null &&
-          canWorktree &&
+      } else if (canWorktree &&
           existing.any((w) => w.id == initialWorktreeId)) {
         nextKind = _RunTargetKind.existingWorktree;
         nextWorktreeId = initialWorktreeId;
@@ -229,6 +240,20 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
       _targetKind = nextKind;
       _selectedWorktreeId = nextWorktreeId;
     });
+  }
+
+  /// The effective default isolation mode of [workspaceId], or `null` when
+  /// the settings cannot be loaded (the dialog then defaults to the primary
+  /// checkout).
+  Future<WorkspaceIsolationMode?> _loadDefaultIsolationMode(
+    String workspaceId,
+  ) async {
+    try {
+      final result = await ref.read(getWorkspaceSettingsProvider)(workspaceId);
+      return result.valueOrNull?.effective.defaultIsolationMode;
+    } on Object {
+      return null;
+    }
   }
 
   RunTarget _buildTarget() {

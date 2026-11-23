@@ -15,7 +15,9 @@ import 'package:agentic_hive_frontend/data/workspace/workspace_settings_provider
 import 'package:agentic_hive_frontend/data/workspace/workspace_tree_changes_providers.dart';
 import 'package:agentic_hive_frontend/domain/agents/create_agent_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/delete_agent_use_case.dart';
+import 'package:agentic_hive_frontend/domain/agents/dismiss_agents_migration_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/get_agent_use_case.dart';
+import 'package:agentic_hive_frontend/domain/agents/get_agents_migration_status_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/list_agents_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/update_agent_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/watch_agent_changes_use_case.dart';
@@ -104,6 +106,18 @@ DeleteAgentUseCase deleteAgentUseCase(Ref ref) =>
 @riverpod
 WatchAgentChangesUseCase watchAgentChangesUseCase(Ref ref) =>
     WatchAgentChangesUseCase(ref.watch(agentRepositoryProvider));
+
+/// Provides [GetAgentsMigrationStatusUseCase].
+@riverpod
+GetAgentsMigrationStatusUseCase getAgentsMigrationStatusUseCase(Ref ref) =>
+    GetAgentsMigrationStatusUseCase(
+      ref.watch(agentsMigrationRepositoryProvider),
+    );
+
+/// Provides [DismissAgentsMigrationUseCase].
+@riverpod
+DismissAgentsMigrationUseCase dismissAgentsMigrationUseCase(Ref ref) =>
+    DismissAgentsMigrationUseCase(ref.watch(agentsMigrationRepositoryProvider));
 
 /// Provides [GetHarnessesUseCase].
 @riverpod

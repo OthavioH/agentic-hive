@@ -634,16 +634,23 @@ class AgentsController extends _$AgentsController {
     );
   }
 
-  /// Flags every global agent shadowed by a workspace agent with the same id.
+  /// Flags every global agent shadowed by a workspace agent with the same
+  /// `name` (trimmed, as the backend does): the file ids may differ (ADR 0022).
+  /// Malformed files never override nor get overridden.
   List<AgentSummary> _withOverrides(List<AgentSummary> items) {
-    final workspaceIds = <String>{
+    final workspaceNames = <String>{
       for (final item in items)
-        if (item.scope == AgentScope.workspace) item.id,
+        if (item.scope == AgentScope.workspace && item.parseError == null)
+          item.name.trim(),
     };
     return <AgentSummary>[
       for (final item in items)
         if (item.scope == AgentScope.global)
-          item.copyWith(overridden: workspaceIds.contains(item.id))
+          item.copyWith(
+            overridden:
+                item.parseError == null &&
+                workspaceNames.contains(item.name.trim()),
+          )
         else
           item,
     ];

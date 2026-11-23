@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/agents/controllers/agents_controller.dart';
+import 'package:agentic_hive_frontend/presentation/agents/controllers/agents_migration_controller.dart';
 import 'package:agentic_hive_frontend/presentation/agents/controllers/agents_state.dart';
 import 'package:agentic_hive_frontend/presentation/agents/widgets/agent_detail_pane.dart';
 import 'package:agentic_hive_frontend/presentation/agents/widgets/agent_list_pane.dart';
+import 'package:agentic_hive_frontend/presentation/agents/widgets/agents_migration_banner.dart';
 import 'package:agentic_hive_frontend/presentation/workspace/controllers/workspace_registry_controller.dart';
 import 'package:design_system/design_system.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,6 +25,7 @@ class AgentsPage extends ConsumerWidget {
     final spacing = context.hiveSpacing;
     final state = ref.watch(agentsControllerProvider);
     final controller = ref.read(agentsControllerProvider.notifier);
+    final migration = ref.watch(agentsMigrationControllerProvider).value;
     final currentWorkspace = ref
         .watch(workspaceRegistryControllerProvider)
         .value
@@ -131,6 +134,15 @@ class AgentsPage extends ConsumerWidget {
               ),
             ],
           ),
+          if (migration != null && migration.hasPendingConflicts) ...<Widget>[
+            AgentsMigrationBanner(
+              status: migration,
+              onDismiss: () => unawaited(
+                ref.read(agentsMigrationControllerProvider.notifier).dismiss(),
+              ),
+            ),
+            SizedBox(height: spacing.space3),
+          ],
           Expanded(
             child: HiveMasterDetail(
               detailVisible: state.hasDetailOpen,

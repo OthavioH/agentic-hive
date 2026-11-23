@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:agentic_hive_frontend/core/backend/backend_client_provider.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_connection.dart';
 import 'package:agentic_hive_frontend/data/agents/agent_repository_impl.dart';
+import 'package:agentic_hive_frontend/data/agents/agents_migration_remote_data_source.dart';
+import 'package:agentic_hive_frontend/data/agents/agents_migration_repository_impl.dart';
 import 'package:agentic_hive_frontend/data/agents/agents_remote_data_source.dart';
 import 'package:agentic_hive_frontend/domain/agents/agent_repository.dart';
+import 'package:agentic_hive_frontend/domain/agents/agents_migration_repository.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -70,3 +73,10 @@ AgentRepository agentRepository(Ref ref) {
     changesStream: controller.stream,
   );
 }
+
+/// Provides the [AgentsMigrationRepository] for the global agents move.
+@riverpod
+AgentsMigrationRepository agentsMigrationRepository(Ref ref) =>
+    AgentsMigrationRepositoryImpl(
+      AgentsMigrationRemoteDataSource(ref.watch(backendClientProvider)),
+    );
