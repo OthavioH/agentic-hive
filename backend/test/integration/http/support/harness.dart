@@ -56,26 +56,34 @@ AppConfig configFor(String dataDir) =>
 /// Registers container cleanup before awaiting `Backend.start` so open file
 /// handles (`hive.db`, logs, directory watcher) are always released before
 /// `createTempDir`'s teardown deletes [dataDir].
-Future<Backend> startBackend(
-  String dataDir, {
-  bool stopOnTearDown = true,
-}) async {
+///
+/// The cleanup first waits for a start that is still in flight (for example
+/// after the [ioTimeout] below fired). Resetting the container while
+/// `registerDependencies` is still resolving singletons makes get_it throw
+/// null-check errors and leaves the database and watchers open on [dataDir].
+Future<Backend> startBackend(String dataDir, {bool stopOnTearDown = true}) {
   final di = GetIt.asNewInstance();
-  Backend? backend;
+  final starting = Backend.start(
+    config: configFor(dataDir),
+    di: di,
+    consoleOut: discardingSink(),
+  );
   if (stopOnTearDown) {
     addTearDown(() async {
-      if (backend != null) {
-        await backend.stop().timeout(ioTimeout);
+      Backend? started;
+      try {
+        started = await starting.timeout(const Duration(seconds: 5));
+      } on Object {
+        // A failed or stuck start: fall through to resetting the container.
+      }
+      if (started != null) {
+        await started.stop().timeout(ioTimeout);
       } else {
         await di.reset().timeout(ioTimeout);
       }
     });
   }
-  return backend = await Backend.start(
-    config: configFor(dataDir),
-    di: di,
-    consoleOut: discardingSink(),
-  ).timeout(ioTimeout);
+  return starting.timeout(ioTimeout);
 }
 
 /// A decoded HTTP response received over the Unix socket.
