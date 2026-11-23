@@ -3,9 +3,8 @@ import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflow_delete_controller.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/workflow_delete_notice_banner.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
-import 'package:design_system/design_system.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 void main() {
   final workflow = WorkflowSummary(

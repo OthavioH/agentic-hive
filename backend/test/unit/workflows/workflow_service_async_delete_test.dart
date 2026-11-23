@@ -379,38 +379,39 @@ void main() {
   );
 
   test(
-    'progress events for a workflow with several runs never decrease runsDeleted',
+    'progress events for a workflow with several runs never decrease '
+    'runsDeleted',
     () async {
       final id = await createWorkflow('Deploy');
-      deleter.script = [
-        const WorkflowRunsProgress(
-          phase: WorkflowDeletionPhase.deletingRuns,
-          runsDeleted: 1,
-        ),
-        const WorkflowRunsProgress(
-          phase: WorkflowDeletionPhase.deletingRuns,
-          runsDeleted: 2,
-        ),
-        const WorkflowRunsProgress(
-          phase: WorkflowDeletionPhase.deletingRuns,
-          runsDeleted: 3,
-        ),
-      ];
-      deleter.result = const Success(WorkflowRunsDeletion(deletedRuns: 3));
+      deleter
+        ..script = [
+          const WorkflowRunsProgress(
+            phase: WorkflowDeletionPhase.deletingRuns,
+            runsDeleted: 1,
+          ),
+          const WorkflowRunsProgress(
+            phase: WorkflowDeletionPhase.deletingRuns,
+            runsDeleted: 2,
+          ),
+          const WorkflowRunsProgress(
+            phase: WorkflowDeletionPhase.deletingRuns,
+            runsDeleted: 3,
+          ),
+        ]
+        ..result = const Success(WorkflowRunsDeletion(deletedRuns: 3));
 
-      final accepted = (await service.deleteWorkflow(id)).valueOrNull!;
-      await finished(accepted.operationId);
+    final accepted = (await service.deleteWorkflow(id)).valueOrNull!;
+    await finished(accepted.operationId);
 
-      final counts = events.events
-          .where((e) => e.$1 == 'progress')
-          .map((e) => e.$2.runsDeleted)
-          .toList();
-      expect(counts, isNotEmpty);
-      for (var i = 1; i < counts.length; i++) {
-        expect(counts[i], greaterThanOrEqualTo(counts[i - 1]));
-      }
-    },
-  );
+    final counts = events.events
+        .where((e) => e.$1 == 'progress')
+        .map((e) => e.$2.runsDeleted)
+        .toList();
+    expect(counts, isNotEmpty);
+    for (var i = 1; i < counts.length; i++) {
+      expect(counts[i], greaterThanOrEqualTo(counts[i - 1]));
+    }
+  });
 
   test(
     'R6 a new delete after a failed operation starts a new operation',

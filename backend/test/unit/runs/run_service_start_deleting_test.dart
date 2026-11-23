@@ -1,13 +1,13 @@
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
-import 'package:agentic_hive_backend/src/domain/runs/run_service.dart';
 import 'package:agentic_hive_backend/src/data/workspace/git_client.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
-import 'package:agentic_hive_backend/src/domain/workspace/workspace_preparation_service.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_operation.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_registry.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_capabilities_service.dart';
+import 'package:agentic_hive_backend/src/domain/workspace/workspace_preparation_service.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_service.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
@@ -17,7 +17,7 @@ import '../engine/support/engine_harness.dart';
 import '../engine/support/in_memory_repositories.dart';
 
 final class _FakeProcessRunner implements ProcessRunner {
-  const _FakeProcessRunner();
+  const new();
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -41,19 +41,13 @@ final class _FakeWorkspaceRepository implements WorkspaceRepository {
 }
 
 final class _SingleWorkflowRepository implements WorkflowRepository {
-  _SingleWorkflowRepository(this.workflow, {required this.onGet});
+  new(this.workflow, {required this.onGet});
 
   final Workflow workflow;
   final void Function() onGet;
 
   @override
   Future<Result<Workflow>> getById(String id) async {
-    onGet();
-    return Success(workflow);
-  }
-
-  @override
-  Future<Result<Workflow>> get(String id, {String? workspaceId}) async {
     onGet();
     return Success(workflow);
   }
@@ -138,52 +132,49 @@ void main() {
     expect(result.failureOrNull, isNot(isA<WorkflowDeletingFailure>()));
   });
 
-  test(
-    'startRun refuses with WorkflowDeletingFailure when deletion starts '
-    'between initial check and run creation',
-    () async {
-      final harness = EngineHarness();
-      final runs = harness.runs;
-      final gatedService = RunService(
-        runs: runs,
-        checkpoints: harness.checkpoints,
-        events: harness.events,
-        workspaces: WorkspaceService(
-          workspaces: _FakeWorkspaceRepository(),
-          capabilities: const WorkspaceCapabilitiesService(
-            GitClient(_FakeProcessRunner()),
-          ),
+  test('startRun refuses with WorkflowDeletingFailure when deletion starts '
+      'between initial check and run creation', () async {
+    final harness = EngineHarness();
+    final runs = harness.runs;
+    final gatedService = RunService(
+      runs: runs,
+      checkpoints: harness.checkpoints,
+      events: harness.events,
+      workspaces: WorkspaceService(
+        workspaces: _FakeWorkspaceRepository(),
+        capabilities: const WorkspaceCapabilitiesService(
+          GitClient(_FakeProcessRunner()),
         ),
-        workflows: _SingleWorkflowRepository(
-          Workflow(
-            id: 'wf-1',
-            name: 'Deploy',
-            nodes: const [
-              WorkflowNode(
-                id: 'n1',
-                type: 'start',
-                label: 'Start',
-                position: WorkflowPosition(x: 0, y: 0),
-              ),
-            ],
-            edges: const [],
-            createdAt: DateTime.utc(2026, 11, 23, 10),
-            updatedAt: DateTime.utc(2026, 11, 23, 10),
-          ),
-          onGet: () => registry.start(op('op-race', 'wf-1', workspaceId: 'ws-1')),
+      ),
+      workflows: _SingleWorkflowRepository(
+        Workflow(
+          id: 'wf-1',
+          name: 'Deploy',
+          nodes: const [
+            WorkflowNode(
+              id: 'n1',
+              type: 'start',
+              label: 'Start',
+              position: WorkflowPosition(x: 0, y: 0),
+            ),
+          ],
+          edges: const [],
+          createdAt: DateTime.utc(2026, 11, 23, 10),
+          updatedAt: DateTime.utc(2026, 11, 23, 10),
         ),
-        engine: harness.engine,
-        workspacePreparation: WorkspacePreparationService(
-          git: const GitClient(_FakeProcessRunner()),
-        ),
-        deletions: registry,
-      );
+        onGet: () => registry.start(op('op-race', 'wf-1', workspaceId: 'ws-1')),
+      ),
+      engine: harness.engine,
+      workspacePreparation: const WorkspacePreparationService(
+        git: GitClient(_FakeProcessRunner()),
+      ),
+      deletions: registry,
+    );
 
-      final result = await gatedService.startRun(request());
+    final result = await gatedService.startRun(request());
 
-      final failure = result.failureOrNull! as WorkflowDeletingFailure;
-      expect(failure.operationId, 'op-race');
-      expect((await runs.list()).valueOrNull!.items, isEmpty);
-    },
-  );
+    final failure = result.failureOrNull! as WorkflowDeletingFailure;
+    expect(failure.operationId, 'op-race');
+    expect((await runs.list()).valueOrNull!.items, isEmpty);
+  });
 }

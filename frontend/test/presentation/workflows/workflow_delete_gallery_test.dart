@@ -205,7 +205,8 @@ Future<void> _capture(
     );
   }
 
-  // Pass `--dart-define=HIVE_UPDATE_GALLERY=true` to regenerate the gallery PNGs.
+  // Pass `--dart-define=HIVE_UPDATE_GALLERY=true` to regenerate the gallery
+  // PNGs.
   if (const bool.fromEnvironment('HIVE_UPDATE_GALLERY')) {
     await tester.runAsync(() async {
       final boundary =
