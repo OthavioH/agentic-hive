@@ -72,10 +72,25 @@ final class WorkflowHandler {
   }
 
   Future<Response> _delete(Request request, String id) async {
+    final raw = request.url.queryParameters['force'];
+    final bool force;
+    if (raw == null || raw.isEmpty || raw == 'false') {
+      force = false;
+    } else if (raw == 'true') {
+      force = true;
+    } else {
+      return errorResponse(
+        request,
+        400,
+        code: ApiErrorCode.badRequest,
+        message: 'Query parameter "force" must be "true" or "false".',
+      );
+    }
     final result = await _service.deleteWorkflow(
       id,
       workspaceId: _workspaceId(request),
       expectedRevision: _revision(request),
+      force: force,
     );
     return _mapResult(request, result, 200);
   }

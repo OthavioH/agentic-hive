@@ -378,6 +378,7 @@ final class DriftRunRepository implements RunRepository {
   Future<Result<List<String>>> deleteAllOfWorkflow(
     String workflowId, {
     String? workspaceId,
+    Set<String> orphanIds = const {},
   }) async {
     try {
       return await _db.transaction(() async {
@@ -391,9 +392,14 @@ final class DriftRunRepository implements RunRepository {
           )
           ..orderBy([(row) => OrderingTerm.asc(row.startedAt)]);
         final rows = await query.get();
+        final kept = {
+          for (final row in rows)
+            if (orphanIds.contains(row.id)) row.id,
+        };
         final active = <String, RunStatus>{
           for (final row in rows)
-            if (RunStatus.fromName(row.status).isActive)
+            if (!kept.contains(row.id) &&
+                RunStatus.fromName(row.status).isActive)
               row.id: RunStatus.fromName(row.status),
         };
         if (active.isNotEmpty) {
@@ -405,9 +411,17 @@ final class DriftRunRepository implements RunRepository {
             ),
           );
         }
-        final ids = [for (final row in rows) row.id];
+        final ids = [
+          for (final row in rows)
+            if (!kept.contains(row.id)) row.id,
+        ];
         if (ids.isNotEmpty) {
           await (_db.delete(_db.runs)..where((row) => row.id.isIn(ids))).go();
+        }
+        if (kept.isNotEmpty) {
+          await (_db.update(_db.runs)..where((row) => row.id.isIn(kept))).write(
+            const RunsCompanion(workflowId: Value(null)),
+          );
         }
         return Success(ids);
       });

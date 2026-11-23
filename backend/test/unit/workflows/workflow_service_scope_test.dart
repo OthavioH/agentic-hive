@@ -345,7 +345,7 @@ void main() {
         await cascadingService.createWorkflow(
           const CreateWorkflowRequest(name: 'Global'),
         );
-        deleter.result = const Success(3);
+        deleter.result = const Success(WorkflowRunsDeletion(deletedRuns: 3));
 
         final result = await cascadingService.deleteWorkflow('g1');
 
@@ -353,7 +353,7 @@ void main() {
           result.valueOrNull,
           const DeleteWorkflowResponse(id: 'g1', deletedRuns: 3),
         );
-        expect(deleter.calls, [('g1', null)]);
+        expect(deleter.calls, [('g1', null, false)]);
         expect(globalRepository.store.containsKey('g1'), isFalse);
       },
     );
@@ -362,7 +362,7 @@ void main() {
       await cascadingService.createWorkflow(
         const CreateWorkflowRequest(name: 'Review', workspaceId: 'ws-1'),
       );
-      deleter.result = const Success(2);
+      deleter.result = const Success(WorkflowRunsDeletion(deletedRuns: 2));
 
       final result = await cascadingService.deleteWorkflow(
         'review',
@@ -373,7 +373,7 @@ void main() {
         result.valueOrNull,
         const DeleteWorkflowResponse(id: 'review', deletedRuns: 2),
       );
-      expect(deleter.calls, [('review', 'ws-1')]);
+      expect(deleter.calls, [('review', 'ws-1', false)]);
       expect(fileRepository.store, isEmpty);
     });
 
@@ -400,6 +400,41 @@ void main() {
       expect(deleter.calls, isEmpty);
     });
 
+    test('force: passes force and reports orphanedRuns', () async {
+      await cascadingService.createWorkflow(
+        const CreateWorkflowRequest(name: 'Global'),
+      );
+      deleter.result = const Success(
+        WorkflowRunsDeletion(deletedRuns: 2, orphanedRuns: ['r9']),
+      );
+
+      final result = await cascadingService.deleteWorkflow('g1', force: true);
+
+      expect(
+        result.valueOrNull,
+        const DeleteWorkflowResponse(
+          id: 'g1',
+          deletedRuns: 2,
+          orphanedRuns: ['r9'],
+        ),
+      );
+      expect(deleter.calls, [('g1', null, true)]);
+      expect(globalRepository.store.containsKey('g1'), isFalse);
+    });
+
+    test(
+      'force on a missing workflow: 404 and the deleter is not called',
+      () async {
+        final result = await cascadingService.deleteWorkflow(
+          'missing',
+          force: true,
+        );
+
+        expect(result.failureOrNull, isA<NotFoundFailure>());
+        expect(deleter.calls, isEmpty);
+      },
+    );
+
     test(
       'without a deleter: deletes the workflow and reports 0 runs',
       () async {
@@ -419,15 +454,18 @@ void main() {
 }
 
 final class _RecordingRunsDeleter implements WorkflowRunsDeleter {
-  Result<int> result = const Success(0);
-  final List<(String, String?)> calls = <(String, String?)>[];
+  Result<WorkflowRunsDeletion> result = const Success(
+    WorkflowRunsDeletion(deletedRuns: 0),
+  );
+  final List<(String, String?, bool)> calls = <(String, String?, bool)>[];
 
   @override
-  Future<Result<int>> deleteRunsOfWorkflow(
+  Future<Result<WorkflowRunsDeletion>> deleteRunsOfWorkflow(
     String workflowId, {
     String? workspaceId,
+    bool force = false,
   }) async {
-    calls.add((workflowId, workspaceId));
+    calls.add((workflowId, workspaceId, force));
     return result;
   }
 }

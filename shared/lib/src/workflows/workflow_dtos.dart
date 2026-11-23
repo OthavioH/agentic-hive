@@ -112,7 +112,7 @@ sealed class WorkflowResponse with _$WorkflowResponse {
   factory fromJson(JsonMap json) => parseJson(json, _$WorkflowResponseFromJson);
 }
 
-/// Response body for `DELETE /api/v1/workflows/:id`.
+/// Response body for `DELETE /api/v1/workflows/:id` (supports `?force=true`).
 @freezed
 sealed class DeleteWorkflowResponse with _$DeleteWorkflowResponse {
   /// Creates a delete-workflow response.
@@ -122,6 +122,11 @@ sealed class DeleteWorkflowResponse with _$DeleteWorkflowResponse {
 
     /// Number of runs of the workflow that were deleted with it.
     required int deletedRuns,
+
+    /// Ids of runs kept as orphans because their cancellation could not be
+    /// confirmed during a forced delete (or were already uncertain), oldest
+    /// first.
+    @Default(<String>[]) List<String> orphanedRuns,
   }) = _DeleteWorkflowResponse;
 
   /// Decodes a delete-workflow response; throws a [FormatException] on a bad

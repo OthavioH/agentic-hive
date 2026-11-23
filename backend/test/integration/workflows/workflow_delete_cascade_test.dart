@@ -217,4 +217,37 @@ Future<void> main() async {
     );
     expect((await http.get('/api/v1/runs/${run.id}')).statusCode, 200);
   });
+
+  test('force=true: stops the active run, waits, then deletes the workflow '
+      'and its runs', () async {
+    final scriptPath = await writeWaitingScript();
+    final workflow = await createCommandWorkflow(scriptPath: scriptPath);
+    final run = await startRun(workflow.id);
+    addTearDown(() async {
+      await http.post('/api/v1/runs/${run.id}/cancel');
+    });
+
+    // Wait until GET shows running.
+    for (var i = 0; i < 100; i++) {
+      final r = Run.fromJson((await http.get('/api/v1/runs/${run.id}')).json);
+      if (r.status == RunStatus.running) break;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+
+    final delRes = await http.delete(
+      '/api/v1/workflows/${workflow.id}?force=true',
+    );
+    expect(delRes.statusCode, 200);
+    final body = DeleteWorkflowResponse.fromJson(delRes.json);
+    expect(body.deletedRuns, 1);
+    expect(body.orphanedRuns, isEmpty);
+
+    expect((await http.get('/api/v1/runs/${run.id}')).statusCode, 404);
+    expect(
+      (await http.get('/api/v1/workflows/${workflow.id}')).statusCode,
+      404,
+    );
+    expect(File(scriptPath).existsSync(), isTrue);
+    expect(workspaceDir.existsSync(), isTrue);
+  });
 }

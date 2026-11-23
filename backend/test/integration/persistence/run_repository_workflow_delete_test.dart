@@ -260,4 +260,141 @@ void main() {
 
     expect(result.valueOrNull, isEmpty);
   });
+
+  test('orphanIds: clears workflowId of kept runs, keeps their name '
+      'and deletes the rest', () async {
+    final db = AppDatabase.open(dbFile);
+    addTearDown(db.close);
+
+    final runsRepo = DriftRunRepository(db);
+    await runsRepo.create(
+      makeRun(
+        id: 'r1',
+        status: RunStatus.succeeded,
+        startedAt: DateTime.utc(2026, 11, 20, 10),
+      ),
+    );
+    await runsRepo.create(
+      makeRun(
+        id: 'r2',
+        status: RunStatus.cancellationUncertain,
+        startedAt: DateTime.utc(2026, 11, 20, 11),
+      ),
+    );
+
+    final result = await runsRepo.deleteAllOfWorkflow(
+      'wf-g',
+      orphanIds: const {'r2'},
+    );
+    expect(result.valueOrNull, ['r1']);
+
+    final r1 = await runsRepo.getById('r1');
+    expect(r1.failureOrNull, isA<NotFoundFailure>());
+
+    final r2 = (await runsRepo.getById('r2')).valueOrNull!;
+    expect(r2.workflowId, isNull);
+    expect(r2.workflowName, 'Build Flow');
+    expect(r2.status, RunStatus.cancellationUncertain);
+  });
+
+  test(
+    'orphanIds: an active run in the set does not block the delete',
+    () async {
+      final db = AppDatabase.open(dbFile);
+      addTearDown(db.close);
+
+      final runsRepo = DriftRunRepository(db);
+      await runsRepo.create(
+        makeRun(
+          id: 'r1',
+          status: RunStatus.succeeded,
+          startedAt: DateTime.utc(2026, 11, 20, 10),
+        ),
+      );
+      await runsRepo.create(
+        makeRun(
+          id: 'r2',
+          status: RunStatus.running,
+          startedAt: DateTime.utc(2026, 11, 20, 11),
+        ),
+      );
+
+      final result = await runsRepo.deleteAllOfWorkflow(
+        'wf-g',
+        orphanIds: const {'r2'},
+      );
+      expect(result.valueOrNull, ['r1']);
+
+      final r2 = (await runsRepo.getById('r2')).valueOrNull!;
+      expect(r2.workflowId, isNull);
+      expect(r2.status, RunStatus.running);
+    },
+  );
+
+  test('orphanIds: refuses and changes nothing when a run outside the set '
+      'is active', () async {
+    final db = AppDatabase.open(dbFile);
+    addTearDown(db.close);
+
+    final runsRepo = DriftRunRepository(db);
+    await runsRepo.create(
+      makeRun(
+        id: 'r1',
+        status: RunStatus.cancellationUncertain,
+        startedAt: DateTime.utc(2026, 11, 20, 10),
+      ),
+    );
+    await runsRepo.create(
+      makeRun(
+        id: 'r2',
+        status: RunStatus.running,
+        startedAt: DateTime.utc(2026, 11, 20, 11),
+      ),
+    );
+
+    final result = await runsRepo.deleteAllOfWorkflow(
+      'wf-g',
+      orphanIds: const {'r1'},
+    );
+    final failure = result.failureOrNull! as WorkflowHasActiveRunsFailure;
+    expect(failure.activeRuns, {'r2': RunStatus.running});
+
+    final r1 = (await runsRepo.getById('r1')).valueOrNull!;
+    expect(r1.workflowId, 'wf-g');
+    expect((await runsRepo.getById('r2')).isSuccess, isTrue);
+  });
+
+  test(
+    'orphanIds: ignores ids of other workflows and other workspaces',
+    () async {
+      final db = AppDatabase.open(dbFile);
+      addTearDown(db.close);
+
+      final runsRepo = DriftRunRepository(db);
+      await runsRepo.create(
+        makeRun(
+          id: 'r1',
+          status: RunStatus.succeeded,
+          startedAt: DateTime.utc(2026, 11, 20, 10),
+        ),
+      );
+      await runsRepo.create(
+        makeRun(
+          id: 'r3',
+          workflowId: 'wf-other',
+          status: RunStatus.succeeded,
+          startedAt: DateTime.utc(2026, 11, 20, 11),
+        ),
+      );
+
+      final result = await runsRepo.deleteAllOfWorkflow(
+        'wf-g',
+        orphanIds: const {'r3'},
+      );
+      expect(result.valueOrNull, ['r1']);
+
+      final r3 = (await runsRepo.getById('r3')).valueOrNull!;
+      expect(r3.workflowId, 'wf-other');
+    },
+  );
 }

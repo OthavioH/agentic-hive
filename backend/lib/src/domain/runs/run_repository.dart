@@ -82,8 +82,14 @@ abstract interface class RunRepository {
   /// every workspace match. When any matching run is active (`running`,
   /// `paused` or `cancelling`) nothing is deleted and the result is
   /// `WorkflowHasActiveRunsFailure` listing the active runs, oldest first.
+  ///
+  /// Runs whose id is in [orphanIds] (and that match [workflowId] and the
+  /// scope) are excluded from the active check and from deletion; in the same
+  /// transaction their `workflowId` is set to `null`. Nothing is orphaned when
+  /// the result is a failure.
   Future<Result<List<String>>> deleteAllOfWorkflow(
     String workflowId, {
     String? workspaceId,
+    Set<String> orphanIds = const {},
   });
 }

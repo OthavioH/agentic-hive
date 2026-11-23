@@ -153,9 +153,11 @@ final class WorkflowService {
     return result.map((saved) => _response(saved, workspaceId));
   });
 
-  /// Deletes the workflow [id] and every run of it (#103): runs first, in one
-  /// transaction that refuses with [WorkflowHasActiveRunsFailure] when any is
-  /// active, then the workflow. Worktrees and workspace files are kept.
+  /// Deletes the workflow [id] and every run of it (#103, #104): runs first,
+  /// in one transaction that refuses with [WorkflowHasActiveRunsFailure] when
+  /// any is active (unless [force] is `true`, in which case active runs are
+  /// cancelled and unconfirmed ones are kept as orphans), then the workflow.
+  /// Worktrees and workspace files are kept.
   ///
   /// When [expectedRevision] is non-blank, fails with [StaleRevisionFailure]
   /// if the stored workflow's revision differs.
@@ -163,6 +165,7 @@ final class WorkflowService {
     String id, {
     String? workspaceId,
     String? expectedRevision,
+    bool force = false,
   }) => _serialized(id, workspaceId, () async {
     final existing = await _load(id, workspaceId);
     if (existing case FailureResult<Workflow>(:final failure)) {
@@ -173,16 +176,19 @@ final class WorkflowService {
       return FailureResult(stale);
     }
     var deletedRuns = 0;
+    var orphanedRuns = const <String>[];
     final runsDeleter = _runsDeleter;
     if (runsDeleter != null) {
       final runs = await runsDeleter.deleteRunsOfWorkflow(
         id,
         workspaceId: workspaceId,
+        force: force,
       );
-      if (runs case FailureResult<int>(:final failure)) {
+      if (runs case FailureResult<WorkflowRunsDeletion>(:final failure)) {
         return FailureResult(failure);
       }
-      deletedRuns = runs.valueOrNull!;
+      deletedRuns = runs.valueOrNull!.deletedRuns;
+      orphanedRuns = runs.valueOrNull!.orphanedRuns;
     }
     final Result<void> deleted;
     if (workspaceId == null) {
@@ -196,7 +202,11 @@ final class WorkflowService {
       deleted = await scoped.repository.delete(scoped.rootPath, id);
     }
     return deleted.map(
-      (_) => DeleteWorkflowResponse(id: id, deletedRuns: deletedRuns),
+      (_) => DeleteWorkflowResponse(
+        id: id,
+        deletedRuns: deletedRuns,
+        orphanedRuns: orphanedRuns,
+      ),
     );
   });
 

@@ -351,11 +351,36 @@ void main() {
 
   group('DeleteWorkflowResponse', () {
     test('round-trips through JSON', () {
-      const resp = DeleteWorkflowResponse(id: 'wf-1', deletedRuns: 2);
+      const resp = DeleteWorkflowResponse(
+        id: 'wf-1',
+        deletedRuns: 2,
+        orphanedRuns: ['r9'],
+      );
       final encoded = _overTheWire(resp.toJson());
 
-      expect(encoded, {'id': 'wf-1', 'deletedRuns': 2});
+      expect(encoded, {
+        'id': 'wf-1',
+        'deletedRuns': 2,
+        'orphanedRuns': ['r9'],
+      });
       expect(DeleteWorkflowResponse.fromJson(encoded), resp);
+    });
+
+    test('defaults orphanedRuns to empty when absent', () {
+      final decoded = DeleteWorkflowResponse.fromJson({
+        'id': 'wf-1',
+        'deletedRuns': 2,
+      });
+      expect(decoded.orphanedRuns, isEmpty);
+    });
+
+    test('encodes an empty orphanedRuns list', () {
+      const resp = DeleteWorkflowResponse(id: 'wf-1', deletedRuns: 0);
+      expect(_overTheWire(resp.toJson()), {
+        'id': 'wf-1',
+        'deletedRuns': 0,
+        'orphanedRuns': <String>[],
+      });
     });
 
     test('throws FormatException when deletedRuns is missing', () {

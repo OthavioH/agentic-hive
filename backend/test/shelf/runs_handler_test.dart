@@ -48,6 +48,7 @@ final class _FakeRunRepository implements RunRepository {
   Future<Result<List<String>>> deleteAllOfWorkflow(
     String workflowId, {
     String? workspaceId,
+    Set<String> orphanIds = const {},
   }) => throw UnimplementedError();
 
   @override
