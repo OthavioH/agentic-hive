@@ -15,16 +15,16 @@ part 'execution_settings.g.dart';
 @freezed
 sealed class ExecutionSettings with _$ExecutionSettings {
   /// Creates execution settings; omitted fields are inherited.
-  const factory ExecutionSettings({
+  const factory({
     WorkspaceIsolationMode? defaultIsolationMode,
     List<String>? ignorePatterns,
     String? defaultShell,
   }) = _ExecutionSettings;
 
-  const ExecutionSettings._();
+  const new _();
 
   /// Decodes execution settings; throws a [FormatException] on a bad shape.
-  factory ExecutionSettings.fromJson(JsonMap json) =>
+  factory fromJson(JsonMap json) =>
       parseJson(json, _$ExecutionSettingsFromJson);
 
   /// JSON keys a workspace may override. Anything else is machine-specific.
@@ -45,14 +45,14 @@ sealed class ExecutionSettings with _$ExecutionSettings {
 @freezed
 sealed class EffectiveExecutionSettings with _$EffectiveExecutionSettings {
   /// Creates resolved execution settings.
-  const factory EffectiveExecutionSettings({
+  const factory({
     required WorkspaceIsolationMode defaultIsolationMode,
     required List<String> ignorePatterns,
     required String defaultShell,
   }) = _EffectiveExecutionSettings;
 
   /// Decodes resolved settings; throws a [FormatException] on a bad shape.
-  factory EffectiveExecutionSettings.fromJson(JsonMap json) =>
+  factory fromJson(JsonMap json) =>
       parseJson(json, _$EffectiveExecutionSettingsFromJson);
 }
 
@@ -63,7 +63,7 @@ sealed class EffectiveExecutionSettings with _$EffectiveExecutionSettings {
 @freezed
 sealed class WorkspaceSettingsResponse with _$WorkspaceSettingsResponse {
   /// Creates a workspace settings response.
-  const factory WorkspaceSettingsResponse({
+  const factory({
     required ExecutionSettings overrides,
     required EffectiveExecutionSettings global,
     required EffectiveExecutionSettings effective,
@@ -71,6 +71,6 @@ sealed class WorkspaceSettingsResponse with _$WorkspaceSettingsResponse {
 
   /// Decodes a workspace settings response; throws a [FormatException] on a
   /// bad shape.
-  factory WorkspaceSettingsResponse.fromJson(JsonMap json) =>
+  factory fromJson(JsonMap json) =>
       parseJson(json, _$WorkspaceSettingsResponseFromJson);
 }

@@ -156,9 +156,7 @@ class _WorkspaceSettingsDialogState
                   ],
                   Text(
                     l10n.workspaceSettingsIsolationLabel,
-                    style: typography.labelMedium.copyWith(
-                      color: colors.onSurface,
-                    ),
+                    style: typography.label.copyWith(color: colors.onSurface),
                   ),
                   SizedBox(height: spacing.space1),
                   Align(

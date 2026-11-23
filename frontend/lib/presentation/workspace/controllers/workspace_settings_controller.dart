@@ -37,7 +37,8 @@ class WorkspaceSettingsController extends _$WorkspaceSettingsController {
     return switch (result) {
       Success<WorkspaceSettingsResponse>(:final value) =>
         WorkspaceSettingsState(response: value),
-      FailureResult<WorkspaceSettingsResponse>(:final failure) => throw failure,
+      FailureResult<WorkspaceSettingsResponse>(:final failure) =>
+        Error.throwWithStackTrace(failure, StackTrace.current),
     };
   }
 

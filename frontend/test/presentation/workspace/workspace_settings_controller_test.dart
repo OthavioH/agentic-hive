@@ -34,6 +34,11 @@ void main() {
 
   test('a load failure surfaces as an error state', () async {
     repo.getFailure = const NetworkFailure('down');
+    final sub = container.listen(
+      workspaceSettingsControllerProvider('ws-1'),
+      (_, _) {},
+    );
+    addTearDown(sub.close);
 
     await expectLater(
       container.read(workspaceSettingsControllerProvider('ws-1').future),

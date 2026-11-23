@@ -264,22 +264,30 @@ class _WorkspaceRegistryDialogState
                                                 ),
                                             overflow: TextOverflow.ellipsis,
                                           ),
+                                          if (workspace.isGit ||
+                                              workspace.activeRunCount > 0)
+                                            Wrap(
+                                              spacing: spacing.space1,
+                                              children: <Widget>[
+                                                if (workspace.isGit)
+                                                  HiveBadge(
+                                                    label:
+                                                        l10n.workspaceGitBadge,
+                                                  ),
+                                                if (workspace.activeRunCount >
+                                                    0)
+                                                  HiveBadge(
+                                                    label: l10n
+                                                        .workspaceActiveRunsBadge(
+                                                          workspace
+                                                              .activeRunCount,
+                                                        ),
+                                                  ),
+                                              ],
+                                            ),
                                         ],
                                       ),
                                     ),
-                                    if (workspace.isGit) ...<Widget>[
-                                      SizedBox(width: spacing.space1),
-                                      HiveBadge(label: l10n.workspaceGitBadge),
-                                    ],
-                                    if (workspace.activeRunCount >
-                                        0) ...<Widget>[
-                                      SizedBox(width: spacing.space1),
-                                      HiveBadge(
-                                        label: l10n.workspaceActiveRunsBadge(
-                                          workspace.activeRunCount,
-                                        ),
-                                      ),
-                                    ],
                                     SizedBox(width: spacing.space1),
                                     HiveIconButton(
                                       key: Key(
