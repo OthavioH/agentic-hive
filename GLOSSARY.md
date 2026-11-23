@@ -33,7 +33,8 @@ The local process that runs workflows and keeps state. It keeps running after th
 _Avoid_: server, daemon (in anything user-facing)
 
 **Revision**:
-Short content hash of a workflow definition (timestamps excluded) returned on every workflow read; writes that carry a stale revision are refused with `409 revision_conflict` (ADR 0026).
+A token that identifies the exact content of a workflow at the moment it was read. A change based on an outdated revision is refused instead of overwriting newer content.
+_Avoid_: version, etag
 
 ## Execution
 
