@@ -5,12 +5,16 @@ import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 /// Remote data source for workflow CRUD and validation over the backend REST
 /// API.
 abstract interface class WorkflowRemoteDataSource {
-  /// Fetches all workflow summaries (`GET /api/v1/workflows`).
-  Future<Result<List<WorkflowSummary>>> listWorkflows();
+  /// Fetches workflow summaries (`GET /api/v1/workflows`): global ones, plus
+  /// those of [workspaceId] when given.
+  Future<Result<List<WorkflowSummary>>> listWorkflows({String? workspaceId});
 
   /// Fetches a single workflow and its validation status by [id]
-  /// (`GET /api/v1/workflows/:id`).
-  Future<Result<WorkflowResponse>> getWorkflow(String id);
+  /// (`GET /api/v1/workflows/:id`) in the scope of [workspaceId].
+  Future<Result<WorkflowResponse>> getWorkflow(
+    String id, {
+    String? workspaceId,
+  });
 
   /// Creates a new workflow (`POST /api/v1/workflows`).
   Future<Result<WorkflowResponse>> createWorkflow(
@@ -20,14 +24,19 @@ abstract interface class WorkflowRemoteDataSource {
   /// Updates an existing workflow (`PUT /api/v1/workflows/:id`).
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
-    UpdateWorkflowRequest request,
-  );
+    UpdateWorkflowRequest request, {
+    String? workspaceId,
+  });
 
   /// Duplicates an existing workflow (`POST /api/v1/workflows/:id/duplicate`).
-  Future<Result<WorkflowResponse>> duplicateWorkflow(String id, {String? name});
+  Future<Result<WorkflowResponse>> duplicateWorkflow(
+    String id, {
+    String? name,
+    String? workspaceId,
+  });
 
   /// Deletes a workflow (`DELETE /api/v1/workflows/:id`).
-  Future<Result<void>> deleteWorkflow(String id);
+  Future<Result<void>> deleteWorkflow(String id, {String? workspaceId});
 
   /// Validates [workflow] without persisting (`POST /api/v1/workflows/validate`).
   Future<Result<WorkflowValidationResult>> validateWorkflow(Workflow workflow);
@@ -43,8 +52,13 @@ final class HttpWorkflowRemoteDataSource implements WorkflowRemoteDataSource {
   final BackendClient _client;
 
   @override
-  Future<Result<List<WorkflowSummary>>> listWorkflows() async {
-    final result = await _client.sendJsonRequest('GET', _basePath);
+  Future<Result<List<WorkflowSummary>>> listWorkflows({
+    String? workspaceId,
+  }) async {
+    final result = await _client.sendJsonRequest(
+      'GET',
+      '$_basePath${_scopeQuery(workspaceId)}',
+    );
     return _decode(
       result,
       (json) => WorkflowListResponse.fromJson(json).workflows,
@@ -52,11 +66,14 @@ final class HttpWorkflowRemoteDataSource implements WorkflowRemoteDataSource {
   }
 
   @override
-  Future<Result<WorkflowResponse>> getWorkflow(String id) async {
+  Future<Result<WorkflowResponse>> getWorkflow(
+    String id, {
+    String? workspaceId,
+  }) async {
     final encodedId = Uri.encodeComponent(id);
     final result = await _client.sendJsonRequest(
       'GET',
-      '$_basePath/$encodedId',
+      '$_basePath/$encodedId${_scopeQuery(workspaceId)}',
     );
     return _decode(result, WorkflowResponse.fromJson);
   }
@@ -76,12 +93,13 @@ final class HttpWorkflowRemoteDataSource implements WorkflowRemoteDataSource {
   @override
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
-    UpdateWorkflowRequest request,
-  ) async {
+    UpdateWorkflowRequest request, {
+    String? workspaceId,
+  }) async {
     final encodedId = Uri.encodeComponent(id);
     final result = await _client.sendJsonRequest(
       'PUT',
-      '$_basePath/$encodedId',
+      '$_basePath/$encodedId${_scopeQuery(workspaceId)}',
       body: request.toJson(),
     );
     return _decode(result, WorkflowResponse.fromJson);
@@ -91,22 +109,23 @@ final class HttpWorkflowRemoteDataSource implements WorkflowRemoteDataSource {
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
+    String? workspaceId,
   }) async {
     final encodedId = Uri.encodeComponent(id);
     final result = await _client.sendJsonRequest(
       'POST',
-      '$_basePath/$encodedId/duplicate',
+      '$_basePath/$encodedId/duplicate${_scopeQuery(workspaceId)}',
       body: name == null ? null : DuplicateWorkflowRequest(name: name).toJson(),
     );
     return _decode(result, WorkflowResponse.fromJson);
   }
 
   @override
-  Future<Result<void>> deleteWorkflow(String id) async {
+  Future<Result<void>> deleteWorkflow(String id, {String? workspaceId}) async {
     final encodedId = Uri.encodeComponent(id);
     final result = await _client.sendJsonRequest(
       'DELETE',
-      '$_basePath/$encodedId',
+      '$_basePath/$encodedId${_scopeQuery(workspaceId)}',
     );
     return result.map((_) {});
   }
@@ -122,6 +141,10 @@ final class HttpWorkflowRemoteDataSource implements WorkflowRemoteDataSource {
     );
     return _decode(result, WorkflowValidationResult.fromJson);
   }
+
+  String _scopeQuery(String? workspaceId) => workspaceId == null
+      ? ''
+      : '?workspaceId=${Uri.encodeQueryComponent(workspaceId)}';
 
   Result<T> _decode<T>(
     Result<JsonMap> result,

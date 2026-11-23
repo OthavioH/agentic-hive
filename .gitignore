@@ -15,3 +15,4 @@ backend/.dev-data/
 # OS
 .DS_Store
 Thumbs.db
+.backend-test.log

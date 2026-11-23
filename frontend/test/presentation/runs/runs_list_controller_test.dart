@@ -117,29 +117,32 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   final DateTime now = DateTime.utc(2026, 11, 21, 4, 30);
 
   @override
-  Future<Result<List<WorkflowSummary>>> listWorkflows() async =>
-      Success(<WorkflowSummary>[
-        WorkflowSummary(
-          id: 'wf-1',
-          name: 'PR Review',
-          nodeCount: 2,
-          edgeCount: 1,
-          hasValidationErrors: false,
-          updatedAt: now,
-        ),
-        WorkflowSummary(
-          id: 'wf-2',
-          name: 'Deploy Check',
-          nodeCount: 1,
-          edgeCount: 0,
-          hasValidationErrors: false,
-          updatedAt: now,
-        ),
-      ]);
+  Future<Result<List<WorkflowSummary>>> listWorkflows({
+    String? workspaceId,
+  }) async => Success(<WorkflowSummary>[
+    WorkflowSummary(
+      id: 'wf-1',
+      name: 'PR Review',
+      nodeCount: 2,
+      edgeCount: 1,
+      hasValidationErrors: false,
+      updatedAt: now,
+    ),
+    WorkflowSummary(
+      id: 'wf-2',
+      name: 'Deploy Check',
+      nodeCount: 1,
+      edgeCount: 0,
+      hasValidationErrors: false,
+      updatedAt: now,
+    ),
+  ]);
 
   @override
-  Future<Result<WorkflowResponse>> getWorkflow(String id) async =>
-      const FailureResult(NotFoundFailure('unused'));
+  Future<Result<WorkflowResponse>> getWorkflow(
+    String id, {
+    String? workspaceId,
+  }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Future<Result<WorkflowResponse>> createWorkflow(
@@ -149,17 +152,20 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   @override
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
-    UpdateWorkflowRequest request,
-  ) async => const FailureResult(NotFoundFailure('unused'));
+    UpdateWorkflowRequest request, {
+    String? workspaceId,
+  }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
+    String? workspaceId,
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
-  Future<Result<void>> deleteWorkflow(String id) async => const Success(null);
+  Future<Result<void>> deleteWorkflow(String id, {String? workspaceId}) async =>
+      const Success(null);
 
   @override
   Future<Result<WorkflowValidationResult>> validateWorkflow(

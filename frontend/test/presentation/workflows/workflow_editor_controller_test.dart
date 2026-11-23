@@ -27,7 +27,10 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   );
 
   @override
-  Future<Result<WorkflowResponse>> getWorkflow(String id) async {
+  Future<Result<WorkflowResponse>> getWorkflow(
+    String id, {
+    String? workspaceId,
+  }) async {
     return Success(
       WorkflowResponse(workflow: stored, validation: nextValidation),
     );
@@ -36,8 +39,9 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   @override
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
-    UpdateWorkflowRequest request,
-  ) async {
+    UpdateWorkflowRequest request, {
+    String? workspaceId,
+  }) async {
     updateCalls++;
     if (saveOverride != null) return saveOverride!;
     stored = stored.copyWith(
@@ -61,8 +65,9 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   }
 
   @override
-  Future<Result<List<WorkflowSummary>>> listWorkflows() async =>
-      const Success(<WorkflowSummary>[]);
+  Future<Result<List<WorkflowSummary>>> listWorkflows({
+    String? workspaceId,
+  }) async => const Success(<WorkflowSummary>[]);
 
   @override
   Future<Result<WorkflowResponse>> createWorkflow(
@@ -73,10 +78,11 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
+    String? workspaceId,
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
-  Future<Result<void>> deleteWorkflow(String id) async =>
+  Future<Result<void>> deleteWorkflow(String id, {String? workspaceId}) async =>
       const Success<void>(null);
 }
 

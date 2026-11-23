@@ -11,12 +11,14 @@ final class WorkflowRepositoryImpl implements WorkflowRepository {
   final WorkflowRemoteDataSource _remoteDataSource;
 
   @override
-  Future<Result<List<WorkflowSummary>>> listWorkflows() =>
-      _remoteDataSource.listWorkflows();
+  Future<Result<List<WorkflowSummary>>> listWorkflows({String? workspaceId}) =>
+      _remoteDataSource.listWorkflows(workspaceId: workspaceId);
 
   @override
-  Future<Result<WorkflowResponse>> getWorkflow(String id) =>
-      _remoteDataSource.getWorkflow(id);
+  Future<Result<WorkflowResponse>> getWorkflow(
+    String id, {
+    String? workspaceId,
+  }) => _remoteDataSource.getWorkflow(id, workspaceId: workspaceId);
 
   @override
   Future<Result<WorkflowResponse>> createWorkflow(
@@ -26,18 +28,24 @@ final class WorkflowRepositoryImpl implements WorkflowRepository {
   @override
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
-    UpdateWorkflowRequest request,
-  ) => _remoteDataSource.updateWorkflow(id, request);
+    UpdateWorkflowRequest request, {
+    String? workspaceId,
+  }) => _remoteDataSource.updateWorkflow(id, request, workspaceId: workspaceId);
 
   @override
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
-  }) => _remoteDataSource.duplicateWorkflow(id, name: name);
+    String? workspaceId,
+  }) => _remoteDataSource.duplicateWorkflow(
+    id,
+    name: name,
+    workspaceId: workspaceId,
+  );
 
   @override
-  Future<Result<void>> deleteWorkflow(String id) =>
-      _remoteDataSource.deleteWorkflow(id);
+  Future<Result<void>> deleteWorkflow(String id, {String? workspaceId}) =>
+      _remoteDataSource.deleteWorkflow(id, workspaceId: workspaceId);
 
   @override
   Future<Result<WorkflowValidationResult>> validateWorkflow(

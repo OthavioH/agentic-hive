@@ -49,10 +49,13 @@ final class _DeleteSelectedAction extends Action<_DeleteSelectedIntent> {
 /// Interactive 2D graph editor page for a single workflow (`/workflows/:id`).
 class WorkflowEditorPage extends ConsumerStatefulWidget {
   /// Creates a [WorkflowEditorPage] for [workflowId].
-  const new({required this.workflowId, super.key});
+  const new({required this.workflowId, this.workspaceId, super.key});
 
   /// ID of the workflow being edited.
   final String workflowId;
+
+  /// Workspace that owns the workflow; `null` for a global workflow.
+  final String? workspaceId;
 
   @override
   ConsumerState<WorkflowEditorPage> createState() => _WorkflowEditorPageState();
@@ -98,7 +101,8 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
   @override
   void didUpdateWidget(covariant WorkflowEditorPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.workflowId != widget.workflowId) {
+    if (oldWidget.workflowId != widget.workflowId ||
+        oldWidget.workspaceId != widget.workspaceId) {
       _bindEditorSubscription();
       _syncEdgeFlowAnimation();
     }
@@ -106,7 +110,10 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
 
   void _bindEditorSubscription() {
     _editorSubscription?.close();
-    final provider = workflowEditorControllerProvider(widget.workflowId);
+    final provider = workflowEditorControllerProvider(
+      widget.workflowId,
+      workspaceId: widget.workspaceId,
+    );
     _editorSubscription = ref.listenManual<AsyncValue<WorkflowEditorState>>(
       provider,
       (_, next) {
@@ -125,7 +132,12 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
 
   void _syncEdgeFlowAnimation() {
     final editorState = ref
-        .read(workflowEditorControllerProvider(widget.workflowId))
+        .read(
+          workflowEditorControllerProvider(
+            widget.workflowId,
+            workspaceId: widget.workspaceId,
+          ),
+        )
         .asData
         ?.value;
     final hasSelectedEdge = editorState?.selectedEdgeId != null;
@@ -221,7 +233,10 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
     final colors = context.hiveColors;
     final typography = context.hiveTypography;
     final elevation = context.hiveElevation;
-    final editorProvider = workflowEditorControllerProvider(widget.workflowId);
+    final editorProvider = workflowEditorControllerProvider(
+      widget.workflowId,
+      workspaceId: widget.workspaceId,
+    );
     final stateAsync = ref.watch(editorProvider);
 
     return stateAsync.when(
