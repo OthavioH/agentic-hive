@@ -9,6 +9,7 @@ final class SharedAgentsSkillInstaller extends DirectoryHarnessSkillInstaller {
     required super.platformPaths,
     required super.bundledSkillLoader,
     required super.appVersion,
+    super.fileOps,
   }) : super(displayName: 'Codex and Gemini CLI');
 
   @override

@@ -6,11 +6,12 @@ import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/antigravity_skill_installer.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/claude_code_skill_installer.dart';
+import 'package:agentic_hive_backend/src/data/harnesses/directory_harness_skill_installer.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/hive_skill_sidecar.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/shared_agents_skill_installer.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_skill_installer.dart';
-import 'package:agentic_hive_backend/src/skills/bundled_skill.dart';
-import 'package:agentic_hive_backend/src/skills/bundled_skill_loader.dart';
+import 'package:agentic_hive_backend/src/domain/skills/bundled_skill.dart';
+import 'package:agentic_hive_backend/src/domain/skills/bundled_skill_loader.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -278,11 +279,20 @@ void main() {
           ..createSync(recursive: true);
         File(p.join(otherDir.path, 'SKILL.md')).writeAsStringSync('other\n');
 
-        try {
+        if (Platform.isWindows) {
+          try {
+            Link(skillDir).createSync(otherDir.path);
+          } on FileSystemException {
+            // CI runs this test suite on ubuntu-latest and macos-latest where
+            // symlinks are always permitted.
+            markTestSkipped(
+              'symlink not permitted on this Windows account '
+              '(verified on Linux/macOS in CI)',
+            );
+            return;
+          }
+        } else {
           Link(skillDir).createSync(otherDir.path);
-        } on FileSystemException {
-          markTestSkipped('symlink not permitted');
-          return;
         }
         expect(installer.detect().status, HarnessSkillStatus.conflict);
 
@@ -307,37 +317,54 @@ void main() {
         expect(installer.detect().status, HarnessSkillStatus.conflict);
       });
 
-      test(
-        'detects unknown on unreadable sidecar, bundle failure, missing home',
-        () {
-          // sidecar is a directory
-          Directory(p.join(skillDir, HiveSkillSidecar.fileName))
-              .createSync(recursive: true);
-          expect(installer.detect().status, HarnessSkillStatus.unknown);
+      test('detects conflict when sidecar is a symlink or directory', () {
+        expect(installer.install(), isA<Success<void>>());
+        final sidecarFile = File(p.join(skillDir, HiveSkillSidecar.fileName));
+        final externalSidecar = File(p.join(home, 'external-sidecar.json'))
+          ..writeAsStringSync(sidecarFile.readAsStringSync());
+        sidecarFile.deleteSync();
 
-          // bundle failure while installed folder is valid
-          Directory(skillDir).deleteSync(recursive: true);
-          expect(installer.install(), isA<Success<void>>());
-          loader.result = const FailureResult(
-            NotFoundFailure('Bundled skills missing.'),
-          );
-          final bundleFail = installer.detect();
-          expect(bundleFail.status, HarnessSkillStatus.unknown);
-          expect(bundleFail.message, 'Bundled skills missing.');
+        if (Platform.isWindows) {
+          try {
+            Link(sidecarFile.path).createSync(externalSidecar.path);
+          } on FileSystemException {
+            // Fall through to directory check when Windows denies symlinks.
+            Directory(sidecarFile.path).createSync();
+            expect(installer.detect().status, HarnessSkillStatus.conflict);
+            return;
+          }
+        } else {
+          Link(sidecarFile.path).createSync(externalSidecar.path);
+        }
+        expect(installer.detect().status, HarnessSkillStatus.conflict);
 
-          // homeDir throws StateError
-          final emptyEnvPaths = platformPathsFor(
-            Platform.operatingSystem,
-            environment: const {},
-          );
-          final noHomeInstaller = loc.makeInstaller(
-            emptyEnvPaths,
-            loader,
-            '1.0.0',
-          );
-          expect(noHomeInstaller.detect().status, HarnessSkillStatus.unknown);
-        },
-      );
+        Link(sidecarFile.path).deleteSync();
+        Directory(sidecarFile.path).createSync();
+        expect(installer.detect().status, HarnessSkillStatus.conflict);
+      });
+
+      test('detects unknown on bundle failure and missing home', () {
+        // bundle failure while installed folder is valid
+        expect(installer.install(), isA<Success<void>>());
+        loader.result = const FailureResult(
+          NotFoundFailure('Bundled skills missing.'),
+        );
+        final bundleFail = installer.detect();
+        expect(bundleFail.status, HarnessSkillStatus.unknown);
+        expect(bundleFail.message, 'Bundled skills missing.');
+
+        // homeDir throws StateError
+        final emptyEnvPaths = platformPathsFor(
+          Platform.operatingSystem,
+          environment: const {},
+        );
+        final noHomeInstaller = loc.makeInstaller(
+          emptyEnvPaths,
+          loader,
+          '1.0.0',
+        );
+        expect(noHomeInstaller.detect().status, HarnessSkillStatus.unknown);
+      });
 
       test(
         'detects unknown on chmod 000 skill folder',
@@ -490,9 +517,12 @@ void main() {
         );
         expect(installer.remove(), isA<Success<void>>());
 
-        // unknown -> ConflictFailure
-        Directory(p.join(skillDir, HiveSkillSidecar.fileName))
-            .createSync(recursive: true);
+        // unknown -> ConflictFailure (e.g. bundle loader fails)
+        loader.result = Success(_FakeBundledSkillLoader.makeBundle());
+        expect(installer.install(), isA<Success<void>>());
+        loader.result = const FailureResult(
+          NotFoundFailure('Bundled skills missing.'),
+        );
         expect(
           installer.remove(),
           isA<FailureResult<void>>().having(
@@ -503,30 +533,38 @@ void main() {
         );
       });
 
-      test('rejects bundle files with .. traversal', () {
-        final badFiles = <String, List<int>>{
-          'SKILL.md': utf8.encode('# ok\n'),
-          '../escape.md': utf8.encode('bad\n'),
-        };
-        loader.result = Success(
-          BundledSkill(
-            name: agenticHiveSkillName,
-            files: badFiles,
-            contentHash: computeSkillContentHash(badFiles),
-          ),
-        );
+      for (final badKey in [
+        '../escape.md',
+        r'..\..\escape.md',
+        r'C:\escape.md',
+        'C:escape.md',
+        '/abs/escape.md',
+      ]) {
+        test('rejects unsafe bundle key "$badKey"', () {
+          final badFiles = <String, List<int>>{
+            'SKILL.md': utf8.encode('# ok\n'),
+            badKey: utf8.encode('bad\n'),
+          };
+          loader.result = Success(
+            BundledSkill(
+              name: agenticHiveSkillName,
+              files: badFiles,
+              contentHash: computeSkillContentHash(badFiles),
+            ),
+          );
 
-        final result = installer.install();
-        expect(
-          result,
-          isA<FailureResult<void>>().having(
-            (r) => r.failure,
-            'failure',
-            isA<ValidationFailure>(),
-          ),
-        );
-        expect(Directory(home).listSync(), isEmpty);
-      });
+          final result = installer.install();
+          expect(
+            result,
+            isA<FailureResult<void>>().having(
+              (r) => r.failure,
+              'failure',
+              isA<ValidationFailure>(),
+            ),
+          );
+          expect(Directory(home).listSync(), isEmpty);
+        });
+      }
     });
   }
 
@@ -591,4 +629,273 @@ void main() {
       });
     }
   });
+
+  group('partial failure, rollback, race, and sweep', () {
+    late String home;
+    late PlatformPaths paths;
+    late _FakeBundledSkillLoader loader;
+    late String skillsRoot;
+    late String skillDir;
+
+    setUp(() {
+      home = createTempHome();
+      paths = tempPaths(home);
+      loader = _FakeBundledSkillLoader(
+        Success(_FakeBundledSkillLoader.makeBundle()),
+      );
+      skillsRoot = p.joinAll([home, '.claude', 'skills']);
+      skillDir = p.join(skillsRoot, agenticHiveSkillName);
+    });
+
+    test('swap rename failure rolls back previous copy and cleans staging', () {
+      var armed = false;
+      final fileOps = _FaultySkillInstallerFileOps(
+        onRename: (from, to, delegate) {
+          if (armed &&
+              p.basename(from).startsWith('.agentic-hive.staging-') &&
+              to == skillDir) {
+            throw const FileSystemException('swap failed');
+          }
+          delegate(from, to);
+        },
+      );
+      final installer = ClaudeCodeSkillInstaller(
+        platformPaths: paths,
+        bundledSkillLoader: loader,
+        appVersion: '1.0.0',
+        fileOps: fileOps,
+      );
+
+      expect(installer.install(), isA<Success<void>>());
+      File(p.join(skillDir, 'SKILL.md')).writeAsStringSync('hand edited\n');
+      loader.result = Success(
+        _FakeBundledSkillLoader.makeBundle(skillMd: '# v2\n'),
+      );
+      armed = true;
+
+      final result = installer.install(overwriteModified: true);
+      expect(
+        result,
+        isA<FailureResult<void>>().having(
+          (r) => r.failure,
+          'failure',
+          isA<PersistenceFailure>(),
+        ),
+      );
+      expect(
+        File(p.join(skillDir, 'SKILL.md')).readAsStringSync(),
+        'hand edited\n',
+      );
+      expect(Directory(skillsRoot).listSync().map((e) => p.basename(e.path)), [
+        agenticHiveSkillName,
+      ]);
+    });
+
+    test('rollback rename failure preserves oldDir and names it in error', () {
+      var armed = false;
+      final fileOps = _FaultySkillInstallerFileOps(
+        onRename: (from, to, delegate) {
+          if (armed &&
+              p.basename(from).startsWith('.agentic-hive.staging-') &&
+              to == skillDir) {
+            throw const FileSystemException('swap failed');
+          }
+          if (armed &&
+              p.basename(from).startsWith('.agentic-hive.old-') &&
+              to == skillDir) {
+            throw const FileSystemException('rollback failed');
+          }
+          delegate(from, to);
+        },
+      );
+      final installer = ClaudeCodeSkillInstaller(
+        platformPaths: paths,
+        bundledSkillLoader: loader,
+        appVersion: '1.0.0',
+        fileOps: fileOps,
+      );
+
+      expect(installer.install(), isA<Success<void>>());
+      File(p.join(skillDir, 'SKILL.md')).writeAsStringSync('hand edited\n');
+      loader.result = Success(
+        _FakeBundledSkillLoader.makeBundle(skillMd: '# v2\n'),
+      );
+      armed = true;
+
+      final result = installer.install(overwriteModified: true);
+      expect(result, isA<FailureResult<void>>());
+      final failure = (result as FailureResult<void>).failure;
+      expect(failure, isA<PersistenceFailure>());
+
+      final siblings = Directory(skillsRoot)
+          .listSync()
+          .map((e) => p.basename(e.path))
+          .toList();
+      final oldName = siblings.singleWhere(
+        (name) => name.startsWith('.agentic-hive.old-'),
+      );
+      final oldPath = p.join(skillsRoot, oldName);
+      expect(failure.message, contains(oldPath));
+      expect(
+        File(p.join(oldPath, 'SKILL.md')).readAsStringSync(),
+        'hand edited\n',
+      );
+
+      // detect() must not sweep the preserved oldDir when skillDir is absent.
+      expect(installer.detect().status, HarnessSkillStatus.notInstalled);
+      expect(Directory(oldPath).existsSync(), isTrue);
+    });
+
+    test('delete of oldDir failing after swap still returns Success', () {
+      final fileOps = _FaultySkillInstallerFileOps(
+        onDelete: (path, {required recursive, required delegate}) {
+          if (p.basename(path).startsWith('.agentic-hive.old-')) {
+            throw const FileSystemException('locked');
+          }
+          delegate(path, recursive: recursive);
+        },
+      );
+      final installer = ClaudeCodeSkillInstaller(
+        platformPaths: paths,
+        bundledSkillLoader: loader,
+        appVersion: '1.0.0',
+        fileOps: fileOps,
+      );
+
+      expect(installer.install(), isA<Success<void>>());
+      loader.result = Success(
+        _FakeBundledSkillLoader.makeBundle(skillMd: '# v2\n'),
+      );
+
+      expect(installer.install(), isA<Success<void>>());
+      expect(installer.detect().status, HarnessSkillStatus.installed);
+      expect(File(p.join(skillDir, 'SKILL.md')).readAsStringSync(), '# v2\n');
+    });
+
+    test('restores foreign folder swapped in between detect and rename', () {
+      var swapped = false;
+      final fileOps = _FaultySkillInstallerFileOps(
+        onRename: (from, to, delegate) {
+          if (!swapped &&
+              from == skillDir &&
+              p.basename(to).startsWith('.agentic-hive.old-')) {
+            swapped = true;
+            // Simulate a foreign folder replacing skillDir right before move.
+            File(p.join(skillDir, HiveSkillSidecar.fileName)).deleteSync();
+            File(p.join(skillDir, 'SKILL.md')).writeAsStringSync('foreign\n');
+          }
+          delegate(from, to);
+        },
+      );
+      final installer = ClaudeCodeSkillInstaller(
+        platformPaths: paths,
+        bundledSkillLoader: loader,
+        appVersion: '1.0.0',
+        fileOps: fileOps,
+      );
+
+      expect(installer.install(), isA<Success<void>>());
+      loader.result = Success(
+        _FakeBundledSkillLoader.makeBundle(skillMd: '# v2\n'),
+      );
+
+      final result = installer.install();
+      expect(
+        result,
+        isA<FailureResult<void>>().having(
+          (r) => r.failure,
+          'failure',
+          isA<ConflictFailure>(),
+        ),
+      );
+      expect(
+        File(p.join(skillDir, 'SKILL.md')).readAsStringSync(),
+        'foreign\n',
+      );
+    });
+
+    test('sweeps leftover staging and old dirs on detect and install', () {
+      final installer = ClaudeCodeSkillInstaller(
+        platformPaths: paths,
+        bundledSkillLoader: loader,
+        appVersion: '1.0.0',
+      );
+      expect(installer.install(), isA<Success<void>>());
+
+      final leftoverStaging = Directory(
+        p.join(skillsRoot, '.agentic-hive.staging-123'),
+      )..createSync();
+      final leftoverOld = Directory(p.join(skillsRoot, '.agentic-hive.old-123'))
+        ..createSync();
+
+      expect(installer.detect().status, HarnessSkillStatus.installed);
+      expect(leftoverStaging.existsSync(), isFalse);
+      expect(leftoverOld.existsSync(), isFalse);
+    });
+  });
+}
+
+final class _FaultySkillInstallerFileOps implements SkillInstallerFileOps {
+  new({this.onRename, this.onDelete});
+
+  final DefaultSkillInstallerFileOps _delegate =
+      const DefaultSkillInstallerFileOps();
+  final void Function(
+    String from,
+    String to,
+    void Function(String, String) delegate,
+  )?
+  onRename;
+  final void Function(
+    String path, {
+    required bool recursive,
+    required void Function(String, {bool recursive}) delegate,
+  })?
+  onDelete;
+
+  @override
+  void createDirectory(String path, {bool recursive = false}) =>
+      _delegate.createDirectory(path, recursive: recursive);
+
+  @override
+  void deleteDirectory(String path, {bool recursive = false}) {
+    final hook = onDelete;
+    if (hook != null) {
+      hook(path, recursive: recursive, delegate: _delegate.deleteDirectory);
+      return;
+    }
+    _delegate.deleteDirectory(path, recursive: recursive);
+  }
+
+  @override
+  bool directoryExists(String path) => _delegate.directoryExists(path);
+
+  @override
+  FileSystemEntityType entityType(String path, {bool followLinks = false}) =>
+      _delegate.entityType(path, followLinks: followLinks);
+
+  @override
+  List<FileSystemEntity> listDirectory(String path) =>
+      _delegate.listDirectory(path);
+
+  @override
+  String readString(String path) => _delegate.readString(path);
+
+  @override
+  void renameDirectory(String from, String to) {
+    final hook = onRename;
+    if (hook != null) {
+      hook(from, to, _delegate.renameDirectory);
+      return;
+    }
+    _delegate.renameDirectory(from, to);
+  }
+
+  @override
+  void writeBytes(String path, List<int> bytes) =>
+      _delegate.writeBytes(path, bytes);
+
+  @override
+  void writeString(String path, String contents) =>
+      _delegate.writeString(path, contents);
 }

@@ -9,6 +9,7 @@ final class AntigravitySkillInstaller extends DirectoryHarnessSkillInstaller {
     required super.platformPaths,
     required super.bundledSkillLoader,
     required super.appVersion,
+    super.fileOps,
   }) : super(displayName: 'Antigravity');
 
   @override

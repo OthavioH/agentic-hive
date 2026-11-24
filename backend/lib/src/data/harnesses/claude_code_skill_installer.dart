@@ -8,6 +8,7 @@ final class ClaudeCodeSkillInstaller extends DirectoryHarnessSkillInstaller {
     required super.platformPaths,
     required super.bundledSkillLoader,
     required super.appVersion,
+    super.fileOps,
   }) : super(displayName: 'Claude Code');
 
   @override
