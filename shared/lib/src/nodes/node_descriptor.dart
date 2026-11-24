@@ -134,6 +134,9 @@ abstract final class NodeDescriptors {
     NodeConfigField(name: 'instructions', required: true),
     NodeConfigField(name: 'title'),
     NodeConfigField(name: 'allowFeedback', kind: NodeConfigFieldKind.boolean),
+    NodeConfigField(name: 'proposalNodeId'),
+    NodeConfigField(name: 'proposalPath'),
+    NodeConfigField(name: 'proposalSchema'),
   ];
 
   static JsonMap _defaultHarnessConfig() =>

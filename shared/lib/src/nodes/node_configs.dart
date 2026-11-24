@@ -1,6 +1,7 @@
 import 'package:agentic_hive_shared/src/json_fields.dart';
 import 'package:agentic_hive_shared/src/nodes/node_category.dart';
 import 'package:agentic_hive_shared/src/nodes/node_config_validation.dart';
+import 'package:agentic_hive_shared/src/pauses/proposal_schema.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'node_configs.freezed.dart';
@@ -386,6 +387,9 @@ sealed class HumanApprovalNodeConfig with _$HumanApprovalNodeConfig {
     required String instructions,
     String? title,
     @Default(true) bool allowFeedback,
+    String? proposalNodeId,
+    String? proposalPath,
+    String? proposalSchema,
   }) = _HumanApprovalNodeConfig;
 
   const new _();
@@ -405,6 +409,50 @@ sealed class HumanApprovalNodeConfig with _$HumanApprovalNodeConfig {
           message: 'Must not be blank.',
         ),
       );
+    }
+    final hasNodeId = !isBlank(proposalNodeId);
+    final hasPath = !isBlank(proposalPath);
+    final hasSchema = !isBlank(proposalSchema);
+
+    if (hasNodeId && !hasPath) {
+      issues.add(
+        const NodeConfigIssue(
+          field: 'proposalPath',
+          message: 'Must be set together with proposalNodeId.',
+        ),
+      );
+    } else if (!hasNodeId && hasPath) {
+      issues.add(
+        const NodeConfigIssue(
+          field: 'proposalNodeId',
+          message: 'Must be set together with proposalPath.',
+        ),
+      );
+    }
+
+    if (hasPath) {
+      final path = proposalPath!.trim();
+      if (path.split('.').any((s) => s.isEmpty)) {
+        issues.add(
+          const NodeConfigIssue(
+            field: 'proposalPath',
+            message: 'Must be a dot path with no empty segment.',
+          ),
+        );
+      }
+    }
+
+    if (hasSchema && !hasNodeId) {
+      issues.add(
+        const NodeConfigIssue(
+          field: 'proposalSchema',
+          message: 'Requires proposalNodeId.',
+        ),
+      );
+    } else if (hasSchema) {
+      for (final msg in ProposalSchema.checkSchema(proposalSchema!.trim())) {
+        issues.add(NodeConfigIssue(field: 'proposalSchema', message: msg));
+      }
     }
     return issues;
   }
