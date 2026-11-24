@@ -82,3 +82,5 @@ Versions on 2026-11-20: `material_ui` 1.11.1 and `cupertino_ui` 1.1.7, both requ
 
 - **Never mock Riverpod notifiers.** Replace dependencies (clients, repositories, services) via `ProviderScope(overrides: [...])` or `ProviderContainer.test(overrides: [...])`.
 - Keep unit tests in `test/core/`, `test/domain/`, `test/data/`, and widget/router tests in `test/presentation/` and `test/routes/`.
+- `test/support/` holds shared test infrastructure. `test/flutter_test_config.dart` installs a dart:io sandbox that redirects the real user data folder to a temp folder; tests never read or write the real data folder, and never need a per-test override just to avoid it.
+- A new file-backed store built from `currentPlatformPaths()` is isolated automatically by that sandbox; do not add `currentPlatformPaths()` calls in tests.
