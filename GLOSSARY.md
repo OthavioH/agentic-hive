@@ -68,6 +68,10 @@ _Avoid_: main worktree, root copy
 Where a run executes inside its workspace: the primary checkout, an existing worktree, or a new worktree created for the run. A run started without a target uses the primary checkout. The folder the target resolves to (the workspace root or one of its worktrees) is the run's _target folder_, and at most one run is active per target folder.
 _Avoid_: run location, run mode
 
+**Scope**:
+The level a definition (workflow, agent, execution settings) belongs to: the global scope or the workspace scope of one workspace.
+_Avoid_: level, visibility, location
+
 **Global scope**:
 The level of definitions (workflows, agents, execution settings) available in every workspace.
 _Avoid_: user scope, shared
