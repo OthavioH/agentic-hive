@@ -1,5 +1,6 @@
 import 'package:agentic_hive_shared/src/json_fields.dart';
 import 'package:agentic_hive_shared/src/runs/checkpoint.dart';
+import 'package:agentic_hive_shared/src/runs/node_override.dart';
 import 'package:agentic_hive_shared/src/runs/run_event.dart';
 import 'package:agentic_hive_shared/src/runs/run_output_stream.dart';
 import 'package:agentic_hive_shared/src/runs/run_summary.dart';
@@ -41,7 +42,8 @@ sealed class RunTarget with _$RunTarget {
 /// the run executes; when null the run executes in the primary checkout
 /// (direct). The default isolation mode is a client-side default: clients
 /// preselect a target from the effective execution settings. The server
-/// ignores [workspaceIsolationMode].
+/// ignores [workspaceIsolationMode]. Node overrides apply to this run only, by
+/// node id.
 @freezed
 sealed class StartRunRequest with _$StartRunRequest {
   /// Creates a start-run request.
@@ -52,6 +54,7 @@ sealed class StartRunRequest with _$StartRunRequest {
     WorkspaceIsolationMode? workspaceIsolationMode,
     List<String>? ignorePatterns,
     String? input,
+    Map<String, NodeOverride>? nodeOverrides,
   }) = _StartRunRequest;
 
   /// Decodes a start-run request; throws a [FormatException] on a bad shape.
