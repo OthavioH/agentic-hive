@@ -63,6 +63,10 @@ const Map<String, String> _useCases = <String, String>{
   'Busy · Stopping runs': 'Deleting… (stopping 2 of 3 runs)',
   'Busy · with disabled actions': 'Release checklist',
   'Disabled · With reason': '',
+  'Compact · Badge and action': 'Skill installed',
+  'Compact · danger': 'This agent could not be read',
+  'With label and helper text':
+      'Automatically install the skill for newly detected harnesses.',
 };
 
 void main() {

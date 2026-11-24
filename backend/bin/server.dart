@@ -51,7 +51,11 @@ Future<void> main(List<String> arguments) async {
 
   final Backend backend;
   try {
-    backend = await Backend.start(config: config, platformPaths: platformPaths);
+    backend = await Backend.start(
+      config: config,
+      platformPaths: platformPaths,
+      enableSkillAutoInstall: true,
+    );
   } on BackendAlreadyRunningException catch (e) {
     stderr.writeln(e);
     exitCode = _startFailure;

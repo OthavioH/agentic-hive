@@ -8,6 +8,7 @@ import 'package:agentic_hive_backend/src/data/agents/agents_directory_migration.
 import 'package:agentic_hive_backend/src/di/dependencies.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_recovery_service.dart';
 import 'package:agentic_hive_backend/src/domain/settings/settings_service.dart';
+import 'package:agentic_hive_backend/src/domain/skills/skill_auto_install_service.dart';
 import 'package:agentic_hive_backend/src/server/backend_server.dart';
 import 'package:agentic_hive_backend/src/server/local_socket.dart';
 import 'package:get_it/get_it.dart';
@@ -34,11 +35,15 @@ final class Backend {
   /// Prepares the data folder, wires dependencies and starts serving.
   ///
   /// Pass a fresh `GetIt.asNewInstance()` as [di] in tests.
+  ///
+  /// [enableSkillAutoInstall] starts the automatic skill install. Off by
+  /// default so tests never write into the real home folder.
   static Future<Backend> start({
     required AppConfig config,
     PlatformPaths? platformPaths,
     GetIt? di,
     IOSink? consoleOut,
+    bool enableSkillAutoInstall = false,
   }) async {
     final paths = platformPaths ?? currentPlatformPaths();
     final container = di ?? GetIt.instance;
@@ -77,6 +82,9 @@ final class Backend {
         throw StateError('Orphaned run recovery failed: ${failure.message}');
       }
       await container<BackendServer>().start(startedAt: startedAt);
+      if (enableSkillAutoInstall) {
+        container<SkillAutoInstallService>().start();
+      }
     } on Object {
       await container.reset();
       rethrow;

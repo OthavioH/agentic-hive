@@ -37,6 +37,10 @@ abstract interface class HarnessMcpInstaller {
   /// The harness identifier this installer handles.
   HarnessId get id;
 
+  /// User-level configuration file path written by this installer, or `null`
+  /// when the CLI manages storage opaquely.
+  String? get configPath;
+
   /// Probes the harness's user-level MCP configuration.
   Future<HarnessMcpDetectionResult> detect({
     required String executablePath,

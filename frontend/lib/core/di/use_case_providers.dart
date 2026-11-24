@@ -9,6 +9,8 @@ import 'package:agentic_hive_frontend/data/pauses/pause_providers.dart';
 import 'package:agentic_hive_frontend/data/runs/run_providers.dart';
 import 'package:agentic_hive_frontend/data/settings/file_picker_repository_impl.dart';
 import 'package:agentic_hive_frontend/data/settings/settings_repository_impl.dart';
+import 'package:agentic_hive_frontend/data/skills/file_outdated_banner_store.dart';
+import 'package:agentic_hive_frontend/data/skills/skill_notice_repository_impl.dart';
 import 'package:agentic_hive_frontend/data/window/window_providers.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_deletion_providers.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
@@ -26,8 +28,10 @@ import 'package:agentic_hive_frontend/domain/agents/update_agent_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/watch_agent_changes_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/get_harnesses_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/install_harness_mcp_use_case.dart';
+import 'package:agentic_hive_frontend/domain/harnesses/install_harness_skill_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/refresh_harness_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/refresh_harnesses_use_case.dart';
+import 'package:agentic_hive_frontend/domain/harnesses/remove_harness_skill_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/watch_harness_updates_use_case.dart';
 import 'package:agentic_hive_frontend/domain/overview/use_cases/get_overview_use_case.dart';
 import 'package:agentic_hive_frontend/domain/overview/use_cases/watch_overview_events_use_case.dart';
@@ -55,6 +59,11 @@ import 'package:agentic_hive_frontend/domain/settings/pick_directory.dart';
 import 'package:agentic_hive_frontend/domain/settings/pick_file.dart';
 import 'package:agentic_hive_frontend/domain/settings/update_settings.dart';
 import 'package:agentic_hive_frontend/domain/settings/watch_settings_updates.dart';
+import 'package:agentic_hive_frontend/domain/skills/acknowledge_outdated_version_use_case.dart';
+import 'package:agentic_hive_frontend/domain/skills/dismiss_skill_notice_use_case.dart';
+import 'package:agentic_hive_frontend/domain/skills/get_acknowledged_outdated_version_use_case.dart';
+import 'package:agentic_hive_frontend/domain/skills/get_pending_skill_notice_use_case.dart';
+import 'package:agentic_hive_frontend/domain/skills/watch_skill_notices_use_case.dart';
 import 'package:agentic_hive_frontend/domain/window/get_window_chrome_use_case.dart';
 import 'package:agentic_hive_frontend/domain/window/hide_window_to_tray_use_case.dart';
 import 'package:agentic_hive_frontend/domain/window/minimize_window_use_case.dart';
@@ -154,10 +163,48 @@ RefreshHarnessUseCase refreshHarnessUseCase(Ref ref) =>
 InstallHarnessMcpUseCase installHarnessMcpUseCase(Ref ref) =>
     InstallHarnessMcpUseCase(ref.watch(harnessRepositoryProvider));
 
+/// Provides [InstallHarnessSkillUseCase].
+@riverpod
+InstallHarnessSkillUseCase installHarnessSkillUseCase(Ref ref) =>
+    InstallHarnessSkillUseCase(ref.watch(harnessRepositoryProvider));
+
+/// Provides [RemoveHarnessSkillUseCase].
+@riverpod
+RemoveHarnessSkillUseCase removeHarnessSkillUseCase(Ref ref) =>
+    RemoveHarnessSkillUseCase(ref.watch(harnessRepositoryProvider));
+
 /// Provides [WatchHarnessUpdatesUseCase].
 @riverpod
 WatchHarnessUpdatesUseCase watchHarnessUpdatesUseCase(Ref ref) =>
     WatchHarnessUpdatesUseCase(ref.watch(harnessRepositoryProvider));
+
+/// Provides [GetPendingSkillNoticeUseCase].
+@riverpod
+GetPendingSkillNoticeUseCase getPendingSkillNoticeUseCase(Ref ref) =>
+    GetPendingSkillNoticeUseCase(ref.watch(skillNoticeRepositoryProvider));
+
+/// Provides [DismissSkillNoticeUseCase].
+@riverpod
+DismissSkillNoticeUseCase dismissSkillNoticeUseCase(Ref ref) =>
+    DismissSkillNoticeUseCase(ref.watch(skillNoticeRepositoryProvider));
+
+/// Provides [WatchSkillNoticesUseCase].
+@riverpod
+WatchSkillNoticesUseCase watchSkillNoticesUseCase(Ref ref) =>
+    WatchSkillNoticesUseCase(ref.watch(skillNoticeRepositoryProvider));
+
+/// Provides [GetAcknowledgedOutdatedVersionUseCase].
+@Riverpod(keepAlive: true)
+GetAcknowledgedOutdatedVersionUseCase getAcknowledgedOutdatedVersionUseCase(
+  Ref ref,
+) => GetAcknowledgedOutdatedVersionUseCase(
+  ref.watch(outdatedBannerStoreProvider),
+);
+
+/// Provides [AcknowledgeOutdatedVersionUseCase].
+@Riverpod(keepAlive: true)
+AcknowledgeOutdatedVersionUseCase acknowledgeOutdatedVersionUseCase(Ref ref) =>
+    AcknowledgeOutdatedVersionUseCase(ref.watch(outdatedBannerStoreProvider));
 
 /// Provides [ListWorkflows].
 @riverpod

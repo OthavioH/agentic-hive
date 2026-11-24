@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:agentic_hive_frontend/core/di/use_case_providers.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/presentation/harnesses/controllers/harnesses_state.dart';
+import 'package:agentic_hive_frontend/presentation/harnesses/controllers/skill_row_models.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 export 'harnesses_state.dart';
+export 'skill_row_models.dart';
 
 part 'harnesses_controller.g.dart';
 
@@ -89,10 +91,13 @@ class HarnessesController extends _$HarnessesController {
 
     return switch (result) {
       Success<HarnessInfo>(:final value) => () {
+        final nextErrors = Map<HarnessId, SkillRowError>.of(latest.skillErrors)
+          ..remove(id);
         state = AsyncData(
           latest.copyWith(
             harnesses: _upsertHarness(latest.harnesses, value),
             refreshingIds: remainingIds,
+            skillErrors: nextErrors,
           ),
         );
         return const Success<void>(null);
@@ -140,6 +145,101 @@ class HarnessesController extends _$HarnessesController {
       }(),
       FailureResult<HarnessInfo>(:final failure) => () {
         state = AsyncData(latest.copyWith(installingMcpIds: remainingIds));
+        return FailureResult<void>(failure);
+      }(),
+    };
+  }
+
+  /// Installs or updates the Agentic Hive skill for a single harness [id].
+  Future<Result<void>> installSkill(
+    HarnessId id, {
+    required SkillRowAction action,
+    bool overwriteModified = false,
+  }) => _runSkillAction(
+    id,
+    action: action,
+    overwriteModified: overwriteModified,
+    run: () => ref.read(installHarnessSkillUseCaseProvider)(
+      id,
+      overwriteModified: overwriteModified,
+    ),
+  );
+
+  /// Removes the Agentic Hive skill for a single harness [id].
+  Future<Result<void>> removeSkill(HarnessId id) => _runSkillAction(
+    id,
+    action: SkillRowAction.remove,
+    overwriteModified: false,
+    run: () => ref.read(removeHarnessSkillUseCaseProvider)(id),
+  );
+
+  /// Clears any stored skill row error for [id].
+  void clearSkillError(HarnessId id) {
+    final current = state.value;
+    if (current == null || !current.skillErrors.containsKey(id)) return;
+    final nextErrors = Map<HarnessId, SkillRowError>.of(current.skillErrors)
+      ..remove(id);
+    state = AsyncData(current.copyWith(skillErrors: nextErrors));
+  }
+
+  Future<Result<void>> _runSkillAction(
+    HarnessId id, {
+    required SkillRowAction action,
+    required bool overwriteModified,
+    required Future<Result<HarnessInfo>> Function() run,
+  }) async {
+    final current = state.value;
+    if (current == null || current.skillActions.containsKey(id)) {
+      return const Success<void>(null);
+    }
+
+    final startingErrors = Map<HarnessId, SkillRowError>.of(current.skillErrors)
+      ..remove(id);
+    state = AsyncData(
+      current.copyWith(
+        skillActions: <HarnessId, SkillRowAction>{
+          ...current.skillActions,
+          id: action,
+        },
+        skillErrors: startingErrors,
+      ),
+    );
+
+    final result = await run();
+    if (!ref.mounted) {
+      return const FailureResult<void>(
+        UnexpectedFailure('Harnesses controller was disposed.'),
+      );
+    }
+
+    final latest = state.value ?? current;
+    final remainingActions = Map<HarnessId, SkillRowAction>.of(
+      latest.skillActions,
+    )..remove(id);
+
+    return switch (result) {
+      Success<HarnessInfo>(:final value) => () {
+        state = AsyncData(
+          latest.copyWith(
+            harnesses: _upsertHarness(latest.harnesses, value),
+            skillActions: remainingActions,
+          ),
+        );
+        return const Success<void>(null);
+      }(),
+      FailureResult<HarnessInfo>(:final failure) => () {
+        final nextErrors = Map<HarnessId, SkillRowError>.of(latest.skillErrors)
+          ..[id] = SkillRowError(
+            failure: failure,
+            action: action,
+            overwriteModified: overwriteModified,
+          );
+        state = AsyncData(
+          latest.copyWith(
+            skillActions: remainingActions,
+            skillErrors: nextErrors,
+          ),
+        );
         return FailureResult<void>(failure);
       }(),
     };

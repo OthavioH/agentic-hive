@@ -27,6 +27,9 @@ final class ClaudeCodeMcpInstaller implements HarnessMcpInstaller {
   HarnessId get id => HarnessId.claudeCode;
 
   @override
+  String? get configPath => _resolveConfigPath();
+
+  @override
   Future<HarnessMcpDetectionResult> detect({
     required String executablePath,
     required HiveMcpLaunchCommand expectedCommand,

@@ -301,5 +301,65 @@ void main() {
         expect(after.hasUnsavedChanges, isTrue);
       },
     );
+
+    test(
+      'autoInstallSkillsDraft tracks dirty state, sends in update, discards, '
+      'and refreshes on WS when clean',
+      () async {
+        final repo = _FakeSettingsRepository()
+          ..getResult = const Success(initialSettings);
+        addTearDown(repo.dispose);
+
+        final container = ProviderContainer.test(
+          overrides: [settingsRepositoryProvider.overrideWithValue(repo)],
+        );
+        final sub = container.listen(settingsControllerProvider, (_, _) {});
+        addTearDown(sub.close);
+
+        final initial = await container.read(settingsControllerProvider.future);
+        expect(initial.autoInstallSkillsDraft, isTrue);
+        expect(initial.hasUnsavedChanges, isFalse);
+        expect(initial.toUpdateRequest().autoInstallSkills, isTrue);
+
+        final notifier = container.read(settingsControllerProvider.notifier)
+          ..setAutoInstallSkills(false);
+        final dirty = container.read(settingsControllerProvider).requireValue;
+        expect(dirty.autoInstallSkillsDraft, isFalse);
+        expect(dirty.hasUnsavedChanges, isTrue);
+        expect(dirty.toUpdateRequest().autoInstallSkills, isFalse);
+
+        notifier.discard();
+        final reverted = container
+            .read(settingsControllerProvider)
+            .requireValue;
+        expect(reverted.autoInstallSkillsDraft, isTrue);
+        expect(reverted.hasUnsavedChanges, isFalse);
+
+        notifier.setAutoInstallSkills(false);
+        repo.updateResult = Success(
+          initialSettings.copyWith(autoInstallSkills: false),
+        );
+        final saveResult = await notifier.save();
+        expect(saveResult.isSuccess, isTrue);
+        expect(repo.lastRequest?.autoInstallSkills, isFalse);
+        expect(
+          container
+              .read(settingsControllerProvider)
+              .requireValue
+              .hasUnsavedChanges,
+          isFalse,
+        );
+
+        repo.updates.add(initialSettings.copyWith(autoInstallSkills: true));
+        await Future<void>.delayed(Duration.zero);
+        expect(
+          container
+              .read(settingsControllerProvider)
+              .requireValue
+              .autoInstallSkillsDraft,
+          isTrue,
+        );
+      },
+    );
   });
 }

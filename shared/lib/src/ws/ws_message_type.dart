@@ -31,6 +31,10 @@ abstract final class WsMessageType {
   /// Server → client, broadcast when runtime settings are updated.
   static const settingsUpdated = 'settings.updated';
 
+  /// Server → client, broadcast when the automatic skill install records
+  /// results.
+  static const skillsAutoInstalled = 'skills.auto_installed';
+
   /// Client → server, subscribes the connection to `run.output` frames for a
   /// specific `runId`.
   static const runSubscribe = 'run.subscribe';

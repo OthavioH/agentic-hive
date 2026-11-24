@@ -105,6 +105,7 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
           titleBarComponent(),
           pageHeaderComponent(),
           cardComponent(),
+          insetPanelComponent(),
           emptyStateComponent(),
           masterDetailComponent(),
           collapsibleSectionComponent(),

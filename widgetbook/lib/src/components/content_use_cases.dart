@@ -42,6 +42,169 @@ dart format --output=none --set-exit-if-changed .
 *Informational metadata only; tools are not enforced in F2.*
 ''';
 
+/// `HiveInsetPanel`: compact, comfortable, tight, long stacked text, and with
+/// a compact banner inside.
+WidgetbookComponent insetPanelComponent() {
+  Widget sized(BuildContext context, Widget child) =>
+      SizedBox(width: context.hiveSpacing.space8 * 7, child: child);
+
+  return WidgetbookComponent(
+    name: 'HiveInsetPanel',
+    useCases: <WidgetbookUseCase>[
+      WidgetbookUseCase(
+        name: 'Compact · Badge and action',
+        builder: (context) => UseCaseFrame(
+          child: sized(
+            context,
+            const HiveInsetPanel(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: <Widget>[
+                  HiveBadge(
+                    label: 'Skill installed',
+                    tone: HiveBadgeTone.success,
+                    icon: HiveIcons.check,
+                  ),
+                  HiveButton(
+                    label: 'Remove',
+                    size: HiveButtonSize.small,
+                    variant: HiveButtonVariant.ghost,
+                    onPressed: _noop,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Comfortable · Guidance text',
+        builder: (context) => UseCaseFrame(
+          child: sized(
+            context,
+            HiveInsetPanel(
+              padding: HiveInsetPadding.comfortable,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  HiveIcon(
+                    HiveIcons.alert,
+                    size: context.hiveSpacing.space2,
+                    color: context.hiveColors.warning,
+                  ),
+                  SizedBox(width: context.hiveSpacing.space1),
+                  Expanded(
+                    child: Text(
+                      'Claude Code is not signed in. Run claude login in a '
+                      'terminal, then re-check.',
+                      style: context.hiveTypography.bodySmall.copyWith(
+                        color: context.hiveColors.onSurface,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Tight · Logo tile',
+        builder: (context) => UseCaseFrame(
+          child: HiveInsetPanel(
+            padding: HiveInsetPadding.tight,
+            child: HiveIcon(
+              HiveIcons.harnessClaudeCode,
+              size: context.hiveSpacing.space3,
+              color: context.hiveColors.onSurface,
+            ),
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Long text · Stacked explanation',
+        builder: (context) => UseCaseFrame(
+          child: sized(
+            context,
+            HiveInsetPanel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: context.hiveSpacing.space1,
+                    runSpacing: context.hiveSpacing.space1,
+                    children: const <Widget>[
+                      HiveBadge(
+                        label: 'Skill status unknown',
+                        icon: HiveIcons.info,
+                      ),
+                      HiveButton(
+                        label: 'Retry',
+                        size: HiveButtonSize.small,
+                        variant: HiveButtonVariant.secondary,
+                        onPressed: _noop,
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: context.hiveSpacing.space1),
+                  Text(
+                    'Could not read ~/.claude/skills/agentic-hive/SKILL.md: '
+                    'permission denied while inspecting existing installation.',
+                    style: context.hiveTypography.bodySmall.copyWith(
+                      color: context.hiveColors.onSurfaceMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'With compact banner inside',
+        builder: (context) => UseCaseFrame(
+          child: sized(
+            context,
+            HiveInsetPanel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: <Widget>[
+                      HiveBadge(
+                        label: 'Skill installed',
+                        tone: HiveBadgeTone.success,
+                        icon: HiveIcons.check,
+                      ),
+                      HiveButton(
+                        label: 'Remove',
+                        size: HiveButtonSize.small,
+                        variant: HiveButtonVariant.ghost,
+                        onPressed: _noop,
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: context.hiveSpacing.space1),
+                  const HiveBanner(
+                    tone: HiveFeedbackTone.warning,
+                    density: HiveBannerDensity.compact,
+                    title: 'Hive MCP server is not installed',
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
 /// `HiveMarkdownView`: a full agent prompt and a short note.
 WidgetbookComponent markdownViewComponent() {
   return WidgetbookComponent(

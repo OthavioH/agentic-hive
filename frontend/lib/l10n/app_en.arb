@@ -668,8 +668,12 @@
   "@agentsMigrationBannerMessage": {
     "description": "Explanation under the agents migration banner title.",
     "placeholders": {
-      "legacyDir": {"type": "String"},
-      "targetDir": {"type": "String"}
+      "legacyDir": {
+        "type": "String"
+      },
+      "targetDir": {
+        "type": "String"
+      }
     }
   },
   "agentsDismissTooltip": "Dismiss",
@@ -1839,61 +1843,6 @@
   "@nodeConfigExtraArgsAddLabel": {
     "description": "Button label to append an extra CLI argument."
   },
-  "nodeConfigModelLabel": "Model",
-  "@nodeConfigModelLabel": {
-    "description": "Text field label for the harness model override."
-  },
-  "nodeConfigEffortLabel": "Effort",
-  "@nodeConfigEffortLabel": {
-    "description": "Select field label for choosing the harness reasoning effort."
-  },
-  "nodeConfigHarnessDefaultHint": "Harness default",
-  "@nodeConfigHarnessDefaultHint": {
-    "description": "Placeholder hint and default option label indicating the harness chooses its own default."
-  },
-  "nodeConfigEffortLow": "Low",
-  "@nodeConfigEffortLow": {
-    "description": "Option label for low reasoning effort."
-  },
-  "nodeConfigEffortMedium": "Medium",
-  "@nodeConfigEffortMedium": {
-    "description": "Option label for medium reasoning effort."
-  },
-  "nodeConfigEffortHigh": "High",
-  "@nodeConfigEffortHigh": {
-    "description": "Option label for high reasoning effort."
-  },
-  "nodeConfigEffortMax": "Max",
-  "@nodeConfigEffortMax": {
-    "description": "Option label for maximum reasoning effort."
-  },
-  "nodeConfigModelUnsupportedError": "{harness} does not support choosing a model.",
-  "@nodeConfigModelUnsupportedError": {
-    "description": "Error text shown when a stored model value is configured on a harness that does not support model selection.",
-    "placeholders": {
-      "harness": {
-        "type": "String"
-      }
-    }
-  },
-  "nodeConfigEffortUnsupportedError": "{harness} does not support choosing an effort.",
-  "@nodeConfigEffortUnsupportedError": {
-    "description": "Error text shown when a stored effort value is configured on a harness that does not support effort selection.",
-    "placeholders": {
-      "harness": {
-        "type": "String"
-      }
-    }
-  },
-  "nodeConfigEffortInvalidError": "\"{effort}\" is not a valid effort.",
-  "@nodeConfigEffortInvalidError": {
-    "description": "Error text shown when a stored effort value is not one of the recognized effort levels.",
-    "placeholders": {
-      "effort": {
-        "type": "String"
-      }
-    }
-  },
   "nodeConfigCommandLabel": "Command",
   "@nodeConfigCommandLabel": {
     "description": "Text field label for the executable or shell command."
@@ -2026,41 +1975,13 @@
   "@nodeConfigHumanAllowFeedbackLabel": {
     "description": "Switch label for allowing the human reviewer to enter feedback."
   },
-  "nodeConfigHumanProposalHeading": "Proposal",
-  "@nodeConfigHumanProposalHeading": {
-    "description": "Section heading for proposal source fields in human approval node config."
-  },
-  "nodeConfigHumanProposalNodeLabel": "Proposal source",
-  "@nodeConfigHumanProposalNodeLabel": {
-    "description": "Select label for choosing the upstream node that supplies a proposal."
-  },
-  "nodeConfigHumanProposalNodeNone": "None",
-  "@nodeConfigHumanProposalNodeNone": {
-    "description": "Select option indicating the approval node has no proposal source."
-  },
-  "nodeConfigHumanProposalPathLabel": "Field",
-  "@nodeConfigHumanProposalPathLabel": {
-    "description": "Text field label for the dot path inside the proposal source node output data."
-  },
-  "nodeConfigHumanProposalPathHint": "e.g. issues",
-  "@nodeConfigHumanProposalPathHint": {
-    "description": "Placeholder hint for the proposal field dot path."
-  },
-  "nodeConfigHumanProposalSchemaLabel": "JSON Schema (optional)",
-  "@nodeConfigHumanProposalSchemaLabel": {
-    "description": "Multiline text area label for an optional JSON Schema validating edited proposals."
-  },
-  "nodeConfigHumanProposalSchemaHint": "Paste a JSON Schema that the edited proposal must match",
-  "@nodeConfigHumanProposalSchemaHint": {
-    "description": "Placeholder hint for the optional proposal JSON Schema text area."
-  },
   "runDetailTabsLabel": "Inspector view",
   "@runDetailTabsLabel": {
     "description": "Semantic label for the Checkpoints/Snapshots toggle on Run Detail."
   },
   "runDetailTabSnapshots": "Snapshots",
   "@runDetailTabSnapshots": {
-    "description": "Segment label for the workspace snapshots view on Run Detail."
+    "description": "Inspector tab label for workspace snapshots."
   },
   "runDetailIsolationLabel": "Isolation",
   "@runDetailIsolationLabel": {
@@ -2429,10 +2350,6 @@
   "@runDetailTabCheckpoints": {
     "description": "Inspector tab label for saved run checkpoints."
   },
-  "runDetailTabSnapshots": "Snapshots",
-  "@runDetailTabSnapshots": {
-    "description": "Inspector tab label for workspace snapshots."
-  },
   "runDetailOutputTitle": "Node output",
   "@runDetailOutputTitle": {
     "description": "Semantic label and heading for the node output viewer."
@@ -2619,39 +2536,6 @@
   "pausesSubmitAnswerAction": "Submit Answer",
   "@pausesSubmitAnswerAction": {
     "description": "Primary button label to submit an ask_human answer."
-  },
-  "pausesProposalHeading": "Proposal from {source}",
-  "@pausesProposalHeading": {
-    "description": "Heading for the proposal section on an approval pause when the source node label is known.",
-    "placeholders": {
-      "source": {
-        "type": "String"
-      }
-    }
-  },
-  "pausesProposalHeadingGeneric": "Proposal",
-  "@pausesProposalHeadingGeneric": {
-    "description": "Fallback heading for the proposal section on an approval pause when no source node label is present."
-  },
-  "pausesProposalEditAction": "Edit proposal",
-  "@pausesProposalEditAction": {
-    "description": "Button label to switch the approval proposal from read-only to JSON editing mode."
-  },
-  "pausesProposalDiscardAction": "Discard edit",
-  "@pausesProposalDiscardAction": {
-    "description": "Button label to discard proposal edits and return to read-only view."
-  },
-  "pausesProposalCopy": "Copy proposal",
-  "@pausesProposalCopy": {
-    "description": "Tooltip and semantics label for copying the read-only proposal JSON."
-  },
-  "pausesProposalEditorLabel": "Edited proposal (JSON)",
-  "@pausesProposalEditorLabel": {
-    "description": "Label for the multiline JSON editor used to edit an approval proposal."
-  },
-  "pausesApproveEditedAction": "Approve edited proposal",
-  "@pausesApproveEditedAction": {
-    "description": "Primary button label when approving a pause while editing its proposal."
   },
   "pausesSubmittingLabel": "Submitting...",
   "@pausesSubmittingLabel": {
@@ -3395,6 +3279,363 @@
   "windowCloseToTray": "Close to tray",
   "@windowCloseToTray": {
     "description": "Accessible label and tooltip for the window close-to-tray button."
+  },
+  "harnessesSkillStatusInstalled": "Skill installed",
+  "@harnessesSkillStatusInstalled": {
+    "description": "Badge label when the Agentic Hive skill is installed and matches the bundle."
+  },
+  "harnessesSkillStatusNotInstalled": "Skill not installed",
+  "@harnessesSkillStatusNotInstalled": {
+    "description": "Badge label when the Agentic Hive skill is not installed for a harness."
+  },
+  "harnessesSkillStatusOutdated": "Skill outdated",
+  "@harnessesSkillStatusOutdated": {
+    "description": "Badge label when the installed Agentic Hive skill differs from the current bundle."
+  },
+  "harnessesSkillStatusModified": "Skill modified",
+  "@harnessesSkillStatusModified": {
+    "description": "Badge label when the installed Agentic Hive skill files were edited locally."
+  },
+  "harnessesSkillStatusConflict": "Skill conflict",
+  "@harnessesSkillStatusConflict": {
+    "description": "Badge label when an existing skill folder, file, or symlink was not installed by Agentic Hive."
+  },
+  "harnessesSkillStatusUnknown": "Skill status unknown",
+  "@harnessesSkillStatusUnknown": {
+    "description": "Badge label when detecting the Agentic Hive skill status failed."
+  },
+  "harnessesSkillConflictExplanation": "A skill named agentic-hive already exists here and was not installed by Agentic Hive.",
+  "@harnessesSkillConflictExplanation": {
+    "description": "Explanation shown when a conflicting skill folder or link is present."
+  },
+  "harnessesSkillInstall": "Install",
+  "@harnessesSkillInstall": {
+    "description": "Button label to install the Agentic Hive skill for a harness."
+  },
+  "harnessesSkillUpdate": "Update",
+  "@harnessesSkillUpdate": {
+    "description": "Button label to update an outdated or modified Agentic Hive skill."
+  },
+  "harnessesSkillRemove": "Remove",
+  "@harnessesSkillRemove": {
+    "description": "Button label to remove the installed Agentic Hive skill."
+  },
+  "harnessesSkillRetry": "Retry",
+  "@harnessesSkillRetry": {
+    "description": "Button label to retry a failed or unknown skill action."
+  },
+  "harnessesSkillInstalling": "Installing…",
+  "@harnessesSkillInstalling": {
+    "description": "Progressive button label while installing the Agentic Hive skill."
+  },
+  "harnessesSkillUpdating": "Updating…",
+  "@harnessesSkillUpdating": {
+    "description": "Progressive button label while updating the Agentic Hive skill."
+  },
+  "harnessesSkillRemoving": "Removing…",
+  "@harnessesSkillRemoving": {
+    "description": "Progressive button label while removing the Agentic Hive skill."
+  },
+  "harnessesSkillMcpMissing": "The skill needs the Hive MCP server.",
+  "@harnessesSkillMcpMissing": {
+    "description": "Warning banner title when a skill is present but the Hive MCP server is not installed."
+  },
+  "harnessesSkillErrorTitle": "The skill action failed",
+  "@harnessesSkillErrorTitle": {
+    "description": "Title of the inline error banner when a skill install, update, or remove fails."
+  },
+  "harnessesSkillErrorFallback": "The backend could not finish the skill action.",
+  "@harnessesSkillErrorFallback": {
+    "description": "Fallback error message when a skill failure provides no message."
+  },
+  "harnessesSkillInstallSuccess": "Installed the skill for {name}",
+  "@harnessesSkillInstallSuccess": {
+    "description": "Toast confirmation shown after installing or updating the skill for a harness.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessesSkillRemoveSuccess": "Removed the skill from {name}",
+  "@harnessesSkillRemoveSuccess": {
+    "description": "Toast confirmation shown after removing the skill from a harness.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessesSkillOverwriteTitle": "Replace your edited skill?",
+  "@harnessesSkillOverwriteTitle": {
+    "description": "Confirmation dialog title when updating a locally modified skill."
+  },
+  "harnessesSkillOverwriteMessage": "You changed the agentic-hive skill files for {name}. Updating replaces your changes with the version bundled with this app.",
+  "@harnessesSkillOverwriteMessage": {
+    "description": "Confirmation dialog body when updating a locally modified skill.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessesSkillOverwriteConfirm": "Replace",
+  "@harnessesSkillOverwriteConfirm": {
+    "description": "Destructive confirm button label when replacing a modified skill."
+  },
+  "harnessesSkillRemoveTitle": "Remove the skill from {name}?",
+  "@harnessesSkillRemoveTitle": {
+    "description": "Confirmation dialog title when removing the skill from a harness.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessesSkillRemoveMessage": "This deletes the agentic-hive skill folder that Agentic Hive installed for {name}. The Hive MCP server stays installed.",
+  "@harnessesSkillRemoveMessage": {
+    "description": "Confirmation dialog body when removing the skill from a harness.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessesSkillRemoveConfirm": "Remove",
+  "@harnessesSkillRemoveConfirm": {
+    "description": "Destructive confirm button label when removing the skill from a harness."
+  },
+  "harnessesSkillCancel": "Cancel",
+  "@harnessesSkillCancel": {
+    "description": "Cancel button label in skill confirmation dialogs."
+  },
+  "skillNoticeInstalledTitle": "Installed the Agentic Hive skill and MCP for {harnesses}.",
+  "@skillNoticeInstalledTitle": {
+    "description": "First-run banner title when automatic skill and MCP installs succeeded.",
+    "placeholders": {
+      "harnesses": {
+        "type": "String"
+      }
+    }
+  },
+  "skillNoticePathLine": "{harness}: {path}",
+  "@skillNoticePathLine": {
+    "description": "Line showing the installed skill folder path for one harness.",
+    "placeholders": {
+      "harness": {
+        "type": "String"
+      },
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "skillNoticeUndo": "Undo",
+  "@skillNoticeUndo": {
+    "description": "Button label to undo automatic skill installations."
+  },
+  "skillNoticePartialTitle": "Some installs did not finish",
+  "@skillNoticePartialTitle": {
+    "description": "First-run banner title when one or more automatic skill or MCP steps failed."
+  },
+  "skillNoticeFailureSkill": "{harness} skill: {message}",
+  "@skillNoticeFailureSkill": {
+    "description": "Failure detail line for a harness skill step.",
+    "placeholders": {
+      "harness": {
+        "type": "String"
+      },
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "skillNoticeFailureMcp": "{harness} MCP: {message}",
+  "@skillNoticeFailureMcp": {
+    "description": "Failure detail line for a harness MCP step.",
+    "placeholders": {
+      "harness": {
+        "type": "String"
+      },
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "skillNoticeFailureFallback": "No details were reported.",
+  "@skillNoticeFailureFallback": {
+    "description": "Fallback failure detail when an automatic install failure includes no message."
+  },
+  "skillNoticeRetry": "Retry",
+  "@skillNoticeRetry": {
+    "description": "Button label to retry failed automatic skill or MCP installs."
+  },
+  "skillNoticeDismiss": "Dismiss notice",
+  "@skillNoticeDismiss": {
+    "description": "Accessible label for dismissing the automatic skill install notice."
+  },
+  "skillNoticeNamesSeparator": ", ",
+  "@skillNoticeNamesSeparator": {
+    "description": "Separator used when joining harness display names in banners."
+  },
+  "skillNoticeUndoSuccess": "Removed the skill from {harnesses}",
+  "@skillNoticeUndoSuccess": {
+    "description": "Toast confirmation after undoing automatic skill installations.",
+    "placeholders": {
+      "harnesses": {
+        "type": "String"
+      }
+    }
+  },
+  "skillNoticeUndoError": "Could not undo: {message}",
+  "@skillNoticeUndoError": {
+    "description": "Toast error shown when undoing automatic skill installations fails.",
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "outdatedBannerTitle": "Agentic Hive tools need an update for {harnesses}.",
+  "@outdatedBannerTitle": {
+    "description": "Global warning banner title when one or more harnesses have outdated skill or MCP installations.",
+    "placeholders": {
+      "harnesses": {
+        "type": "String"
+      }
+    }
+  },
+  "outdatedBannerOpen": "Open Harnesses",
+  "@outdatedBannerOpen": {
+    "description": "Button label on the outdated tools banner to navigate to the Harnesses page."
+  },
+  "outdatedBannerDismiss": "Dismiss update notice",
+  "@outdatedBannerDismiss": {
+    "description": "Accessible label for dismissing the outdated tools banner."
+  },
+  "settingsAutoInstallSkillsLabel": "Install the skill automatically for new harnesses",
+  "@settingsAutoInstallSkillsLabel": {
+    "description": "Label for the Settings switch controlling automatic skill installation."
+  },
+  "settingsAutoInstallSkillsHelp": "The first time Agentic Hive finds a harness, it installs the agentic-hive skill and the Hive MCP server for it. It never updates them by itself.",
+  "@settingsAutoInstallSkillsHelp": {
+    "description": "Helper text under the automatic skill install switch in Settings."
+  },
+  "nodeConfigModelLabel": "Model",
+  "@nodeConfigModelLabel": {
+    "description": "Text field label for the harness model override."
+  },
+  "nodeConfigEffortLabel": "Effort",
+  "@nodeConfigEffortLabel": {
+    "description": "Select field label for choosing the harness reasoning effort."
+  },
+  "nodeConfigHarnessDefaultHint": "Harness default",
+  "@nodeConfigHarnessDefaultHint": {
+    "description": "Placeholder hint and default option label indicating the harness chooses its own default."
+  },
+  "nodeConfigEffortLow": "Low",
+  "@nodeConfigEffortLow": {
+    "description": "Option label for low reasoning effort."
+  },
+  "nodeConfigEffortMedium": "Medium",
+  "@nodeConfigEffortMedium": {
+    "description": "Option label for medium reasoning effort."
+  },
+  "nodeConfigEffortHigh": "High",
+  "@nodeConfigEffortHigh": {
+    "description": "Option label for high reasoning effort."
+  },
+  "nodeConfigEffortMax": "Max",
+  "@nodeConfigEffortMax": {
+    "description": "Option label for maximum reasoning effort."
+  },
+  "nodeConfigModelUnsupportedError": "{harness} does not support choosing a model.",
+  "@nodeConfigModelUnsupportedError": {
+    "description": "Error text shown when a stored model value is configured on a harness that does not support model selection.",
+    "placeholders": {
+      "harness": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeConfigEffortUnsupportedError": "{harness} does not support choosing an effort.",
+  "@nodeConfigEffortUnsupportedError": {
+    "description": "Error text shown when a stored effort value is configured on a harness that does not support effort selection.",
+    "placeholders": {
+      "harness": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeConfigEffortInvalidError": "\"{effort}\" is not a valid effort.",
+  "@nodeConfigEffortInvalidError": {
+    "description": "Error text shown when a stored effort value is not one of the recognized effort levels.",
+    "placeholders": {
+      "effort": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeConfigHumanProposalHeading": "Proposal",
+  "@nodeConfigHumanProposalHeading": {
+    "description": "Section heading for proposal source fields in human approval node config."
+  },
+  "nodeConfigHumanProposalNodeLabel": "Proposal source",
+  "@nodeConfigHumanProposalNodeLabel": {
+    "description": "Select label for choosing the upstream node that supplies a proposal."
+  },
+  "nodeConfigHumanProposalNodeNone": "None",
+  "@nodeConfigHumanProposalNodeNone": {
+    "description": "Select option indicating the approval node has no proposal source."
+  },
+  "nodeConfigHumanProposalPathLabel": "Field",
+  "@nodeConfigHumanProposalPathLabel": {
+    "description": "Text field label for the dot path inside the proposal source node output data."
+  },
+  "nodeConfigHumanProposalPathHint": "e.g. issues",
+  "@nodeConfigHumanProposalPathHint": {
+    "description": "Placeholder hint for the proposal field dot path."
+  },
+  "nodeConfigHumanProposalSchemaLabel": "JSON Schema (optional)",
+  "@nodeConfigHumanProposalSchemaLabel": {
+    "description": "Multiline text area label for an optional JSON Schema validating edited proposals."
+  },
+  "nodeConfigHumanProposalSchemaHint": "Paste a JSON Schema that the edited proposal must match",
+  "@nodeConfigHumanProposalSchemaHint": {
+    "description": "Placeholder hint for the optional proposal JSON Schema text area."
+  },
+  "pausesProposalHeading": "Proposal from {source}",
+  "@pausesProposalHeading": {
+    "description": "Heading for the proposal section on an approval pause when the source node label is known.",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "pausesProposalHeadingGeneric": "Proposal",
+  "@pausesProposalHeadingGeneric": {
+    "description": "Fallback heading for the proposal section on an approval pause when no source node label is present."
+  },
+  "pausesProposalEditAction": "Edit proposal",
+  "@pausesProposalEditAction": {
+    "description": "Button label to switch the approval proposal from read-only to JSON editing mode."
+  },
+  "pausesProposalDiscardAction": "Discard edit",
+  "@pausesProposalDiscardAction": {
+    "description": "Button label to discard proposal edits and return to read-only view."
+  },
+  "pausesProposalCopy": "Copy proposal",
+  "@pausesProposalCopy": {
+    "description": "Tooltip and semantics label for copying the read-only proposal JSON."
+  },
+  "pausesProposalEditorLabel": "Edited proposal (JSON)",
+  "@pausesProposalEditorLabel": {
+    "description": "Label for the multiline JSON editor used to edit an approval proposal."
+  },
+  "pausesApproveEditedAction": "Approve edited proposal",
+  "@pausesApproveEditedAction": {
+    "description": "Primary button label when approving a pause while editing its proposal."
   },
   "nodeTypeFanOut": "Fan-out",
   "@nodeTypeFanOut": {

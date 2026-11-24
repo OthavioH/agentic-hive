@@ -22,6 +22,9 @@ final class AntigravityMcpInstaller implements HarnessMcpInstaller {
   HarnessId get id => HarnessId.antigravity;
 
   @override
+  String? get configPath => null;
+
+  @override
   Future<HarnessMcpDetectionResult> detect({
     required String executablePath,
     required HiveMcpLaunchCommand expectedCommand,

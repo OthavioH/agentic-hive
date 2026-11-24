@@ -22,7 +22,7 @@ Features read tokens through context accessors and never pass literal colors, sp
 
 Expose colors only as semantic roles (with `on*` foreground pairs where applicable):
 
-- Surfaces & structure: `background`, `surface1`, `surface2`, `surface3`, `borderSubtle` (1px hairline)
+- Surfaces & structure: `background`, `surface1`, `surface2`, `surface3`, `borderSubtle` (1px hairline, decorative), `borderStrong` (1px boundary for non-text UI reaching 3:1 on all surfaces)
 - Primary action & active item only: `accent`, `onAccent`
 - Secondary green & status: `accentMuted` (green family for charts, success, running), `success`, `warning`, `danger`, `info` (desaturated, each with an `on*` color)
 - Node statuses: `statusIdle`, `statusRunning`, `statusPaused`, `statusFailed`, `statusSucceeded`
@@ -84,6 +84,12 @@ F12 addition (#21): `HiveTerminalView` + `HiveTerminalController` (VT100/xterm e
 F15 addition (#22): `HiveMetricTile` (`focal` value in `number` inside `space3`, `compact` value in `display` inside `space2`; value in `onSurface`, Geist `label` in `onSurfaceMuted`; on a `HiveCardSurface` step with `radiusCard` and a hairline border; an optional `HiveFeedbackTone` colors only a leading tone icon, never text; one semantics node labelled `label: value` unless `semanticLabel` is given).
 
 #106 additions: `HiveDialog.confirm(destructive: true)` focuses Cancel. `HiveCard.busy` + `statusLabel` (inert card, one semantics node whose value is the live-region status; the consumer draws any visible status and excludes it from semantics). `HiveIconButton.disabledReason` (while disabled: `surface3` pill tooltip with `onSurface` `bodySmall` text and a `borderSubtle` hairline, plus the semantics hint). `HiveFieldFrame`'s well gesture is excluded from semantics so text fields pass the labelled tap target guideline.
+
+#145 / #146 additions:
+- `HiveInsetPanel`: non-interactive `surface2` grouping panel with a `borderSubtle` hairline and `radiusCard`, adding no semantics node; padding comes from `HiveInsetPadding` (`tight` `space1`, default `compact` `space2`/`space1`, `comfortable` `space2`).
+- `HiveBanner.density`: `HiveBannerDensity.regular` (default) and `.compact` (`space1` padding, `space3` badge and title min height, `bodySmall` message) for inline card feedback.
+- `HiveSwitch.helperText`: optional muted `bodySmall` text (`onSurfaceMuted`) below the label (requires `label != null`), aligned to the label's start edge (`space6 + space1`), as a non-toggling sibling that keeps its own semantics node and dims when disabled.
+- `HiveBadgeTone.neutral` foreground outline: draws a 1px `borderStrong` outline with `radiusPill` in the foreground so the neutral badge boundary reaches 3:1 against `surface2` without changing badge layout size.
 
 **Desktop platform profile:** Windows, Linux, and macOS; mouse + keyboard first. Every interactive component must have a hover state, a visible keyboard focus indicator, and a semantics label. Support desktop density (sidebar, multi-column, master-detail).
 

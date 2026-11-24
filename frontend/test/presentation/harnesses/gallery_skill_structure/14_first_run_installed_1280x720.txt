@@ -1,0 +1,126 @@
+SemanticsNode#
+ │
+ └─SemanticsNode#
+   │
+   └─SemanticsNode#
+     │ sortKey: OrdinalSortKey#(order: 0.0)
+     │
+     └─SemanticsNode#
+       │ flags: scopesRoute
+       │
+       ├─SemanticsNode#
+       │ │
+       │ ├─SemanticsNode#
+       │ │   flags: isImage
+       │ │   label: "Agentic Hive"
+       │ │
+       │ ├─SemanticsNode#
+       │ │ │ flags: hasImplicitScrolling
+       │ │ │ scrollExtentMin: 0.0
+       │ │ │ scrollPosition: 0.0
+       │ │ │
+       │ │ ├─SemanticsNode#
+       │ │ │   actions: tap
+       │ │ │   flags: isSelected, isButton, hasEnabledState, isEnabled,
+       │ │ │     hasSelectedState
+       │ │ │   label: "Overview"
+       │ │ │
+       │ │ ├─SemanticsNode#
+       │ │ │   actions: tap
+       │ │ │   flags: isButton, hasEnabledState, isEnabled, hasSelectedState
+       │ │ │   label: "Workflows"
+       │ │ │
+       │ │ ├─SemanticsNode#
+       │ │ │   actions: tap
+       │ │ │   flags: isButton, hasEnabledState, isEnabled, hasSelectedState
+       │ │ │   label: "Runs"
+       │ │ │
+       │ │ ├─SemanticsNode#
+       │ │ │   actions: tap
+       │ │ │   flags: isButton, hasEnabledState, isEnabled, hasSelectedState
+       │ │ │   label: "Pauses"
+       │ │ │
+       │ │ ├─SemanticsNode#
+       │ │ │   actions: tap
+       │ │ │   flags: isButton, hasEnabledState, isEnabled, hasSelectedState
+       │ │ │   label: "Agents"
+       │ │ │
+       │ │ ├─SemanticsNode#
+       │ │ │   actions: tap
+       │ │ │   flags: isButton, hasEnabledState, isEnabled, hasSelectedState
+       │ │ │   label: "Harnesses"
+       │ │ │
+       │ │ └─SemanticsNode#
+       │ │     actions: tap
+       │ │     flags: isButton, hasEnabledState, isEnabled, hasSelectedState
+       │ │     label: "Settings"
+       │ │
+       │ └─SemanticsNode#
+       │     actions: tap
+       │     flags: isButton, hasEnabledState, isEnabled
+       │     label: "Expand navigation rail"
+       │
+       ├─SemanticsNode#
+       │ │
+       │ ├─SemanticsNode#
+       │ │   label: "Workspaces"
+       │ │
+       │ ├─SemanticsNode#
+       │ │   actions: tap
+       │ │   flags: isButton, hasEnabledState, isEnabled
+       │ │   label: "Refresh workspace tree"
+       │ │
+       │ ├─SemanticsNode#
+       │ │   actions: tap
+       │ │   flags: isButton, hasEnabledState, isEnabled, hasSelectedState
+       │ │   label: "Global"
+       │ │
+       │ ├─SemanticsNode#
+       │ │   flags: isHeader
+       │ │   label: "No workspaces yet"
+       │ │
+       │ └─SemanticsNode#
+       │     label: "Register a workspace to see its worktrees and runs."
+       │
+       ├─SemanticsNode#
+       │   label: "No workspace registered"
+       │
+       ├─SemanticsNode#
+       │ │ flags: isLiveRegion
+       │ │
+       │ ├─SemanticsNode#
+       │ │   label: "Installed the Agentic Hive skill and MCP for Claude Code,
+       │ │     Codex."
+       │ │
+       │ ├─SemanticsNode#
+       │ │   actions: tap
+       │ │   flags: isButton, hasEnabledState, isEnabled
+       │ │   label: "Dismiss notice"
+       │ │
+       │ ├─SemanticsNode#
+       │ │   label: "Claude Code: /home/user/.claude/skills/agentic-hive"
+       │ │
+       │ ├─SemanticsNode#
+       │ │   label: "Codex: /home/user/.agents/skills/agentic-hive"
+       │ │
+       │ └─SemanticsNode#
+       │     actions: tap
+       │     flags: isButton, hasEnabledState, isEnabled
+       │     label: "Undo"
+       │
+       └─SemanticsNode#
+           actions: tap
+           flags: isButton, hasEnabledState, isEnabled
+           label: "Workspaces"
+
+--- texts ---
+Workspaces
+Global
+No workspaces yet
+Register a workspace to see its worktrees and runs.
+No workspace registered
+Workspaces
+Installed the Agentic Hive skill and MCP for Claude Code, Codex.
+Claude Code: /home/user/.claude/skills/agentic-hive
+Codex: /home/user/.agents/skills/agentic-hive
+Undo
