@@ -148,6 +148,78 @@ void main() {
     expect(gone['isError'], isTrue);
   }, timeout: const Timeout(Duration(seconds: 60)));
 
+  test('deleting a workflow used by a fan-out node lists the referencing '
+      'workflow', () async {
+    final dataDir = p.join(tempDir.path, 'data');
+    final wsDir = p.join(tempDir.path, 'cwd');
+    await Directory(wsDir).create(recursive: true);
+    final backend = await startBackend(dataDir);
+    final mcp = await spawn(
+      socket: backend.socketPath,
+      workingDirectory: wsDir,
+    );
+
+    final unresolved = await call(mcp, 'create_workflow', {
+      'name': 'Missing Child Parent',
+      'workspace': 'global',
+      'nodes': [
+        {
+          'id': 'plan',
+          'type': 'command',
+          'label': 'Plan',
+          'config': {'command': 'echo'},
+        },
+        {
+          'id': 'fan',
+          'type': 'fan_out',
+          'label': 'Fan',
+          'config': {
+            'workflowId': 'does-not-exist',
+            'itemsNodeId': 'plan',
+            'itemsPath': 'items',
+          },
+        },
+      ],
+      'edges': <Object?>[],
+      'entryNodeId': 'plan',
+    });
+    expect(unresolved, contains('unresolved_child_workflow'));
+
+    final child = await createGlobal(mcp);
+    await call(mcp, 'create_workflow', {
+      'name': 'Fan Parent',
+      'workspace': 'global',
+      'nodes': [
+        {
+          'id': 'plan',
+          'type': 'command',
+          'label': 'Plan',
+          'config': {'command': 'echo'},
+        },
+        {
+          'id': 'fan',
+          'type': 'fan_out',
+          'label': 'Fan',
+          'config': {
+            'workflowId': child.id,
+            'itemsNodeId': 'plan',
+            'itemsPath': 'items',
+          },
+        },
+      ],
+      'edges': <Object?>[],
+      'entryNodeId': 'plan',
+    });
+
+    final deleted = await call(mcp, 'delete_workflow', {
+      'id': child.id,
+      'revision': child.revision,
+      'workspace': 'global',
+    });
+    expect(deleted, contains('Used by fan-out nodes in 1 workflow:'));
+    expect(deleted, contains('"Fan Parent"'));
+  }, timeout: const Timeout(Duration(seconds: 60)));
+
   test('a repeated delete answers already deleted', () async {
     final dataDir = p.join(tempDir.path, 'data');
     final wsDir = p.join(tempDir.path, 'cwd');

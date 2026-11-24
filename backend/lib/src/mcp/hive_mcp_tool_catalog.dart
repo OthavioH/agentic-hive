@@ -172,7 +172,8 @@ abstract final class HiveMcpToolCatalog {
       name: 'delete_workflow',
       description:
           'Delete a workflow and its runs. Needs the revision you read. '
-          'Refuses while runs are active; never stops runs.',
+          'Refuses while runs are active; never stops runs. The answer lists '
+          'workflows whose fan-out nodes reference it.',
       inputSchema: ObjectSchema(
         properties: <String, Schema>{
           'id': StringSchema(description: 'Workflow id from list_workflows.'),
@@ -191,7 +192,8 @@ abstract final class HiveMcpToolCatalog {
       description:
           'List the node types (config fields, outputs) and agents a workflow '
           'can use in a scope. Call it before create_workflow '
-          'or edit_workflow.',
+          'or edit_workflow. Includes how fan-out nodes and node overrides '
+          'work.',
       inputSchema: ObjectSchema(
         properties: <String, Schema>{'workspace': _workspace},
         additionalProperties: false,
