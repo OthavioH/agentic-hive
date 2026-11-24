@@ -16,6 +16,7 @@ class HiveSwitch extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.label,
+    this.helperText,
     this.semanticLabel,
     this.statesController,
     this.focusNode,
@@ -24,6 +25,10 @@ class HiveSwitch extends StatelessWidget {
   }) : assert(
          label != null || semanticLabel != null,
          'A switch needs a label or a semanticLabel.',
+       ),
+       assert(
+         helperText == null || label != null,
+         'A switch with helperText needs a visible label.',
        );
 
   /// Whether the switch is on.
@@ -34,6 +39,9 @@ class HiveSwitch extends StatelessWidget {
 
   /// Optional visible text next to the track; tapping it toggles too.
   final String? label;
+
+  /// Optional muted helper text below [label], aligned to its start edge.
+  final String? helperText;
 
   /// Accessibility label; defaults to [label].
   final String? semanticLabel;
@@ -55,11 +63,12 @@ class HiveSwitch extends StatelessWidget {
     final typography = context.hiveTypography;
     final onChanged = this.onChanged;
     final text = label;
+    final helper = helperText;
     final duration = motion.resolve(context, motion.short);
     final trackColor = value ? colors.accent : colors.surface3;
     final thumbColor = value ? colors.onAccent : colors.onSurfaceMuted;
 
-    return HiveInteraction(
+    final interaction = HiveInteraction(
       semanticLabel: semanticLabel ?? text!,
       toggled: value,
       onPressed: onChanged == null ? null : () => onChanged(!value),
@@ -133,6 +142,31 @@ class HiveSwitch extends StatelessWidget {
                 ),
         );
       },
+    );
+
+    if (helper == null) return interaction;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        interaction,
+        Opacity(
+          opacity: onChanged == null ? colors.disabledOpacity : 1,
+          child: Padding(
+            padding: EdgeInsetsDirectional.only(
+              start: spacing.space6 + spacing.space1,
+              top: spacing.spaceHalf,
+            ),
+            child: Text(
+              helper,
+              style: typography.bodySmall.copyWith(
+                color: colors.onSurfaceMuted,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
