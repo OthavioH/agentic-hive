@@ -31,6 +31,7 @@ final class WsGateway {
     PtySessionRegistry? ptySessions,
     Stream<Pause>? pauseCreated,
     Stream<Pause>? pauseResolved,
+    Stream<SkillAutoInstallNotice>? skillAutoInstalls,
     this._generateId = randomId,
   }) : _ptySessions = ptySessions {
     _harnessUpdatesSubscription = harnessStatusUpdates?.listen(
@@ -47,6 +48,9 @@ final class WsGateway {
     );
     _pauseCreatedSubscription = pauseCreated?.listen(_broadcastPauseCreated);
     _pauseResolvedSubscription = pauseResolved?.listen(_broadcastPauseResolved);
+    _skillAutoInstallsSubscription = skillAutoInstalls?.listen(
+      _broadcastSkillAutoInstalled,
+    );
   }
 
   static final _log = Logger('ws');
@@ -70,6 +74,16 @@ final class WsGateway {
   StreamSubscription<PtySessionKey>? _ptyEndedSubscription;
   StreamSubscription<Pause>? _pauseCreatedSubscription;
   StreamSubscription<Pause>? _pauseResolvedSubscription;
+  StreamSubscription<SkillAutoInstallNotice>? _skillAutoInstallsSubscription;
+
+  void _broadcastSkillAutoInstalled(SkillAutoInstallNotice notice) =>
+      _registry.broadcast(
+        WsEnvelope(
+          type: WsMessageType.skillsAutoInstalled,
+          id: _generateId(),
+          payload: SkillAutoInstallNoticePayload(notice: notice).toJson(),
+        ),
+      );
 
   /// Releases subscriptions held by the gateway.
   Future<void> close() async {
@@ -88,6 +102,9 @@ final class WsGateway {
     await _pauseCreatedSubscription?.cancel();
     _pauseCreatedSubscription = null;
     await _pauseResolvedSubscription?.cancel();
+    _pauseResolvedSubscription = null;
+    await _skillAutoInstallsSubscription?.cancel();
+    _skillAutoInstallsSubscription = null;
     _pauseResolvedSubscription = null;
   }
 

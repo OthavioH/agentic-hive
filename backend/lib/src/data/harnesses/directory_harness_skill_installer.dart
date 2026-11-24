@@ -31,6 +31,21 @@ abstract base class DirectoryHarnessSkillInstaller
   List<String> get skillsRootSegments;
 
   @override
+  String? get skillDirectory {
+    final String home;
+    try {
+      home = _platformPaths.homeDir();
+    } on Object catch (_) {
+      return null;
+    }
+    return _platformPaths.context.joinAll([
+      home,
+      ...skillsRootSegments,
+      agenticHiveSkillName,
+    ]);
+  }
+
+  @override
   HarnessSkillDetection detect() {
     final String home;
     try {

@@ -13,6 +13,13 @@ abstract interface class HarnessService {
   /// Broadcast stream of updated [HarnessInfo] entries.
   Stream<HarnessInfo> get statusUpdates;
 
+  /// Emits every harness after each detection pass (initial scan, refresh all,
+  /// refresh one), changed or not, with the enriched info already cached.
+  Stream<HarnessInfo> get detections;
+
+  /// The cached info for [id], or `null` before the first detection of it.
+  HarnessInfo? cachedInfo(HarnessId id);
+
   /// Returns cached harnesses, running initial detection if not yet scanned.
   Future<Result<List<HarnessInfo>>> listHarnesses();
 
@@ -77,12 +84,20 @@ final class DefaultHarnessService implements HarnessService {
   final Map<HarnessId, String?> _overrides = {};
   final StreamController<HarnessInfo> _statusController =
       StreamController<HarnessInfo>.broadcast();
+  final StreamController<HarnessInfo> _detectionController =
+      StreamController<HarnessInfo>.broadcast();
 
   bool _scanned = false;
   Future<List<HarnessInfo>>? _inFlightInitialScan;
 
   @override
   Stream<HarnessInfo> get statusUpdates => _statusController.stream;
+
+  @override
+  Stream<HarnessInfo> get detections => _detectionController.stream;
+
+  @override
+  HarnessInfo? cachedInfo(HarnessId id) => _cache[id];
 
   @override
   Future<Result<List<HarnessInfo>>> listHarnesses() async {
@@ -118,6 +133,7 @@ final class DefaultHarnessService implements HarnessService {
     final updated = await _enrich(detected);
     _cache[id] = updated;
     _emit(updated);
+    _emitDetection(updated);
     return Success(updated);
   }
 
@@ -276,7 +292,10 @@ final class DefaultHarnessService implements HarnessService {
   }
 
   @override
-  Future<void> dispose() => _statusController.close();
+  Future<void> dispose() async {
+    await _statusController.close();
+    await _detectionController.close();
+  }
 
   Future<List<HarnessInfo>> _scanAll({required bool broadcastChanges}) async {
     final detectors = _detectors.values.toList();
@@ -295,6 +314,7 @@ final class DefaultHarnessService implements HarnessService {
       }
     }
     _scanned = true;
+    results.forEach(_emitDetection);
     return _orderedCache();
   }
 
@@ -385,6 +405,12 @@ final class DefaultHarnessService implements HarnessService {
   void _emit(HarnessInfo info) {
     if (!_statusController.isClosed) {
       _statusController.add(info);
+    }
+  }
+
+  void _emitDetection(HarnessInfo info) {
+    if (!_detectionController.isClosed) {
+      _detectionController.add(info);
     }
   }
 

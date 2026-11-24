@@ -8,6 +8,7 @@ import 'package:agentic_hive_backend/src/api/result_contract/result_contract_han
 import 'package:agentic_hive_backend/src/api/runs/runs_handler.dart';
 import 'package:agentic_hive_backend/src/api/settings/execution_settings_handler.dart';
 import 'package:agentic_hive_backend/src/api/settings/settings_handler.dart';
+import 'package:agentic_hive_backend/src/api/skills/skill_auto_install_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_deletion_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/api/workspace/workspace_handler.dart';
@@ -50,6 +51,7 @@ Handler buildApiHandler({
   WorktreesHandler? worktreesHandler,
   SettingsHandler? settingsHandler,
   ExecutionSettingsHandler? executionSettingsHandler,
+  SkillAutoInstallHandler? skillAutoInstallHandler,
 }) {
   final router = Router(notFoundHandler: _notFound)
     ..get('/health', healthHandler)
@@ -148,6 +150,18 @@ Handler buildApiHandler({
     router
       ..get('/api/v1/settings', settingsHandler.get)
       ..put('/api/v1/settings', settingsHandler.update);
+  }
+
+  if (skillAutoInstallHandler != null) {
+    router
+      ..get(
+        '/api/v1/skills/auto-install/notice',
+        skillAutoInstallHandler.getNotice,
+      )
+      ..delete(
+        '/api/v1/skills/auto-install/notice',
+        skillAutoInstallHandler.dismissNotice,
+      );
   }
 
   if (resultContractHandler != null) {

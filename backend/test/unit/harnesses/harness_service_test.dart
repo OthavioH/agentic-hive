@@ -358,6 +358,86 @@ void main() {
       expect(forced.valueOrNull?.skillStatus, HarnessSkillStatus.installed);
     });
   });
+
+  group('detections and cachedInfo', () {
+    test(
+      'emits on initial scan, refreshAll, refreshOne, and closes on dispose',
+      () async {
+        final d1 = _FakeDetector(
+          HarnessId.claudeCode,
+          HarnessInfo(
+            id: HarnessId.claudeCode,
+            displayName: 'Claude Code',
+            status: HarnessStatus.ready,
+            executablePath: '/usr/bin/claude',
+            checkedAt: DateTime.utc(2026, 11, 24),
+          ),
+        );
+        final d2 = _FakeDetector(
+          HarnessId.codex,
+          HarnessInfo(
+            id: HarnessId.codex,
+            displayName: 'Codex',
+            status: HarnessStatus.ready,
+            executablePath: '/usr/bin/codex',
+            checkedAt: DateTime.utc(2026, 11, 24),
+          ),
+        );
+        final service = DefaultHarnessService(detectors: [d1, d2]);
+
+        expect(service.cachedInfo(HarnessId.claudeCode), isNull);
+
+        final detections = <HarnessInfo>[];
+        final cachedAtDelivery = <HarnessInfo?>[];
+        final statusUpdates = <HarnessInfo>[];
+        final subDet = service.detections.listen((info) {
+          detections.add(info);
+          cachedAtDelivery.add(service.cachedInfo(info.id));
+        });
+        final subStatus = service.statusUpdates.listen(statusUpdates.add);
+        addTearDown(() async {
+          await subDet.cancel();
+          await subStatus.cancel();
+        });
+
+        await service.listHarnesses();
+        await Future<void>.delayed(Duration.zero);
+        expect(detections.map((i) => i.id), [
+          HarnessId.claudeCode,
+          HarnessId.codex,
+        ]);
+        expect(cachedAtDelivery, detections);
+        expect(statusUpdates, isEmpty);
+
+        detections.clear();
+        await service.listHarnesses();
+        await Future<void>.delayed(Duration.zero);
+        expect(detections, isEmpty);
+
+        await service.refreshAll();
+        await Future<void>.delayed(Duration.zero);
+        expect(detections.map((i) => i.id), [
+          HarnessId.claudeCode,
+          HarnessId.codex,
+        ]);
+        expect(statusUpdates, isEmpty);
+
+        detections.clear();
+        await service.refreshOne(HarnessId.codex);
+        await Future<void>.delayed(Duration.zero);
+        expect(detections.map((i) => i.id), [HarnessId.codex]);
+
+        detections.clear();
+        service.reportAuthError(HarnessId.claudeCode);
+        await Future<void>.delayed(Duration.zero);
+        expect(detections, isEmpty);
+
+        final done = expectLater(service.detections, emitsDone);
+        await service.dispose();
+        await done;
+      },
+    );
+  });
 }
 
 final class _FakeBundledSkillLoader implements BundledSkillLoader {

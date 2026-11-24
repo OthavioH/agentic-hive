@@ -555,4 +555,40 @@ void main() {
       HarnessSkillStatus.notInstalled,
     );
   });
+
+  group('skillDirectory', () {
+    for (final location in locations) {
+      test('${location.name} resolves to <home>/<segments>/agentic-hive and '
+          'null on empty env', () {
+        final home = createTempHome();
+        final paths = tempPaths(home);
+        final loader = _FakeBundledSkillLoader(
+          Success(_FakeBundledSkillLoader.makeBundle()),
+        );
+        final installer = location.makeInstaller(paths, loader, '1.0.0');
+        final expected = p.joinAll([
+          home,
+          ...location.relativeSegments,
+          agenticHiveSkillName,
+        ]);
+        expect(installer.skillDirectory, expected);
+        expect(installer.install(), isA<Success<void>>());
+        expect(
+          File(p.join(installer.skillDirectory!, 'SKILL.md')).existsSync(),
+          isTrue,
+        );
+
+        final emptyPaths = platformPathsFor(
+          Platform.operatingSystem,
+          environment: const <String, String>{},
+        );
+        final noHomeInstaller = location.makeInstaller(
+          emptyPaths,
+          loader,
+          '1.0.0',
+        );
+        expect(noHomeInstaller.skillDirectory, isNull);
+      });
+    }
+  });
 }

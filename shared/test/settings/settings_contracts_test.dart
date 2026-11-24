@@ -31,6 +31,17 @@ void main() {
 
       expect(decoded.agentsDir, isNull);
       expect(decoded.harnessOverrides, isEmpty);
+      expect(decoded.autoInstallSkills, isTrue);
+    });
+
+    test('round-trips autoInstallSkills false', () {
+      const settings = AppSettings(
+        effectiveAgentsDir: '/data/agents',
+        defaultAgentsDir: '/data/agents',
+        autoInstallSkills: false,
+      );
+      final decoded = AppSettings.fromJson(_overTheWire(settings.toJson()));
+      expect(decoded.autoInstallSkills, isFalse);
     });
 
     test('throws FormatException on invalid shape', () {
@@ -62,6 +73,17 @@ void main() {
 
       expect(decoded.agentsDir, isNull);
       expect(decoded.harnessOverrides, isEmpty);
+      expect(decoded.autoInstallSkills, isNull);
+    });
+
+    test('round-trips autoInstallSkills false', () {
+      const settings = AppSettings(
+        effectiveAgentsDir: '/data/agents',
+        defaultAgentsDir: '/data/agents',
+        autoInstallSkills: false,
+      );
+      final decoded = AppSettings.fromJson(_overTheWire(settings.toJson()));
+      expect(decoded.autoInstallSkills, isFalse);
     });
   });
 

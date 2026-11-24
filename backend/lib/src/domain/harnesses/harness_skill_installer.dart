@@ -19,6 +19,10 @@ abstract interface class HarnessSkillInstaller {
   /// shared `~/.agents/skills` folder).
   Set<HarnessId> get harnessIds;
 
+  /// Absolute path of the `agentic-hive` skill folder for this location, or
+  /// `null` when the home folder cannot be resolved.
+  String? get skillDirectory;
+
   /// Reads the disk and the Bundle; never spawns a process, never throws.
   HarnessSkillDetection detect();
 

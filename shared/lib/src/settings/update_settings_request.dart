@@ -12,6 +12,7 @@ sealed class UpdateSettingsRequest with _$UpdateSettingsRequest {
   const factory({
     String? agentsDir,
     @Default(<HarnessId, String>{}) Map<HarnessId, String> harnessOverrides,
+    bool? autoInstallSkills,
   }) = _UpdateSettingsRequest;
 
   /// Decodes an [UpdateSettingsRequest]; throws a [FormatException] on a bad
