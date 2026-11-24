@@ -88,6 +88,13 @@ final class _FakeChildRunPort implements ChildRunPort {
   final Map<String, List<Result<Run>>> getRunScripts = {};
   final Map<String, Result<Map<String, Object?>?>> finalOutputs = {};
 
+  Result<List<Run>> previousRuns = const Success(<Run>[]);
+  final List<({String parentRunId, String parentNodeId})> listCalls = [];
+  final List<String> resumed = [];
+  final List<String> cancelled = [];
+  Result<Run> Function(String runId)? resumeBehavior;
+  RunStatus parentStatus = RunStatus.running;
+
   int inFlight = 0;
   int maxInFlight = 0;
   int _nextId = 1;
@@ -125,6 +132,9 @@ final class _FakeChildRunPort implements ChildRunPort {
 
   @override
   Future<Result<Run>> getRun(String runId) async {
+    if (runId == 'parent') {
+      return Success(_run('parent', status: parentStatus));
+    }
     final script = getRunScripts[runId];
     final result = script == null || script.isEmpty
         ? Success(_run(runId))
@@ -155,6 +165,28 @@ final class _FakeChildRunPort implements ChildRunPort {
     required String message,
   }) async {
     warnings.add((runId: runId, nodeId: nodeId, message: message));
+  }
+
+  @override
+  Future<Result<List<Run>>> listChildRuns({
+    required String parentRunId,
+    required String parentNodeId,
+  }) async {
+    listCalls.add((parentRunId: parentRunId, parentNodeId: parentNodeId));
+    return previousRuns;
+  }
+
+  @override
+  Future<Result<Run>> resumeChildRun(String runId) async {
+    resumed.add(runId);
+    if (resumeBehavior != null) return resumeBehavior!(runId);
+    return Success(_run(runId, status: RunStatus.running));
+  }
+
+  @override
+  Future<Result<Run>> cancelChildRun(String runId) async {
+    cancelled.add(runId);
+    return Success(_run(runId, status: RunStatus.cancelled));
   }
 }
 
@@ -706,5 +738,279 @@ void main() {
       (children[0]! as Map<String, Object?>)['error'],
       contains('unexpected'),
     );
+  });
+
+  Run childRun(String id, int index, RunStatus status, {String? name}) =>
+      _run(id, status: status).copyWith(
+        parentRunId: 'parent',
+        parentNodeId: 'fan',
+        childIndex: index,
+        childName: name ?? 'Fan-${index + 1}',
+        startedAt: DateTime.utc(2026, 1, index + 1),
+      );
+
+  test(
+    'reuses a succeeded previous child and starts only the failed item',
+    () async {
+      port.previousRuns = Success([
+        childRun('c-old-0', 0, RunStatus.succeeded),
+        childRun('c-old-1', 1, RunStatus.failed),
+      ]);
+      port.finalOutputs['c-old-0'] = const Success({'ok': true});
+
+      final res = await node.execute(_context());
+      final outcome = res.valueOrNull!;
+
+      expect(port.pinCalls, 1);
+      expect(port.started, hasLength(1));
+      expect(port.started.single.index, 1);
+
+      final children = (outcome.data['children']! as List<Object?>)
+          .cast<Map<String, Object?>>();
+      expect(children[0]['runId'], 'c-old-0');
+      expect(children[0]['status'], 'succeeded');
+      expect(children[0]['output'], {'ok': true});
+      expect(children[1]['runId'], 'child-1');
+    },
+  );
+
+  test('retry uses the latest child of an item', () async {
+    port.previousRuns = Success([
+      childRun(
+        'c-fail',
+        0,
+        RunStatus.failed,
+      ).copyWith(startedAt: DateTime.utc(2026, 1, 1)),
+      childRun(
+        'c-ok',
+        0,
+        RunStatus.succeeded,
+      ).copyWith(startedAt: DateTime.utc(2026, 1, 2)),
+    ]);
+
+    await node.execute(_context());
+    expect(port.started.map((r) => r.index), [1]);
+  });
+
+  test('matches by name when nameField is set', () async {
+    port.previousRuns = Success([
+      childRun('c-x', 5, RunStatus.succeeded, name: 'x'),
+    ]);
+
+    final res = await node.execute(
+      _context(
+        config: const {
+          'workflowId': 'child-wf',
+          'itemsNodeId': 'planner',
+          'itemsPath': 'issues',
+          'nameField': 'title',
+        },
+        inputs: const {
+          'nodeOutputs': {
+            'planner': {
+              'outputLabel': 'onSuccess',
+              'data': {
+                'issues': [
+                  {'title': 'x'},
+                  {'title': 'y'},
+                ],
+              },
+            },
+          },
+        },
+      ),
+    );
+    expect(port.started, hasLength(1));
+    expect(port.started.single.name, 'y');
+
+    final children = (res.valueOrNull!.data['children']! as List<Object?>)
+        .cast<Map<String, Object?>>();
+    expect(children[0]['runId'], 'c-x');
+  });
+
+  test('falls back to index when nameField is set but an item has no name', () async {
+    port.previousRuns = Success([
+      childRun('c-0', 0, RunStatus.succeeded),
+    ]);
+
+    await node.execute(
+      _context(
+        config: const {
+          'workflowId': 'child-wf',
+          'itemsNodeId': 'planner',
+          'itemsPath': 'issues',
+          'nameField': 'title',
+        },
+        inputs: const {
+          'nodeOutputs': {
+            'planner': {
+              'outputLabel': 'onSuccess',
+              'data': {
+                'issues': [
+                  <String, Object?>{},
+                  {'title': 'y'},
+                ],
+              },
+            },
+          },
+        },
+      ),
+    );
+    expect(port.started.map((r) => r.index), [1]);
+  });
+
+  test(
+    'cancelled and cancellationUncertain previous children are retried',
+    () async {
+      port.previousRuns = Success([
+        childRun('c-0', 0, RunStatus.cancelled),
+        childRun('c-1', 1, RunStatus.cancellationUncertain),
+      ]);
+
+      await node.execute(_context());
+      expect(port.started, hasLength(2));
+    },
+  );
+
+  test('retried worktree gets an -r<n> suffix', () async {
+    port.previousRuns = Success([
+      childRun('c0', 0, RunStatus.failed),
+    ]);
+
+    await node.execute(_context());
+    expect(port.started[0].worktreeName, 'Fan-1-r1');
+    expect(port.started[1].worktreeName, 'Fan-2');
+  });
+
+  test('waits for a running previous child instead of starting a new one', () async {
+    port.previousRuns = Success([
+      childRun('c-run', 0, RunStatus.running),
+      childRun('c-ok', 1, RunStatus.succeeded),
+    ]);
+    port.getRunScripts['c-run'] = [
+      Success(_run('c-run', status: RunStatus.running)),
+      Success(_run('c-run', status: RunStatus.succeeded)),
+    ];
+
+    final res = await node.execute(_context());
+    expect(port.started, isEmpty);
+    expect(port.resumed, isEmpty);
+    final children = (res.valueOrNull!.data['children']! as List<Object?>)
+        .cast<Map<String, Object?>>();
+    expect(children[0]['status'], 'succeeded');
+  });
+
+  test('resumes an interrupted previous child and waits', () async {
+    port.previousRuns = Success([
+      childRun('c-int', 0, RunStatus.interrupted),
+      childRun('c-ok', 1, RunStatus.succeeded),
+    ]);
+    port.getRunScripts['c-int'] = [
+      Success(_run('c-int', status: RunStatus.succeeded)),
+    ];
+
+    final res = await node.execute(_context());
+    expect(port.resumed, ['c-int']);
+    expect(port.started, isEmpty);
+    final children = (res.valueOrNull!.data['children']! as List<Object?>)
+        .cast<Map<String, Object?>>();
+    expect(children[0]['status'], 'succeeded');
+  });
+
+  test('a conflict while resuming is not an error', () async {
+    port.previousRuns = Success([
+      childRun('c-int', 0, RunStatus.interrupted),
+      childRun('c-ok', 1, RunStatus.succeeded),
+    ]);
+    port.resumeBehavior = (_) =>
+        const FailureResult(ConflictFailure('already'));
+    port.getRunScripts['c-int'] = [
+      Success(_run('c-int', status: RunStatus.succeeded)),
+    ];
+
+    final res = await node.execute(_context());
+    final children = (res.valueOrNull!.data['children']! as List<Object?>)
+        .cast<Map<String, Object?>>();
+    expect(children[0]['status'], 'succeeded');
+  });
+
+  test('a resume failure fails only that item', () async {
+    port.previousRuns = Success([
+      childRun('c-int', 0, RunStatus.interrupted),
+      childRun('c-ok', 1, RunStatus.succeeded),
+    ]);
+    port.resumeBehavior = (_) =>
+        const FailureResult(UnexpectedFailure('boom'));
+
+    final res = await node.execute(_context());
+    final children = (res.valueOrNull!.data['children']! as List<Object?>)
+        .cast<Map<String, Object?>>();
+    expect(children[0]['status'], 'failed');
+    expect(children[0]['error'], 'boom');
+    expect(children[1]['status'], 'succeeded');
+  });
+
+  test('stops starting children once the parent is cancelling', () async {
+    port.parentStatus = RunStatus.cancelling;
+
+    final res = await node.execute(_context());
+    final outcome = res.valueOrNull!;
+    expect(port.started, isEmpty);
+    expect(outcome.outputLabel, NodeOutput.onFailure);
+    final children = (outcome.data['children']! as List<Object?>)
+        .cast<Map<String, Object?>>();
+    for (final c in children) {
+      expect(c['status'], 'cancelled');
+      expect(c['runId'], isNull);
+      expect(c['error'], 'The parent run stopped before this item started.');
+    }
+  });
+
+  test('cancels a child that started after the parent stopped', () async {
+    port.startBehavior = (req) {
+      port.parentStatus = RunStatus.cancelling;
+      return Success(_run('child-race', status: RunStatus.running));
+    };
+
+    await node.execute(
+      _context(
+        config: const {
+          'workflowId': 'child-wf',
+          'itemsNodeId': 'planner',
+          'itemsPath': 'issues',
+          'concurrency': 1,
+        },
+      ),
+    );
+    expect(port.cancelled, ['child-race']);
+  });
+
+  test('a paused parent keeps starting children', () async {
+    port.parentStatus = RunStatus.paused;
+
+    final res = await node.execute(_context());
+    expect(port.started, hasLength(2));
+    expect(res.valueOrNull!.outputLabel, NodeOutput.onSuccess);
+  });
+
+  test("a cancelled child counts as that child's failure", () async {
+    port.getRunScripts['child-1'] = [
+      Success(_run('child-1', status: RunStatus.cancelled)),
+    ];
+
+    final res = await node.execute(_context());
+    final outcome = res.valueOrNull!;
+    expect(outcome.outputLabel, NodeOutput.onFailure);
+    expect(outcome.data['failed'], 1);
+    final children = (outcome.data['children']! as List<Object?>)
+        .cast<Map<String, Object?>>();
+    expect(children[0]['status'], 'cancelled');
+  });
+
+  test('a previous-children lookup failure fails the node', () async {
+    port.previousRuns = const FailureResult(PersistenceFailure('db'));
+
+    final res = await node.execute(_context());
+    expect(res.isFailure, isTrue);
   });
 }
