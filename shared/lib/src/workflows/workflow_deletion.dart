@@ -1,4 +1,5 @@
 import 'package:agentic_hive_shared/src/json_fields.dart';
+import 'package:agentic_hive_shared/src/workflows/workflow_scope.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'workflow_deletion.freezed.dart';
@@ -30,12 +31,45 @@ enum WorkflowDeletionOutcome {
   failed,
 }
 
+/// A workflow whose fan-out nodes reference another workflow (ADR 0029).
+@freezed
+sealed class WorkflowReference with _$WorkflowReference {
+  /// Creates a reference entry.
+  const factory({
+    required String workflowId,
+    required String workflowName,
+    required WorkflowScope scope,
+    String? workspaceId,
+    @Default(<String>[]) List<String> nodeIds,
+  }) = _WorkflowReference;
+
+  /// Decodes an entry; throws [FormatException] on a bad shape.
+  factory fromJson(JsonMap json) =>
+      parseJson(json, _$WorkflowReferenceFromJson);
+}
+
+/// Body of `GET /api/v1/workflows/{id}/references`.
+@freezed
+sealed class WorkflowReferencesResponse with _$WorkflowReferencesResponse {
+  /// Creates the response.
+  const factory({
+    @Default(<WorkflowReference>[]) List<WorkflowReference> references,
+  }) = _WorkflowReferencesResponse;
+
+  /// Decodes a response; throws [FormatException] on a bad shape.
+  factory fromJson(JsonMap json) =>
+      parseJson(json, _$WorkflowReferencesResponseFromJson);
+}
+
 /// Response body of `DELETE /api/v1/workflows/:id` (`202`, ADR 0027).
 @freezed
 sealed class WorkflowDeletionAccepted with _$WorkflowDeletionAccepted {
   /// Creates an accepted workflow deletion response.
-  const factory({required String operationId, required String workflowId}) =
-      _WorkflowDeletionAccepted;
+  const factory({
+    required String operationId,
+    required String workflowId,
+    @Default(<WorkflowReference>[]) List<WorkflowReference> references,
+  }) = _WorkflowDeletionAccepted;
 
   /// Decodes a response; throws [FormatException] on a bad shape.
   factory fromJson(JsonMap json) =>
