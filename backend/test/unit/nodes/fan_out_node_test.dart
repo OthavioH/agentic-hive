@@ -94,6 +94,10 @@ final class _FakeChildRunPort implements ChildRunPort {
   final List<String> cancelled = [];
   Result<Run> Function(String runId)? resumeBehavior;
   RunStatus parentStatus = RunStatus.running;
+  bool parentStopping = false;
+
+  @override
+  bool isStopping(String parentRunId) => parentStopping;
 
   int inFlight = 0;
   int maxInFlight = 0;
@@ -931,6 +935,32 @@ void main() {
     final children = (res.valueOrNull!.data['children']! as List<Object?>)
         .cast<Map<String, Object?>>();
     expect(children[0]['status'], 'succeeded');
+  });
+
+  test('a resume ConflictFailure while child stays interrupted fails that item '
+      'with a warning instead of polling forever', () async {
+    port
+      ..previousRuns = Success([
+        childRun('c-int', 0, RunStatus.interrupted),
+        childRun('c-ok', 1, RunStatus.succeeded),
+      ])
+      ..resumeBehavior = ((_) => const FailureResult(
+        ConflictFailure('Another run is active in the worktree.'),
+      ))
+      ..getRunScripts['c-int'] = [
+        Success(childRun('c-int', 0, RunStatus.interrupted)),
+      ];
+
+    final res = await node
+        .execute(_context())
+        .timeout(const Duration(seconds: 2));
+    final children = (res.valueOrNull!.data['children']! as List<Object?>)
+        .cast<Map<String, Object?>>();
+    expect(children[0]['status'], 'failed');
+    expect(children[0]['runId'], 'c-int');
+    expect(children[0]['error'], 'Another run is active in the worktree.');
+    expect(children[1]['status'], 'succeeded');
+    expect(port.warnings, hasLength(1));
   });
 
   test('a resume failure fails only that item', () async {

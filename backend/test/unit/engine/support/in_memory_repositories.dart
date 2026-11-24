@@ -20,6 +20,9 @@ final class InMemoryRunRepository implements RunRepository {
   /// Statuses whose write fails with a [PersistenceFailure].
   final Set<RunStatus> failingStatuses = <RunStatus>{};
 
+  /// Number of [getById] calls observed.
+  int getByIdCalls = 0;
+
   @override
   Future<Result<Run>> create(Run run) async {
     runs[run.id] = run;
@@ -28,11 +31,16 @@ final class InMemoryRunRepository implements RunRepository {
 
   @override
   Future<Result<Run>> getById(String id) async {
+    getByIdCalls++;
     final run = runs[id];
     return run == null
         ? FailureResult(NotFoundFailure('Run "$id" not found.'))
         : Success(run);
   }
+
+  @override
+  Future<Result<Map<String, Run>>> getByIds(Iterable<String> ids) async =>
+      Success({for (final id in ids) id: ?runs[id]});
 
   @override
   Future<Result<({List<RunSummary> items, int total})>> list({

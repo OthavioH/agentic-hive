@@ -37,6 +37,10 @@ final class _FakeRunRepository implements RunRepository {
       FailureResult(NotFoundFailure('Run "$id" not found.'));
 
   @override
+  Future<Result<Map<String, Run>>> getByIds(Iterable<String> ids) async =>
+      const Success(<String, Run>{});
+
+  @override
   Future<Result<({List<RunSummary> items, int total})>> list({
     RunStatus? status,
     String? workflowId,

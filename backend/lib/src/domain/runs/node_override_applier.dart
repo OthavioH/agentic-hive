@@ -2,12 +2,6 @@ import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 /// Applies per-run node overrides to a workflow definition (ADR 0029).
 abstract final class NodeOverrideApplier {
-  static final List<(String, String? Function(NodeOverride))> _fields = [
-    ('agentId', (o) => o.agentId),
-    ('model', (o) => o.model),
-    ('effort', (o) => o.effort),
-  ];
-
   /// Returns [workflow] with the non-blank fields of [overrides] (node id ->
   /// override) written into the matching nodes' `config`.
   ///
@@ -34,7 +28,7 @@ abstract final class NodeOverrideApplier {
 
   static WorkflowNode _applyToNode(WorkflowNode node, NodeOverride override) {
     final config = <String, Object?>{...node.config};
-    for (final (key, getter) in _fields) {
+    for (final (key, getter) in NodeOverride.fields) {
       final value = getter(override);
       if (value != null && value.trim().isNotEmpty) {
         config[key] = value.trim();

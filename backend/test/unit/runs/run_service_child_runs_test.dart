@@ -247,7 +247,7 @@ void main() {
     });
   });
 
-  test('recordWarning appends snapshot.warning with source fan_out', () async {
+  test('recordWarning appends run.warning with source fan_out', () async {
     await service.recordWarning(
       runId: 'parent-1',
       nodeId: 'fan-1',
@@ -258,7 +258,7 @@ void main() {
         .where((e) => e.runId == 'parent-1')
         .toList();
     expect(events, hasLength(1));
-    expect(events.single.type, RunEventType.snapshotWarning);
+    expect(events.single.type, RunEventType.warning);
     expect(events.single.nodeId, 'fan-1');
     expect(events.single.payload, {
       'message': 'Empty list',
@@ -431,6 +431,60 @@ void main() {
     expect(res.isSuccess, isTrue);
     expect(cancelled, ['c-1']);
   });
+
+  test(
+    'resuming a lent child while its parent is idle reserves the folder',
+    () async {
+      await harness.runs.create(
+        Run(
+          id: 'parent-idle',
+          workflowId: 'wf-1',
+          workflowName: 'Parent',
+          workflowDefinition: savedWorkflow,
+          workspacePath: '.',
+          workspaceId: 'ws-1',
+          status: RunStatus.failed,
+          startedAt: DateTime.utc(2026),
+        ),
+      );
+      await harness.runs.create(
+        Run(
+          id: 'child-lent',
+          workflowId: 'wf-1',
+          workflowName: 'Child',
+          workflowDefinition: pinnedWorkflow,
+          workspacePath: '.',
+          workspaceId: 'ws-1',
+          status: RunStatus.interrupted,
+          startedAt: DateTime.utc(2026),
+          parentRunId: 'parent-idle',
+          parentNodeId: 'fan-1',
+          childIndex: 0,
+        ),
+      );
+      await harness.runs.create(
+        Run(
+          id: 'other-run',
+          workflowId: 'wf-1',
+          workflowName: 'Other',
+          workflowDefinition: savedWorkflow,
+          workspacePath: '.',
+          workspaceId: 'ws-1',
+          status: RunStatus.interrupted,
+          startedAt: DateTime.utc(2026),
+        ),
+      );
+
+      final results = await Future.wait([
+        service.resumeRun('child-lent'),
+        service.resumeRun('other-run'),
+      ]);
+      await service.waitForActiveExecutions();
+
+      expect(results[0].isSuccess, isTrue);
+      expect(results[1].failureOrNull, isA<ConflictFailure>());
+    },
+  );
 }
 
 final class _RecordingCanceller implements RunCanceller {

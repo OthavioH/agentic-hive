@@ -97,6 +97,10 @@ void main() {
           'child_name',
         ]),
       );
+
+      final indexList = await db.customSelect('PRAGMA index_list(runs)').get();
+      final indexNames = indexList.map((r) => r.read<String>('name')).toSet();
+      expect(indexNames, contains('idx_runs_parent_run_id'));
     },
   );
 
@@ -105,6 +109,9 @@ void main() {
     () async {
       final db = AppDatabase.open(databaseFileIn(createTestDir()));
       addTearDown(db.close);
+      final indexList = await db.customSelect('PRAGMA index_list(runs)').get();
+      final indexNames = indexList.map((r) => r.read<String>('name')).toSet();
+      expect(indexNames, contains('idx_runs_parent_run_id'));
       final repo = DriftRunRepository(db);
 
       final child = Run(

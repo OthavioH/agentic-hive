@@ -273,6 +273,12 @@ final class GraphEngine implements RunCanceller {
   /// Whether the engine is currently driving [runId] in this process.
   bool isExecuting(String runId) => _claimed.contains(runId);
 
+  /// Whether [runId] is currently stopping (failing or cancelling).
+  bool isStopping(String runId) {
+    final x = _active[runId];
+    return x != null && (x.finishing || x.cancelRequested);
+  }
+
   /// Starts the `running` run [runId] at its workflow's entry node and drives
   /// it until it succeeds, fails, is cancelled, or pauses.
   ///
@@ -774,12 +780,32 @@ final class GraphEngine implements RunCanceller {
   Future<Result<_RunExecution>> _prepareInterruptedResume(
     ResumePoint point,
   ) async {
-    final rollback = await _rollbackBefore(
-      point.run.id,
-      point.pendingNodeIds.toSet(),
-    );
-    if (rollback case FailureResult<void>(:final failure)) {
-      return FailureResult(failure);
+    final rollbackNodeIds = <String>{};
+    final nodesById = {
+      for (final node in point.run.workflowDefinition.nodes) node.id: node,
+    };
+    for (final nodeId in point.pendingNodeIds) {
+      if (nodesById[nodeId]?.type == NodeTypeId.fanOut) {
+        final children = await _runs.listChildren(
+          point.run.id,
+          parentNodeId: nodeId,
+        );
+        if (children case FailureResult<List<Run>>(:final failure)) {
+          return FailureResult(failure);
+        }
+        final hasLentChildren = children.valueOrNull!.any(
+          (c) => c.isolationMode == WorkspaceIsolationMode.direct,
+        );
+        if (hasLentChildren) continue;
+      }
+      rollbackNodeIds.add(nodeId);
+    }
+
+    if (rollbackNodeIds.isNotEmpty) {
+      final rollback = await _rollbackBefore(point.run.id, rollbackNodeIds);
+      if (rollback case FailureResult<void>(:final failure)) {
+        return FailureResult(failure);
+      }
     }
     return Success(_newExecution(point, circuitBreakerCount: 0));
   }
@@ -1760,11 +1786,17 @@ final class GraphEngine implements RunCanceller {
   /// run still fails, with `kill_unconfirmed` in the `run.failed` payload and
   /// the error message, so leftover processes are never silent.
   Future<Result<Run>> _finishFailed(_RunExecution x) async {
+    x.finishing = true;
     var reason = x.failReason ?? 'The run failed.';
     var killError = '';
     final childrenStopped = await _cancelChildRuns(x.run.id);
     final nodesStopped = await _stopRunningNodes(x);
-    final stopped = childrenStopped.isFailure ? childrenStopped : nodesStopped;
+    final childrenStoppedAfter = await _cancelChildRuns(x.run.id);
+    final stopped = childrenStopped.isFailure
+        ? childrenStopped
+        : nodesStopped.isFailure
+        ? nodesStopped
+        : childrenStoppedAfter;
     if (stopped case FailureResult<void>(:final failure)) {
       killError = failure.message;
       reason = '$reason (process exit unconfirmed: $killError)';

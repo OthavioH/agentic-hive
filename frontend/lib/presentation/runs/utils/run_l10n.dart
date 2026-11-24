@@ -109,7 +109,8 @@ abstract final class RunL10n {
       RunEventType.runCancelling ||
       RunEventType.runInterrupted ||
       RunEventType.nodeRetried ||
-      RunEventType.snapshotWarning => HiveBadgeTone.warning,
+      RunEventType.snapshotWarning ||
+      RunEventType.warning => HiveBadgeTone.warning,
       RunEventType.runSucceeded ||
       RunEventType.nodeCompleted ||
       RunEventType.snapshotRestored => HiveBadgeTone.success,

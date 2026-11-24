@@ -20,6 +20,13 @@ sealed class NodeOverride with _$NodeOverride {
   /// Decodes a [NodeOverride] from JSON.
   factory fromJson(JsonMap json) => parseJson(json, _$NodeOverrideFromJson);
 
+  /// Overridable config field names and their getters on [NodeOverride].
+  static final List<(String, String? Function(NodeOverride))> fields = [
+    ('agentId', (o) => o.agentId),
+    ('model', (o) => o.model),
+    ('effort', (o) => o.effort),
+  ];
+
   /// Whether no field is set to a non-blank value.
   bool get isEmpty => isBlank(agentId) && isBlank(model) && isBlank(effort);
 
@@ -57,12 +64,6 @@ sealed class NodeOverride with _$NodeOverride {
 
 /// Validates a map of per-node overrides against a [Workflow].
 abstract final class NodeOverrideValidation {
-  static final List<(String, String? Function(NodeOverride))> _fields = [
-    ('agentId', (o) => o.agentId),
-    ('model', (o) => o.model),
-    ('effort', (o) => o.effort),
-  ];
-
   /// Validates [overrides] (node id -> override) against [workflow] (R6-R10).
   static List<NodeConfigIssue> validate(
     Map<String, NodeOverride> overrides,
@@ -101,7 +102,7 @@ abstract final class NodeOverrideValidation {
       }
 
       final declared = {for (final f in descriptor.configFields) f.name};
-      for (final (name, getter) in _fields) {
+      for (final (name, getter) in NodeOverride.fields) {
         final value = getter(override);
         if (!isBlank(value) && !declared.contains(name)) {
           issues.add(
