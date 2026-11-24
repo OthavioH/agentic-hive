@@ -54,6 +54,9 @@ final class DefaultSettingsService implements SettingsService {
   /// SQLite key prefix for per-harness executable overrides.
   static const harnessOverridePrefix = 'harness_override.';
 
+  /// SQLite key for the automatic skill install toggle.
+  static const autoInstallSkillsKey = 'auto_install_skills';
+
   static final _log = Logger('settings');
 
   final SettingsRepository _repository;
@@ -222,11 +225,15 @@ final class DefaultSettingsService implements SettingsService {
       await Directory(effectiveAgentsDir).create(recursive: true);
     }
 
+    final autoInstallSkills =
+        request.autoInstallSkills ?? current.autoInstallSkills;
+
     final updated = AppSettings(
       agentsDir: customAgentsDir,
       effectiveAgentsDir: effectiveAgentsDir,
       defaultAgentsDir: _defaultAgentsDir,
       harnessOverrides: normalizedOverrides,
+      autoInstallSkills: autoInstallSkills,
     );
 
     final persistResult = await _repository.applyChanges(_changesFor(updated));
@@ -269,6 +276,7 @@ final class DefaultSettingsService implements SettingsService {
     agentsDirKey: settings.agentsDir,
     for (final id in HarnessId.values)
       '$harnessOverridePrefix${id.wireName}': settings.harnessOverrides[id],
+    autoInstallSkillsKey: settings.autoInstallSkills ? 'true' : 'false',
   };
 
   @override
@@ -295,6 +303,7 @@ final class DefaultSettingsService implements SettingsService {
       effectiveAgentsDir: effectiveAgentsDir,
       defaultAgentsDir: _defaultAgentsDir,
       harnessOverrides: overrides,
+      autoInstallSkills: stored[autoInstallSkillsKey] != 'false',
     );
   }
 }

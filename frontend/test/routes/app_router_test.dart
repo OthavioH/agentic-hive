@@ -9,7 +9,10 @@ import 'package:agentic_hive_frontend/core/lifecycle/backend_launcher.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/tray_service.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/window_lifecycle_service.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
+import 'package:agentic_hive_frontend/data/harnesses/harness_repository_impl.dart';
 import 'package:agentic_hive_frontend/data/pauses/pause_providers.dart';
+import 'package:agentic_hive_frontend/data/skills/file_outdated_banner_store.dart';
+import 'package:agentic_hive_frontend/data/skills/skill_notice_repository_impl.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/connecting/pages/connecting_page.dart';
 import 'package:agentic_hive_frontend/presentation/error/pages/route_error_page.dart';
@@ -27,7 +30,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../presentation/harnesses/scripted_harness_repository.dart';
 import '../presentation/pauses/fake_pause_repository.dart';
+import '../presentation/skills/memory_outdated_banner_store.dart';
+import '../presentation/skills/scripted_skill_notice_repository.dart';
 
 final class _FakeWebSocketSession implements BackendWebSocketSession {
   final StreamController<WsEnvelope> _messages =
@@ -242,6 +248,15 @@ void main() {
             _FakeWindowLifecycleService(),
           ),
           trayServiceProvider.overrideWithValue(_FakeTrayService()),
+          harnessRepositoryProvider.overrideWithValue(
+            ScriptedHarnessRepository(),
+          ),
+          skillNoticeRepositoryProvider.overrideWithValue(
+            ScriptedSkillNoticeRepository(),
+          ),
+          outdatedBannerStoreProvider.overrideWithValue(
+            MemoryOutdatedBannerStore(),
+          ),
         ],
         child: const HiveApp(),
       ),
@@ -293,6 +308,15 @@ void main() {
             trayServiceProvider.overrideWithValue(_FakeTrayService()),
             backendConnectionConfigProvider.overrideWithValue(
               BackendConnectionConfig(nextRandomDouble: () => 0.5),
+            ),
+            harnessRepositoryProvider.overrideWithValue(
+              ScriptedHarnessRepository(),
+            ),
+            skillNoticeRepositoryProvider.overrideWithValue(
+              ScriptedSkillNoticeRepository(),
+            ),
+            outdatedBannerStoreProvider.overrideWithValue(
+              MemoryOutdatedBannerStore(),
             ),
           ],
           child: const HiveApp(),
@@ -362,6 +386,15 @@ void main() {
                 },
               ),
             ),
+            harnessRepositoryProvider.overrideWithValue(
+              ScriptedHarnessRepository(),
+            ),
+            skillNoticeRepositoryProvider.overrideWithValue(
+              ScriptedSkillNoticeRepository(),
+            ),
+            outdatedBannerStoreProvider.overrideWithValue(
+              MemoryOutdatedBannerStore(),
+            ),
           ],
           child: const HiveApp(),
         ),
@@ -403,6 +436,15 @@ void main() {
       ProviderScope(
         overrides: [
           backendClientProvider.overrideWithValue(_FakeBackendClient()),
+          harnessRepositoryProvider.overrideWithValue(
+            ScriptedHarnessRepository(),
+          ),
+          skillNoticeRepositoryProvider.overrideWithValue(
+            ScriptedSkillNoticeRepository(),
+          ),
+          outdatedBannerStoreProvider.overrideWithValue(
+            MemoryOutdatedBannerStore(),
+          ),
         ],
         child: const HiveApp(),
       ),
@@ -449,6 +491,15 @@ void main() {
         overrides: [
           backendClientProvider.overrideWithValue(_FakeBackendClient()),
           pauseRepositoryProvider.overrideWithValue(repo),
+          harnessRepositoryProvider.overrideWithValue(
+            ScriptedHarnessRepository(),
+          ),
+          skillNoticeRepositoryProvider.overrideWithValue(
+            ScriptedSkillNoticeRepository(),
+          ),
+          outdatedBannerStoreProvider.overrideWithValue(
+            MemoryOutdatedBannerStore(),
+          ),
         ],
         child: const HiveApp(),
       ),

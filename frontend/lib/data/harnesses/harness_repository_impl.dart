@@ -34,6 +34,17 @@ final class HarnessRepositoryImpl implements HarnessRepository {
       _remoteDataSource.installMcp(id);
 
   @override
+  Future<Result<HarnessInfo>> installSkill(
+    HarnessId id, {
+    required bool overwriteModified,
+  }) =>
+      _remoteDataSource.installSkill(id, overwriteModified: overwriteModified);
+
+  @override
+  Future<Result<HarnessInfo>> removeSkill(HarnessId id) =>
+      _remoteDataSource.removeSkill(id);
+
+  @override
   Stream<HarnessInfo> watchHarnessUpdates() =>
       _remoteDataSource.watchHarnessUpdates();
 }

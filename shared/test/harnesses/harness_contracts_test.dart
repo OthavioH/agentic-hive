@@ -136,6 +136,73 @@ void main() {
         throwsA(_formatErrorNaming('id')),
       );
     });
+
+    test('round-trips all six HarnessSkillStatus values and skillMessage', () {
+      const expectedWire = {
+        HarnessSkillStatus.installed: 'installed',
+        HarnessSkillStatus.notInstalled: 'not_installed',
+        HarnessSkillStatus.outdated: 'outdated',
+        HarnessSkillStatus.modified: 'modified',
+        HarnessSkillStatus.conflict: 'conflict',
+        HarnessSkillStatus.unknown: 'unknown',
+      };
+
+      for (final skillStatus in HarnessSkillStatus.values) {
+        final info = HarnessInfo(
+          id: HarnessId.claudeCode,
+          displayName: 'Claude Code',
+          status: HarnessStatus.ready,
+          checkedAt: checkedAt,
+          skillStatus: skillStatus,
+          skillMessage: skillStatus == HarnessSkillStatus.installed
+              ? null
+              : 'skill note',
+        );
+
+        final json = _overTheWire(info.toJson());
+        expect(json['skillStatus'], expectedWire[skillStatus]);
+        expect(HarnessInfo.fromJson(json), info);
+      }
+    });
+
+    test('defaults skillStatus to null when omitted in JSON', () {
+      final decoded = HarnessInfo.fromJson({
+        'id': 'claude_code',
+        'displayName': 'Claude Code',
+        'status': 'ready',
+        'checkedAt': checkedAt.toIso8601String(),
+      });
+
+      expect(decoded.skillStatus, isNull);
+      expect(decoded.skillMessage, isNull);
+    });
+
+    test('throws a FormatException for an unknown skillStatus', () {
+      expect(
+        () => HarnessInfo.fromJson({
+          'id': 'claude_code',
+          'displayName': 'Claude Code',
+          'status': 'ready',
+          'checkedAt': checkedAt.toIso8601String(),
+          'skillStatus': 'bogus',
+        }),
+        throwsA(_formatErrorNaming('skillStatus')),
+      );
+    });
+
+    test('copyWith clears skillStatus and skillMessage when set to null', () {
+      final info = HarnessInfo(
+        id: HarnessId.claudeCode,
+        displayName: 'Claude Code',
+        status: HarnessStatus.ready,
+        checkedAt: checkedAt,
+        skillStatus: HarnessSkillStatus.installed,
+        skillMessage: 'msg',
+      );
+      final cleared = info.copyWith(skillStatus: null, skillMessage: null);
+      expect(cleared.skillStatus, isNull);
+      expect(cleared.skillMessage, isNull);
+    });
   });
 
   group('HarnessListResponse', () {

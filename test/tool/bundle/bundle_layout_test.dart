@@ -51,6 +51,7 @@ void main() {
         layout.sqliteLibraryPath,
         '/b/backend/lib/libdartaotserver.so',
         '/b/backend/lib/libdartaothive_mcp.so',
+        ...layout.skillFilePaths,
       ]);
     });
 
@@ -79,19 +80,31 @@ void main() {
         layout.serverPath,
         layout.hiveMcpPath,
         layout.sqliteLibraryPath,
+        ...layout.skillFilePaths,
       ]);
     });
 
     test('backendFiles excludes the app executable', () {
       final layout = BundleLayout('/b', platform: const LinuxBundlePlatform());
 
-      expect(layout.backendFiles, layout.requiredFiles.skip(1).toList());
+      expect(
+        layout.backendFiles,
+        layout.requiredFiles.skip(1).take(layout.backendFiles.length).toList(),
+      );
       expect(
         layout.missingBackendFiles(
           (p) => p != layout.aotLibraryPath('hive_mcp'),
         ),
         ['/b/backend/lib/libdartaothive_mcp.so'],
       );
+    });
+
+    test('reports a missing bundled skill file', () {
+      final layout = BundleLayout('/b', platform: const LinuxBundlePlatform());
+
+      expect(layout.missingFiles((p) => p != layout.skillFilePaths.single), [
+        layout.skillFilePaths.single,
+      ]);
     });
 
     test('reports a missing hive_mcp AOT library', () {

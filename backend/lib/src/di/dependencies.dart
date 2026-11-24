@@ -10,6 +10,7 @@ import 'package:agentic_hive_backend/src/api/result_contract/result_contract_han
 import 'package:agentic_hive_backend/src/api/runs/runs_handler.dart';
 import 'package:agentic_hive_backend/src/api/settings/execution_settings_handler.dart';
 import 'package:agentic_hive_backend/src/api/settings/settings_handler.dart';
+import 'package:agentic_hive_backend/src/api/skills/skill_auto_install_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_deletion_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/api/workspace/workspace_handler.dart';
@@ -24,11 +25,14 @@ import 'package:agentic_hive_backend/src/data/agents/local_workspace_agent_repos
 import 'package:agentic_hive_backend/src/data/agents/repository_agent_prompt_resolver.dart';
 import 'package:agentic_hive_backend/src/data/agents/workspace_agent_watchers.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/antigravity_mcp_installer.dart';
+import 'package:agentic_hive_backend/src/data/harnesses/antigravity_skill_installer.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/claude_code_mcp_installer.dart';
+import 'package:agentic_hive_backend/src/data/harnesses/claude_code_skill_installer.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/codex_mcp_installer.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/gemini_cli_mcp_installer.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/io_process_runner.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/os_executable_locator.dart';
+import 'package:agentic_hive_backend/src/data/harnesses/shared_agents_skill_installer.dart';
 import 'package:agentic_hive_backend/src/data/nodes/dart_process_runner.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_process_platform.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_shell_provider.dart';
@@ -44,6 +48,8 @@ import 'package:agentic_hive_backend/src/data/runs/process_tree_killer_factory.d
 import 'package:agentic_hive_backend/src/data/settings/drift_settings_repository.dart';
 import 'package:agentic_hive_backend/src/data/settings/file_workspace_settings_store.dart';
 import 'package:agentic_hive_backend/src/data/settings/os_executable_validator.dart';
+import 'package:agentic_hive_backend/src/data/skills/located_bundled_skill_loader.dart';
+import 'package:agentic_hive_backend/src/data/skills/metadata_skill_auto_install_mark_store.dart';
 import 'package:agentic_hive_backend/src/data/workflows/drift_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/data/workflows/file_workspace_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/data/workflows/workspace_workflow_watcher.dart';
@@ -63,6 +69,7 @@ import 'package:agentic_hive_backend/src/domain/harnesses/executable_locator.dar
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_detector.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_mcp_installer.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_service.dart';
+import 'package:agentic_hive_backend/src/domain/harnesses/harness_skill_installer.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/building_blocks_text_formatter.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/mcp_scope_resolver.dart';
@@ -101,6 +108,9 @@ import 'package:agentic_hive_backend/src/domain/settings/execution_settings_serv
 import 'package:agentic_hive_backend/src/domain/settings/settings_repository.dart';
 import 'package:agentic_hive_backend/src/domain/settings/settings_service.dart';
 import 'package:agentic_hive_backend/src/domain/settings/workspace_settings_store.dart';
+import 'package:agentic_hive_backend/src/domain/skills/bundled_skill_loader.dart';
+import 'package:agentic_hive_backend/src/domain/skills/skill_auto_install_mark_store.dart';
+import 'package:agentic_hive_backend/src/domain/skills/skill_auto_install_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_events.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_registry.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_events.dart';
@@ -230,11 +240,32 @@ Future<void> registerDependencies(
         AntigravityMcpInstaller(processRunner: di<ProcessRunner>()),
       ]),
     )
+    ..registerSingleton<BundledSkillLoader>(LocatedBundledSkillLoader())
+    ..registerSingleton<HarnessSkillInstallerRegistry>(
+      HarnessSkillInstallerRegistry([
+        ClaudeCodeSkillInstaller(
+          platformPaths: platformPaths,
+          bundledSkillLoader: di<BundledSkillLoader>(),
+          appVersion: backendVersion,
+        ),
+        SharedAgentsSkillInstaller(
+          platformPaths: platformPaths,
+          bundledSkillLoader: di<BundledSkillLoader>(),
+          appVersion: backendVersion,
+        ),
+        AntigravitySkillInstaller(
+          platformPaths: platformPaths,
+          bundledSkillLoader: di<BundledSkillLoader>(),
+          appVersion: backendVersion,
+        ),
+      ]),
+    )
     ..registerSingleton<HarnessService>(
       DefaultHarnessService(
         detectors: di<List<HarnessDetector>>(),
         mcpInstallers: di<HarnessMcpInstallerRegistry>(),
         mcpLocator: di<HiveMcpLocator>(),
+        skillInstallers: di<HarnessSkillInstallerRegistry>(),
       ),
       dispose: (service) => service.dispose(),
     )
@@ -736,6 +767,25 @@ Future<void> registerDependencies(
       () => SettingsHandler(di<SettingsService>()),
       dependsOn: [SettingsService],
     )
+    ..registerSingletonWithDependencies<SkillAutoInstallMarkStore>(
+      () => MetadataSkillAutoInstallMarkStore(di<MetadataRepository>()),
+      dependsOn: [MetadataRepository],
+    )
+    ..registerSingletonWithDependencies<SkillAutoInstallService>(
+      () => DefaultSkillAutoInstallService(
+        harnessService: di<HarnessService>(),
+        settingsService: di<SettingsService>(),
+        markStore: di<SkillAutoInstallMarkStore>(),
+        skillInstallers: di<HarnessSkillInstallerRegistry>(),
+        mcpInstallers: di<HarnessMcpInstallerRegistry>(),
+      ),
+      dependsOn: [SettingsService, SkillAutoInstallMarkStore],
+      dispose: (service) => service.dispose(),
+    )
+    ..registerSingletonWithDependencies<SkillAutoInstallHandler>(
+      () => SkillAutoInstallHandler(di<SkillAutoInstallService>()),
+      dependsOn: [SkillAutoInstallService],
+    )
     ..registerSingletonWithDependencies<WsGateway>(
       () => WsGateway(
         registry: di<ConnectionRegistry>(),
@@ -748,11 +798,13 @@ Future<void> registerDependencies(
         ptySessions: di<PtySessionRegistry>(),
         pauseCreated: di<DriftPauseRepository>().created,
         pauseResolved: di<DriftPauseRepository>().resolved,
+        skillAutoInstalls: di<SkillAutoInstallService>().notices,
       ),
       dependsOn: [
         SettingsService,
         DriftRunEventRepository,
         DriftPauseRepository,
+        SkillAutoInstallService,
       ],
       dispose: (gateway) => gateway.close(),
     )
@@ -789,6 +841,7 @@ Future<void> registerDependencies(
           worktreesHandler: di<WorktreesHandler>(),
           settingsHandler: di<SettingsHandler>(),
           executionSettingsHandler: di<ExecutionSettingsHandler>(),
+          skillAutoInstallHandler: di<SkillAutoInstallHandler>(),
         ),
         socket: LocalSocket(
           config.socketPath,
@@ -812,6 +865,7 @@ Future<void> registerDependencies(
         WorktreesHandler,
         SettingsHandler,
         ExecutionSettingsHandler,
+        SkillAutoInstallHandler,
         WsGateway,
       ],
       dispose: (server) => server.stop(),

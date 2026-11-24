@@ -283,6 +283,51 @@ WidgetbookComponent switchComponent() {
         ),
       ),
       WidgetbookUseCase(
+        name: 'With label and helper text',
+        builder: (context) => UseCaseFrame(
+          child: SizedBox(
+            width: context.hiveSpacing.space8 * 6,
+            child: ShowcaseSection(
+              title: 'With label and helper text',
+              children: <Widget>[
+                HiveSwitch(
+                  label: 'Install the skill automatically for new harnesses',
+                  helperText:
+                      'Automatically install the skill for newly detected '
+                      'harnesses.',
+                  value: true,
+                  onChanged: (_) {},
+                ),
+                HiveSwitch(
+                  label: 'Install the skill automatically for new harnesses',
+                  helperText:
+                      'Automatically install the skill for newly detected '
+                      'harnesses.',
+                  value: false,
+                  onChanged: (_) {},
+                ),
+                const HiveSwitch(
+                  label: 'Disabled with helper',
+                  helperText: 'Unavailable while saving settings.',
+                  value: true,
+                  onChanged: null,
+                ),
+                HiveSwitch(
+                  label: 'Long helper text',
+                  helperText:
+                      'The first time Agentic Hive finds a harness, it '
+                      'installs the agentic-hive skill and the Hive MCP '
+                      'server for it. It never updates them by itself.',
+                  value: false,
+                  onChanged: (_) {},
+                ),
+                const _LiveSwitchWithHelper(),
+              ],
+            ),
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
         name: 'Interactive switch',
         builder: (context) => const UseCaseFrame(child: _LiveSwitch()),
       ),
@@ -304,6 +349,27 @@ class _LiveSwitchState extends State<_LiveSwitch> {
   Widget build(BuildContext context) {
     return HiveSwitch(
       label: 'Entry node',
+      value: _value,
+      onChanged: (value) => setState(() => _value = value),
+    );
+  }
+}
+
+class _LiveSwitchWithHelper extends StatefulWidget {
+  const new();
+
+  @override
+  State<_LiveSwitchWithHelper> createState() => _LiveSwitchWithHelperState();
+}
+
+class _LiveSwitchWithHelperState extends State<_LiveSwitchWithHelper> {
+  bool _value = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return HiveSwitch(
+      label: 'Live toggle with helper',
+      helperText: 'Tap the switch or label to toggle; helper does not toggle.',
       value: _value,
       onChanged: (value) => setState(() => _value = value),
     );

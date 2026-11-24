@@ -18,6 +18,7 @@ export 'src/components/hive_empty_state.dart';
 export 'src/components/hive_filter_chip.dart';
 export 'src/components/hive_hex_mark.dart';
 export 'src/components/hive_icon_button.dart';
+export 'src/components/hive_inset_panel.dart';
 export 'src/components/hive_key_value_editor.dart';
 export 'src/components/hive_log_stream_viewer.dart';
 export 'src/components/hive_markdown_view.dart';

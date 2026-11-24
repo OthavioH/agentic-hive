@@ -13,6 +13,9 @@ final class BundleLayout {
   /// Entry points built by `dart build cli` into `backend/bin/`.
   static const backendEntryPoints = ['server', 'hive_mcp'];
 
+  /// Name of the bundled skill folder.
+  static const skillName = 'agentic-hive';
+
   /// Absolute path to the bundle root folder.
   final String root;
 
@@ -27,6 +30,14 @@ final class BundleLayout {
 
   /// Path to the `backend/` subfolder inside the bundle.
   String get backendDir => _ctx.join(root, 'backend');
+
+  /// Path to the `backend/skills/` subfolder inside the bundle.
+  String get skillsDir => _ctx.join(backendDir, 'skills');
+
+  /// Skill files required inside the bundle.
+  List<String> get skillFilePaths => [
+    _ctx.join(skillsDir, skillName, 'SKILL.md'),
+  ];
 
   /// Path to the backend server executable.
   String get serverPath =>
@@ -56,7 +67,11 @@ final class BundleLayout {
   ];
 
   /// All files required for a valid bundle, in check order.
-  List<String> get requiredFiles => [appExecutablePath, ...backendFiles];
+  List<String> get requiredFiles => [
+    appExecutablePath,
+    ...backendFiles,
+    ...skillFilePaths,
+  ];
 
   /// [backendFiles] for which [fileExists] is false, in order.
   List<String> missingBackendFiles(bool Function(String path) fileExists) =>

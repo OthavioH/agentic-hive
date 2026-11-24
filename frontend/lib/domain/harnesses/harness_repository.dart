@@ -16,6 +16,16 @@ abstract interface class HarnessRepository {
   /// info.
   Future<Result<HarnessInfo>> installMcp(HarnessId id);
 
+  /// Installs or updates the Agentic Hive skill for [id] and returns its
+  /// updated info.
+  Future<Result<HarnessInfo>> installSkill(
+    HarnessId id, {
+    required bool overwriteModified,
+  });
+
+  /// Removes the Agentic Hive skill for [id] and returns its updated info.
+  Future<Result<HarnessInfo>> removeSkill(HarnessId id);
+
   /// Broadcast stream of real-time harness status updates from the backend.
   Stream<HarnessInfo> watchHarnessUpdates();
 }

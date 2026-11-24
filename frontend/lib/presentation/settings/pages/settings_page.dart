@@ -224,6 +224,11 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
                 onClearOverride: controller.clearHarnessOverride,
                 l10n: l10n,
               ),
+              SizedBox(height: spacing.space3),
+              _SkillsSection(
+                state: state,
+                onAutoInstallSkillsChanged: controller.setAutoInstallSkills,
+              ),
             ],
           ),
         ),
@@ -520,4 +525,26 @@ class _HarnessesSection extends StatelessWidget {
     HarnessId.geminiCli => l10n.settingsHarnessGeminiCli,
     HarnessId.antigravity => l10n.settingsHarnessAntigravity,
   };
+}
+
+class _SkillsSection extends StatelessWidget {
+  const new({required this.state, required this.onAutoInstallSkillsChanged});
+
+  final SettingsState state;
+  final ValueChanged<bool> onAutoInstallSkillsChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
+    return HiveCard(
+      child: HiveSwitch(
+        key: const ValueKey<String>('settings_auto_install_skills_switch'),
+        label: l10n.settingsAutoInstallSkillsLabel,
+        helperText: l10n.settingsAutoInstallSkillsHelp,
+        value: state.autoInstallSkillsDraft,
+        onChanged: state.isSaving ? null : onAutoInstallSkillsChanged,
+      ),
+    );
+  }
 }

@@ -52,6 +52,17 @@ final class _FakeHarnessRepository implements HarnessRepository {
   }
 
   @override
+  Future<Result<HarnessInfo>> installSkill(
+    HarnessId id, {
+    required bool overwriteModified,
+  }) async =>
+      const FailureResult<HarnessInfo>(UnexpectedFailure('not scripted'));
+
+  @override
+  Future<Result<HarnessInfo>> removeSkill(HarnessId id) async =>
+      const FailureResult<HarnessInfo>(UnexpectedFailure('not scripted'));
+
+  @override
   Stream<HarnessInfo> watchHarnessUpdates() => updates.stream;
 
   Future<void> dispose() => updates.close();

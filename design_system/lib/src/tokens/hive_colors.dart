@@ -84,6 +84,7 @@ class HiveColors extends ThemeExtension<HiveColors> {
     required this.surface2,
     required this.surface3,
     required this.borderSubtle,
+    required this.borderStrong,
     required this.onSurface,
     required this.onSurfaceMuted,
     required this.accent,
@@ -119,6 +120,7 @@ class HiveColors extends ThemeExtension<HiveColors> {
     surface2: Color(0xFF161B18),
     surface3: Color(0xFF1F2622),
     borderSubtle: Color(0xFF26302A),
+    borderStrong: Color(0xFF66726B),
     onSurface: Color(0xFFE9EEEA),
     onSurfaceMuted: Color(0xFF9AA59E),
     accent: Color(0xFFC6EF4E),
@@ -162,6 +164,7 @@ class HiveColors extends ThemeExtension<HiveColors> {
     surface2: Color(0xFFE0E3D4),
     surface3: Color(0xFFD5D9C7),
     borderSubtle: Color(0xFFCBD0BC),
+    borderStrong: Color(0xFF6F7B6B),
     onSurface: Color(0xFF0B0F0C),
     onSurfaceMuted: Color(0xFF4A544D),
     accent: Color(0xFFC6EF4E),
@@ -214,6 +217,10 @@ class HiveColors extends ThemeExtension<HiveColors> {
 
   /// 1px hairline border between surfaces. Decorative; not a text color.
   final Color borderSubtle;
+
+  /// 1px border for non-text UI boundaries that must reach 3:1 on every
+  /// surface; [borderSubtle] stays the decorative hairline.
+  final Color borderStrong;
 
   /// Primary text and icon color on [background] and every surface.
   final Color onSurface;
@@ -324,6 +331,7 @@ class HiveColors extends ThemeExtension<HiveColors> {
       'onSurfaceMuted': onSurfaceMuted,
     };
     final uiRoles = <String, Color>{
+      'borderStrong': borderStrong,
       'statusIdle': statusIdle,
       'statusRunning': statusRunning,
       'statusPaused': statusPaused,
@@ -373,6 +381,7 @@ class HiveColors extends ThemeExtension<HiveColors> {
     Color? surface2,
     Color? surface3,
     Color? borderSubtle,
+    Color? borderStrong,
     Color? onSurface,
     Color? onSurfaceMuted,
     Color? accent,
@@ -406,6 +415,7 @@ class HiveColors extends ThemeExtension<HiveColors> {
       surface2: surface2 ?? this.surface2,
       surface3: surface3 ?? this.surface3,
       borderSubtle: borderSubtle ?? this.borderSubtle,
+      borderStrong: borderStrong ?? this.borderStrong,
       onSurface: onSurface ?? this.onSurface,
       onSurfaceMuted: onSurfaceMuted ?? this.onSurfaceMuted,
       accent: accent ?? this.accent,
@@ -446,6 +456,7 @@ class HiveColors extends ThemeExtension<HiveColors> {
       surface2: c(surface2, other.surface2),
       surface3: c(surface3, other.surface3),
       borderSubtle: c(borderSubtle, other.borderSubtle),
+      borderStrong: c(borderStrong, other.borderStrong),
       onSurface: c(onSurface, other.onSurface),
       onSurfaceMuted: c(onSurfaceMuted, other.onSurfaceMuted),
       accent: c(accent, other.accent),

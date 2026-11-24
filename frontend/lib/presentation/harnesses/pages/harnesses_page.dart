@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/harnesses/controllers/harnesses_controller.dart';
 import 'package:agentic_hive_frontend/presentation/harnesses/widgets/harness_card.dart';
+import 'package:agentic_hive_frontend/presentation/harnesses/widgets/harness_skill_dialogs.dart';
+import 'package:agentic_hive_frontend/presentation/skills/controllers/outdated_tools_controller.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
 import 'package:flutter/services.dart';
@@ -26,6 +30,7 @@ class HarnessesPage extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
+          const _AcknowledgeOnOpen(),
           HivePageHeader(
             title: l10n.navHarnesses,
             subtitle: l10n.harnessesPageSubtitle,
@@ -81,6 +86,14 @@ class HarnessesPage extends ConsumerWidget {
                 onCopyPath: (path) => _copyPath(context, l10n, path),
                 onInstallMcp: (harness) =>
                     _installMcp(context, ref, l10n, harness),
+                onInstallSkill: (harness) =>
+                    _installSkill(context, ref, l10n, harness),
+                onUpdateSkill: (harness) =>
+                    _updateSkill(context, ref, l10n, harness),
+                onRemoveSkill: (harness) =>
+                    _removeSkill(context, ref, l10n, harness),
+                onRetrySkill: (harness, error) =>
+                    _retrySkill(context, ref, l10n, harness, error),
               ),
             },
           ),
@@ -195,6 +208,132 @@ class HarnessesPage extends ConsumerWidget {
       tone: HiveToastTone.success,
     );
   }
+
+  Future<void> _installSkill(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+    HarnessInfo harness,
+  ) async {
+    final result = await ref
+        .read(harnessesControllerProvider.notifier)
+        .installSkill(harness.id, action: SkillRowAction.install);
+    if (!context.mounted) return;
+    if (result is Success<void>) {
+      HiveToast.show(
+        context,
+        message: l10n.harnessesSkillInstallSuccess(harness.displayName),
+        tone: HiveToastTone.success,
+      );
+    }
+  }
+
+  Future<void> _updateSkill(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+    HarnessInfo harness,
+  ) async {
+    final isModified = harness.skillStatus == HarnessSkillStatus.modified;
+    if (isModified) {
+      final confirmed = await confirmOverwriteModifiedSkill(
+        context,
+        harnessName: harness.displayName,
+      );
+      if (!confirmed || !context.mounted) return;
+    }
+    final result = await ref
+        .read(harnessesControllerProvider.notifier)
+        .installSkill(
+          harness.id,
+          action: SkillRowAction.update,
+          overwriteModified: isModified,
+        );
+    if (!context.mounted) return;
+    if (result is Success<void>) {
+      HiveToast.show(
+        context,
+        message: l10n.harnessesSkillInstallSuccess(harness.displayName),
+        tone: HiveToastTone.success,
+      );
+    }
+  }
+
+  Future<void> _removeSkill(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+    HarnessInfo harness,
+  ) async {
+    final confirmed = await confirmRemoveSkill(
+      context,
+      harnessName: harness.displayName,
+    );
+    if (!confirmed || !context.mounted) return;
+    final result = await ref
+        .read(harnessesControllerProvider.notifier)
+        .removeSkill(harness.id);
+    if (!context.mounted) return;
+    if (result is Success<void>) {
+      HiveToast.show(
+        context,
+        message: l10n.harnessesSkillRemoveSuccess(harness.displayName),
+        tone: HiveToastTone.success,
+      );
+    }
+  }
+
+  Future<void> _retrySkill(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+    HarnessInfo harness,
+    SkillRowError error,
+  ) async {
+    final notifier = ref.read(harnessesControllerProvider.notifier);
+    final result = switch (error.action) {
+      SkillRowAction.remove => await notifier.removeSkill(harness.id),
+      SkillRowAction.install ||
+      SkillRowAction.update => await notifier.installSkill(
+        harness.id,
+        action: error.action,
+        overwriteModified: error.overwriteModified,
+      ),
+    };
+    if (!context.mounted) return;
+    if (result is Success<void>) {
+      HiveToast.show(
+        context,
+        message: error.action == SkillRowAction.remove
+            ? l10n.harnessesSkillRemoveSuccess(harness.displayName)
+            : l10n.harnessesSkillInstallSuccess(harness.displayName),
+        tone: HiveToastTone.success,
+      );
+    }
+  }
+}
+
+class _AcknowledgeOnOpen extends ConsumerStatefulWidget {
+  const new();
+
+  @override
+  ConsumerState<_AcknowledgeOnOpen> createState() => _AcknowledgeOnOpenState();
+}
+
+class _AcknowledgeOnOpenState extends ConsumerState<_AcknowledgeOnOpen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        ref.read(outdatedBannerAcknowledgementProvider.notifier).acknowledge(),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
 class _HarnessesGrid extends StatelessWidget {
@@ -203,12 +342,20 @@ class _HarnessesGrid extends StatelessWidget {
     required this.onRecheck,
     required this.onCopyPath,
     required this.onInstallMcp,
+    required this.onInstallSkill,
+    required this.onUpdateSkill,
+    required this.onRemoveSkill,
+    required this.onRetrySkill,
   });
 
   final HarnessesState state;
   final ValueChanged<HarnessId> onRecheck;
   final ValueChanged<String> onCopyPath;
   final ValueChanged<HarnessInfo> onInstallMcp;
+  final ValueChanged<HarnessInfo> onInstallSkill;
+  final ValueChanged<HarnessInfo> onUpdateSkill;
+  final ValueChanged<HarnessInfo> onRemoveSkill;
+  final void Function(HarnessInfo harness, SkillRowError error) onRetrySkill;
 
   @override
   Widget build(BuildContext context) {
@@ -237,9 +384,20 @@ class _HarnessesGrid extends StatelessWidget {
                     isInstallingMcp: state.installingMcpIds.contains(
                       harness.id,
                     ),
+                    skillAction: state.skillActions[harness.id],
+                    skillError: state.skillErrors[harness.id],
                     onRecheck: () => onRecheck(harness.id),
                     onCopyPath: onCopyPath,
                     onInstallMcp: () => onInstallMcp(harness),
+                    onInstallSkill: () => onInstallSkill(harness),
+                    onUpdateSkill: () => onUpdateSkill(harness),
+                    onRemoveSkill: () => onRemoveSkill(harness),
+                    onRetrySkill: state.skillErrors[harness.id] == null
+                        ? null
+                        : () => onRetrySkill(
+                            harness,
+                            state.skillErrors[harness.id]!,
+                          ),
                   ),
                 ),
             ],

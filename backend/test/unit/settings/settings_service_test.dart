@@ -356,6 +356,68 @@ void main() {
       },
     );
   });
+
+  group('autoInstallSkills', () {
+    test('defaults to true when settings table is empty', () async {
+      final result = await service.getSettings();
+      expect(result, isA<Success<AppSettings>>());
+      expect((result as Success<AppSettings>).value.autoInstallSkills, isTrue);
+    });
+
+    test(
+      'persists false, preserves on omitted update, and restores true',
+      () async {
+        final updates = <AppSettings>[];
+        final sub = service.settingsUpdates.listen(updates.add);
+        addTearDown(sub.cancel);
+
+        final offResult = await service.updateSettings(
+          const UpdateSettingsRequest(autoInstallSkills: false),
+        );
+        expect(
+          (offResult as Success<AppSettings>).value.autoInstallSkills,
+          isFalse,
+        );
+        final storedAfterOff =
+            (await repository.getAll() as Success<Map<String, String>>).value;
+        expect(
+          storedAfterOff[DefaultSettingsService.autoInstallSkillsKey],
+          'false',
+        );
+        expect(
+          (await service.getSettings() as Success<AppSettings>)
+              .value
+              .autoInstallSkills,
+          isFalse,
+        );
+
+        final omittedResult = await service.updateSettings(
+          const UpdateSettingsRequest(),
+        );
+        expect(
+          (omittedResult as Success<AppSettings>).value.autoInstallSkills,
+          isFalse,
+        );
+
+        final onResult = await service.updateSettings(
+          const UpdateSettingsRequest(autoInstallSkills: true),
+        );
+        expect(
+          (onResult as Success<AppSettings>).value.autoInstallSkills,
+          isTrue,
+        );
+        expect(updates.map((s) => s.autoInstallSkills), [false, false, true]);
+      },
+    );
+
+    test('treats non-false stored values as true', () async {
+      await repository.applyChanges(<String, String?>{
+        DefaultSettingsService.autoInstallSkillsKey: 'maybe',
+      });
+      final result = await service.getSettings();
+      expect((result as Success<AppSettings>).value.autoInstallSkills, isTrue);
+    });
+  });
 }
 
 final class _FakeExecutableValidator implements ExecutableValidator {
@@ -378,6 +440,10 @@ final class _FakeDetector implements HarnessDetector {
   void setExecutableOverride(String? path) {
     lastOverride = path;
   }
+
+  @override
+  Future<String?> locateExecutable() async =>
+      lastOverride ?? '/usr/bin/${id.wireName}';
 
   @override
   Future<HarnessInfo> detect() async {

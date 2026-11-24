@@ -15,6 +15,7 @@ sealed class AppSettings with _$AppSettings {
     required String defaultAgentsDir,
     String? agentsDir,
     @Default(<HarnessId, String>{}) Map<HarnessId, String> harnessOverrides,
+    @Default(true) bool autoInstallSkills,
   }) = _AppSettings;
 
   /// Decodes an [AppSettings] object; throws a [FormatException] on a bad

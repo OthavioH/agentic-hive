@@ -79,6 +79,13 @@ class SettingsController extends _$SettingsController {
   /// Clears the custom executable path for [id] to revert to auto-detection.
   void clearHarnessOverride(HarnessId id) => setHarnessOverride(id, '');
 
+  /// Updates the draft automatic skill install toggle.
+  void setAutoInstallSkills(bool value) {
+    final current = state.value;
+    if (current == null) return;
+    state = AsyncData(current.copyWith(autoInstallSkillsDraft: value));
+  }
+
   /// Opens the native folder picker for the Agents folder.
   Future<void> browseAgentsDir() async {
     final current = state.value;
@@ -183,6 +190,10 @@ class SettingsController extends _$SettingsController {
     return base.copyWith(
       agentsDirDraft: agentsDirDraft,
       harnessOverridesDraft: mergedOverrides,
+      autoInstallSkillsDraft:
+          latest.autoInstallSkillsDraft == atSaveStart.autoInstallSkillsDraft
+          ? base.autoInstallSkillsDraft
+          : latest.autoInstallSkillsDraft,
     );
   }
 

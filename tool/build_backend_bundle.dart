@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'src/bundle/backend_assembly.dart';
 import 'src/bundle/bundle_layout.dart';
 import 'src/bundle/bundle_platform.dart';
+import 'src/bundle/skill_bundling.dart';
 
 // Builds the backend with `dart build cli` and assembles <bundle-dir>/backend/.
 // `dart build cli` builds one entry point per run and wipes its output folder,
@@ -74,6 +75,16 @@ Future<void> main(List<String> arguments) async {
     );
     if (problems.isNotEmpty) {
       problems.forEach(stderr.writeln);
+      exitCode = 1;
+      return;
+    }
+
+    final skillProblems = copyBundledSkills(
+      layout: layout,
+      sourceSkillsDir: p.absolute(p.join('backend', 'skills')),
+    );
+    if (skillProblems.isNotEmpty) {
+      skillProblems.forEach(stderr.writeln);
       exitCode = 1;
       return;
     }
