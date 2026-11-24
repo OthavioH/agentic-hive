@@ -6,6 +6,7 @@ import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/engine/graph_engine.dart';
 import 'package:agentic_hive_backend/src/domain/engine/resume_input.dart';
 import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart';
+import 'package:agentic_hive_backend/src/domain/runs/node_override_applier.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_canceller.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_log_store.dart';
@@ -142,9 +143,10 @@ final class RunService implements WorkflowRunsDeleter {
     return await globalWorkflows.getById(workflowId);
   }
 
-  /// Validates [request], resolves where the run executes (the primary
-  /// checkout, an existing worktree or a new worktree), enforces the
-  /// one-active-run-per-folder guard, creates the [Run], and starts
+  /// Validates [request] (including any per-run node overrides, which are
+  /// applied to the run's frozen definition), resolves where the run executes
+  /// (the primary checkout, an existing worktree or a new worktree), enforces
+  /// the one-active-run-per-folder guard, creates the [Run], and starts
   /// `GraphEngine` execution asynchronously.
   Future<Result<Run>> startRun(StartRunRequest request) async {
     final workflowId = request.workflowId.trim();
@@ -252,6 +254,22 @@ final class RunService implements WorkflowRunsDeleter {
         }
       }
 
+      final overrides = request.nodeOverrides;
+      var effectiveWorkflow = workflow;
+      if (overrides != null && overrides.isNotEmpty) {
+        final issues = NodeOverrideValidation.validate(overrides, workflow);
+        if (issues.isNotEmpty) {
+          final joined = issues.map((i) => i.message).join('; ');
+          return FailureResult(
+            ValidationFailure(
+              'Invalid node overrides: $joined',
+              details: {for (final i in issues) i.field: i.message},
+            ),
+          );
+        }
+        effectiveWorkflow = NodeOverrideApplier.apply(workflow, overrides);
+      }
+
       final runId = _generateId();
       final PreparedWorkspace prepared;
       switch (target) {
@@ -346,7 +364,7 @@ final class RunService implements WorkflowRunsDeleter {
         id: runId,
         workflowId: workflow.id,
         workflowName: workflow.name,
-        workflowDefinition: workflow,
+        workflowDefinition: effectiveWorkflow,
         workspacePath: workspacePath,
         workspaceId: workspace.id,
         status: RunStatus.running,

@@ -385,4 +385,32 @@ Future<void> main() => Future<void>.delayed(const Duration(seconds: 60));
       expect(checkRes.statusCode, 404);
     },
   );
+
+  test(
+    'POST /runs with invalid nodeOverrides returns 400 and creates no run',
+    () async {
+      final script = File(p.join(workspaceDir.path, 'noop.dart'));
+      await script.writeAsString('void main() {}');
+      final workflow = await createCommandWorkflow(script.path);
+
+      final res = await http.post(
+        '/api/v1/runs',
+        body: jsonEncode(
+          StartRunRequest(
+            workflowId: workflow.id,
+            workspaceId: workspaceId,
+            workspaceIsolationMode: WorkspaceIsolationMode.direct,
+            nodeOverrides: const {'unknown-node': NodeOverride(model: 'm1')},
+          ).toJson(),
+        ),
+      );
+      expect(res.statusCode, 400);
+      final error = ApiError.fromJson(res.json);
+      expect(error.message, contains('Invalid node overrides'));
+
+      final listRes = await http.get('/api/v1/runs');
+      expect(listRes.statusCode, 200);
+      expect(listRes.json['items'], isEmpty);
+    },
+  );
 }
