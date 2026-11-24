@@ -67,33 +67,38 @@ void main() {
         }
       });
 
-      test('S2 status badge background vs panel surface2 (UI 3.0:1)', () {
-        for (final tone in <HiveBadgeTone>[
-          HiveBadgeTone.success,
-          HiveBadgeTone.neutral,
-          HiveBadgeTone.warning,
-          HiveBadgeTone.danger,
-          HiveBadgeTone.info,
-        ]) {
-          // Known catalog token exception: HiveBadgeTone.neutral uses surface3
-          // on surface2 (1.13:1 dark, 1.10:1 light). Tracked in
-          // https://github.com/OthavioH/agentic-hive/issues/146 while keeping
-          // neutral badge tone per #125 frozen structure.
-          final isKnownNeutralTokenGap = tone == HiveBadgeTone.neutral;
+      test(
+        'S2 status badge background or outline vs panel surface2 (UI 3.0:1)',
+        () {
+          for (final tone in <HiveBadgeTone>[
+            HiveBadgeTone.success,
+            HiveBadgeTone.neutral,
+            HiveBadgeTone.warning,
+            HiveBadgeTone.danger,
+            HiveBadgeTone.info,
+          ]) {
+            final boundary = tone.border ?? tone.background;
+            checkRatio(
+              reportRows,
+              name,
+              'S2',
+              '${tone.name} badge boundary / surface2',
+              boundary(c),
+              c.surface2,
+              HiveContrastLevel.ui,
+            );
+          }
           checkRatio(
             reportRows,
             name,
             'S2',
-            '${tone.name} badge bg / surface2',
-            tone.background(c),
+            'borderStrong / surface2',
+            c.borderStrong,
             c.surface2,
             HiveContrastLevel.ui,
-            exemptionNote: isKnownNeutralTokenGap
-                ? 'FAIL (known catalog gap #146)'
-                : null,
           );
-        }
-      });
+        },
+      );
 
       test('S3 text roles on surface2 (panel) and surface1 (card)', () {
         checkRatio(
