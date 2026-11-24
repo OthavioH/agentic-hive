@@ -214,6 +214,60 @@ void main() {
     expect(find.byKey(const Key('config_command_env')), findsOneWidget);
   });
 
+  testWidgets(
+    'HarnessNode inspector form keeps model and effort set elsewhere',
+    (tester) async {
+      tester.view.physicalSize = const Size(900, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      JsonMap? latestConfig;
+      final node = WorkflowNode(
+        id: 'n1',
+        type: NodeTypeId.claudeCode,
+        label: 'Implement',
+        config: {
+          ...NodeDescriptors.claudeCode.defaultConfig(),
+          'model': 'opus',
+          'effort': 'high',
+        },
+        position: const WorkflowPosition(x: 0, y: 0),
+      );
+
+      await _pumpWithHost(
+        tester,
+        WorkflowInspectorPanel(
+          state: _stateWith(nodes: <WorkflowNode>[node], selectedNodeId: 'n1'),
+          onUpdateMetadata: ({name, description}) {},
+          onUpdateNodeLabel: (_, _) {},
+          onUpdateNodeConfig: (_, config) => latestConfig = config,
+          onToggleEntryNode: (_, {required isEntry}) {},
+          onDeleteNode: (_) {},
+          onUpdateEdge: (
+            _, {
+            sourceOutput,
+            maxRetries,
+            clearMaxRetries = false,
+          }) {},
+          onDeleteEdge: (_) {},
+          onFocusIssue: (_) {},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const Key('config_harness_additional_instructions')),
+        'Keep changes minimal.',
+      );
+      await tester.pumpAndSettle();
+
+      expect(latestConfig, isNotNull);
+      final decoded = HarnessNodeConfig.fromJson(latestConfig!);
+      expect(decoded.model, 'opus');
+      expect(decoded.effort, 'high');
+    },
+  );
+
   testWidgets('HarnessNode inspector form edits agentId and instructions', (
     tester,
   ) async {

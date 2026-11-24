@@ -39,6 +39,8 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
   final TextEditingController _commandController = TextEditingController();
 
   String? _agentId;
+  String? _model;
+  String? _effort;
   List<String> _extraArgs = const <String>[];
   List<String> _args = const <String>[];
   bool _sendPromptToStdin = false;
@@ -79,6 +81,8 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
       _workingDirController.text = config.workingDirectory ?? '';
       _timeoutController.text = config.timeoutSeconds?.toString() ?? '';
       _extraArgs = List<String>.of(config.extraArgs);
+      _model = null;
+      _effort = null;
       _commandController.text = config.command ?? '';
       _args = List<String>.of(config.args);
       _sendPromptToStdin = config.sendPromptToStdin;
@@ -89,6 +93,8 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
       _workingDirController.text = config.workingDirectory ?? '';
       _timeoutController.text = config.timeoutSeconds?.toString() ?? '';
       _extraArgs = List<String>.of(config.extraArgs);
+      _model = config.model;
+      _effort = config.effort;
       _commandController.clear();
       _args = const <String>[];
       _sendPromptToStdin = false;
@@ -144,6 +150,8 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
           additionalInstructions: _nullIfEmpty(_instructionsController.text),
           workingDirectory: _nullIfEmpty(_workingDirController.text),
           timeoutSeconds: timeout.value,
+          model: _model,
+          effort: _effort,
           extraArgs: _extraArgs,
         ).toJson(),
       );
