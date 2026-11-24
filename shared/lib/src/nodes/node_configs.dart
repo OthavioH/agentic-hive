@@ -1,4 +1,5 @@
 import 'package:agentic_hive_shared/src/json_fields.dart';
+import 'package:agentic_hive_shared/src/nodes/harness_effort.dart';
 import 'package:agentic_hive_shared/src/nodes/node_category.dart';
 import 'package:agentic_hive_shared/src/nodes/node_config_validation.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
@@ -25,6 +26,8 @@ sealed class HarnessNodeConfig with _$HarnessNodeConfig {
     String? additionalInstructions,
     String? workingDirectory,
     int? timeoutSeconds,
+    String? model,
+    String? effort,
     @Default(<String>[]) List<String> extraArgs,
   }) = _HarnessNodeConfig;
 
@@ -57,6 +60,22 @@ sealed class HarnessNodeConfig with _$HarnessNodeConfig {
       field: 'timeoutSeconds',
       issues: issues,
     );
+    if (!isBlank(effort) && !harnessEffortIds.contains(effort)) {
+      issues.add(
+        NodeConfigIssue(
+          field: 'effort',
+          message: 'Must be one of: ${harnessEffortIds.join(', ')}.',
+        ),
+      );
+    }
+    if (!isBlank(model) && model!.trim().startsWith('-')) {
+      issues.add(
+        const NodeConfigIssue(
+          field: 'model',
+          message: 'Must not start with "-".',
+        ),
+      );
+    }
     return issues;
   }
 }
