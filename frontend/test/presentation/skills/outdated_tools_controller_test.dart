@@ -15,64 +15,60 @@ import 'memory_outdated_banner_store.dart';
 
 void main() {
   group('OutdatedToolsController', () {
-    test(
-      'visible only for outdated skill or MCP on harnesses with a skill row',
-      () async {
-        final harnessRepo = ScriptedHarnessRepository()
-          ..getResult = Success(<HarnessInfo>[
-            harnessWith(skill: HarnessSkillStatus.outdated),
-            harnessWith(
-              id: HarnessId.codex,
-              skill: HarnessSkillStatus.installed,
-              mcp: HarnessMcpStatus.outdated,
-            ),
-            // Must be ignored when skillStatus == null even if mcp outdated.
-            harnessWith(
-              id: HarnessId.geminiCli,
-              status: HarnessStatus.notInstalled,
-              mcp: HarnessMcpStatus.outdated,
-            ),
-            // Modified/conflict/unknown must not trigger it.
-            harnessWith(
-              id: HarnessId.antigravity,
-              skill: HarnessSkillStatus.modified,
-            ),
-          ]);
-        addTearDown(harnessRepo.dispose);
-        final store = MemoryOutdatedBannerStore();
-
-        final container = ProviderContainer.test(
-          overrides: [
-            harnessRepositoryProvider.overrideWithValue(harnessRepo),
-            outdatedBannerStoreProvider.overrideWithValue(store),
-            appVersionProvider.overrideWithValue('1.0.0'),
-          ],
-        );
-
-        await container.read(harnessesControllerProvider.future);
-        await container.read(outdatedBannerAcknowledgementProvider.future);
-
-        final outdated = container.read(outdatedHarnessesProvider);
-        expect(outdated, <OutdatedHarness>[
-          const OutdatedHarness(
-            id: HarnessId.claudeCode,
-            displayName: 'Claude Code',
-            skillOutdated: true,
-            mcpOutdated: false,
-          ),
-          const OutdatedHarness(
+    test('visible only for outdated skill or MCP', () async {
+      final harnessRepo = ScriptedHarnessRepository()
+        ..getResult = Success(<HarnessInfo>[
+          harnessWith(skill: HarnessSkillStatus.outdated),
+          harnessWith(
             id: HarnessId.codex,
-            displayName: 'Codex',
-            skillOutdated: false,
-            mcpOutdated: true,
+            skill: HarnessSkillStatus.installed,
+            mcp: HarnessMcpStatus.outdated,
+          ),
+          // Current skill & MCP must not trigger it.
+          harnessWith(
+            id: HarnessId.geminiCli,
+            status: HarnessStatus.notInstalled,
+          ),
+          // Modified/conflict/unknown must not trigger it.
+          harnessWith(
+            id: HarnessId.antigravity,
+            skill: HarnessSkillStatus.modified,
           ),
         ]);
-        expect(container.read(showOutdatedBannerProvider), isTrue);
-      },
-    );
+      addTearDown(harnessRepo.dispose);
+      final store = MemoryOutdatedBannerStore();
+
+      final container = ProviderContainer.test(
+        overrides: [
+          harnessRepositoryProvider.overrideWithValue(harnessRepo),
+          outdatedBannerStoreProvider.overrideWithValue(store),
+          appVersionProvider.overrideWithValue('1.0.0'),
+        ],
+      );
+
+      await container.read(harnessesControllerProvider.future);
+      await container.read(outdatedBannerAcknowledgementProvider.future);
+
+      final outdated = container.read(outdatedHarnessesProvider);
+      expect(outdated, <OutdatedHarness>[
+        const OutdatedHarness(
+          id: HarnessId.claudeCode,
+          displayName: 'Claude Code',
+          skillOutdated: true,
+          mcpOutdated: false,
+        ),
+        const OutdatedHarness(
+          id: HarnessId.codex,
+          displayName: 'Codex',
+          skillOutdated: false,
+          mcpOutdated: true,
+        ),
+      ]);
+      expect(container.read(showOutdatedBannerProvider), isTrue);
+    });
 
     test(
-      'hidden for modified, conflict, unknown, and skillStatus == null',
+      'hidden for modified, conflict, unknown, and current skillStatus == null',
       () async {
         final harnessRepo = ScriptedHarnessRepository()
           ..getResult = Success(<HarnessInfo>[
@@ -85,10 +81,7 @@ void main() {
               id: HarnessId.geminiCli,
               skill: HarnessSkillStatus.unknown,
             ),
-            harnessWith(
-              id: HarnessId.antigravity,
-              mcp: HarnessMcpStatus.outdated,
-            ),
+            harnessWith(id: HarnessId.antigravity),
           ]);
         addTearDown(harnessRepo.dispose);
         final store = MemoryOutdatedBannerStore();
@@ -108,6 +101,39 @@ void main() {
         expect(container.read(showOutdatedBannerProvider), isFalse);
       },
     );
+
+    test('flags outdated MCP even when skillStatus is null', () async {
+      final harnessRepo = ScriptedHarnessRepository()
+        ..getResult = Success(<HarnessInfo>[
+          harnessWith(
+            id: HarnessId.antigravity,
+            mcp: HarnessMcpStatus.outdated,
+          ),
+        ]);
+      addTearDown(harnessRepo.dispose);
+      final store = MemoryOutdatedBannerStore();
+
+      final container = ProviderContainer.test(
+        overrides: [
+          harnessRepositoryProvider.overrideWithValue(harnessRepo),
+          outdatedBannerStoreProvider.overrideWithValue(store),
+          appVersionProvider.overrideWithValue('1.0.0'),
+        ],
+      );
+
+      await container.read(harnessesControllerProvider.future);
+      await container.read(outdatedBannerAcknowledgementProvider.future);
+
+      expect(container.read(outdatedHarnessesProvider), <OutdatedHarness>[
+        const OutdatedHarness(
+          id: HarnessId.antigravity,
+          displayName: 'Antigravity',
+          skillOutdated: false,
+          mcpOutdated: true,
+        ),
+      ]);
+      expect(container.read(showOutdatedBannerProvider), isTrue);
+    });
 
     test('hidden while acknowledgement is loading, when appVersion is null, '
         'or when stored version equals appVersion', () async {

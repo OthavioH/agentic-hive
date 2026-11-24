@@ -66,7 +66,7 @@ class OutdatedBannerAcknowledgement extends _$OutdatedBannerAcknowledgement {
   }
 }
 
-/// Harnesses with a skill row whose skill or MCP is currently outdated.
+/// Harnesses whose skill or MCP is currently outdated.
 @riverpod
 List<OutdatedHarness> outdatedHarnesses(Ref ref) {
   final harnesses = ref
@@ -77,9 +77,8 @@ List<OutdatedHarness> outdatedHarnesses(Ref ref) {
   if (harnesses == null) return const <OutdatedHarness>[];
   return <OutdatedHarness>[
     for (final harness in harnesses)
-      if (harness.skillStatus != null &&
-          (harness.skillStatus == HarnessSkillStatus.outdated ||
-              harness.mcpStatus == HarnessMcpStatus.outdated))
+      if (harness.skillStatus == HarnessSkillStatus.outdated ||
+          harness.mcpStatus == HarnessMcpStatus.outdated)
         OutdatedHarness(
           id: harness.id,
           displayName: harness.displayName,
