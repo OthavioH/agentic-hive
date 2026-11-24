@@ -1,3 +1,4 @@
+import 'package:agentic_hive_frontend/domain/pauses/use_cases/validate_proposal_draft.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/pauses/controllers/pauses_state.dart';
 import 'package:agentic_hive_frontend/presentation/pauses/utils/pause_l10n.dart';
@@ -17,7 +18,11 @@ class PauseDetailPane extends StatefulWidget {
     required this.onSubmitAnswer,
     required this.onFeedbackDraftChanged,
     required this.onAnswerDraftChanged,
+    required this.onStartProposalEdit,
+    required this.onProposalDraftChanged,
+    required this.onDiscardProposalEdit,
     required this.onDismissNotice,
+    this.proposalCheck,
     super.key,
   });
 
@@ -27,11 +32,15 @@ class PauseDetailPane extends StatefulWidget {
   /// Current inbox controller state.
   final PausesState state;
 
+  /// Validation result for the active proposal draft, if editing.
+  final ProposalDraftCheck? proposalCheck;
+
   /// Called when the user clicks the run link in the detail header.
   final ValueChanged<String> onOpenRun;
 
-  /// Called when approving a `humanApproval` pause with optional feedback.
-  final ValueChanged<String?> onApprove;
+  /// Called when approving a `humanApproval` pause with optional feedback and
+  /// edited proposal.
+  final void Function(String? feedback, Object? proposal) onApprove;
 
   /// Called when rejecting a `humanApproval` pause with optional feedback.
   final ValueChanged<String?> onReject;
@@ -46,6 +55,15 @@ class PauseDetailPane extends StatefulWidget {
   /// Called when the user edits the answer draft for the selected pause.
   final ValueChanged<String> onAnswerDraftChanged;
 
+  /// Called when entering proposal edit mode with the seeded JSON text.
+  final ValueChanged<String> onStartProposalEdit;
+
+  /// Called when the user edits the proposal JSON draft.
+  final ValueChanged<String> onProposalDraftChanged;
+
+  /// Called when the user discards proposal edits.
+  final VoidCallback onDiscardProposalEdit;
+
   /// Called to dismiss a conflict or error banner.
   final VoidCallback onDismissNotice;
 
@@ -56,6 +74,7 @@ class PauseDetailPane extends StatefulWidget {
 class _PauseDetailPaneState extends State<PauseDetailPane> {
   late final TextEditingController _feedbackController;
   late final TextEditingController _answerController;
+  late final TextEditingController _proposalController;
   String? _answerValidationError;
 
   @override
@@ -67,6 +86,9 @@ class _PauseDetailPaneState extends State<PauseDetailPane> {
     _answerController = TextEditingController(
       text: widget.state.answerDraftFor(widget.pause.id),
     );
+    _proposalController = TextEditingController(
+      text: widget.state.proposalDraftFor(widget.pause.id) ?? '',
+    );
   }
 
   @override
@@ -75,12 +97,16 @@ class _PauseDetailPaneState extends State<PauseDetailPane> {
     if (oldWidget.pause.id != widget.pause.id) {
       final nextFeedback = widget.state.feedbackDraftFor(widget.pause.id);
       final nextAnswer = widget.state.answerDraftFor(widget.pause.id);
+      final nextProposal = widget.state.proposalDraftFor(widget.pause.id) ?? '';
       _feedbackController
         ..text = nextFeedback
         ..selection = TextSelection.collapsed(offset: nextFeedback.length);
       _answerController
         ..text = nextAnswer
         ..selection = TextSelection.collapsed(offset: nextAnswer.length);
+      _proposalController
+        ..text = nextProposal
+        ..selection = TextSelection.collapsed(offset: nextProposal.length);
       _answerValidationError = null;
     }
   }
@@ -89,6 +115,7 @@ class _PauseDetailPaneState extends State<PauseDetailPane> {
   void dispose() {
     _feedbackController.dispose();
     _answerController.dispose();
+    _proposalController.dispose();
     super.dispose();
   }
 
@@ -230,6 +257,19 @@ class _PauseDetailPaneState extends State<PauseDetailPane> {
     final submittingAction = widget.state.submittingAction;
     final title = pause.title;
     final instructions = pause.instructions;
+    final hasProposal = pause.proposal != null;
+    final isEditingProposal =
+        hasProposal && widget.state.isEditingProposal(pause.id);
+
+    Object? approvedProposal;
+    var canApprove = !isBusy;
+    if (isEditingProposal) {
+      if (widget.proposalCheck case ProposalDraftValid(:final value)) {
+        approvedProposal = value;
+      } else {
+        canApprove = false;
+      }
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -246,6 +286,16 @@ class _PauseDetailPaneState extends State<PauseDetailPane> {
           Text(
             instructions,
             style: typography.body.copyWith(color: colors.onSurface),
+          ),
+          SizedBox(height: spacing.space3),
+        ],
+        if (hasProposal) ...<Widget>[
+          _buildProposalSection(
+            context,
+            l10n,
+            pause,
+            isBusy: isBusy,
+            isEditing: isEditingProposal,
           ),
           SizedBox(height: spacing.space3),
         ],
@@ -280,14 +330,113 @@ class _PauseDetailPaneState extends State<PauseDetailPane> {
               key: const Key('pauses_approve_button'),
               label: submittingAction == PauseSubmittingAction.approve
                   ? l10n.pausesSubmittingLabel
-                  : l10n.pausesApproveAction,
+                  : (isEditingProposal
+                        ? l10n.pausesApproveEditedAction
+                        : l10n.pausesApproveAction),
               loading: submittingAction == PauseSubmittingAction.approve,
-              onPressed: isBusy
-                  ? null
-                  : () => widget.onApprove(_feedbackController.text),
+              onPressed: canApprove
+                  ? () => widget.onApprove(
+                      _feedbackController.text,
+                      approvedProposal,
+                    )
+                  : null,
             ),
           ],
         ),
+      ],
+    );
+  }
+
+  Widget _buildProposalSection(
+    BuildContext context,
+    AppLocalizations l10n,
+    Pause pause, {
+    required bool isBusy,
+    required bool isEditing,
+  }) {
+    final colors = context.hiveColors;
+    final spacing = context.hiveSpacing;
+    final typography = context.hiveTypography;
+    final source = pause.proposalSource;
+    final headingText = source == null
+        ? l10n.pausesProposalHeadingGeneric
+        : l10n.pausesProposalHeading(source);
+
+    final Widget actionButton;
+    if (isEditing) {
+      actionButton = HiveButton(
+        key: const Key('pauses_proposal_discard_button'),
+        label: l10n.pausesProposalDiscardAction,
+        variant: HiveButtonVariant.ghost,
+        size: HiveButtonSize.small,
+        onPressed: isBusy ? null : widget.onDiscardProposalEdit,
+      );
+    } else {
+      actionButton = HiveButton(
+        key: const Key('pauses_proposal_edit_button'),
+        label: l10n.pausesProposalEditAction,
+        variant: HiveButtonVariant.secondary,
+        size: HiveButtonSize.small,
+        onPressed: isBusy
+            ? null
+            : () {
+                final pretty = PauseL10n.prettyJson(pause.proposal);
+                _proposalController
+                  ..text = pretty
+                  ..selection = TextSelection.collapsed(offset: pretty.length);
+                widget.onStartProposalEdit(pretty);
+              },
+      );
+    }
+
+    final errorText = switch (widget.proposalCheck) {
+      ProposalDraftInvalid(:final messages) => messages.join('\n'),
+      _ => null,
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: Semantics(
+                header: true,
+                child: Text(
+                  headingText,
+                  style: typography.labelLarge.copyWith(
+                    color: colors.onSurface,
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(width: spacing.space2),
+            actionButton,
+          ],
+        ),
+        SizedBox(height: spacing.space1),
+        if (isEditing)
+          Semantics(
+            liveRegion: true,
+            child: HiveTextArea(
+              key: const Key('pauses_proposal_field'),
+              label: l10n.pausesProposalEditorLabel,
+              mono: true,
+              minLines: 6,
+              maxLines: 16,
+              controller: _proposalController,
+              enabled: !isBusy,
+              errorText: errorText,
+              onChanged: widget.onProposalDraftChanged,
+            ),
+          )
+        else
+          HiveCodeBlock(
+            key: const Key('pauses_proposal_view'),
+            code: PauseL10n.prettyJson(pause.proposal),
+            copyLabel: l10n.pausesProposalCopy,
+          ),
       ],
     );
   }

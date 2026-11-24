@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:agentic_hive_frontend/core/result/failure.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
@@ -20,6 +22,11 @@ extension PauseKindPresentation on PauseKind {
 
 /// Localization helpers for the Pauses inbox.
 abstract final class PauseL10n {
+  static const JsonEncoder _prettyJsonEncoder = JsonEncoder.withIndent('  ');
+
+  /// Pretty-prints [value] as indented JSON.
+  static String prettyJson(Object? value) => _prettyJsonEncoder.convert(value);
+
   /// Returns the localized label for [kind].
   static String kindLabel(AppLocalizations l10n, PauseKind kind) =>
       kind.label(l10n);
@@ -45,8 +52,9 @@ abstract final class PauseL10n {
     return l10n.pausesWaitingDays(elapsed.inDays);
   }
 
-  /// Maps an error object or [Failure] to a localized display message from
-  /// [AppLocalizations], never exposing raw backend error strings.
+  /// Maps an error object or [Failure] to display copy from
+  /// [AppLocalizations], surfacing validation and backend refusal messages when
+  /// provided.
   static String localizeError(AppLocalizations l10n, Object? error) {
     if (error is Failure) {
       return localizeFailure(l10n, error);
@@ -59,10 +67,12 @@ abstract final class PauseL10n {
     return switch (failure) {
       NetworkFailure() => l10n.pausesFailureNetwork,
       NotFoundFailure() => l10n.pausesFailureNotFound,
-      ValidationFailure() => l10n.pausesFailureValidation,
+      ValidationFailure(:final message) =>
+        message.trim().isNotEmpty ? message : l10n.pausesFailureValidation,
       ConflictFailure() ||
       BackendFailure(statusCode: 409) => l10n.pausesConflictMessage,
-      BackendFailure() => l10n.pausesFailureBackend,
+      BackendFailure(:final message) =>
+        message.trim().isNotEmpty ? message : l10n.pausesFailureBackend,
       UnexpectedFailure() => l10n.pausesUnknownError,
     };
   }

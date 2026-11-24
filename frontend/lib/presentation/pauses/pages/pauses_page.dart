@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:agentic_hive_frontend/core/di/use_case_providers.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/pauses/controllers/pauses_controller.dart';
 import 'package:agentic_hive_frontend/presentation/pauses/controllers/pauses_state.dart';
@@ -88,6 +89,16 @@ class PausesPage extends ConsumerWidget {
                 }
 
                 final selected = state.selectedPause;
+                final proposalDraft = selected == null
+                    ? null
+                    : state.proposalDraftFor(selected.id);
+                final proposalCheck =
+                    (selected == null || proposalDraft == null)
+                    ? null
+                    : ref.read(validateProposalDraftUseCaseProvider)(
+                        text: proposalDraft,
+                        schemaText: selected.proposalSchema,
+                      );
                 return HiveMasterDetail(
                   detailVisible: selected != null,
                   master: PauseListPane(
@@ -104,13 +115,15 @@ class PausesPage extends ConsumerWidget {
                       : PauseDetailPane(
                           pause: selected,
                           state: state,
+                          proposalCheck: proposalCheck,
                           onOpenRun: (runId) =>
                               RunDetailRoute(id: runId).go(context),
-                          onApprove: (feedback) => unawaited(
+                          onApprove: (feedback, proposal) => unawaited(
                             controller.submitApproval(
                               pauseId: selected.id,
                               approved: true,
                               feedback: feedback,
+                              proposal: proposal,
                             ),
                           ),
                           onReject: (feedback) => unawaited(
@@ -130,6 +143,12 @@ class PausesPage extends ConsumerWidget {
                               controller.updateFeedbackDraft(selected.id, text),
                           onAnswerDraftChanged: (text) =>
                               controller.updateAnswerDraft(selected.id, text),
+                          onStartProposalEdit: (initialText) => controller
+                              .startProposalEdit(selected.id, initialText),
+                          onProposalDraftChanged: (text) =>
+                              controller.updateProposalDraft(selected.id, text),
+                          onDiscardProposalEdit: () =>
+                              controller.discardProposalEdit(selected.id),
                           onDismissNotice: controller.dismissNotice,
                         ),
                 );
