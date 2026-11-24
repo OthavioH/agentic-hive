@@ -95,4 +95,39 @@ void main() {
     expect(result.isSuccess, isTrue);
     expect(Directory(created.path).existsSync(), isFalse);
   });
+
+  test('inspectHead returns the HEAD commit and a clean flag', () async {
+    final headResult = await Process.run('git', [
+      '-C',
+      repo.path,
+      'rev-parse',
+      'HEAD',
+    ]);
+    final expectedCommit = (headResult.stdout as String).trim();
+
+    final result = await service.inspectHead(repo.path);
+
+    expect(result.isSuccess, isTrue);
+    final head = result.valueOrNull!;
+    expect(head.commit, expectedCommit);
+    expect(head.hasUncommittedChanges, isFalse);
+  });
+
+  test('inspectHead reports uncommitted changes', () async {
+    await File(p.join(repo.path, 'untracked.txt')).writeAsString('hi');
+
+    final result = await service.inspectHead(repo.path);
+
+    expect(result.isSuccess, isTrue);
+    expect(result.valueOrNull!.hasUncommittedChanges, isTrue);
+  });
+
+  test('inspectHead fails on a folder without commits', () async {
+    final emptyRepo = Directory(p.join(root.path, 'empty-repo'))..createSync();
+    await Process.run('git', ['init', emptyRepo.path]);
+
+    final result = await service.inspectHead(emptyRepo.path);
+
+    expect(result, isA<FailureResult<FolderHead>>());
+  });
 }
