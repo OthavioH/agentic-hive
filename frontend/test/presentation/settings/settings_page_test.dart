@@ -261,5 +261,68 @@ void main() {
         expect(find.byType(HiveToast), findsNothing);
       },
     );
+
+    testWidgets(
+      'autoInstallSkills switch reflects saved value, enables Save on '
+      'toggle, and renders help text',
+      (tester) async {
+        configureDesktopWindow(tester);
+        final repo = _FakeSettingsRepository();
+        addTearDown(repo.dispose);
+        final themeStore = _FakeThemePreferenceStore();
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              settingsRepositoryProvider.overrideWithValue(repo),
+              themePreferenceStoreProvider.overrideWithValue(themeStore),
+            ],
+            child: _buildTestApp(),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final switchFinder = find.byKey(
+          const ValueKey<String>('settings_auto_install_skills_switch'),
+        );
+        await tester.ensureVisible(switchFinder);
+        final hiveSwitch = tester.widget<HiveSwitch>(switchFinder);
+        expect(hiveSwitch.value, isTrue);
+        expect(
+          hiveSwitch.label,
+          'Install the skill automatically for new harnesses',
+        );
+        expect(
+          find.text(
+            'The first time Agentic Hive finds a harness, it installs the '
+            'agentic-hive skill and the Hive MCP server for it. It never '
+            'updates them by itself.',
+          ),
+          findsOneWidget,
+        );
+
+        expect(
+          tester
+              .widget<HiveButton>(
+                find.byKey(const ValueKey<String>('settings_save_button')),
+              )
+              .onPressed,
+          isNull,
+        );
+
+        await tester.tap(switchFinder);
+        await tester.pumpAndSettle();
+
+        expect(tester.widget<HiveSwitch>(switchFinder).value, isFalse);
+        expect(
+          tester
+              .widget<HiveButton>(
+                find.byKey(const ValueKey<String>('settings_save_button')),
+              )
+              .onPressed,
+          isNotNull,
+        );
+      },
+    );
   });
 }

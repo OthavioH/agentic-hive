@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:agentic_hive_frontend/core/backend/backend_client.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_client_provider.dart';
@@ -22,6 +23,15 @@ abstract interface class HarnessesRemoteDataSource {
 
   /// Calls `POST /api/v1/harnesses/:id/mcp/install`.
   Future<Result<HarnessInfo>> installMcp(HarnessId id);
+
+  /// Calls `POST /api/v1/harnesses/:id/skill/install`.
+  Future<Result<HarnessInfo>> installSkill(
+    HarnessId id, {
+    required bool overwriteModified,
+  });
+
+  /// Calls `DELETE /api/v1/harnesses/:id/skill`.
+  Future<Result<HarnessInfo>> removeSkill(HarnessId id);
 
   /// Stream of [HarnessInfo] updates parsed from `harness.status_updated`
   /// WebSocket messages.
@@ -62,6 +72,26 @@ final class HarnessesRemoteDataSourceImpl implements HarnessesRemoteDataSource {
   );
 
   @override
+  Future<Result<HarnessInfo>> installSkill(
+    HarnessId id, {
+    required bool overwriteModified,
+  }) => _decodeJsonResult(
+    _client.postJson(
+      '/api/v1/harnesses/${id.wireName}/skill/install'
+      '?overwriteModified=$overwriteModified',
+    ),
+    HarnessInfo.fromJson,
+    mapConflict: true,
+  );
+
+  @override
+  Future<Result<HarnessInfo>> removeSkill(HarnessId id) => _decodeJsonResult(
+    _client.sendJsonRequest('DELETE', '/api/v1/harnesses/${id.wireName}/skill'),
+    HarnessInfo.fromJson,
+    mapConflict: true,
+  );
+
+  @override
   Stream<HarnessInfo> watchHarnessUpdates() => _wsMessages
       .where((envelope) => envelope.type == WsMessageType.harnessStatusUpdated)
       .transform(
@@ -81,13 +111,26 @@ final class HarnessesRemoteDataSourceImpl implements HarnessesRemoteDataSource {
 
   Future<Result<T>> _decodeJsonResult<T>(
     Future<Result<JsonMap>> request,
-    T Function(JsonMap json) fromJson,
-  ) async {
+    T Function(JsonMap json) fromJson, {
+    bool mapConflict = false,
+  }) async {
     final result = await request;
     return switch (result) {
-      FailureResult<JsonMap>(:final failure) => FailureResult<T>(failure),
+      FailureResult<JsonMap>(:final failure) => FailureResult<T>(
+        mapConflict ? _mapConflictIfNeeded(failure) : failure,
+      ),
       Success<JsonMap>(:final value) => _parse(value, fromJson),
     };
+  }
+
+  Failure _mapConflictIfNeeded(Failure failure) {
+    if (failure
+        case BackendFailure(:final message, :final code, :final statusCode)
+        when statusCode == HttpStatus.conflict ||
+            code == ApiErrorCode.conflict) {
+      return ConflictFailure(message);
+    }
+    return failure;
   }
 
   Result<T> _parse<T>(JsonMap json, T Function(JsonMap json) fromJson) {

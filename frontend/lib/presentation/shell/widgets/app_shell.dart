@@ -1,5 +1,6 @@
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/pauses/controllers/pending_pauses_count_provider.dart';
+import 'package:agentic_hive_frontend/presentation/skills/widgets/skill_notice_host.dart';
 import 'package:agentic_hive_frontend/presentation/workspace/widgets/side_rail_tree.dart';
 import 'package:agentic_hive_frontend/presentation/workspace/widgets/workspace_switcher_bar.dart';
 import 'package:agentic_hive_frontend/routes/app_routes.dart';
@@ -133,6 +134,7 @@ class AppShell extends ConsumerWidget {
                   children: <Widget>[
                     const WorkspaceSwitcherBar(),
                     SizedBox(height: spacing.space2),
+                    SkillNoticeHost(location: location),
                     Expanded(child: child),
                   ],
                 ),

@@ -1,0 +1,101 @@
+SemanticsNode#
+ │
+ └─SemanticsNode#
+   │
+   └─SemanticsNode#
+     │ sortKey: OrdinalSortKey#(order: 0.0)
+     │
+     └─SemanticsNode#
+       │ flags: scopesRoute
+       │
+       ├─SemanticsNode#
+       │   flags: isHeader
+       │   label: "Harnesses"
+       │
+       ├─SemanticsNode#
+       │   label: "Detected local AI agent CLIs, versions, and sign-in
+       │     readiness."
+       │
+       ├─SemanticsNode#
+       │   actions: tap
+       │   flags: isButton, hasEnabledState, isEnabled
+       │   label: "Refresh"
+       │
+       └─SemanticsNode#
+         │ actions: scrollToOffset, scrollUp
+         │ flags: hasImplicitScrolling
+         │ scrollExtentMin: 0.0
+         │ scrollPosition: 0.0
+         │
+         ├─SemanticsNode#
+         │   label: "Claude Code"
+         │
+         ├─SemanticsNode#
+         │   label: "Ready"
+         │
+         ├─SemanticsNode#
+         │   label: "Ready"
+         │
+         ├─SemanticsNode#
+         │   actions: tap
+         │   flags: isButton, hasEnabledState, isEnabled
+         │   label: "Re-check Claude Code"
+         │
+         ├─SemanticsNode#
+         │   label: "Version 1.0.5"
+         │
+         ├─SemanticsNode#
+         │   label: "Executable"
+         │
+         ├─SemanticsNode#
+         │   label: "/usr/local/bin/claude"
+         │
+         ├─SemanticsNode#
+         │   actions: tap
+         │   flags: isButton, hasEnabledState, isEnabled
+         │   label: "Copy Claude Code executable path"
+         │
+         ├─SemanticsNode#
+         │   label: "MCP installed"
+         │
+         ├─SemanticsNode#
+         │ │ flags: isLiveRegion
+         │ │
+         │ ├─SemanticsNode#
+         │ │   label: "Skill not installed"
+         │ │
+         │ └─SemanticsNode#
+         │     actions: tap
+         │     flags: isButton, hasEnabledState, isEnabled
+         │     label: "Install"
+         │
+         └─SemanticsNode#
+           │ flags: isLiveRegion
+           │
+           ├─SemanticsNode#
+           │   label: "The skill action failed"
+           │
+           ├─SemanticsNode#
+           │   label: "Could not write to ~/.claude/skills: disk full."
+           │
+           └─SemanticsNode#
+               actions: tap
+               flags: isButton, hasEnabledState, isEnabled, isHidden
+               HIDDEN
+               label: "Retry"
+
+--- texts ---
+Harnesses
+Detected local AI agent CLIs, versions, and sign-in readiness.
+Refresh
+Claude Code
+Version 1.0.5
+Ready
+Executable
+/usr/local/bin/claude
+MCP installed
+Skill not installed
+Install
+The skill action failed
+Could not write to ~/.claude/skills: disk full.
+Retry

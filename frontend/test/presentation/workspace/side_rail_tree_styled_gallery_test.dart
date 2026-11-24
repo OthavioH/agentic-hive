@@ -3,8 +3,11 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:agentic_hive_frontend/core/result/result.dart';
+import 'package:agentic_hive_frontend/data/harnesses/harness_repository_impl.dart';
 import 'package:agentic_hive_frontend/data/pauses/pause_providers.dart';
 import 'package:agentic_hive_frontend/data/runs/run_providers.dart';
+import 'package:agentic_hive_frontend/data/skills/file_outdated_banner_store.dart';
+import 'package:agentic_hive_frontend/data/skills/skill_notice_repository_impl.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_tree_changes_providers.dart';
 import 'package:agentic_hive_frontend/domain/pauses/pause_event.dart';
@@ -28,6 +31,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../harnesses/scripted_harness_repository.dart';
+import '../skills/memory_outdated_banner_store.dart';
+import '../skills/scripted_skill_notice_repository.dart';
 import 'fake_workspace_repository.dart';
 
 final class _FakeSelectionStore implements WorkspaceSelectionStore {
@@ -169,6 +175,10 @@ Future<void> _capture(
   addTearDown(() => tester.binding.setSurfaceSize(null));
 
   final boundaryKey = GlobalKey();
+  final harnessRepo = ScriptedHarnessRepository();
+  final noticeRepo = ScriptedSkillNoticeRepository();
+  addTearDown(harnessRepo.dispose);
+  addTearDown(noticeRepo.dispose);
   final container = ProviderContainer.test(
     overrides: [
       workspaceRepositoryProvider.overrideWithValue(workspaceRepo),
@@ -177,6 +187,11 @@ Future<void> _capture(
       pauseRepositoryProvider.overrideWithValue(pauseRepo),
       sideRailTreeClockProvider.overrideWithValue(() => fixedNow),
       workspaceTreeChangesSourceProvider.overrideWithValue(_NoChangesSource()),
+      harnessRepositoryProvider.overrideWithValue(harnessRepo),
+      skillNoticeRepositoryProvider.overrideWithValue(noticeRepo),
+      outdatedBannerStoreProvider.overrideWithValue(
+        MemoryOutdatedBannerStore(),
+      ),
     ],
   );
 

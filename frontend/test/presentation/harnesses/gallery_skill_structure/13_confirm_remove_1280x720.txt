@@ -1,0 +1,61 @@
+SemanticsNode#
+ │
+ └─SemanticsNode#
+   │
+   ├─SemanticsNode#
+   │ │ sortKey: OrdinalSortKey#(order: 0.0)
+   │ │
+   │ └─SemanticsNode#
+   │   │ flags: scopesRoute
+   │   │
+   │   └─SemanticsNode#
+   │     │
+   │     └─SemanticsNode#
+   │       │ flags: scopesRoute, namesRoute
+   │       │ label: "Remove the skill from Claude Code?"
+   │       │
+   │       ├─SemanticsNode#
+   │       │ │ flags: hasImplicitScrolling
+   │       │ │ scrollExtentMin: 0.0
+   │       │ │ scrollPosition: 0.0
+   │       │ │
+   │       │ ├─SemanticsNode#
+   │       │ │   flags: isHeader
+   │       │ │   label: "Remove the skill from Claude Code?"
+   │       │ │
+   │       │ └─SemanticsNode#
+   │       │     label: "This deletes the agentic-hive skill folder that Agentic
+   │       │       Hive installed for Claude Code. The Hive MCP server stays
+   │       │       installed."
+   │       │
+   │       ├─SemanticsNode#
+   │       │   actions: tap
+   │       │   flags: isButton, hasEnabledState, isEnabled
+   │       │   label: "Cancel"
+   │       │
+   │       └─SemanticsNode#
+   │           actions: tap
+   │           flags: isButton, hasEnabledState, isEnabled
+   │           label: "Remove"
+   │
+   └─SemanticsNode#
+       actions: dismiss, tap
+       label: "Cancel"
+       sortKey: OrdinalSortKey#(order: 1.0)
+
+--- texts ---
+Harnesses
+Detected local AI agent CLIs, versions, and sign-in readiness.
+Refresh
+Claude Code
+Version 1.0.5
+Ready
+Executable
+/usr/local/bin/claude
+MCP installed
+Skill installed
+Remove
+Remove the skill from Claude Code?
+This deletes the agentic-hive skill folder that Agentic Hive installed for Claude Code. The Hive MCP server stays installed.
+Cancel
+Remove

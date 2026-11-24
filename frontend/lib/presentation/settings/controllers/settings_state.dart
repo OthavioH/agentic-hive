@@ -11,6 +11,7 @@ sealed class SettingsState with _$SettingsState {
     required AppSettings saved,
     required String agentsDirDraft,
     required Map<HarnessId, String> harnessOverridesDraft,
+    required bool autoInstallSkillsDraft,
     @Default(false) bool isSaving,
     @Default(<String, String>{}) Map<String, String> fieldErrors,
   }) = _SettingsState;
@@ -24,11 +25,14 @@ sealed class SettingsState with _$SettingsState {
     harnessOverridesDraft: Map<HarnessId, String>.from(
       settings.harnessOverrides,
     ),
+    autoInstallSkillsDraft: settings.autoInstallSkills,
   );
 
-  /// Whether any path or harness override draft differs from [saved].
+  /// Whether any path, override, or skill auto-install draft differs from
+  /// [saved].
   bool get hasUnsavedChanges {
     if (agentsDirDraft.trim() != saved.effectiveAgentsDir) return true;
+    if (autoInstallSkillsDraft != saved.autoInstallSkills) return true;
     return !_mapsEqual(normalizedHarnessOverrides, saved.harnessOverrides);
   }
 
@@ -48,6 +52,7 @@ sealed class SettingsState with _$SettingsState {
     return UpdateSettingsRequest(
       agentsDir: agentsDir,
       harnessOverrides: normalizedHarnessOverrides,
+      autoInstallSkills: autoInstallSkillsDraft,
     );
   }
 

@@ -1,0 +1,268 @@
+SemanticsNode#
+ │
+ └─SemanticsNode#
+   │
+   └─SemanticsNode#
+     │ sortKey: OrdinalSortKey#(order: 0.0)
+     │
+     └─SemanticsNode#
+       │ flags: scopesRoute
+       │
+       ├─SemanticsNode#
+       │   flags: isHeader
+       │   label: "Settings"
+       │
+       ├─SemanticsNode#
+       │   label: "Configure appearance, default paths, and custom harness
+       │     executables."
+       │
+       ├─SemanticsNode#
+       │   flags: isButton, hasEnabledState
+       │   label: "Discard"
+       │
+       ├─SemanticsNode#
+       │   flags: isButton, hasEnabledState
+       │   label: "Save"
+       │
+       └─SemanticsNode#
+         │ actions: scrollDown, scrollToOffset
+         │ flags: hasImplicitScrolling
+         │ scrollExtentMin: 0.0
+         │ scrollPosition: 882.0
+         │
+         ├─SemanticsNode#
+         │   flags: isHidden
+         │   HIDDEN
+         │   label: "Appearance"
+         │
+         ├─SemanticsNode#
+         │   flags: isHidden
+         │   HIDDEN
+         │   label: "Choose how Agentic Hive looks on this device. Changes
+         │     apply immediately."
+         │
+         ├─SemanticsNode#
+         │   flags: isHidden
+         │   HIDDEN
+         │   label: "Theme"
+         │
+         ├─SemanticsNode#
+         │ │ flags: isHidden
+         │ │ HIDDEN
+         │ │ label: "Theme"
+         │ │
+         │ ├─SemanticsNode#
+         │ │   actions: tap
+         │ │   flags: isSelected, isButton, hasEnabledState, isEnabled,
+         │ │     isHidden, hasSelectedState
+         │ │   HIDDEN
+         │ │   label: "Dark"
+         │ │
+         │ ├─SemanticsNode#
+         │ │   actions: tap
+         │ │   flags: isButton, hasEnabledState, isEnabled, isHidden,
+         │ │     hasSelectedState
+         │ │   HIDDEN
+         │ │   label: "Light"
+         │ │
+         │ └─SemanticsNode#
+         │     actions: tap
+         │     flags: isButton, hasEnabledState, isEnabled, isHidden,
+         │       hasSelectedState
+         │     HIDDEN
+         │     label: "System"
+         │
+         ├─SemanticsNode#
+         │   flags: isHidden
+         │   HIDDEN
+         │   label: "Paths"
+         │
+         ├─SemanticsNode#
+         │   flags: isHidden
+         │   HIDDEN
+         │   label: "Configure where agents are loaded from and the default
+         │     workspace for new runs."
+         │
+         ├─SemanticsNode#
+         │ │ merge boundary ⛔️
+         │ │ flags: isHidden
+         │ │ HIDDEN
+         │ │ label: "Agents folder"
+         │ │
+         │ ├─SemanticsNode#
+         │ │   merged up ⬆️
+         │ │   actions: focus, tap
+         │ │   flags: isTextField, hasEnabledState, isEnabled, isFocusable
+         │ │   value: "/home/user/.agents/agents"
+         │ │   currentValueLength: 25
+         │ │   inputType: text
+         │ │
+         │ ├─SemanticsNode#
+         │ │   merged up ⬆️
+         │ │   actions: tap
+         │ │   flags: isButton, hasEnabledState, isEnabled
+         │ │   label: "Browse"
+         │ │
+         │ └─SemanticsNode#
+         │     merged up ⬆️
+         │     flags: isButton, hasEnabledState
+         │     label: "Reset to default"
+         │
+         ├─SemanticsNode#
+         │   flags: isHidden
+         │   HIDDEN
+         │   label: "Default: /home/user/.agents/agents"
+         │
+         ├─SemanticsNode#
+         │   flags: isHidden
+         │   HIDDEN
+         │   label: "Harnesses"
+         │
+         ├─SemanticsNode#
+         │   flags: isHidden
+         │   HIDDEN
+         │   label: "Override auto-detected CLI executable paths when needed.
+         │     Leave blank for auto-detection."
+         │
+         ├─SemanticsNode#
+         │ │ merge boundary ⛔️
+         │ │ flags: isHidden
+         │ │ HIDDEN
+         │ │ label: "Claude Code"
+         │ │
+         │ ├─SemanticsNode#
+         │ │   merged up ⬆️
+         │ │   actions: focus, tap
+         │ │   flags: isTextField, hasEnabledState, isEnabled, isFocusable
+         │ │   label: "Auto-detect from PATH"
+         │ │   currentValueLength: 0
+         │ │   inputType: text
+         │ │
+         │ ├─SemanticsNode#
+         │ │   merged up ⬆️
+         │ │   actions: tap
+         │ │   flags: isButton, hasEnabledState, isEnabled
+         │ │   label: "Browse"
+         │ │
+         │ └─SemanticsNode#
+         │     merged up ⬆️
+         │     flags: isButton, hasEnabledState
+         │     label: "Clear"
+         │
+         ├─SemanticsNode#
+         │ │ merge boundary ⛔️
+         │ │ label: "Codex"
+         │ │
+         │ ├─SemanticsNode#
+         │ │   merged up ⬆️
+         │ │   actions: focus, tap
+         │ │   flags: isTextField, hasEnabledState, isEnabled, isFocusable
+         │ │   label: "Auto-detect from PATH"
+         │ │   currentValueLength: 0
+         │ │   inputType: text
+         │ │
+         │ ├─SemanticsNode#
+         │ │   merged up ⬆️
+         │ │   actions: tap
+         │ │   flags: isButton, hasEnabledState, isEnabled
+         │ │   label: "Browse"
+         │ │
+         │ └─SemanticsNode#
+         │     merged up ⬆️
+         │     flags: isButton, hasEnabledState
+         │     label: "Clear"
+         │
+         ├─SemanticsNode#
+         │ │ merge boundary ⛔️
+         │ │ label: "Gemini CLI"
+         │ │
+         │ ├─SemanticsNode#
+         │ │   merged up ⬆️
+         │ │   actions: focus, tap
+         │ │   flags: isTextField, hasEnabledState, isEnabled, isFocusable
+         │ │   label: "Auto-detect from PATH"
+         │ │   currentValueLength: 0
+         │ │   inputType: text
+         │ │
+         │ ├─SemanticsNode#
+         │ │   merged up ⬆️
+         │ │   actions: tap
+         │ │   flags: isButton, hasEnabledState, isEnabled
+         │ │   label: "Browse"
+         │ │
+         │ └─SemanticsNode#
+         │     merged up ⬆️
+         │     flags: isButton, hasEnabledState
+         │     label: "Clear"
+         │
+         ├─SemanticsNode#
+         │ │ merge boundary ⛔️
+         │ │ label: "Antigravity"
+         │ │
+         │ ├─SemanticsNode#
+         │ │   merged up ⬆️
+         │ │   actions: focus, tap
+         │ │   flags: isTextField, hasEnabledState, isEnabled, isFocusable
+         │ │   label: "Auto-detect from PATH"
+         │ │   currentValueLength: 0
+         │ │   inputType: text
+         │ │
+         │ ├─SemanticsNode#
+         │ │   merged up ⬆️
+         │ │   actions: tap
+         │ │   flags: isButton, hasEnabledState, isEnabled
+         │ │   label: "Browse"
+         │ │
+         │ └─SemanticsNode#
+         │     merged up ⬆️
+         │     flags: isButton, hasEnabledState
+         │     label: "Clear"
+         │
+         ├─SemanticsNode#
+         │   actions: tap
+         │   flags: hasEnabledState, isEnabled, hasToggledState
+         │   label: "Install the skill automatically for new harnesses"
+         │
+         └─SemanticsNode#
+             label: "The first time Agentic Hive finds a harness, it installs
+               the agentic-hive skill and the Hive MCP server for it. It never
+               updates them by itself."
+
+--- texts ---
+Settings
+Configure appearance, default paths, and custom harness executables.
+Discard
+Save
+Appearance
+Choose how Agentic Hive looks on this device. Changes apply immediately.
+Theme
+Dark
+Light
+System
+Paths
+Configure where agents are loaded from and the default workspace for new runs.
+Agents folder
+Path to your agents directory
+Browse
+Reset to default
+Default: /home/user/.agents/agents
+Harnesses
+Override auto-detected CLI executable paths when needed. Leave blank for auto-detection.
+Claude Code
+Auto-detect from PATH
+Browse
+Clear
+Codex
+Auto-detect from PATH
+Browse
+Clear
+Gemini CLI
+Auto-detect from PATH
+Browse
+Clear
+Antigravity
+Auto-detect from PATH
+Browse
+Clear
+Install the skill automatically for new harnesses
+The first time Agentic Hive finds a harness, it installs the agentic-hive skill and the Hive MCP server for it. It never updates them by itself.
