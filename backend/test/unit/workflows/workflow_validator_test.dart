@@ -346,5 +346,69 @@ void main() {
       expect(configIssues, hasLength(2));
       expect(configIssues.every((i) => i.nodeId == 'n1'), isTrue);
     });
+
+    test('validates human_approval proposalNodeId against workflow nodes', () {
+      final valid = _workflow(
+        entryNodeId: 'planner',
+        nodes: [
+          _node('planner'),
+          _node(
+            'gate',
+            type: NodeTypeId.humanApproval,
+            config: const {
+              'instructions': 'Review.',
+              'proposalNodeId': 'planner',
+              'proposalPath': 'issues',
+            },
+          ),
+        ],
+        edges: [
+          const WorkflowEdge(
+            id: 'e1',
+            sourceNodeId: 'planner',
+            sourceOutput: NodeOutput.onSuccess,
+            targetNodeId: 'gate',
+          ),
+        ],
+      );
+      expect(validator.validate(valid).issues, isEmpty);
+
+      final missing = _workflow(
+        entryNodeId: 'gate',
+        nodes: [
+          _node(
+            'gate',
+            type: NodeTypeId.humanApproval,
+            config: const {
+              'instructions': 'Review.',
+              'proposalNodeId': 'ghost',
+              'proposalPath': 'issues',
+            },
+          ),
+        ],
+      );
+      final missingRes = validator.validate(missing);
+      expect(missingRes.isValid, isFalse);
+      expect(
+        missingRes.issues.single.code,
+        WorkflowValidationCode.invalidNodeConfig,
+      );
+      expect(missingRes.issues.single.nodeId, 'gate');
+
+      final selfRef = _workflow(
+        nodes: [
+          _node(
+            'gate',
+            type: NodeTypeId.humanApproval,
+            config: const {
+              'instructions': 'Review.',
+              'proposalNodeId': 'gate',
+              'proposalPath': 'issues',
+            },
+          ),
+        ],
+      );
+      expect(validator.validate(selfRef).isValid, isFalse);
+    });
   });
 }

@@ -470,5 +470,86 @@ void main() {
       expect(rejected.valueOrNull!.outputLabel, NodeOutput.rejected);
       expect(rejected.valueOrNull!.data['feedback'], 'Needs fixes');
     });
+
+    test('reads proposal from nodeOutputs and forwards to port', () async {
+      final port = _FakeHumanApprovalPort(
+        const HumanApprovalResponse(
+          decision: HumanApprovalDecision.approved,
+          proposal: [1, 2],
+          edited: true,
+        ),
+      );
+      final node = HumanApprovalNode(approvalPort: port);
+
+      final result = await node.execute(
+        const NodeExecutionContext(
+          runId: 'run-1',
+          nodeId: 'n1',
+          workspacePath: '/tmp/ws',
+          config: {
+            'instructions': 'Review.',
+            'proposalNodeId': 'planner',
+            'proposalPath': 'issues',
+            'proposalSchema': '{"type":"array"}',
+          },
+          inputs: {
+            'nodeOutputs': {
+              'planner': {
+                'data': {
+                  'issues': [1],
+                },
+              },
+            },
+          },
+        ),
+      );
+      expect(port.lastRequest?.proposalNodeId, 'planner');
+      expect(port.lastRequest?.proposal, [1]);
+      expect(port.lastRequest?.proposalSchema, '{"type":"array"}');
+      expect(result.valueOrNull!.data['proposal'], [1, 2]);
+      expect(result.valueOrNull!.data['edited'], isTrue);
+    });
+
+    test(
+      'fails with ValidationFailure when proposal source or field missing',
+      () async {
+        final port = _FakeHumanApprovalPort(
+          const HumanApprovalResponse(decision: HumanApprovalDecision.approved),
+        );
+        final node = HumanApprovalNode(approvalPort: port);
+
+        final noSource = await node.execute(
+          ctx(const {
+            'instructions': 'Review.',
+            'proposalNodeId': 'planner',
+            'proposalPath': 'issues',
+          }),
+        );
+        expect(noSource.failureOrNull, isA<ValidationFailure>());
+        expect(noSource.failureOrNull!.message, contains('planner'));
+
+        final nullField = await node.execute(
+          const NodeExecutionContext(
+            runId: 'run-1',
+            nodeId: 'n1',
+            workspacePath: '/tmp/ws',
+            config: {
+              'instructions': 'Review.',
+              'proposalNodeId': 'planner',
+              'proposalPath': 'issues',
+            },
+            inputs: {
+              'nodeOutputs': {
+                'planner': {
+                  'data': {'issues': null},
+                },
+              },
+            },
+          ),
+        );
+        expect(nullField.failureOrNull, isA<ValidationFailure>());
+        expect(nullField.failureOrNull!.message, contains('issues'));
+      },
+    );
   });
 }

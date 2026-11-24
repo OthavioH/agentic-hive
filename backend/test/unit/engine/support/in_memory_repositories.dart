@@ -361,6 +361,7 @@ final class InMemoryPauseRepository implements PauseRepository {
     String? decision,
     String? feedback,
     String? answer,
+    Object? editedProposal,
   }) async {
     final existing = pauses[id];
     if (existing == null) {
@@ -376,6 +377,7 @@ final class InMemoryPauseRepository implements PauseRepository {
       decision: decision,
       feedback: feedback,
       answer: answer,
+      editedProposal: editedProposal,
       answeredAt: answeredAt,
     );
     pauses[id] = updated;

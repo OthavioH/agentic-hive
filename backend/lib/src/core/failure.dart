@@ -112,6 +112,9 @@ final class PauseRequestedFailure extends Failure {
     required this.runId,
     required this.nodeId,
     this.question,
+    this.proposalNodeId,
+    this.proposal,
+    this.proposalSchema,
   });
 
   /// What the node is waiting for.
@@ -125,6 +128,15 @@ final class PauseRequestedFailure extends Failure {
 
   /// Question or instructions shown to the human, when known.
   final String? question;
+
+  /// Id of the source node that produced [proposal], when configured.
+  final String? proposalNodeId;
+
+  /// Original JSON proposal value read from the source node.
+  final Object? proposal;
+
+  /// Optional JSON Schema text for validating edits to [proposal].
+  final String? proposalSchema;
 }
 
 /// A node failed due to an infrastructure error (missing report, non-zero

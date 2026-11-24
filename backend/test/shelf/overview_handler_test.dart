@@ -211,6 +211,7 @@ final class _FakePauseRepository implements PauseRepository {
     String? decision,
     String? feedback,
     String? answer,
+    Object? editedProposal,
   }) => throw UnimplementedError();
 
   @override

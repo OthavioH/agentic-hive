@@ -24,6 +24,9 @@ final class PausingHumanApprovalPort implements HumanApprovalPort {
       runId: request.runId,
       nodeId: request.nodeId,
       question: request.instructions,
+      proposalNodeId: request.proposalNodeId,
+      proposal: request.proposal,
+      proposalSchema: request.proposalSchema,
     ),
   );
 }

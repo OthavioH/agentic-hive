@@ -260,6 +260,9 @@ final class HumanApprovalRequest {
     required this.instructions,
     this.title,
     this.allowFeedback = true,
+    this.proposalNodeId,
+    this.proposal,
+    this.proposalSchema,
   });
 
   /// Active run id.
@@ -276,18 +279,38 @@ final class HumanApprovalRequest {
 
   /// Whether free-form feedback is allowed.
   final bool allowFeedback;
+
+  /// Id of the source node that produced [proposal], when configured.
+  final String? proposalNodeId;
+
+  /// Original JSON proposal value read from the source node.
+  final Object? proposal;
+
+  /// Optional JSON Schema text for validating edits to [proposal].
+  final String? proposalSchema;
 }
 
 /// Response returned by [HumanApprovalPort].
 final class HumanApprovalResponse {
   /// Creates a human approval response.
-  const new({required this.decision, this.feedback});
+  const new({
+    required this.decision,
+    this.feedback,
+    this.proposal,
+    this.edited = false,
+  });
 
   /// Human decision.
   final HumanApprovalDecision decision;
 
   /// Optional reviewer feedback.
   final String? feedback;
+
+  /// Final proposal value, when the request carried a proposal.
+  final Object? proposal;
+
+  /// Whether the human edited [proposal] before approving.
+  final bool edited;
 }
 
 /// Port for pausing a run to request human approval.

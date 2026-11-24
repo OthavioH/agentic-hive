@@ -20,4 +20,22 @@ void main() {
     expect(failure.nodeId, 'gate');
     expect(failure.question, 'Check the diff.');
   });
+
+  test('carries proposal fields from the request', () async {
+    final result = await const PausingHumanApprovalPort().requestApproval(
+      const HumanApprovalRequest(
+        runId: 'run-1',
+        nodeId: 'gate',
+        instructions: 'Check.',
+        proposalNodeId: 'planner',
+        proposal: [1, 2],
+        proposalSchema: '{"type":"array"}',
+      ),
+    );
+
+    final failure = result.failureOrNull! as PauseRequestedFailure;
+    expect(failure.proposalNodeId, 'planner');
+    expect(failure.proposal, [1, 2]);
+    expect(failure.proposalSchema, '{"type":"array"}');
+  });
 }

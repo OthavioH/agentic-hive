@@ -134,6 +134,7 @@ final class WorkflowValidator {
     List<WorkflowNode> nodes,
     List<WorkflowValidationIssue> issues,
   ) {
+    final nodeIds = {for (final node in nodes) node.id};
     for (final node in nodes) {
       final descriptor = _nodeRegistry != null
           ? _nodeRegistry.descriptorFor(node.type)
@@ -160,6 +161,43 @@ final class WorkflowValidator {
           ),
         );
       }
+
+      if (node.type == NodeTypeId.humanApproval) {
+        _validateProposalSource(node, nodeIds, issues);
+      }
+    }
+  }
+
+  void _validateProposalSource(
+    WorkflowNode node,
+    Set<String> nodeIds,
+    List<WorkflowValidationIssue> issues,
+  ) {
+    final raw = node.config['proposalNodeId'];
+    if (raw is! String) return;
+    final proposalNodeId = raw.trim();
+    if (proposalNodeId.isEmpty) return;
+
+    if (proposalNodeId == node.id) {
+      issues.add(
+        WorkflowValidationIssue(
+          severity: WorkflowValidationSeverity.error,
+          code: WorkflowValidationCode.invalidNodeConfig,
+          message: 'proposalNodeId: Must not be the approval node itself.',
+          nodeId: node.id,
+        ),
+      );
+    } else if (!nodeIds.contains(proposalNodeId)) {
+      issues.add(
+        WorkflowValidationIssue(
+          severity: WorkflowValidationSeverity.error,
+          code: WorkflowValidationCode.invalidNodeConfig,
+          message:
+              'proposalNodeId: Node "$proposalNodeId" does not exist in this '
+              'workflow.',
+          nodeId: node.id,
+        ),
+      );
     }
   }
 

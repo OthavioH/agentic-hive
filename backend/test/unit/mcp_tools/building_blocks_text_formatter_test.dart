@@ -48,7 +48,8 @@ final _canonicalBlocks = <String>[
   ].join(),
   [
     '- human_approval -> approved|rejected\n',
-    '  config: instructions*, title, allowFeedback:bool',
+    '  config: instructions*, title, allowFeedback:bool, ',
+    'proposalNodeId, proposalPath, proposalSchema',
   ].join(),
 ];
 
