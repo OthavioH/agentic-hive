@@ -198,10 +198,7 @@ void main() {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: <Widget>[
-                      const HiveBadge(
-                        label: 'Not installed',
-                        tone: HiveBadgeTone.neutral,
-                      ),
+                      const HiveBadge(label: 'Not installed'),
                       HiveButton(
                         label: 'Install',
                         size: HiveButtonSize.small,
@@ -257,7 +254,9 @@ void main() {
             width: 400,
             child: HiveSwitch(
               label: 'Install the skill automatically',
-              helperText: 'Installs the agentic-hive skill when a new harness is found.',
+              helperText:
+                  'Installs the agentic-hive skill when a new harness is '
+                  'found.',
               value: true,
               onChanged: (_) {},
             ),

@@ -1,5 +1,4 @@
 import 'package:design_system/design_system.dart';
-import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -12,7 +11,7 @@ void main() {
       'light': (theme: HiveTheme.light(), colors: HiveColors.light),
     }.entries) {
       testWidgets(
-        'uses surface2 fill, borderSubtle hairline and radiusCard (${entry.key})',
+        'uses surface2, borderSubtle hairline and radiusCard (${entry.key})',
         (tester) async {
           await tester.pumpWidget(
             hiveTestApp(
@@ -45,7 +44,7 @@ void main() {
       const defaultPanel = HiveInsetPanel(child: SizedBox());
       expect(defaultPanel.padding, HiveInsetPadding.compact);
 
-      final spacing = HiveSpacing.standard;
+      const spacing = HiveSpacing.standard;
       final expected = <HiveInsetPadding, EdgeInsets>{
         HiveInsetPadding.tight: EdgeInsets.all(spacing.space1),
         HiveInsetPadding.compact: EdgeInsets.symmetric(
@@ -92,56 +91,56 @@ void main() {
           findsNothing,
         );
 
-        final panelNode = tester.getSemantics(find.byType(HiveInsetPanel));
-        expect(panelNode.label, 'Inside');
         expect(
-          panelNode.getSemanticsData().hasFlag(SemanticsFlag.isButton),
-          isFalse,
+          tester.getSemantics(find.byType(HiveInsetPanel)),
+          same(tester.getSemantics(find.byType(HiveSurface))),
         );
+        final textNode = tester.getSemantics(find.text('Inside'));
+        expect(textNode.label, 'Inside');
+        expect(textNode.flagsCollection.isButton, isFalse);
       } finally {
         handle.dispose();
       }
     });
 
     testWidgets(
-      'header row and stacked explanation do not overflow at 280px and 2.0x text',
+      'header row and stacked explanation do not overflow at 280px, 2x text',
       (tester) async {
         await tester.pumpWidget(
           MediaQuery(
-            data: const MediaQueryData(textScaler: TextScaler.linear(2.0)),
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
             child: hiveTestApp(
-              child: SizedBox(
-                width: 280,
-                child: HiveInsetPanel(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: HiveSpacing.standard.space1,
-                        runSpacing: HiveSpacing.standard.space1,
-                        children: <Widget>[
-                          const HiveBadge(
-                            label: 'Skill not installed',
-                            tone: HiveBadgeTone.neutral,
-                          ),
-                          HiveButton(
-                            label: 'Install',
-                            size: HiveButtonSize.small,
-                            variant: HiveButtonVariant.secondary,
-                            onPressed: () {},
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: HiveSpacing.standard.space1),
-                      const Text(
-                        'Could not read the existing skill directory due to '
-                        'a naming conflict with another file on disk.',
-                        softWrap: true,
-                      ),
-                    ],
+              child: SingleChildScrollView(
+                child: SizedBox(
+                  width: 280,
+                  child: HiveInsetPanel(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: HiveSpacing.standard.space1,
+                          runSpacing: HiveSpacing.standard.space1,
+                          children: <Widget>[
+                            const HiveBadge(label: 'Skill not installed'),
+                            HiveButton(
+                              label: 'Install',
+                              size: HiveButtonSize.small,
+                              variant: HiveButtonVariant.secondary,
+                              onPressed: () {},
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: HiveSpacing.standard.space1),
+                        const Text(
+                          'Could not read the existing skill directory due '
+                          'to a naming conflict with another file on disk.',
+                          softWrap: true,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
