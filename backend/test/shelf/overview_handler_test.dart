@@ -114,7 +114,7 @@ final class _FakeRunRepository implements RunRepository {
   }) => throw UnimplementedError();
 
   @override
-  Future<Result<void>> delete(String id) => throw UnimplementedError();
+  Future<Result<List<String>>> delete(String id) => throw UnimplementedError();
 
   @override
   Future<Result<List<String>>> deleteAllOfWorkflow(
@@ -252,7 +252,7 @@ final class _FakeAgentRepository implements AgentRepository {
       throw UnimplementedError();
 
   @override
-  Future<Result<void>> delete(String id) => throw UnimplementedError();
+  Future<Result<List<String>>> delete(String id) => throw UnimplementedError();
 }
 
 Workflow _workflow(String id, String name, List<WorkflowNode> nodes) =>

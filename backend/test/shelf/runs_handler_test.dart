@@ -35,7 +35,7 @@ final class _FakeRunRepository implements RunRepository {
   }) async => const Success(<Run>[]);
 
   @override
-  Future<Result<void>> delete(String id) async {
+  Future<Result<List<String>>> delete(String id) async {
     final existing = store[id];
     if (existing == null) {
       return FailureResult(NotFoundFailure('Run "$id" not found.'));
@@ -49,7 +49,7 @@ final class _FakeRunRepository implements RunRepository {
       );
     }
     store.remove(id);
-    return const Success<void>(null);
+    return Success(<String>[id]);
   }
 
   @override
