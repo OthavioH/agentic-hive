@@ -161,6 +161,29 @@ WidgetbookComponent iconButtonComponent() {
           ),
         ),
       WidgetbookUseCase(
+        name: 'Disabled · With reason',
+        builder: (context) => const UseCaseFrame(
+          child: HiveIconButton(
+            icon: HiveIcons.copy,
+            semanticLabel: 'Duplicate workflow',
+            onPressed: null,
+            disabledReason: 'Unavailable while the workflow is being deleted.',
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Disabled · With reason (secondary)',
+        builder: (context) => const UseCaseFrame(
+          child: HiveIconButton(
+            icon: HiveIcons.copy,
+            semanticLabel: 'Duplicate workflow',
+            variant: HiveButtonVariant.secondary,
+            onPressed: null,
+            disabledReason: 'Unavailable while the workflow is being deleted.',
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
         name: 'Sizes',
         builder: (context) => UseCaseFrame(
           child: ShowcaseSection(
@@ -228,6 +251,10 @@ WidgetbookComponent iconButtonComponent() {
           );
           final dangerHover = context.knobs.boolean(label: 'Danger hover');
           final loading = context.knobs.boolean(label: 'Loading');
+          final disabledReason = context.knobs.string(
+            label: 'Disabled reason',
+            initialValue: 'Unavailable while the workflow is being deleted.',
+          );
           final onPressed =
               context.knobs.boolean(label: 'Enabled', initialValue: true)
               ? _noop
@@ -240,6 +267,7 @@ WidgetbookComponent iconButtonComponent() {
                     semanticLabel: semanticLabel,
                     size: size,
                     loading: loading,
+                    disabledReason: disabledReason,
                     onPressed: onPressed,
                   )
                 : HiveIconButton(
@@ -248,6 +276,7 @@ WidgetbookComponent iconButtonComponent() {
                     variant: variant,
                     size: size,
                     loading: loading,
+                    disabledReason: disabledReason,
                     onPressed: onPressed,
                   ),
           );
@@ -358,6 +387,108 @@ WidgetbookComponent cardComponent() {
               ),
             ),
           ),
+      WidgetbookUseCase(
+        name: 'Busy · Deleting',
+        builder: (context) => UseCaseFrame(
+          child: sized(
+            context,
+            HiveCard(
+              busy: true,
+              semanticLabel: 'Open Release checklist',
+              statusLabel: 'Deleting…',
+              surface: HiveCardSurface.surface2,
+              child: _busyRowContent(context, 'Deleting…'),
+            ),
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Busy · Stopping runs',
+        builder: (context) => UseCaseFrame(
+          child: sized(
+            context,
+            HiveCard(
+              busy: true,
+              semanticLabel: 'Open Release checklist',
+              statusLabel: 'Deleting… (stopping 2 of 3 runs)',
+              surface: HiveCardSurface.surface2,
+              child: _busyRowContent(
+                context,
+                'Deleting… (stopping 2 of 3 runs)',
+              ),
+            ),
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Busy · with disabled actions',
+        builder: (context) {
+          final spacing = context.hiveSpacing;
+          const reason = 'Unavailable while the workflow is being deleted.';
+          return UseCaseFrame(
+            child: sized(
+              context,
+              HiveCard(
+                busy: true,
+                semanticLabel: 'Open Release checklist',
+                statusLabel: 'Deleting…',
+                surface: HiveCardSurface.surface2,
+                child: Row(
+                  children: <Widget>[
+                    Expanded(child: _busyRowContent(context, 'Deleting…')),
+                    SizedBox(width: spacing.space2),
+                    const HiveIconButton(
+                      icon: HiveIcons.play,
+                      semanticLabel: 'Run workflow',
+                      onPressed: null,
+                      disabledReason: reason,
+                    ),
+                    SizedBox(width: spacing.space1),
+                    const HiveIconButton(
+                      icon: HiveIcons.copy,
+                      semanticLabel: 'Duplicate workflow',
+                      onPressed: null,
+                      disabledReason: reason,
+                    ),
+                    SizedBox(width: spacing.space1),
+                    const HiveIconButton(
+                      icon: HiveIcons.delete,
+                      semanticLabel: 'Delete workflow',
+                      onPressed: null,
+                      disabledReason: reason,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    ],
+  );
+}
+
+Widget _busyRowContent(BuildContext context, String statusLabel) {
+  final colors = context.hiveColors;
+  final spacing = context.hiveSpacing;
+  final typography = context.hiveTypography;
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: <Widget>[
+      Text(
+        'Release checklist',
+        style: typography.titleSmall.copyWith(color: colors.onSurface),
+      ),
+      SizedBox(height: spacing.spaceHalf),
+      ExcludeSemantics(
+        child: HiveBadge(label: statusLabel, tone: HiveBadgeTone.warning),
+      ),
+      SizedBox(height: spacing.spaceHalf),
+      Text(
+        '4 nodes · 3 edges',
+        style: typography.bodySmall.copyWith(color: colors.onSurfaceMuted),
+      ),
     ],
   );
 }

@@ -24,6 +24,10 @@ Color _surface2(HiveColors c) => c.surface2;
 ///
 /// Pass [onPressed] and [semanticLabel] to make the whole card interactive;
 /// it then gains hover, pressed and keyboard focus states.
+///
+/// Pass [busy] and [semanticLabel] (and optionally [statusLabel]) when the
+/// card represents an in-progress operation: the card becomes inert and
+/// announces [statusLabel] as a live-region value.
 class HiveCard extends StatelessWidget {
   /// Creates a card.
   const new({
@@ -33,10 +37,20 @@ class HiveCard extends StatelessWidget {
     this.semanticLabel,
     this.statesController,
     this.focusNode,
+    this.busy = false,
+    this.statusLabel,
     super.key,
   }) : assert(
          onPressed == null || semanticLabel != null,
          'Interactive cards need a semanticLabel.',
+       ),
+       assert(
+         !busy || semanticLabel != null,
+         'Busy cards need a semanticLabel.',
+       ),
+       assert(
+         statusLabel == null || busy,
+         'statusLabel describes a busy card.',
        );
 
   /// The content. Padding is `space3`.
@@ -57,8 +71,29 @@ class HiveCard extends StatelessWidget {
   /// Optional focus node.
   final FocusNode? focusNode;
 
+  /// Whether the card is busy (for example a row being deleted). A busy card
+  /// is inert: it ignores [onPressed], takes no focus and draws like a static
+  /// card. Requires [semanticLabel].
+  final bool busy;
+
+  /// What the busy card is doing, announced as the live-region value of the
+  /// card's semantics node (for example "Deleting…"). Only valid while [busy].
+  /// The card draws nothing for it; the consumer shows any visible status.
+  final String? statusLabel;
+
   @override
   Widget build(BuildContext context) {
+    if (busy) {
+      final status = statusLabel;
+      return Semantics(
+        container: true,
+        explicitChildNodes: true,
+        label: semanticLabel,
+        value: status,
+        liveRegion: status != null,
+        child: _decorated(context, const <WidgetState>{}),
+      );
+    }
     final label = semanticLabel;
     if (onPressed == null || label == null) {
       final card = _decorated(context, const <WidgetState>{});

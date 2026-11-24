@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -5,9 +6,11 @@ import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/data/workflows/file_workspace_workflow_repository.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_operation.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workspace_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_repository.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:shelf/shelf.dart';
@@ -71,6 +74,48 @@ final class _Workspaces implements WorkspaceRepository {
   }) async => Success(workspace);
 }
 
+/// Holds every workspace workflow delete until [gate] completes, so a test
+/// can read a workflow while its deletion is still running (ADR 0027).
+final class _GatedWorkspaceWorkflows implements WorkspaceWorkflowRepository {
+  new(this._inner, this.gate);
+
+  final WorkspaceWorkflowRepository _inner;
+  final Completer<void> gate;
+
+  @override
+  Future<Result<List<Workflow>>> listAll(String rootPath) =>
+      _inner.listAll(rootPath);
+
+  @override
+  Future<Result<Workflow>> getById(String rootPath, String id) =>
+      _inner.getById(rootPath, id);
+
+  @override
+  Future<Result<Workflow>> create(String rootPath, Workflow workflow) =>
+      _inner.create(rootPath, workflow);
+
+  @override
+  Future<Result<Workflow>> update(String rootPath, Workflow workflow) =>
+      _inner.update(rootPath, workflow);
+
+  @override
+  Future<Result<void>> delete(String rootPath, String id) =>
+      gate.future.then((_) => _inner.delete(rootPath, id));
+}
+
+/// Polls the deletion [operationId] until it is done (ADR 0027).
+Future<WorkflowDeletionOperation> _untilDone(
+  WorkflowService service,
+  String operationId,
+) async {
+  for (var attempt = 0; attempt < 500; attempt++) {
+    final operation = service.getDeletion(operationId).valueOrNull!;
+    if (operation.phase == WorkflowDeletionPhase.done) return operation;
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+  fail('Deletion "$operationId" did not finish.');
+}
+
 Request _request(String method, String path, [Object? body]) => Request(
   method,
   Uri.parse('http://localhost$path'),
@@ -83,28 +128,33 @@ Future<Map<String, Object?>> _json(Response response) async =>
 
 void main() {
   late Directory root;
+  late WorkflowService service;
   late WorkflowHandler handler;
+  late Completer<void> gate;
 
   setUp(() {
     root = Directory.systemTemp.createTempSync('hive_wf_handler_');
-    handler = WorkflowHandler(
-      service: WorkflowService(
-        repository: _MemoryWorkflows(),
-        validator: const WorkflowValidator(),
-        workspaceWorkflows: FileWorkspaceWorkflowRepository(),
-        workspaces: _Workspaces(
-          Workspace(
-            id: 'ws-1',
-            name: 'Repo',
-            rootPath: root.path,
-            isGit: false,
-            createdAt: DateTime.utc(2026),
-            updatedAt: DateTime.utc(2026),
-          ),
-        ),
-        generateId: () => 'global-1',
+    gate = Completer<void>();
+    service = WorkflowService(
+      repository: _MemoryWorkflows(),
+      validator: const WorkflowValidator(),
+      workspaceWorkflows: _GatedWorkspaceWorkflows(
+        FileWorkspaceWorkflowRepository(),
+        gate,
       ),
+      workspaces: _Workspaces(
+        Workspace(
+          id: 'ws-1',
+          name: 'Repo',
+          rootPath: root.path,
+          isGit: false,
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+        ),
+      ),
+      generateId: () => 'global-1',
     );
+    handler = WorkflowHandler(service: service);
   });
 
   tearDown(() => root.deleteSync(recursive: true));
@@ -131,7 +181,20 @@ void main() {
     final deleted = await handler.call(
       _request('DELETE', '/deploy?workspaceId=ws-1'),
     );
-    expect(deleted.statusCode, 200);
+    expect(deleted.statusCode, 202);
+    final operationId = (await _json(deleted))['operationId']! as String;
+
+    // While the operation is still running (held by the gate) the workflow
+    // stays readable (ADR 0027).
+    final whileDeleting = await handler.call(
+      _request('GET', '/deploy?workspaceId=ws-1'),
+    );
+    expect(whileDeleting.statusCode, 200);
+
+    gate.complete();
+    final operation = await _untilDone(service, operationId);
+    expect(operation.outcome, WorkflowDeletionOutcome.deleted);
+
     expect(
       (await handler.call(_request('GET', '/deploy?workspaceId=ws-1')))
           .statusCode,
@@ -181,4 +244,47 @@ void main() {
 
     expect(response.statusCode, 404);
   });
+
+  test(
+    'a workspace workflow edited by hand gets a new revision and refuses the '
+    'stale one',
+    () async {
+      final created = WorkflowResponse.fromJson(
+        await _json(
+          await handler.call(
+            _request('POST', '/', {'name': 'Deploy', 'workspaceId': 'ws-1'}),
+          ),
+        ),
+      );
+      final r0 = created.revision!;
+
+      final file = File('${root.path}/.agentic-hive/workflows/deploy.json');
+      final raw = jsonDecode(file.readAsStringSync()) as Map<String, Object?>;
+      raw['name'] = 'Hand Edited';
+      file.writeAsStringSync(jsonEncode(raw));
+
+      final fetched = WorkflowResponse.fromJson(
+        await _json(
+          await handler.call(_request('GET', '/deploy?workspaceId=ws-1')),
+        ),
+      );
+      expect(fetched.revision, isNot(r0));
+
+      final stalePut = await handler.call(
+        _request('PUT', '/deploy?workspaceId=ws-1', {
+          'name': 'Overwrite',
+          'revision': r0,
+        }),
+      );
+      expect(stalePut.statusCode, 409);
+      expect(
+        ApiError.fromJson(await _json(stalePut)).code,
+        ApiErrorCode.revisionConflict,
+      );
+
+      final persisted =
+          jsonDecode(file.readAsStringSync()) as Map<String, Object?>;
+      expect(persisted['name'], 'Hand Edited');
+    },
+  );
 }

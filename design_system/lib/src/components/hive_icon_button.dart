@@ -22,6 +22,7 @@ class HiveIconButton extends StatelessWidget {
     this.statesController,
     this.focusNode,
     this.autofocus = false,
+    this.disabledReason,
     super.key,
   }) : _dangerHover = false;
 
@@ -36,6 +37,7 @@ class HiveIconButton extends StatelessWidget {
     this.statesController,
     this.focusNode,
     this.autofocus = false,
+    this.disabledReason,
     super.key,
   }) : variant = HiveButtonVariant.ghost,
        _dangerHover = true;
@@ -69,6 +71,12 @@ class HiveIconButton extends StatelessWidget {
   /// Whether to request focus when first built.
   final bool autofocus;
 
+  /// Why the button is disabled, for example "Unavailable while the workflow
+  /// is being deleted." Used only while [onPressed] is null: it is shown in a
+  /// tooltip on hover and announced as the semantics hint. Ignored while
+  /// enabled.
+  final String? disabledReason;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.hiveColors;
@@ -77,9 +85,11 @@ class HiveIconButton extends StatelessWidget {
     final foreground = variant.foreground(colors);
     final borderRole = variant.border;
     final diameter = size.height(spacing);
+    final reason = onPressed == null ? disabledReason : null;
 
-    return HiveInteraction(
+    final button = HiveInteraction(
       semanticLabel: semanticLabel,
+      semanticHint: reason,
       onPressed: onPressed,
       busy: loading,
       statesController: statesController,
@@ -142,6 +152,30 @@ class HiveIconButton extends StatelessWidget {
           ),
         );
       },
+    );
+    if (reason == null) return button;
+    return Tooltip(
+      message: reason,
+      excludeFromSemantics: true,
+      waitDuration: motion.resolve(context, motion.long),
+      exitDuration: motion.resolve(context, motion.short),
+      padding: EdgeInsets.symmetric(
+        horizontal: spacing.space1,
+        vertical: spacing.spaceHalf,
+      ),
+      decoration: ShapeDecoration(
+        color: colors.surface3,
+        shape: StadiumBorder(
+          side: BorderSide(
+            color: colors.borderSubtle,
+            width: context.hiveElevation.hairline,
+          ),
+        ),
+      ),
+      textStyle: context.hiveTypography.bodySmall.copyWith(
+        color: colors.onSurface,
+      ),
+      child: button,
     );
   }
 }

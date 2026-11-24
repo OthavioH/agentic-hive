@@ -83,6 +83,8 @@ F12 addition (#21): `HiveTerminalView` + `HiveTerminalController` (VT100/xterm e
 
 F15 addition (#22): `HiveMetricTile` (`focal` value in `number` inside `space3`, `compact` value in `display` inside `space2`; value in `onSurface`, Geist `label` in `onSurfaceMuted`; on a `HiveCardSurface` step with `radiusCard` and a hairline border; an optional `HiveFeedbackTone` colors only a leading tone icon, never text; one semantics node labelled `label: value` unless `semanticLabel` is given).
 
+#106 additions: `HiveDialog.confirm(destructive: true)` focuses Cancel. `HiveCard.busy` + `statusLabel` (inert card, one semantics node whose value is the live-region status; the consumer draws any visible status and excludes it from semantics). `HiveIconButton.disabledReason` (while disabled: `surface3` pill tooltip with `onSurface` `bodySmall` text and a `borderSubtle` hairline, plus the semantics hint). `HiveFieldFrame`'s well gesture is excluded from semantics so text fields pass the labelled tap target guideline.
+
 **Desktop platform profile:** Windows, Linux, and macOS; mouse + keyboard first. Every interactive component must have a hover state, a visible keyboard focus indicator, and a semantics label. Support desktop density (sidebar, multi-column, master-detail).
 
 ## Do and Don't

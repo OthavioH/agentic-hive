@@ -66,7 +66,7 @@ Existing infrastructure folders (`server/`, `config/`, `logging/`, `db/`, `http/
 
 - Raise `schemaVersion` and add a migration step for every schema change. Never edit a shipped migration.
 - Access goes through repository interfaces (`MetadataRepository`); handlers never touch `AppDatabase` directly.
-- Generated files (`*.g.dart`) are committed. After changing tables, run `dart run build_runner build --delete-conflicting-outputs`.
+- Generated files (`*.g.dart`) are gitignored. After changing tables, run `dart run tool/codegen.dart` (or `dart run build_runner build --delete-conflicting-outputs` inside `backend/`).
 
 ## Logging
 

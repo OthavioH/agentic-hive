@@ -110,6 +110,51 @@ final class InMemoryRunRepository implements RunRepository {
     runs.remove(id);
     return const Success(null);
   }
+
+  @override
+  Future<Result<List<String>>> deleteAllOfWorkflow(
+    String workflowId, {
+    String? workspaceId,
+    Set<String> orphanIds = const {},
+  }) async {
+    final matching =
+        runs.values
+            .where(
+              (r) =>
+                  r.workflowId == workflowId &&
+                  (workspaceId == null || r.workspaceId == workspaceId),
+            )
+            .toList()
+          ..sort((a, b) => a.startedAt.compareTo(b.startedAt));
+    final kept = {
+      for (final run in matching)
+        if (orphanIds.contains(run.id)) run.id,
+    };
+    final active = <String, RunStatus>{
+      for (final run in matching)
+        if (!kept.contains(run.id) && run.status.isActive) run.id: run.status,
+    };
+    if (active.isNotEmpty) {
+      return FailureResult(
+        WorkflowHasActiveRunsFailure(
+          'Workflow "$workflowId" has ${active.length} active run(s). '
+          'Stop them, then delete it again.',
+          activeRuns: active,
+        ),
+      );
+    }
+    final ids = [
+      for (final run in matching)
+        if (!kept.contains(run.id)) run.id,
+    ]..forEach(runs.remove);
+    for (final id in kept) {
+      final run = runs[id];
+      if (run != null) {
+        runs[id] = run.copyWith(workflowId: null);
+      }
+    }
+    return Success(ids);
+  }
 }
 
 /// In-memory [CheckpointRepository] for engine tests.

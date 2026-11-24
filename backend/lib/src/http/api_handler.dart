@@ -1,12 +1,14 @@
 import 'package:agentic_hive_backend/src/api/agents/agents_handler.dart';
 import 'package:agentic_hive_backend/src/api/agents/agents_migration_handler.dart';
 import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
+import 'package:agentic_hive_backend/src/api/mcp_tools/mcp_tools_handler.dart';
 import 'package:agentic_hive_backend/src/api/overview/overview_handler.dart';
 import 'package:agentic_hive_backend/src/api/pauses/pauses_handler.dart';
 import 'package:agentic_hive_backend/src/api/result_contract/result_contract_handler.dart';
 import 'package:agentic_hive_backend/src/api/runs/runs_handler.dart';
 import 'package:agentic_hive_backend/src/api/settings/execution_settings_handler.dart';
 import 'package:agentic_hive_backend/src/api/settings/settings_handler.dart';
+import 'package:agentic_hive_backend/src/api/workflows/workflow_deletion_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/api/workspace/workspace_handler.dart';
 import 'package:agentic_hive_backend/src/api/workspace/workspaces_handler.dart';
@@ -37,7 +39,9 @@ Handler buildApiHandler({
   AgentsMigrationHandler? agentsMigrationHandler,
   HarnessesHandler? harnessesHandler,
   WorkflowHandler? workflowHandler,
+  WorkflowDeletionHandler? workflowDeletionHandler,
   ResultContractHandler? resultContractHandler,
+  McpToolsHandler? mcpToolsHandler,
   RunsHandler? runsHandler,
   PausesHandler? pausesHandler,
   OverviewHandler? overviewHandler,
@@ -57,6 +61,12 @@ Handler buildApiHandler({
   }
   if (workflowHandler != null) {
     router.mount('/api/v1/workflows', workflowHandler.call);
+  }
+  if (workflowDeletionHandler != null) {
+    router.get(
+      '/api/v1/workflow-deletions/<operationId>',
+      workflowDeletionHandler.getById,
+    );
   }
   if (workspaceHandler != null) {
     router
@@ -145,6 +155,9 @@ Handler buildApiHandler({
         '/api/v1/internal/runs/<runId>/nodes/<nodeId>/attempts/<attempt>/ask-human',
         resultContractHandler.askHuman,
       );
+  }
+  if (mcpToolsHandler != null) {
+    router.post('/api/v1/internal/mcp/tools/<name>', mcpToolsHandler.call);
   }
 
   return const Pipeline()

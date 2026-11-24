@@ -1,5 +1,6 @@
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
+import 'package:agentic_hive_frontend/domain/workflows/workflow_deletion_update.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflow_editor_controller.dart';
@@ -18,6 +19,8 @@ import 'package:material_ui/material_ui.dart';
 final class _FakeWorkflowRepository implements WorkflowRepository {
   final DateTime now = DateTime.utc(2026, 11, 20, 12);
   int saveCalls = 0;
+  int getCalls = 0;
+  Result<WorkflowResponse>? saveOverride;
 
   Workflow stored = Workflow(
     id: 'wf-1',
@@ -44,6 +47,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
     String id, {
     String? workspaceId,
   }) async {
+    getCalls++;
     return Success(WorkflowResponse(workflow: stored, validation: validation));
   }
 
@@ -54,6 +58,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
     String? workspaceId,
   }) async {
     saveCalls++;
+    if (saveOverride != null) return saveOverride!;
     stored = stored.copyWith(
       name: request.name,
       description: request.description,
@@ -109,8 +114,12 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
-  Future<Result<void>> deleteWorkflow(String id, {String? workspaceId}) async =>
-      const Success<void>(null);
+  Stream<WorkflowDeletionUpdate> deleteWorkflow(
+    String id, {
+    String? workspaceId,
+    String? revision,
+    bool force = false,
+  }) => Stream.value(const WorkflowDeletionSucceeded());
 }
 
 Widget _buildEditorHost() {
@@ -416,19 +425,29 @@ void main() {
       await tester.pumpAndSettle();
 
       // 1. Tap Overview in side rail while dirty -> HiveDialog appears;
-      // cancel keeps user in editor.
+      // Enter cancels (Cancel is focused) and keeps user in editor.
       await tester.tap(find.bySemanticsLabel(l10n.navOverview));
       await tester.pumpAndSettle();
 
       expect(find.byType(HiveDialog), findsOneWidget);
       expect(find.text(l10n.editorUnsavedDialogTitle), findsOneWidget);
 
-      await tester.tap(find.text(l10n.editorKeepEditingAction));
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
+      expect(find.byType(HiveDialog), findsNothing);
       expect(find.byType(WorkflowEditorPage), findsOneWidget);
 
       // 2. Tap back button while dirty -> HiveDialog appears;
-      // confirm discards and navigates away.
+      // Enter cancels, then confirm discards and navigates away.
+      await tester.tap(find.byKey(const Key('editor_back_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HiveDialog), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.byType(HiveDialog), findsNothing);
+      expect(find.byType(WorkflowEditorPage), findsOneWidget);
+
       await tester.tap(find.byKey(const Key('editor_back_button')));
       await tester.pumpAndSettle();
 
@@ -439,4 +458,96 @@ void main() {
       expect(find.byType(WorkflowEditorPage), findsNothing);
     },
   );
+
+  testWidgets(
+    'a revision conflict on save shows the reload dialog and reload refetches',
+    (tester) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final repo = _FakeWorkflowRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+          child: _buildEditorHost(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final l10n = AppLocalizations.of(
+        tester.element(find.byType(WorkflowEditorPage)),
+      )!;
+
+      await tester.tap(
+        find.byKey(const Key('palette_item_${NodeTypeId.command}')),
+      );
+      await tester.pumpAndSettle();
+
+      repo.saveOverride = const FailureResult(
+        BackendFailure(
+          'changed',
+          code: ApiErrorCode.revisionConflict,
+          statusCode: 409,
+        ),
+      );
+      await tester.tap(find.byKey(const Key('editor_save_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.editorRevisionConflictTitle), findsOneWidget);
+      expect(find.text(l10n.editorRevisionConflictMessage), findsOneWidget);
+      expect(find.text(l10n.editorRevisionConflictBadge), findsOneWidget);
+
+      repo.saveOverride = null;
+      await tester.tap(find.text(l10n.editorReloadAction));
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.editorRevisionConflictTitle), findsNothing);
+      expect(repo.getCalls, 2);
+      expect(find.text(l10n.editorSavedBadge), findsOneWidget);
+    },
+  );
+
+  testWidgets('keep editing closes the conflict dialog and keeps the draft', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final repo = _FakeWorkflowRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+        child: _buildEditorHost(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(WorkflowEditorPage)),
+    )!;
+
+    await tester.tap(
+      find.byKey(const Key('palette_item_${NodeTypeId.command}')),
+    );
+    await tester.pumpAndSettle();
+
+    repo.saveOverride = const FailureResult(
+      BackendFailure(
+        'changed',
+        code: ApiErrorCode.revisionConflict,
+        statusCode: 409,
+      ),
+    );
+    await tester.tap(find.byKey(const Key('editor_save_button')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text(l10n.editorKeepEditingAction));
+    await tester.pumpAndSettle();
+
+    expect(find.text(l10n.editorRevisionConflictTitle), findsNothing);
+    expect(find.text(l10n.editorUnsavedBadge), findsOneWidget);
+    expect(repo.getCalls, 1);
+  });
 }

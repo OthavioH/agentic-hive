@@ -10,6 +10,7 @@ import 'package:agentic_hive_frontend/data/runs/run_providers.dart';
 import 'package:agentic_hive_frontend/data/settings/file_picker_repository_impl.dart';
 import 'package:agentic_hive_frontend/data/settings/settings_repository_impl.dart';
 import 'package:agentic_hive_frontend/data/window/window_providers.dart';
+import 'package:agentic_hive_frontend/data/workflows/workflow_deletion_providers.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_settings_providers.dart';
@@ -68,6 +69,7 @@ import 'package:agentic_hive_frontend/domain/workflows/use_cases/list_workflows.
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/update_workflow.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/validate_workflow.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/watch_workflow_changes.dart';
+import 'package:agentic_hive_frontend/domain/workflows/use_cases/watch_workflow_deletions.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/create_workspace.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/get_snapshot_diff.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/get_workspace_capabilities.dart';
@@ -188,6 +190,11 @@ DeleteWorkflow deleteWorkflow(Ref ref) =>
 @riverpod
 WatchWorkflowChanges watchWorkflowChanges(Ref ref) =>
     WatchWorkflowChanges(ref.watch(workflowChangesSourceProvider));
+
+/// Provides [WatchWorkflowDeletions].
+@riverpod
+WatchWorkflowDeletions watchWorkflowDeletions(Ref ref) =>
+    WatchWorkflowDeletions(ref.watch(workflowDeletionEventsSourceProvider));
 
 /// Provides [WatchWorkspaceTreeChanges].
 @riverpod

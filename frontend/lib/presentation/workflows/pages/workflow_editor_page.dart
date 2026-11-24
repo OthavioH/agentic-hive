@@ -116,7 +116,7 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
     );
     _editorSubscription = ref.listenManual<AsyncValue<WorkflowEditorState>>(
       provider,
-      (_, next) {
+      (previous, next) {
         if (!mounted) return;
         _syncEdgeFlowAnimation();
         final focus = next.asData?.value.focusRequest;
@@ -126,8 +126,37 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
             if (mounted) _animateToCanvasPoint(focus.x, focus.y);
           });
         }
+        final wasConflict =
+            previous?.asData?.value.hasRevisionConflict ?? false;
+        final isConflict = next.asData?.value.hasRevisionConflict ?? false;
+        if (isConflict && !wasConflict) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) unawaited(_confirmReload());
+          });
+        }
       },
     );
+  }
+
+  Future<void> _confirmReload() async {
+    final l10n = AppLocalizations.of(context)!;
+    final reload = await HiveDialog.confirm(
+      context: context,
+      title: l10n.editorRevisionConflictTitle,
+      message: l10n.editorRevisionConflictMessage,
+      confirmLabel: l10n.editorReloadAction,
+      cancelLabel: l10n.editorKeepEditingAction,
+      destructive: true,
+    );
+    if (!mounted || !reload) return;
+    ref
+        .read(
+          workflowEditorControllerProvider(
+            widget.workflowId,
+            workspaceId: widget.workspaceId,
+          ).notifier,
+        )
+        .reload();
   }
 
   void _syncEdgeFlowAnimation() {
@@ -460,72 +489,83 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
                 style: typography.titleSmall.copyWith(color: colors.onSurface),
               ),
             ),
-            if (editorState.saveFailure != null) ...<Widget>[
-              HiveBadge(
-                label: WorkflowL10n.localizeFailure(
-                  l10n,
-                  editorState.saveFailure!,
+            Flexible(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                reverse: true,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    if (editorState.saveFailure != null) ...<Widget>[
+                      HiveBadge(
+                        label: WorkflowL10n.localizeFailure(
+                          l10n,
+                          editorState.saveFailure!,
+                        ),
+                        tone: HiveBadgeTone.danger,
+                        icon: HiveIcons.alert,
+                      ),
+                      SizedBox(width: spacing.space1),
+                    ],
+                    HiveBadge(
+                      key: const Key('editor_dirty_badge'),
+                      label: editorState.isDirty
+                          ? l10n.editorUnsavedBadge
+                          : l10n.editorSavedBadge,
+                      tone: editorState.isDirty
+                          ? HiveBadgeTone.warning
+                          : HiveBadgeTone.neutral,
+                    ),
+                    SizedBox(width: spacing.space1),
+                    HiveBadge(
+                      key: const Key('editor_validation_badge'),
+                      label: errorCount > 0
+                          ? l10n.editorValidationErrorsCount(errorCount)
+                          : warningCount > 0
+                          ? l10n.editorValidationWarningsCount(warningCount)
+                          : l10n.editorValidationValid,
+                      tone: errorCount > 0
+                          ? HiveBadgeTone.danger
+                          : warningCount > 0
+                          ? HiveBadgeTone.warning
+                          : HiveBadgeTone.success,
+                      icon: errorCount > 0 || warningCount > 0
+                          ? HiveIcons.alert
+                          : HiveIcons.check,
+                    ),
+                    SizedBox(width: spacing.space2),
+                    HiveButton(
+                      key: const Key('editor_run_button'),
+                      label: l10n.workflowsRunAction,
+                      icon: HiveIcons.play,
+                      variant: HiveButtonVariant.secondary,
+                      onPressed: editorState.isSaving
+                          ? null
+                          : () async {
+                              final created = await StartRunDialog.show(
+                                context,
+                                initialWorkflowId: editorState.workflow.id,
+                              );
+                              if (created != null && context.mounted) {
+                                RunDetailRoute(id: created.id).go(context);
+                              }
+                            },
+                    ),
+                    SizedBox(width: spacing.space2),
+                    HiveButton(
+                      key: const Key('editor_save_button'),
+                      label: editorState.isSaving
+                          ? l10n.editorSavingAction
+                          : l10n.editorSaveAction,
+                      icon: HiveIcons.check,
+                      loading: editorState.isSaving,
+                      onPressed: editorState.isSaving
+                          ? null
+                          : () => unawaited(controller.save()),
+                    ),
+                  ],
                 ),
-                tone: HiveBadgeTone.danger,
-                icon: HiveIcons.alert,
               ),
-              SizedBox(width: spacing.space1),
-            ],
-            HiveBadge(
-              key: const Key('editor_dirty_badge'),
-              label: editorState.isDirty
-                  ? l10n.editorUnsavedBadge
-                  : l10n.editorSavedBadge,
-              tone: editorState.isDirty
-                  ? HiveBadgeTone.warning
-                  : HiveBadgeTone.neutral,
-            ),
-            SizedBox(width: spacing.space1),
-            HiveBadge(
-              key: const Key('editor_validation_badge'),
-              label: errorCount > 0
-                  ? l10n.editorValidationErrorsCount(errorCount)
-                  : warningCount > 0
-                  ? l10n.editorValidationWarningsCount(warningCount)
-                  : l10n.editorValidationValid,
-              tone: errorCount > 0
-                  ? HiveBadgeTone.danger
-                  : warningCount > 0
-                  ? HiveBadgeTone.warning
-                  : HiveBadgeTone.success,
-              icon: errorCount > 0 || warningCount > 0
-                  ? HiveIcons.alert
-                  : HiveIcons.check,
-            ),
-            SizedBox(width: spacing.space2),
-            HiveButton(
-              key: const Key('editor_run_button'),
-              label: l10n.workflowsRunAction,
-              icon: HiveIcons.play,
-              variant: HiveButtonVariant.secondary,
-              onPressed: editorState.isSaving
-                  ? null
-                  : () async {
-                      final created = await StartRunDialog.show(
-                        context,
-                        initialWorkflowId: editorState.workflow.id,
-                      );
-                      if (created != null && context.mounted) {
-                        RunDetailRoute(id: created.id).go(context);
-                      }
-                    },
-            ),
-            SizedBox(width: spacing.space2),
-            HiveButton(
-              key: const Key('editor_save_button'),
-              label: editorState.isSaving
-                  ? l10n.editorSavingAction
-                  : l10n.editorSaveAction,
-              icon: HiveIcons.check,
-              loading: editorState.isSaving,
-              onPressed: editorState.isSaving
-                  ? null
-                  : () => unawaited(controller.save()),
             ),
           ],
         ),

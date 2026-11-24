@@ -120,6 +120,7 @@ class HiveFieldFrame extends StatelessWidget {
             onExit: (_) => onHover?.call(false),
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
+              excludeFromSemantics: true,
               onTap: disabled ? null : onTap,
               child: well,
             ),

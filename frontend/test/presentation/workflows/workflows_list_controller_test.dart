@@ -1,9 +1,12 @@
 import 'dart:async';
 
 import 'package:agentic_hive_frontend/core/result/result.dart';
+import 'package:agentic_hive_frontend/data/workflows/workflow_deletion_providers.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_providers.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_changes_source.dart';
+import 'package:agentic_hive_frontend/domain/workflows/workflow_deletion_events.dart';
+import 'package:agentic_hive_frontend/domain/workflows/workflow_deletion_update.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_frontend/domain/workspace/workspace_selection_store.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflows_list_controller.dart';
@@ -14,13 +17,24 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../workspace/fake_workspace_repository.dart';
 
+final class _FakeDeletionEvents implements WorkflowDeletionEventsSource {
+  final StreamController<WorkflowDeletionFinished> finishedController =
+      StreamController<WorkflowDeletionFinished>.broadcast();
+
+  @override
+  Stream<WorkflowDeletionFinished> get finished => finishedController.stream;
+
+  @override
+  Stream<WorkflowDeletionStatus> get progress =>
+      const Stream<WorkflowDeletionStatus>.empty();
+}
+
 final class _FakeWorkflowRepository implements WorkflowRepository {
   final DateTime now = DateTime.utc(2026, 11, 20, 12);
   Result<List<WorkflowSummary>>? listOverride;
   final List<String?> listedScopes = <String?>[];
   final List<String?> deletedScopes = <String?>[];
   final List<String?> createdScopes = <String?>[];
-  Result<void> deleteOverride = const Success<void>(null);
   final List<WorkflowSummary> items = <WorkflowSummary>[];
 
   void seedDefaults() {
@@ -124,11 +138,15 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   }
 
   @override
-  Future<Result<void>> deleteWorkflow(String id, {String? workspaceId}) async {
+  Stream<WorkflowDeletionUpdate> deleteWorkflow(
+    String id, {
+    String? workspaceId,
+    String? revision,
+    bool force = false,
+  }) {
     deletedScopes.add(workspaceId);
-    if (deleteOverride.isFailure) return deleteOverride;
     items.removeWhere((w) => w.id == id);
-    return const Success<void>(null);
+    return Stream.value(const WorkflowDeletionSucceeded());
   }
 
   @override
@@ -211,8 +229,7 @@ void main() {
         hasLength(4),
       );
 
-      final deleted = await notifier.deleteWorkflow('wf-2');
-      expect(deleted.isSuccess, isTrue);
+      notifier.removeWorkflow('wf-2', workspaceId: null);
       expect(
         container
             .read(workflowsListControllerProvider)
@@ -221,6 +238,142 @@ void main() {
             .any((w) => w.id == 'wf-2'),
         isFalse,
       );
+    });
+
+    group('deletions ended by another client', () {
+      late _FakeDeletionEvents events;
+      late _FakeWorkflowRepository repo;
+      late ProviderContainer container;
+
+      setUp(() async {
+        events = _FakeDeletionEvents();
+        repo = _FakeWorkflowRepository()..seedDefaults();
+        repo.items[0] = repo.items[0].copyWith(deleting: true);
+        container = ProviderContainer.test(
+          overrides: [
+            workflowRepositoryProvider.overrideWithValue(repo),
+            workspaceRepositoryProvider.overrideWithValue(
+              FakeWorkspaceRepository(),
+            ),
+            workflowDeletionEventsSourceProvider.overrideWithValue(events),
+          ],
+        );
+        await container.read(workspaceRegistryControllerProvider.future);
+        // Keep the auto-disposed list alive while the events arrive.
+        container.listen(workflowsListControllerProvider, (_, _) {});
+        await container.read(workflowsListControllerProvider.future);
+      });
+
+      tearDown(() => events.finishedController.close());
+
+      test('workflow.deleted clears the row whoever started it', () async {
+        events.finishedController.add(
+          const WorkflowDeletionFinished(
+            operationId: 'op-9',
+            workflowId: 'wf-1',
+          ),
+        );
+        await pumpEventQueue();
+
+        final ids = container
+            .read(workflowsListControllerProvider)
+            .requireValue
+            .workflows
+            .map((w) => w.id);
+        expect(ids, ['wf-2']);
+      });
+
+      test('workflow.delete.failed returns the row to normal', () async {
+        events.finishedController.add(
+          const WorkflowDeletionFinished(
+            operationId: 'op-9',
+            workflowId: 'wf-1',
+            failure: BackendFailure('Database is locked.'),
+          ),
+        );
+        await pumpEventQueue();
+
+        final workflows = container
+            .read(workflowsListControllerProvider)
+            .requireValue
+            .workflows;
+        expect(workflows.map((w) => w.id), ['wf-1', 'wf-2']);
+        expect(workflows.first.deleting, isFalse);
+      });
+    });
+
+    test('setDeleting marks only the workflow of that scope', () async {
+      final repo = _FakeWorkflowRepository()..seedDefaults();
+      repo.items.add(
+        WorkflowSummary(
+          id: 'wf-1',
+          name: 'Scoped copy',
+          workspaceId: 'ws-1',
+          nodeCount: 0,
+          edgeCount: 0,
+          hasValidationErrors: false,
+          updatedAt: repo.now,
+        ),
+      );
+      final container = ProviderContainer.test(
+        overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+      );
+      await container.read(workflowsListControllerProvider.future);
+
+      container
+          .read(workflowsListControllerProvider.notifier)
+          .setDeleting('wf-1', workspaceId: 'ws-1', deleting: true);
+
+      final workflows = container
+          .read(workflowsListControllerProvider)
+          .requireValue
+          .workflows;
+      expect(workflows.where((w) => w.deleting).map((w) => w.workspaceId), [
+        'ws-1',
+      ]);
+
+      container
+          .read(workflowsListControllerProvider.notifier)
+          .setDeleting('wf-1', workspaceId: 'ws-1', deleting: false);
+      expect(
+        container
+            .read(workflowsListControllerProvider)
+            .requireValue
+            .workflows
+            .any((w) => w.deleting),
+        isFalse,
+      );
+    });
+
+    test('removeWorkflow removes only the workflow of that scope', () async {
+      final repo = _FakeWorkflowRepository()..seedDefaults();
+      repo.items.add(
+        WorkflowSummary(
+          id: 'wf-1',
+          name: 'Scoped copy',
+          workspaceId: 'ws-1',
+          nodeCount: 0,
+          edgeCount: 0,
+          hasValidationErrors: false,
+          updatedAt: repo.now,
+        ),
+      );
+      final container = ProviderContainer.test(
+        overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+      );
+      await container.read(workflowsListControllerProvider.future);
+
+      container
+          .read(workflowsListControllerProvider.notifier)
+          .removeWorkflow('wf-1', workspaceId: 'ws-1');
+
+      final ids = container
+          .read(workflowsListControllerProvider)
+          .requireValue
+          .workflows
+          .map((w) => (w.id, w.workspaceId))
+          .toList();
+      expect(ids, [('wf-1', null), ('wf-2', null)]);
     });
 
     group('workspace scope', () {
@@ -272,23 +425,25 @@ void main() {
         expect(repo.listedScopes.last, isNull);
       });
 
-      test('creates and deletes in the requested scope', () async {
-        workspaces.workspaces = [makeWorkspace(name: 'One')];
-        final repo = _FakeWorkflowRepository()..seedDefaults();
-        final container = scopedContainer(repo);
-        await container.read(workspaceRegistryControllerProvider.future);
-        await container.read(workflowsListControllerProvider.future);
-        final notifier = container.read(
-          workflowsListControllerProvider.notifier,
-        );
+      test(
+        'creates in the requested scope and removes in that scope',
+        () async {
+          workspaces.workspaces = [makeWorkspace(name: 'One')];
+          final repo = _FakeWorkflowRepository()..seedDefaults();
+          final container = scopedContainer(repo);
+          await container.read(workspaceRegistryControllerProvider.future);
+          await container.read(workflowsListControllerProvider.future);
+          final notifier = container.read(
+            workflowsListControllerProvider.notifier,
+          );
 
-        await notifier.createWorkflow(name: 'In repo', workspaceId: 'ws-1');
-        await notifier.createWorkflow(name: 'Everywhere');
-        await notifier.deleteWorkflow('wf-1', workspaceId: 'ws-1');
+          await notifier.createWorkflow(name: 'In repo', workspaceId: 'ws-1');
+          await notifier.createWorkflow(name: 'Everywhere');
+          notifier.removeWorkflow('wf-1', workspaceId: 'ws-1');
 
-        expect(repo.createdScopes, ['ws-1', null]);
-        expect(repo.deletedScopes, ['ws-1']);
-      });
+          expect(repo.createdScopes, ['ws-1', null]);
+        },
+      );
 
       test('a live change of the current workspace reloads the list', () async {
         workspaces.workspaces = [makeWorkspace(name: 'One')];
@@ -318,6 +473,26 @@ void main() {
           ),
         );
         await Future<void>.delayed(Duration.zero);
+        expect(repo.listedScopes.length, before + 1);
+      });
+
+      test('a live change of a global workflow reloads the list', () async {
+        workspaces.workspaces = [makeWorkspace(name: 'One')];
+        final repo = _FakeWorkflowRepository()..seedDefaults();
+        final container = scopedContainer(repo);
+        await container.read(workspaceRegistryControllerProvider.future);
+        await container.read(workflowsListControllerProvider.future);
+        final before = repo.listedScopes.length;
+
+        changes.add(
+          const WorkflowsChangedPayload(
+            kind: WorkflowChangeKind.created,
+            id: 'g',
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+
         expect(repo.listedScopes.length, before + 1);
       });
     });

@@ -429,6 +429,80 @@ void main() {
       },
     );
 
+    test('sendJsonRequest maps a 409 ApiError with details to '
+        'BackendFailure.details', () async {
+      await _writeServerJson(tempDir, socketPath: socketPath);
+      final server = await HttpServer.bind(
+        InternetAddress(socketPath, type: InternetAddressType.unix),
+        0,
+      );
+      addTearDown(server.close);
+
+      server.listen((request) async {
+        const error = ApiError(
+          code: ApiErrorCode.workflowHasActiveRuns,
+          message: 'Workflow has 2 active runs.',
+          details: {'run-1': 'running', 'run-2': 'paused'},
+        );
+        request.response
+          ..statusCode = HttpStatus.conflict
+          ..headers.contentType = ContentType.json
+          ..headers.set(HttpHeaders.connectionHeader, 'close')
+          ..write(jsonEncode(error.toJson()));
+        await request.response.close();
+      });
+
+      final client = UnixSocketBackendClient(platformPaths: paths);
+      addTearDown(client.close);
+
+      final result = await client.sendJsonRequest(
+        'DELETE',
+        '/api/v1/workflows/wf-1',
+      );
+      final failure = (result as FailureResult<JsonMap>).failure;
+      expect(failure, isA<BackendFailure>());
+      failure as BackendFailure;
+      expect(failure.statusCode, HttpStatus.conflict);
+      expect(failure.code, ApiErrorCode.workflowHasActiveRuns);
+      expect(failure.message, 'Workflow has 2 active runs.');
+      expect(failure.details, {'run-1': 'running', 'run-2': 'paused'});
+    });
+
+    test(
+      'getJson maps a 409 ApiError with details to BackendFailure.details',
+      () async {
+        await _writeServerJson(tempDir, socketPath: socketPath);
+        final server = await HttpServer.bind(
+          InternetAddress(socketPath, type: InternetAddressType.unix),
+          0,
+        );
+        addTearDown(server.close);
+
+        server.listen((request) async {
+          const error = ApiError(
+            code: ApiErrorCode.revisionConflict,
+            message: 'Revision changed.',
+            details: {'currentRevision': 'r2'},
+          );
+          request.response
+            ..statusCode = HttpStatus.conflict
+            ..headers.contentType = ContentType.json
+            ..headers.set(HttpHeaders.connectionHeader, 'close')
+            ..write(jsonEncode(error.toJson()));
+          await request.response.close();
+        });
+
+        final client = UnixSocketBackendClient(platformPaths: paths);
+        addTearDown(client.close);
+
+        final result = await client.getJson('/api/v1/workflows/wf-1');
+        final failure = (result as FailureResult<JsonMap>).failure;
+        expect(failure, isA<BackendFailure>());
+        failure as BackendFailure;
+        expect(failure.details, {'currentRevision': 'r2'});
+      },
+    );
+
     test('shutdown(force: true) posts force=true and returns Success on '
         '202 Accepted', () async {
       await _writeServerJson(tempDir, socketPath: socketPath);

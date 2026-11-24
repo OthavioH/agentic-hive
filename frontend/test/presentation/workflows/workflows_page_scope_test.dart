@@ -1,6 +1,7 @@
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_providers.dart';
+import 'package:agentic_hive_frontend/domain/workflows/workflow_deletion_update.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_frontend/domain/workspace/workspace_selection_store.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
@@ -65,10 +66,15 @@ final class _ScopedRepository implements WorkflowRepository {
   }
 
   @override
-  Future<Result<void>> deleteWorkflow(String id, {String? workspaceId}) async {
+  Stream<WorkflowDeletionUpdate> deleteWorkflow(
+    String id, {
+    String? workspaceId,
+    String? revision,
+    bool force = false,
+  }) {
     deletedScopes.add(workspaceId);
     items.removeWhere((w) => w.id == id && w.workspaceId == workspaceId);
-    return const Success<void>(null);
+    return Stream.value(const WorkflowDeletionSucceeded());
   }
 
   @override

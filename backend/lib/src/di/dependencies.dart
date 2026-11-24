@@ -3,12 +3,14 @@ import 'dart:io';
 import 'package:agentic_hive_backend/src/api/agents/agents_handler.dart';
 import 'package:agentic_hive_backend/src/api/agents/agents_migration_handler.dart';
 import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
+import 'package:agentic_hive_backend/src/api/mcp_tools/mcp_tools_handler.dart';
 import 'package:agentic_hive_backend/src/api/overview/overview_handler.dart';
 import 'package:agentic_hive_backend/src/api/pauses/pauses_handler.dart';
 import 'package:agentic_hive_backend/src/api/result_contract/result_contract_handler.dart';
 import 'package:agentic_hive_backend/src/api/runs/runs_handler.dart';
 import 'package:agentic_hive_backend/src/api/settings/execution_settings_handler.dart';
 import 'package:agentic_hive_backend/src/api/settings/settings_handler.dart';
+import 'package:agentic_hive_backend/src/api/workflows/workflow_deletion_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/api/workspace/workspace_handler.dart';
 import 'package:agentic_hive_backend/src/api/workspace/workspaces_handler.dart';
@@ -62,6 +64,20 @@ import 'package:agentic_hive_backend/src/domain/harnesses/harness_detector.dart'
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_mcp_installer.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_service.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/building_blocks_text_formatter.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/mcp_scope_resolver.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/mcp_tool_registry.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/create_workflow_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/delete_workflow_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/duplicate_workflow_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/edit_workflow_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/get_workflow_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/list_building_blocks_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/list_workflows_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/list_workspaces_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/workflow_create_input.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/workflow_patcher.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/workflow_text_formatter.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_registry.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/pty_session.dart';
@@ -85,6 +101,9 @@ import 'package:agentic_hive_backend/src/domain/settings/execution_settings_serv
 import 'package:agentic_hive_backend/src/domain/settings/settings_repository.dart';
 import 'package:agentic_hive_backend/src/domain/settings/settings_service.dart';
 import 'package:agentic_hive_backend/src/domain/settings/workspace_settings_store.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_events.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_registry.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_events.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
@@ -112,6 +131,8 @@ import 'package:agentic_hive_backend/src/server/server_info_file.dart';
 import 'package:agentic_hive_backend/src/version.dart';
 import 'package:agentic_hive_backend/src/ws/connection_registry.dart';
 import 'package:agentic_hive_backend/src/ws/ws_gateway.dart';
+import 'package:agentic_hive_backend/src/ws/ws_workflow_deletion_events.dart';
+import 'package:agentic_hive_backend/src/ws/ws_workflow_events.dart';
 import 'package:agentic_hive_backend/src/ws/ws_workspace_events.dart';
 import 'package:get_it/get_it.dart';
 
@@ -323,19 +344,6 @@ Future<void> registerDependencies(
     ..registerSingleton<WorkspaceWorkflowRepository>(
       FileWorkspaceWorkflowRepository(pathContext: platformPaths.context),
     )
-    ..registerSingletonWithDependencies<WorkflowService>(
-      () => WorkflowService(
-        repository: di<WorkflowRepository>(),
-        validator: di<WorkflowValidator>(),
-        workspaceWorkflows: di<WorkspaceWorkflowRepository>(),
-        workspaces: di<WorkspaceRepository>(),
-      ),
-      dependsOn: [WorkflowRepository, WorkspaceRepository],
-    )
-    ..registerSingletonWithDependencies<WorkflowHandler>(
-      () => WorkflowHandler(service: di<WorkflowService>()),
-      dependsOn: [WorkflowService],
-    )
     ..registerSingletonWithDependencies<RunRepository>(
       () => DriftRunRepository(di<AppDatabase>()),
       dependsOn: [AppDatabase],
@@ -496,6 +504,7 @@ Future<void> registerDependencies(
         PauseRepository,
       ],
     )
+    ..registerSingleton<WorkflowDeletionRegistry>(WorkflowDeletionRegistry())
     ..registerSingletonWithDependencies<RunService>(
       () => RunService(
         runs: di<RunRepository>(),
@@ -511,6 +520,7 @@ Future<void> registerDependencies(
         executionSettings: di<ExecutionSettingsService>(),
         engine: di<GraphEngine>(),
         logStore: di<RunLogStore>(),
+        deletions: di<WorkflowDeletionRegistry>(),
         pathContext: platformPaths.context,
       ),
       dependsOn: [
@@ -526,6 +536,104 @@ Future<void> registerDependencies(
         GraphEngine,
       ],
       dispose: (service) => service.dispose(),
+    )
+    ..registerSingletonWithDependencies<WorkflowService>(
+      () => WorkflowService(
+        repository: di<WorkflowRepository>(),
+        validator: di<WorkflowValidator>(),
+        workspaceWorkflows: di<WorkspaceWorkflowRepository>(),
+        workspaces: di<WorkspaceRepository>(),
+        runsDeleter: di<RunService>(),
+        deletions: di<WorkflowDeletionRegistry>(),
+        deletionEvents: di<WorkflowDeletionEvents>(),
+      ),
+      dependsOn: [WorkflowRepository, WorkspaceRepository, RunService],
+    )
+    ..registerSingletonWithDependencies<WorkflowHandler>(
+      () => WorkflowHandler(service: di<WorkflowService>()),
+      dependsOn: [WorkflowService],
+    )
+    ..registerSingletonWithDependencies<WorkflowDeletionHandler>(
+      () => WorkflowDeletionHandler(service: di<WorkflowService>()),
+      dependsOn: [WorkflowService],
+    )
+    ..registerSingletonWithDependencies<McpScopeResolver>(
+      () => McpScopeResolver(
+        workspaces: di<WorkspaceRepository>(),
+        worktreesDir: config.worktreesDir,
+        path: platformPaths.context,
+      ),
+      dependsOn: [WorkspaceRepository],
+    )
+    ..registerSingletonWithDependencies<McpToolRegistry>(
+      () {
+        const formatter = WorkflowTextFormatter();
+        final scopes = di<McpScopeResolver>();
+        final workflows = di<WorkflowService>();
+        return McpToolRegistry([
+          ListWorkspacesTool(
+            workspaces: di<WorkspaceRepository>(),
+            globalWorkflows: di<WorkflowRepository>(),
+            workspaceWorkflows: di<WorkspaceWorkflowRepository>(),
+            formatter: formatter,
+          ),
+          ListWorkflowsTool(
+            scopes: scopes,
+            workflows: workflows,
+            formatter: formatter,
+          ),
+          GetWorkflowTool(
+            scopes: scopes,
+            workflows: workflows,
+            formatter: formatter,
+          ),
+          CreateWorkflowTool(
+            scopes: scopes,
+            workflows: workflows,
+            parser: WorkflowCreateInputParser(
+              describe: di<NodeRegistry>().descriptorFor,
+            ),
+            formatter: formatter,
+            events: di<WorkflowEvents>(),
+          ),
+          DuplicateWorkflowTool(
+            scopes: scopes,
+            workflows: workflows,
+            formatter: formatter,
+            events: di<WorkflowEvents>(),
+          ),
+          EditWorkflowTool(
+            scopes: scopes,
+            workflows: workflows,
+            patcher: WorkflowPatcher(
+              describe: di<NodeRegistry>().descriptorFor,
+            ),
+            formatter: formatter,
+            events: di<WorkflowEvents>(),
+          ),
+          DeleteWorkflowTool(
+            scopes: scopes,
+            workflows: workflows,
+            events: di<WorkflowEvents>(),
+          ),
+          ListBuildingBlocksTool(
+            scopes: scopes,
+            nodeTypes: () => di<NodeRegistry>().descriptors,
+            agents: di<AgentService>(),
+            formatter: const BuildingBlocksTextFormatter(),
+          ),
+        ]);
+      },
+      dependsOn: [
+        McpScopeResolver,
+        WorkflowService,
+        WorkflowRepository,
+        WorkspaceRepository,
+      ],
+    )
+    ..registerSingletonWithDependencies<McpToolsHandler>(
+      () => McpToolsHandler(registry: di<McpToolRegistry>()),
+      dependsOn: [McpToolRegistry],
     )
     ..registerSingletonWithDependencies<RunsHandler>(
       () => RunsHandler(service: di<RunService>()),
@@ -563,6 +671,12 @@ Future<void> registerDependencies(
     ..registerSingleton<ConnectionRegistry>(ConnectionRegistry())
     ..registerSingleton<WorkspaceEvents>(
       WsWorkspaceEvents(di<ConnectionRegistry>()),
+    )
+    ..registerSingleton<WorkflowDeletionEvents>(
+      WsWorkflowDeletionEvents(di<ConnectionRegistry>()),
+    )
+    ..registerSingleton<WorkflowEvents>(
+      WsWorkflowEvents(di<ConnectionRegistry>()),
     )
     ..registerSingleton<AgentService>(
       AgentService(
@@ -664,7 +778,9 @@ Future<void> registerDependencies(
           agentsMigrationHandler: di<AgentsMigrationHandler>(),
           harnessesHandler: di<HarnessesHandler>(),
           workflowHandler: di<WorkflowHandler>(),
+          workflowDeletionHandler: di<WorkflowDeletionHandler>(),
           resultContractHandler: di<ResultContractHandler>(),
+          mcpToolsHandler: di<McpToolsHandler>(),
           runsHandler: di<RunsHandler>(),
           pausesHandler: di<PausesHandler>(),
           overviewHandler: di<OverviewHandler>(),
@@ -686,6 +802,8 @@ Future<void> registerDependencies(
         StatusHandler,
         AgentDirectoryWatcher,
         WorkflowHandler,
+        WorkflowDeletionHandler,
+        McpToolsHandler,
         RunsHandler,
         PausesHandler,
         OverviewHandler,

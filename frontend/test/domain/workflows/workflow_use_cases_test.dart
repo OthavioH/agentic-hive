@@ -1,6 +1,7 @@
 import 'package:agentic_hive_frontend/core/di/use_case_providers.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
+import 'package:agentic_hive_frontend/domain/workflows/workflow_deletion_update.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -98,10 +99,20 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
     );
   }
 
+  String? lastDeleteRevision;
+  bool? lastDeleteForce;
+
   @override
-  Future<Result<void>> deleteWorkflow(String id, {String? workspaceId}) async {
+  Stream<WorkflowDeletionUpdate> deleteWorkflow(
+    String id, {
+    String? workspaceId,
+    String? revision,
+    bool force = false,
+  }) {
     calls.add('delete:$id');
-    return const Success<void>(null);
+    lastDeleteRevision = revision;
+    lastDeleteForce = force;
+    return Stream.value(const WorkflowDeletionSucceeded());
   }
 
   @override
@@ -115,6 +126,22 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
 
 void main() {
   group('Workflow use cases and DI providers', () {
+    test('DeleteWorkflow forwards force and revision', () async {
+      final repo = _FakeWorkflowRepository();
+      final container = ProviderContainer.test(
+        overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+      );
+
+      final updates = await container
+          .read(deleteWorkflowProvider)
+          .call('wf-1', revision: 'r1', force: true)
+          .toList();
+
+      expect(updates, [isA<WorkflowDeletionSucceeded>()]);
+      expect(repo.lastDeleteRevision, 'r1');
+      expect(repo.lastDeleteForce, isTrue);
+    });
+
     test(
       'all use cases delegate to WorkflowRepository via Riverpod DI',
       () async {
@@ -146,10 +173,11 @@ void main() {
             .call('wf-1', name: 'Clone');
         expect(dupResult.valueOrNull?.workflow.id, 'wf-2');
 
-        final delResult = await container
+        final delUpdates = await container
             .read(deleteWorkflowProvider)
-            .call('wf-1');
-        expect(delResult.isSuccess, isTrue);
+            .call('wf-1')
+            .toList();
+        expect(delUpdates, [isA<WorkflowDeletionSucceeded>()]);
 
         final valResult = await container
             .read(validateWorkflowProvider)
