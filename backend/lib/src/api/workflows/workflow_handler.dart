@@ -72,14 +72,27 @@ final class WorkflowHandler {
   }
 
   Future<Response> _delete(Request request, String id) async {
+    final raw = request.url.queryParameters['force'];
+    final bool force;
+    if (raw == null || raw.isEmpty || raw == 'false') {
+      force = false;
+    } else if (raw == 'true') {
+      force = true;
+    } else {
+      return errorResponse(
+        request,
+        400,
+        code: ApiErrorCode.badRequest,
+        message: 'Query parameter "force" must be "true" or "false".',
+      );
+    }
     final result = await _service.deleteWorkflow(
       id,
       workspaceId: _workspaceId(request),
+      expectedRevision: _revision(request),
+      force: force,
     );
-    return switch (result) {
-      Success<void>() => jsonResponse(200, {'id': id, 'deleted': true}),
-      FailureResult<void>(:final failure) => failureResponse(request, failure),
-    };
+    return _mapResult(request, result, 202);
   }
 
   Future<Response> _duplicate(Request request, String id) async {
@@ -105,6 +118,12 @@ final class WorkflowHandler {
   /// The `workspaceId` query parameter; absent or blank means the global scope.
   String? _workspaceId(Request request) {
     final value = request.url.queryParameters['workspaceId']?.trim();
+    return value == null || value.isEmpty ? null : value;
+  }
+
+  /// The `revision` query parameter; absent or blank means no check.
+  String? _revision(Request request) {
+    final value = request.url.queryParameters['revision']?.trim();
     return value == null || value.isEmpty ? null : value;
   }
 

@@ -1,0 +1,95 @@
+SemanticsNode#
+ │
+ └─SemanticsNode#
+   │
+   └─SemanticsNode#
+     │ sortKey: OrdinalSortKey#(order: 0.0)
+     │
+     └─SemanticsNode#
+       │ flags: scopesRoute
+       │
+       ├─SemanticsNode#
+       │   flags: isHeader
+       │   label: "Workflows"
+       │
+       ├─SemanticsNode#
+       │   label: "Create, inspect, and manage workflow graphs."
+       │
+       ├─SemanticsNode#
+       │   actions: tap
+       │   flags: isButton, hasEnabledState, isEnabled
+       │   label: "New workflow"
+       │
+       ├─SemanticsNode#
+       │ │ flags: isLiveRegion
+       │ │
+       │ ├─SemanticsNode#
+       │ │   label: "Workflow deleted. 2 runs could not be confirmed as
+       │ │     stopped and were kept so you can retry."
+       │ │
+       │ ├─SemanticsNode#
+       │ │   actions: tap
+       │ │   flags: isButton, hasEnabledState, isEnabled
+       │ │   label: "Dismiss notice"
+       │ │
+       │ ├─SemanticsNode#
+       │ │   label: "run-20261120-0931-a1f3"
+       │ │
+       │ └─SemanticsNode#
+       │     label: "run-20261120-1012-b7c2"
+       │
+       ├─SemanticsNode#
+       │   merge boundary ⛔️
+       │   actions: focus, tap
+       │   flags: isTextField, hasEnabledState, isEnabled, isFocusable
+       │   label:
+       │     "Search workflows
+       │     Filter by name or description..."
+       │   currentValueLength: 0
+       │   inputType: text
+       │
+       └─SemanticsNode#
+         │
+         └─SemanticsNode#
+           │ actions: scrollToOffset, scrollUp
+           │ flags: hasImplicitScrolling
+           │ scrollChildren: 2
+           │ scrollIndex: 0
+           │ scrollExtentMin: 0.0
+           │ scrollPosition: 0.0
+           │
+           ├─SemanticsNode#
+           │   tags: RenderViewport.twoPane
+           │   actions: tap
+           │   flags: isButton, hasEnabledState, isEnabled
+           │   label: "Open Lint Check"
+           │   indexInParent: 0
+           │
+           └─SemanticsNode#
+               tags: RenderViewport.twoPane
+               actions: tap
+               flags: isButton, hasEnabledState, isEnabled
+               label: "Open Nightly Dependency Audit"
+               indexInParent: 1
+
+--- texts ---
+Workflows
+Create, inspect, and manage workflow graphs.
+New workflow
+Workflow deleted. 2 runs could not be confirmed as stopped and were kept so you can retry.
+run-20261120-0931-a1f3
+run-20261120-1012-b7c2
+Search workflows
+Filter by name or description...
+Lint Check
+Valid
+Global
+2 nodes
+1 edge
+Updated Nov 20, 2026 09:00
+Nightly Dependency Audit
+Needs attention
+Global
+4 nodes
+4 edges
+Updated Nov 20, 2026 09:00

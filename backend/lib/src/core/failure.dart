@@ -34,6 +34,34 @@ final class ConflictFailure extends Failure {
   const new(super.message);
 }
 
+/// The resource changed since the client read it (`409`, ADR 0026).
+final class StaleRevisionFailure extends Failure {
+  /// Creates a stale-revision failure carrying the [currentRevision].
+  const new(super.message, {required this.currentRevision});
+
+  /// Revision the resource has now.
+  final String currentRevision;
+}
+
+/// A workflow cannot be deleted because some of its runs are active (`409`).
+final class WorkflowHasActiveRunsFailure extends Failure {
+  /// Creates the failure; [activeRuns] maps run id to status, oldest first.
+  const new(super.message, {required this.activeRuns});
+
+  /// Active runs of the workflow: run id → status, ordered by `startedAt`.
+  final Map<String, RunStatus> activeRuns;
+}
+
+/// The workflow is being deleted; edits, duplicates and new runs are
+/// refused until the operation ends (`409`, ADR 0027).
+final class WorkflowDeletingFailure extends Failure {
+  /// Creates the failure for the running deletion [operationId].
+  const new(super.message, {required this.operationId});
+
+  /// Id of the running deletion operation.
+  final String operationId;
+}
+
 /// A persistence operation (for example SQLite) failed (`500`).
 final class PersistenceFailure extends Failure {
   /// Creates a persistence failure.

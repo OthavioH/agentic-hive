@@ -43,6 +43,10 @@ sealed class UpdateWorkflowRequest with _$UpdateWorkflowRequest {
     @Default(<WorkflowEdge>[]) List<WorkflowEdge> edges,
     String? entryNodeId,
     @Default(1) int schemaVersion,
+
+    /// Revision the client read; when set the backend answers 409
+    /// `revision_conflict` if the workflow changed since.
+    String? revision,
   }) = _UpdateWorkflowRequest;
 
   /// Decodes an update-workflow request; throws a [FormatException] on a bad
@@ -98,6 +102,10 @@ sealed class WorkflowResponse with _$WorkflowResponse {
     required WorkflowValidationResult validation,
     @Default(WorkflowScope.global) WorkflowScope scope,
     String? workspaceId,
+
+    /// Content hash of the workflow definition for optimistic concurrency;
+    /// always set by the backend.
+    String? revision,
   }) = _WorkflowResponse;
 
   /// Decodes a workflow response; throws a [FormatException] on a bad shape.

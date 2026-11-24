@@ -35,8 +35,19 @@ abstract interface class WorkflowRemoteDataSource {
     String? workspaceId,
   });
 
-  /// Deletes a workflow (`DELETE /api/v1/workflows/:id`).
-  Future<Result<void>> deleteWorkflow(String id, {String? workspaceId});
+  /// Starts deleting a workflow (`DELETE /api/v1/workflows/:id`, `202`).
+  /// [revision] is the expected revision; [force] stops active runs first.
+  Future<Result<WorkflowDeletionAccepted>> deleteWorkflow(
+    String id, {
+    String? workspaceId,
+    String? revision,
+    bool force = false,
+  });
+
+  /// Reads workflow deletion operation status.
+  Future<Result<WorkflowDeletionStatus>> getWorkflowDeletion(
+    String operationId,
+  );
 
   /// Validates [workflow] without persisting (`POST /api/v1/workflows/validate`).
   Future<Result<WorkflowValidationResult>> validateWorkflow(Workflow workflow);
@@ -121,13 +132,34 @@ final class HttpWorkflowRemoteDataSource implements WorkflowRemoteDataSource {
   }
 
   @override
-  Future<Result<void>> deleteWorkflow(String id, {String? workspaceId}) async {
+  Future<Result<WorkflowDeletionAccepted>> deleteWorkflow(
+    String id, {
+    String? workspaceId,
+    String? revision,
+    bool force = false,
+  }) async {
     final encodedId = Uri.encodeComponent(id);
+    final query = <String, String>{
+      'workspaceId': ?workspaceId,
+      'revision': ?revision,
+      if (force) 'force': 'true',
+    };
     final result = await _client.sendJsonRequest(
       'DELETE',
-      '$_basePath/$encodedId${_scopeQuery(workspaceId)}',
+      '$_basePath/$encodedId${query.isEmpty ? '' : '?${Uri(queryParameters: query).query}'}',
     );
-    return result.map((_) {});
+    return _decode(result, WorkflowDeletionAccepted.fromJson);
+  }
+
+  @override
+  Future<Result<WorkflowDeletionStatus>> getWorkflowDeletion(
+    String operationId,
+  ) async {
+    final result = await _client.sendJsonRequest(
+      'GET',
+      '/api/v1/workflow-deletions/${Uri.encodeComponent(operationId)}',
+    );
+    return _decode(result, WorkflowDeletionStatus.fromJson);
   }
 
   @override

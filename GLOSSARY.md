@@ -32,14 +32,25 @@ _Avoid_: frontend, client, UI (in anything user-facing)
 The local process that runs workflows and keeps state. It keeps running after the app closes.
 _Avoid_: server, daemon (in anything user-facing)
 
+**Revision**:
+A token that identifies the exact content of a workflow at the moment it was read. A change based on an outdated revision is refused instead of overwriting newer content.
+_Avoid_: version, etag
+
 ## Execution
 
 **Run**:
 One execution of a workflow, with its own state and history, belonging to one workspace and working in one of its worktrees or its primary checkout.
 _Avoid_: job, instance, execution
 
+**Pinned workflow**:
+The copy of a workflow that a run takes when it starts and executes until it ends. Editing the workflow never changes the pinned workflow of a run that is active or already finished; only runs started after the edit use the new version.
+_Avoid_: snapshot (which is about files), version, run workflow
+
 **Run input**:
 Optional free-text task input provided when starting a run and passed to the entry node.
+
+**Orphaned run**:
+A run kept after its workflow was deleted because a forced delete could not confirm that its processes stopped. Its workflow id is cleared and its workflow name is kept; the user can retry its cancel and delete it.
 
 **Workspace**:
 A registered entity with an id, a name and exactly one root folder, unique per folder. Every run belongs to a workspace. The folder can be any folder, not necessarily a repository.

@@ -2,16 +2,35 @@ import 'package:agentic_hive_frontend/core/backend/backend_client.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_client_provider.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_web_socket_session.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
+import 'package:agentic_hive_frontend/data/workflows/workflow_deletion_providers.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
+import 'package:agentic_hive_frontend/domain/workflows/workflow_deletion_events.dart';
+import 'package:agentic_hive_frontend/domain/workflows/workflow_deletion_update.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+final class _EmptyDeletionEvents implements WorkflowDeletionEventsSource {
+  @override
+  Stream<WorkflowDeletionFinished> get finished =>
+      const Stream<WorkflowDeletionFinished>.empty();
+
+  @override
+  Stream<WorkflowDeletionStatus> get progress =>
+      const Stream<WorkflowDeletionStatus>.empty();
+}
 
 final class _FakeBackendClient implements BackendClient {
   String? lastMethod;
   String? lastPath;
   JsonMap? lastBody;
   Result<JsonMap> nextResponse = const Success(<String, Object?>{});
+
+  /// Answers keyed by `'<METHOD> <path>'`, consulted before [nextResponse].
+  final Map<String, Result<JsonMap>> responses = {};
+
+  /// Every request as `'<METHOD> <path>'`, in order.
+  final List<String> calls = [];
 
   @override
   Future<Result<JsonMap>> sendJsonRequest(
@@ -22,7 +41,8 @@ final class _FakeBackendClient implements BackendClient {
     lastMethod = method;
     lastPath = path;
     lastBody = body;
-    return nextResponse;
+    calls.add('$method $path');
+    return responses['$method $path'] ?? nextResponse;
   }
 
   @override
@@ -92,7 +112,12 @@ void main() {
             ).toJson(),
           );
         final container = ProviderContainer.test(
-          overrides: [backendClientProvider.overrideWithValue(client)],
+          overrides: [
+            backendClientProvider.overrideWithValue(client),
+            workflowDeletionEventsSourceProvider.overrideWithValue(
+              _EmptyDeletionEvents(),
+            ),
+          ],
         );
 
         final result = await container
@@ -108,7 +133,12 @@ void main() {
     test('getWorkflow, create, update, duplicate, delete, validate', () async {
       final client = _FakeBackendClient();
       final container = ProviderContainer.test(
-        overrides: [backendClientProvider.overrideWithValue(client)],
+        overrides: [
+          backendClientProvider.overrideWithValue(client),
+          workflowDeletionEventsSourceProvider.overrideWithValue(
+            _EmptyDeletionEvents(),
+          ),
+        ],
       );
       final repo = container.read(workflowRepositoryProvider);
 
@@ -139,14 +169,28 @@ void main() {
       expect(client.lastPath, '/api/v1/workflows/wf-1/duplicate');
       expect(client.lastBody?['name'], 'Copy');
 
-      client.nextResponse = const Success(<String, Object?>{
-        'id': 'wf-1',
-        'deleted': true,
-      });
-      final delRes = await repo.deleteWorkflow('wf-1');
-      expect(client.lastMethod, 'DELETE');
-      expect(client.lastPath, '/api/v1/workflows/wf-1');
-      expect(delRes.isSuccess, isTrue);
+      client.responses
+        ..['DELETE /api/v1/workflows/wf-1'] = const Success(<String, Object?>{
+          'operationId': 'op-1',
+          'workflowId': 'wf-1',
+        })
+        ..['GET /api/v1/workflow-deletions/op-1'] = Success(
+          WorkflowDeletionStatus(
+            operationId: 'op-1',
+            workflowId: 'wf-1',
+            phase: WorkflowDeletionPhase.done,
+            outcome: WorkflowDeletionOutcome.deleted,
+            startedAt: now,
+            finishedAt: now,
+          ).toJson(),
+        );
+      client.calls.clear();
+      final delUpdates = await repo.deleteWorkflow('wf-1').toList();
+      expect(client.calls, [
+        'DELETE /api/v1/workflows/wf-1',
+        'GET /api/v1/workflow-deletions/op-1',
+      ]);
+      expect(delUpdates.last, isA<WorkflowDeletionSucceeded>());
 
       client.nextResponse = Success(valid.toJson());
       final valRes = await repo.validateWorkflow(sampleWorkflow);
@@ -155,11 +199,77 @@ void main() {
       expect(valRes.valueOrNull?.isValid, isTrue);
     });
 
+    test('deleteWorkflow sends scope, revision and force', () async {
+      final client = _FakeBackendClient()
+        ..nextResponse = const FailureResult(NotFoundFailure('gone'));
+      final container = ProviderContainer.test(
+        overrides: [
+          backendClientProvider.overrideWithValue(client),
+          workflowDeletionEventsSourceProvider.overrideWithValue(
+            _EmptyDeletionEvents(),
+          ),
+        ],
+      );
+
+      final updates = await container
+          .read(workflowRepositoryProvider)
+          .deleteWorkflow(
+            'wf-1',
+            workspaceId: 'ws-1',
+            revision: 'r1',
+            force: true,
+          )
+          .toList();
+
+      expect(
+        client.calls.first,
+        'DELETE /api/v1/workflows/wf-1?workspaceId=ws-1&revision=r1&force=true',
+      );
+      expect(updates, [isA<WorkflowDeletionSucceeded>()]);
+    });
+
+    test(
+      'getWorkflowDeletion calls GET /api/v1/workflow-deletions/<encoded id> '
+      'and decodes the status',
+      () async {
+        final client = _FakeBackendClient()
+          ..nextResponse = Success(
+            WorkflowDeletionStatus(
+              operationId: 'op 1',
+              workflowId: 'wf-1',
+              phase: WorkflowDeletionPhase.deletingRuns,
+              startedAt: now,
+            ).toJson(),
+          );
+        final container = ProviderContainer.test(
+          overrides: [
+            backendClientProvider.overrideWithValue(client),
+            workflowDeletionEventsSourceProvider.overrideWithValue(
+              _EmptyDeletionEvents(),
+            ),
+          ],
+        );
+
+        final result = await container
+            .read(workflowRemoteDataSourceProvider)
+            .getWorkflowDeletion('op 1');
+
+        expect(client.lastMethod, 'GET');
+        expect(client.lastPath, '/api/v1/workflow-deletions/op%201');
+        expect(result.valueOrNull?.phase, WorkflowDeletionPhase.deletingRuns);
+      },
+    );
+
     test('returns BackendFailure on malformed payload', () async {
       final client = _FakeBackendClient()
         ..nextResponse = const Success(<String, Object?>{'unexpected': true});
       final container = ProviderContainer.test(
-        overrides: [backendClientProvider.overrideWithValue(client)],
+        overrides: [
+          backendClientProvider.overrideWithValue(client),
+          workflowDeletionEventsSourceProvider.overrideWithValue(
+            _EmptyDeletionEvents(),
+          ),
+        ],
       );
 
       final result = await container
@@ -173,7 +283,12 @@ void main() {
       final client = _FakeBackendClient()
         ..nextResponse = const FailureResult(NotFoundFailure('missing'));
       final container = ProviderContainer.test(
-        overrides: [backendClientProvider.overrideWithValue(client)],
+        overrides: [
+          backendClientProvider.overrideWithValue(client),
+          workflowDeletionEventsSourceProvider.overrideWithValue(
+            _EmptyDeletionEvents(),
+          ),
+        ],
       );
 
       final result = await container

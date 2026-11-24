@@ -1,12 +1,21 @@
+import 'dart:async';
+
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_events.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_operation.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_registry.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_revision.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_runs_deleter.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_slug.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workspace_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_repository.dart';
+import 'package:agentic_hive_backend/src/logging/log_event.dart';
 import 'package:agentic_hive_backend/src/util/ids.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+import 'package:logging/logging.dart';
 
 /// Domain service for managing and validating [Workflow]s.
 ///
@@ -18,16 +27,23 @@ final class WorkflowService {
   ///
   /// Without a workspace workflow repository and a workspace repository only
   /// the global scope is available and any `workspaceId` is answered with
-  /// `NotFoundFailure`.
+  /// `NotFoundFailure`. Without a runs deleter the workflow's runs are kept
+  /// (tests only).
   new({
     required this._repository,
     required this._validator,
     this._workspaceWorkflows,
     this._workspaces,
+    this._runsDeleter,
+    WorkflowDeletionRegistry? deletions,
+    this._deletionEvents,
     String Function()? generateId,
     DateTime Function()? now,
-  }) : _generateId = generateId ?? randomId,
+  }) : _deletions = deletions ?? WorkflowDeletionRegistry(),
+       _generateId = generateId ?? randomId,
        _now = now ?? _utcNow;
+
+  static final _log = Logger('workflow_service');
 
   static DateTime _utcNow() => DateTime.now().toUtc();
 
@@ -35,8 +51,12 @@ final class WorkflowService {
   final WorkflowValidator _validator;
   final WorkspaceWorkflowRepository? _workspaceWorkflows;
   final WorkspaceRepository? _workspaces;
+  final WorkflowRunsDeleter? _runsDeleter;
+  final WorkflowDeletionRegistry _deletions;
+  final WorkflowDeletionEvents? _deletionEvents;
   final String Function() _generateId;
   final DateTime Function() _now;
+  final Map<String, Future<void>> _writeQueue = <String, Future<void>>{};
 
   /// Lists global workflows, plus the ones of [workspaceId] when given, as
   /// summaries with their validation status. Same-named workflows from both
@@ -104,16 +124,25 @@ final class WorkflowService {
   }
 
   /// Updates an existing workflow [id], refreshing `updatedAt`.
+  ///
+  /// When `request.revision` is non-blank, fails with [StaleRevisionFailure]
+  /// if the stored workflow's revision differs.
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
     UpdateWorkflowRequest request, {
     String? workspaceId,
-  }) async {
+  }) => _serialized(id, workspaceId, () async {
+    if (_deletingFailure(id, workspaceId) case final failure?) {
+      return FailureResult(failure);
+    }
     final existingResult = await _load(id, workspaceId);
     if (existingResult case FailureResult<Workflow>(:final failure)) {
       return FailureResult(failure);
     }
     final existing = existingResult.valueOrNull!;
+    if (_staleRevision(existing, request.revision) case final stale?) {
+      return FailureResult(stale);
+    }
     final updated = Workflow(
       id: existing.id,
       name: request.name,
@@ -137,10 +166,159 @@ final class WorkflowService {
       result = await scoped.repository.update(scoped.rootPath, updated);
     }
     return result.map((saved) => _response(saved, workspaceId));
+  });
+
+  /// Accepts asynchronous deletion of the workflow [id] (ADR 0027).
+  ///
+  /// When [expectedRevision] is non-blank, fails with [StaleRevisionFailure]
+  /// if the stored workflow's revision differs.
+  Future<Result<WorkflowDeletionAccepted>> deleteWorkflow(
+    String id, {
+    String? workspaceId,
+    String? expectedRevision,
+    bool force = false,
+  }) => _serialized(id, workspaceId, () async {
+    final running = _deletions.runningFor(id, workspaceId: workspaceId);
+    if (running != null) {
+      return Success(
+        WorkflowDeletionAccepted(operationId: running.id, workflowId: id),
+      );
+    }
+    final existing = await _load(id, workspaceId);
+    if (existing case FailureResult<Workflow>(:final failure)) {
+      return FailureResult(failure);
+    }
+    if (_staleRevision(existing.valueOrNull!, expectedRevision)
+        case final stale?) {
+      return FailureResult(stale);
+    }
+    var activeRuns = <String, RunStatus>{};
+    final runsDeleter = _runsDeleter;
+    if (runsDeleter != null) {
+      final active = await runsDeleter.activeRunsOfWorkflow(
+        id,
+        workspaceId: workspaceId,
+      );
+      if (active case FailureResult<Map<String, RunStatus>>(:final failure)) {
+        return FailureResult(failure);
+      }
+      activeRuns = active.valueOrNull!;
+      if (activeRuns.isNotEmpty && !force) {
+        return FailureResult(
+          WorkflowHasActiveRunsFailure(
+            'Workflow "$id" has ${activeRuns.length} active run(s). '
+            'Stop them, then delete it again.',
+            activeRuns: activeRuns,
+          ),
+        );
+      }
+    }
+    final phase = force && activeRuns.isNotEmpty
+        ? WorkflowDeletionPhase.stoppingRuns
+        : WorkflowDeletionPhase.deletingRuns;
+    final operation = _deletions.start(
+      WorkflowDeletionOperation(
+        id: _generateId(),
+        workflowId: id,
+        workspaceId: workspaceId,
+        phase: phase,
+        runsToStop: force ? activeRuns.length : 0,
+        startedAt: _now().toUtc(),
+      ),
+    );
+    _deletionEvents?.progress(operation);
+    unawaited(_runDeletion(operation.id, force: force));
+    return Success(
+      WorkflowDeletionAccepted(operationId: operation.id, workflowId: id),
+    );
+  });
+
+  /// Returns the operation status or a not-found failure.
+  Result<WorkflowDeletionOperation> getDeletion(String operationId) {
+    final operation = _deletions.byId(operationId);
+    if (operation != null) return Success(operation);
+    return FailureResult(
+      NotFoundFailure('Workflow deletion "$operationId" not found.'),
+    );
   }
 
-  /// Deletes the workflow with [id].
-  Future<Result<void>> deleteWorkflow(String id, {String? workspaceId}) async {
+  /// Completes when an operation finishes, or null for an unknown id.
+  Future<WorkflowDeletionOperation>? whenDeletionFinished(String operationId) =>
+      _deletions.whenFinished(operationId);
+
+  Future<void> _runDeletion(String operationId, {required bool force}) async {
+    final operation = _deletions.byId(operationId);
+    if (operation == null) return;
+    var deletedRuns = 0;
+    var orphanedRuns = const <String>[];
+    try {
+      final runsDeleter = _runsDeleter;
+      if (runsDeleter != null) {
+        final result = await runsDeleter.deleteRunsOfWorkflow(
+          operation.workflowId,
+          workspaceId: operation.workspaceId,
+          force: force,
+          onProgress: (p) => _onRunsProgress(operationId, p),
+        );
+        if (result case FailureResult<WorkflowRunsDeletion>(:final failure)) {
+          _finish(
+            operationId,
+            deletedRuns: 0,
+            orphanedRuns: const [],
+            failure: failure,
+          );
+          return;
+        }
+        deletedRuns = result.valueOrNull!.deletedRuns;
+        orphanedRuns = result.valueOrNull!.orphanedRuns;
+      }
+      _onRunsProgress(
+        operationId,
+        WorkflowRunsProgress(
+          phase: WorkflowDeletionPhase.deletingRuns,
+          runsDeleted: deletedRuns,
+        ),
+      );
+      final deleted = await _deleteDefinition(
+        operation.workflowId,
+        operation.workspaceId,
+      );
+      if (deleted case FailureResult<void>(:final failure)) {
+        _finish(
+          operationId,
+          deletedRuns: deletedRuns,
+          orphanedRuns: orphanedRuns,
+          failure: failure,
+        );
+        return;
+      }
+      _finish(
+        operationId,
+        deletedRuns: deletedRuns,
+        orphanedRuns: orphanedRuns,
+      );
+    } on Object catch (error, stackTrace) {
+      _log.warning(
+        LogEvent(
+          'workflows.delete_crashed',
+          fields: {'operationId': operationId, 'error': '$error'},
+        ),
+        error,
+        stackTrace,
+      );
+      _finish(
+        operationId,
+        deletedRuns: deletedRuns,
+        orphanedRuns: orphanedRuns,
+        failure: UnexpectedFailure(
+          'Workflow deletion failed unexpectedly.',
+          cause: error,
+        ),
+      );
+    }
+  }
+
+  Future<Result<void>> _deleteDefinition(String id, String? workspaceId) async {
     if (workspaceId == null) return await _repository.delete(id);
     final target = await _resolveTarget(workspaceId);
     if (target case FailureResult<_Target>(:final failure)) {
@@ -150,12 +328,59 @@ final class WorkflowService {
     return await scoped.repository.delete(scoped.rootPath, id);
   }
 
+  void _onRunsProgress(String operationId, WorkflowRunsProgress progress) {
+    final updated = _deletions.update(
+      operationId,
+      (current) => progress.phase == WorkflowDeletionPhase.stoppingRuns
+          ? current.copyWith(
+              phase: progress.phase,
+              runsToStop: progress.runsToStop,
+              runsStopped: progress.runsStopped,
+            )
+          : current.copyWith(
+              phase: progress.phase,
+              runsDeleted: progress.runsDeleted,
+            ),
+    );
+    _deletionEvents?.progress(updated);
+  }
+
+  void _finish(
+    String operationId, {
+    required int deletedRuns,
+    required List<String> orphanedRuns,
+    Failure? failure,
+  }) {
+    final updated = _deletions.update(
+      operationId,
+      (current) => current.copyWith(
+        phase: WorkflowDeletionPhase.done,
+        outcome: failure == null
+            ? WorkflowDeletionOutcome.deleted
+            : WorkflowDeletionOutcome.failed,
+        runsDeleted: deletedRuns,
+        orphanedRuns: orphanedRuns,
+        failure: failure,
+        finishedAt: _now().toUtc(),
+      ),
+    );
+    _deletionEvents?.progress(updated);
+    if (failure == null) {
+      _deletionEvents?.deleted(updated);
+    } else {
+      _deletionEvents?.failed(updated);
+    }
+  }
+
   /// Clones an existing workflow [id] into a new workflow of the same scope.
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
     String? workspaceId,
   }) async {
+    if (_deletingFailure(id, workspaceId) case final failure?) {
+      return FailureResult(failure);
+    }
     final existingResult = await _load(id, workspaceId);
     if (existingResult case FailureResult<Workflow>(:final failure)) {
       return FailureResult(failure);
@@ -259,7 +484,20 @@ final class WorkflowService {
       updatedAt: workflow.updatedAt,
       scope: scope,
       workspaceId: workspaceId,
+      revision: workflowRevision(workflow),
+      deleting:
+          _deletions.runningFor(workflow.id, workspaceId: workspaceId) != null,
     );
+  }
+
+  WorkflowDeletingFailure? _deletingFailure(String id, String? workspaceId) {
+    final operation = _deletions.runningFor(id, workspaceId: workspaceId);
+    return operation == null
+        ? null
+        : WorkflowDeletingFailure(
+            'Workflow "$id" is being deleted.',
+            operationId: operation.id,
+          );
   }
 
   WorkflowResponse _response(Workflow workflow, String? workspaceId) =>
@@ -270,7 +508,43 @@ final class WorkflowService {
             ? WorkflowScope.global
             : WorkflowScope.workspace,
         workspaceId: workspaceId,
+        revision: workflowRevision(workflow),
       );
+
+  /// Runs [action] after every earlier write to the same workflow finished.
+  Future<T> _serialized<T>(
+    String id,
+    String? workspaceId,
+    Future<T> Function() action,
+  ) async {
+    final key = '${workspaceId ?? ''}\u0000$id';
+    final previous = _writeQueue[key] ?? Future<void>.value();
+    final done = Completer<void>();
+    _writeQueue[key] = done.future;
+    try {
+      await previous;
+      return await action();
+    } finally {
+      done.complete();
+      if (identical(_writeQueue[key], done.future)) {
+        unawaited(_writeQueue.remove(key));
+      }
+    }
+  }
+
+  /// `null` when [expected] is absent/blank or matches [current]; otherwise
+  /// the stale-revision failure.
+  StaleRevisionFailure? _staleRevision(Workflow current, String? expected) {
+    final trimmed = expected?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    final actual = workflowRevision(current);
+    if (actual == trimmed) return null;
+    return StaleRevisionFailure(
+      'Workflow "${current.id}" changed since it was read. '
+      'Read it again and reapply your change.',
+      currentRevision: actual,
+    );
+  }
 }
 
 final class _Target {

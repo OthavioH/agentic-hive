@@ -13,6 +13,7 @@ import 'package:agentic_hive_backend/src/domain/pauses/pause_repository.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/human_pause_gateway.dart';
 import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/process_tree_killer.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_canceller.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_log_store.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_recovery_service.dart';
@@ -189,7 +190,7 @@ final class _WakeUp {
 /// run `paused`, never terminates the harness, and moves the run back to
 /// `running` when the gateway reports the answer. Only after a backend restart
 /// does `resume` with a `HumanAnswerInput` re-run the node.
-final class GraphEngine {
+final class GraphEngine implements RunCanceller {
   /// Creates a graph engine.
   ///
   /// [maxConcurrency] bounds how many nodes of one run execute at once.
@@ -565,6 +566,7 @@ final class GraphEngine {
   /// When the run reaches `succeeded` or `failed` before the cancellation took
   /// effect, the call returns a [ConflictFailure] naming that status instead
   /// of a misleading success.
+  @override
   Future<Result<Run>> cancel(String runId) async {
     final executing = _active[runId];
     if (executing != null) {

@@ -5,6 +5,22 @@ import 'package:test/test.dart';
 
 JsonMap _overTheWire(JsonMap json) => jsonDecode(jsonEncode(json)) as JsonMap;
 
+Object? _sampleValue(NodeConfigField field) => switch (field.kind) {
+  NodeConfigFieldKind.string => field.values.isEmpty ? 'x' : field.values.first,
+  NodeConfigFieldKind.integer => 1,
+  NodeConfigFieldKind.boolean => true,
+  NodeConfigFieldKind.stringList => ['x'],
+  NodeConfigFieldKind.stringMap => {'k': 'v'},
+  NodeConfigFieldKind.objectList => [_sample(field.itemFields)],
+};
+
+JsonMap _sample(List<NodeConfigField> fields) => {
+  for (final field in fields) field.name: _sampleValue(field),
+};
+
+NodeConfigField _field(NodeDescriptor descriptor, String name) =>
+    descriptor.configFields.singleWhere((f) => f.name == name);
+
 void main() {
   group('NodeDescriptors catalog', () {
     test('contains all 10 canonical node types across 4 categories', () {
@@ -265,6 +281,144 @@ void main() {
         const HumanApprovalNodeConfig(instructions: '   ').validate(),
         isNotEmpty,
       );
+    });
+  });
+
+  group('Config fields', () {
+    // Typed config round-trip per canonical type (drift guard).
+    final typedRoundTrip = <String, JsonMap Function(JsonMap)>{
+      NodeTypeId.claudeCode: (json) =>
+          HarnessNodeConfig.fromJson(json).toJson(),
+      NodeTypeId.codex: (json) => HarnessNodeConfig.fromJson(json).toJson(),
+      NodeTypeId.geminiCli: (json) => HarnessNodeConfig.fromJson(json).toJson(),
+      NodeTypeId.antigravity: (json) =>
+          HarnessNodeConfig.fromJson(json).toJson(),
+      NodeTypeId.terminal: (json) =>
+          TerminalHarnessNodeConfig.fromJson(json).toJson(),
+      NodeTypeId.command: (json) => CommandNodeConfig.fromJson(json).toJson(),
+      NodeTypeId.testsValidator: (json) =>
+          TestsValidatorNodeConfig.fromJson(json).toJson(),
+      NodeTypeId.checklistValidator: (json) =>
+          ChecklistValidatorNodeConfig.fromJson(json).toJson(),
+      NodeTypeId.reviewValidator: (json) =>
+          ReviewValidatorNodeConfig.fromJson(json).toJson(),
+      NodeTypeId.humanApproval: (json) =>
+          HumanApprovalNodeConfig.fromJson(json).toJson(),
+    };
+
+    test('T-S1 every descriptor declares config fields', () {
+      for (final descriptor in NodeDescriptors.all) {
+        expect(descriptor.configFields, isNotEmpty, reason: descriptor.typeId);
+      }
+    });
+
+    test('T-S2 declared fields match the typed config class', () {
+      for (final descriptor in NodeDescriptors.all) {
+        final sampleJson = _sample(descriptor.configFields);
+        final roundTrip = typedRoundTrip[descriptor.typeId]!(
+          _overTheWire(sampleJson),
+        );
+        expect(
+          roundTrip.keys.toSet(),
+          descriptor.configFields.map((f) => f.name).toSet(),
+          reason: descriptor.typeId,
+        );
+        if (descriptor.typeId == NodeTypeId.checklistValidator) {
+          final rules = roundTrip['rules']! as List<Object?>;
+          final firstRule = rules.first! as JsonMap;
+          expect(
+            firstRule.keys.toSet(),
+            _field(descriptor, 'rules').itemFields.map((f) => f.name).toSet(),
+          );
+        }
+        expect(
+          descriptor.validateConfig(sampleJson),
+          isEmpty,
+          reason: descriptor.typeId,
+        );
+      }
+    });
+
+    test('T-S3 required flags match the freezed required parameters', () {
+      expect(
+        NodeDescriptors.claudeCode.configFields
+            .where((f) => f.required)
+            .map((f) => f.name),
+        isEmpty,
+      );
+      expect(
+        NodeDescriptors.terminal.configFields
+            .where((f) => f.required)
+            .map((f) => f.name),
+        isEmpty,
+      );
+      expect(
+        NodeDescriptors.command.configFields
+            .where((f) => f.required)
+            .map((f) => f.name),
+        ['command'],
+      );
+      expect(
+        NodeDescriptors.testsValidator.configFields
+            .where((f) => f.required)
+            .map((f) => f.name),
+        ['command'],
+      );
+      final checklist = _field(NodeDescriptors.checklistValidator, 'rules');
+      expect(
+        NodeDescriptors.checklistValidator.configFields
+            .where((f) => f.required)
+            .map((f) => f.name),
+        ['rules'],
+      );
+      expect(checklist.itemFields.where((f) => f.required).map((f) => f.name), [
+        'label',
+        'kind',
+      ]);
+      expect(
+        NodeDescriptors.reviewValidator.configFields
+            .where((f) => f.required)
+            .map((f) => f.name),
+        ['harnessType'],
+      );
+      expect(
+        NodeDescriptors.humanApproval.configFields
+            .where((f) => f.required)
+            .map((f) => f.name),
+        ['instructions'],
+      );
+    });
+
+    test('T-S4 closed values come from the shared constants', () {
+      expect(
+        _field(NodeDescriptors.reviewValidator, 'harnessType').values,
+        headlessHarnessTypeIds,
+      );
+      final kind = _field(
+        NodeDescriptors.checklistValidator,
+        'rules',
+      ).itemFields.singleWhere((f) => f.name == 'kind');
+      expect(kind.values, ChecklistRuleKind.values.map((k) => k.name).toSet());
+    });
+
+    test('T-S5 requiredOneOf mirrors validate()', () {
+      expect(NodeDescriptors.claudeCode.requiredOneOf, [
+        'agentId',
+        'additionalInstructions',
+      ]);
+      expect(NodeDescriptors.terminal.requiredOneOf, [
+        'agentId',
+        'additionalInstructions',
+        'command',
+      ]);
+      expect(NodeDescriptors.reviewValidator.requiredOneOf, [
+        'agentId',
+        'reviewCriteria',
+      ]);
+      expect(NodeDescriptors.command.requiredOneOf, isEmpty);
+      expect(NodeDescriptors.testsValidator.requiredOneOf, isEmpty);
+      expect(NodeDescriptors.checklistValidator.requiredOneOf, isEmpty);
+      expect(NodeDescriptors.humanApproval.requiredOneOf, isEmpty);
     });
   });
 }

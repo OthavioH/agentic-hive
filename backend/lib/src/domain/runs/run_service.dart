@@ -6,11 +6,14 @@ import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/engine/graph_engine.dart';
 import 'package:agentic_hive_backend/src/domain/engine/resume_input.dart';
 import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_canceller.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_log_store.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
 import 'package:agentic_hive_backend/src/domain/settings/execution_settings_service.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_registry.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_runs_deleter.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workspace_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/shadow_snapshot_service.dart';
@@ -26,7 +29,7 @@ import 'package:path/path.dart' as p;
 
 /// Domain service / coordinator for starting, querying, resuming, cancelling,
 /// and deleting [Run]s, [Checkpoint]s, [RunEvent]s, and node logs.
-final class RunService {
+final class RunService implements WorkflowRunsDeleter {
   /// Creates a run service.
   new({
     required this._runs,
@@ -41,7 +44,9 @@ final class RunService {
     this._worktrees,
     this._executionSettings,
     this._engine,
+    this._canceller,
     this._logStore,
+    this._deletions,
     p.Context? pathContext,
     String Function()? generateId,
     DateTime Function()? now,
@@ -74,7 +79,13 @@ final class RunService {
   final WorktreeService? _worktrees;
   final ExecutionSettingsService? _executionSettings;
   final GraphEngine? _engine;
+
+  /// Overrides the engine as canceller (tests only).
+  final RunCanceller? _canceller;
+
+  RunCanceller? get _effectiveCanceller => _canceller ?? _engine;
   final RunLogStore? _logStore;
+  final WorkflowDeletionRegistry? _deletions;
   final p.Context _pathContext;
   final String Function() _generateId;
   final DateTime Function() _now;
@@ -148,6 +159,8 @@ final class RunService {
         ValidationFailure('Field "workspaceId" must not be blank.'),
       );
     }
+    final deleting = _deletingFailureFor(workflowId, workspaceId);
+    if (deleting != null) return FailureResult(deleting);
     final workspaceService = _workspaces;
     if (workspaceService == null) {
       return const FailureResult(
@@ -344,6 +357,19 @@ final class RunService {
         input: runInput,
       );
 
+      if (_deletingFailureFor(workflowId, workspace.id)
+          case final deletingFailure?) {
+        _snapshots?.configureRunExclusions(runId, const []);
+        if (createdWorktreePath != null) {
+          await workspacePreparation.cleanupWorktree(
+            workspacePath: workspacePath,
+            worktreePath: createdWorktreePath,
+            branchName: createdWorktreeBranch,
+          );
+        }
+        return FailureResult(deletingFailure);
+      }
+
       final createResult = await _runs.create(run);
       if (createResult case FailureResult<Run>(:final failure)) {
         _snapshots?.configureRunExclusions(runId, const []);
@@ -387,21 +413,52 @@ final class RunService {
   /// Initiates cancellation for an active run or retries cancellation for a
   /// `cancellationUncertain` run.
   Future<Result<Run>> cancelRun(String id) async {
-    final engine = _engine;
-    if (engine == null) {
+    final canceller = _effectiveCanceller;
+    if (canceller == null) {
       return const FailureResult(
         UnexpectedFailure('GraphEngine is not configured.'),
       );
     }
-    return await engine.cancel(id);
+    return await canceller.cancel(id);
   }
 
   /// Resumes an `interrupted` run from its latest checkpoint.
   ///
-  /// Returns [ConflictFailure] (`409 Conflict`) when the run is `paused`, is
-  /// already being resumed, or is in any status other than `interrupted`.
-  Future<Result<Run>> resumeRun(String id) =>
-      _resumeWithStatus(id, expectedStatus: RunStatus.interrupted);
+  /// Returns [WorkflowDeletingFailure] (`409 workflow_deleting`) while the
+  /// run's workflow is being deleted (ADR 0027), and [ConflictFailure]
+  /// (`409 Conflict`) when the run is `paused`, is already being resumed, or
+  /// is in any status other than `interrupted`.
+  Future<Result<Run>> resumeRun(String id) async {
+    final runResult = await _runs.getById(id);
+    if (runResult case FailureResult<Run>(:final failure)) {
+      return FailureResult(failure);
+    }
+    final run = runResult.valueOrNull!;
+    final workflowId = run.workflowId;
+    final deleting = workflowId == null
+        ? null
+        : _deletingFailureFor(workflowId, run.workspaceId);
+    if (deleting != null) return FailureResult(deleting);
+    return await _resumeWithStatus(id, expectedStatus: RunStatus.interrupted);
+  }
+
+  /// The refusal for a run or start of [workflowId] in [workspaceId] while
+  /// that workflow is being deleted: the workspace's operation first, then the
+  /// global one with the same id (ADR 0027). Null when nothing is deleting.
+  WorkflowDeletingFailure? _deletingFailureFor(
+    String workflowId,
+    String? workspaceId,
+  ) {
+    final deletions = _deletions;
+    final deleting =
+        deletions?.runningFor(workflowId, workspaceId: workspaceId) ??
+        deletions?.runningFor(workflowId);
+    if (deleting == null) return null;
+    return WorkflowDeletingFailure(
+      'Workflow "$workflowId" is being deleted.',
+      operationId: deleting.id,
+    );
+  }
 
   /// Resumes a `paused` run with [input] (either an [ApprovalDecisionInput]
   /// or a post-restart [HumanAnswerInput]), or queues [input] into an active
@@ -782,6 +839,195 @@ final class RunService {
       return deleteResult;
     }
 
+    await _cleanUpRunArtifacts(id);
+    return deleteResult;
+  }
+
+  /// Deletes all runs of [workflowId] in [workspaceId]'s scope (`null` =
+  /// global workflow: runs in any workspace) and cleans their shadow
+  /// repositories and logs. Worktrees are kept (ADR 0025).
+  ///
+  /// Lists active runs (`running`, `paused`, and `cancelling`) of [workflowId]
+  /// in [workspaceId]'s scope, oldest first. A null scope matches all.
+  @override
+  Future<Result<Map<String, RunStatus>>> activeRunsOfWorkflow(
+    String workflowId, {
+    String? workspaceId,
+  }) async {
+    final activeRuns = <Run>[];
+    for (final status in [
+      RunStatus.running,
+      RunStatus.paused,
+      RunStatus.cancelling,
+    ]) {
+      final result = await _runs.listByStatus(status);
+      if (result case FailureResult<List<Run>>(:final failure)) {
+        return FailureResult(failure);
+      }
+      activeRuns.addAll(result.valueOrNull!);
+    }
+    final matching =
+        activeRuns
+            .where(
+              (run) =>
+                  run.workflowId == workflowId &&
+                  (workspaceId == null || run.workspaceId == workspaceId),
+            )
+            .toList()
+          ..sort((a, b) {
+            return a.startedAt.compareTo(b.startedAt);
+          });
+    return Success({for (final run in matching) run.id: run.status});
+  }
+
+  @override
+  Future<Result<WorkflowRunsDeletion>> deleteRunsOfWorkflow(
+    String workflowId, {
+    String? workspaceId,
+    bool force = false,
+    WorkflowRunsProgressListener? onProgress,
+  }) async {
+    final uncertainResult = await _runs.listByStatus(
+      RunStatus.cancellationUncertain,
+    );
+    if (uncertainResult case FailureResult<List<Run>>(:final failure)) {
+      return FailureResult(failure);
+    }
+    final preExistingUncertain = [
+      for (final run in uncertainResult.valueOrNull!)
+        if (run.workflowId == workflowId &&
+            (workspaceId == null || run.workspaceId == workspaceId))
+          run,
+    ];
+    final preExistingIds = [for (final run in preExistingUncertain) run.id];
+
+    final first = await _deleteRunsAndArtifacts(
+      workflowId,
+      workspaceId: workspaceId,
+      orphanIds: preExistingIds,
+      onProgress: onProgress,
+    );
+    if (!force) return first;
+    if (first case FailureResult<WorkflowRunsDeletion>(
+      failure: WorkflowHasActiveRunsFailure(:final activeRuns),
+    )) {
+      final canceller = _effectiveCanceller;
+      if (canceller == null) {
+        return const FailureResult(
+          UnexpectedFailure('GraphEngine is not configured.'),
+        );
+      }
+      final ids = activeRuns.keys.toList(growable: false);
+      onProgress?.call(
+        WorkflowRunsProgress(
+          phase: WorkflowDeletionPhase.stoppingRuns,
+          runsToStop: ids.length,
+        ),
+      );
+      var stopped = 0;
+      final unconfirmed = await Future.wait([
+        for (final id in ids)
+          _cancelAndCheckUnconfirmed(canceller, id).then((result) {
+            stopped++;
+            onProgress?.call(
+              WorkflowRunsProgress(
+                phase: WorkflowDeletionPhase.stoppingRuns,
+                runsToStop: ids.length,
+                runsStopped: stopped,
+              ),
+            );
+            return result;
+          }),
+      ]);
+      final allOrphans =
+          <({String id, DateTime? startedAt})>[
+            for (final run in preExistingUncertain)
+              (id: run.id, startedAt: run.startedAt),
+            for (var i = 0; i < ids.length; i++)
+              if (unconfirmed[i] case final run?)
+                (id: run.id, startedAt: run.startedAt),
+          ]..sort((a, b) {
+            if (a.startedAt == null && b.startedAt == null) return 0;
+            if (a.startedAt == null) return 1;
+            if (b.startedAt == null) return -1;
+            return a.startedAt!.compareTo(b.startedAt!);
+          });
+      final orphanIds = [for (final entry in allOrphans) entry.id];
+      return await _deleteRunsAndArtifacts(
+        workflowId,
+        workspaceId: workspaceId,
+        orphanIds: orphanIds,
+        onProgress: onProgress,
+      );
+    }
+    return first;
+  }
+
+  Future<Result<WorkflowRunsDeletion>> _deleteRunsAndArtifacts(
+    String workflowId, {
+    String? workspaceId,
+    List<String> orphanIds = const [],
+    WorkflowRunsProgressListener? onProgress,
+  }) async {
+    final deleted = await _runs.deleteAllOfWorkflow(
+      workflowId,
+      workspaceId: workspaceId,
+      orphanIds: orphanIds.toSet(),
+    );
+    if (deleted case FailureResult<List<String>>(:final failure)) {
+      return FailureResult(failure);
+    }
+    final ids = deleted.valueOrNull!;
+    onProgress?.call(
+      const WorkflowRunsProgress(phase: WorkflowDeletionPhase.deletingRuns),
+    );
+    for (var i = 0; i < ids.length; i++) {
+      final id = ids[i];
+      await _cleanUpRunArtifacts(id);
+      onProgress?.call(
+        WorkflowRunsProgress(
+          phase: WorkflowDeletionPhase.deletingRuns,
+          runsDeleted: i + 1,
+        ),
+      );
+    }
+    return Success(
+      WorkflowRunsDeletion(deletedRuns: ids.length, orphanedRuns: orphanIds),
+    );
+  }
+
+  /// Cancels [runId], waits for the cancel to settle, and returns a record
+  /// with its `id` and `startedAt` if the run must be kept because its stop is
+  /// not confirmed (#104 R6), or `null` if it settled or was already deleted.
+  Future<({String id, DateTime? startedAt})?> _cancelAndCheckUnconfirmed(
+    RunCanceller canceller,
+    String runId,
+  ) async {
+    try {
+      await canceller.cancel(runId);
+    } on Object catch (error, stackTrace) {
+      _log.warning(
+        LogEvent(
+          'runs.forced_delete_cancel_crashed',
+          fields: {'runId': runId, 'error': '$error'},
+        ),
+        error,
+        stackTrace,
+      );
+    }
+    final current = await _runs.getById(runId);
+    return switch (current) {
+      Success<Run>(:final value)
+          when value.status == RunStatus.cancellationUncertain ||
+              value.status.isActive =>
+        (id: runId, startedAt: value.startedAt),
+      Success<Run>() => null,
+      FailureResult<Run>(failure: NotFoundFailure()) => null,
+      FailureResult<Run>() => (id: runId, startedAt: null),
+    };
+  }
+
+  Future<void> _cleanUpRunArtifacts(String id) async {
     if (_snapshots != null) {
       _snapshots.configureRunExclusions(id, const []);
       await _snapshots.deleteShadowRepository(id);
@@ -789,6 +1035,5 @@ final class RunService {
     if (_logStore != null) {
       await _logStore.deleteRunLogs(id);
     }
-    return deleteResult;
   }
 }

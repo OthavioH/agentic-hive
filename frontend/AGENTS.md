@@ -38,7 +38,7 @@ lib/
 
 ## Riverpod DI & State Management
 
-- Use `@riverpod` / `@Riverpod(keepAlive: true)` with `riverpod_generator` and `riverpod_lint`. Keep generated `*.g.dart` files committed and up to date (`dart run build_runner build --delete-conflicting-outputs`).
+- Use `@riverpod` / `@Riverpod(keepAlive: true)` with `riverpod_generator` and `riverpod_lint`. Generated `*.g.dart` files are gitignored; regenerate them with `dart run tool/codegen.dart` (or `dart run build_runner build --delete-conflicting-outputs` inside `frontend/`).
 - **DI providers:** Expose abstract interface types, never concrete implementations. Register data source and repository providers next to their implementations in `data/<feature>/`, use case providers in `core/di/`, and app-wide transport in `core/backend/`. Use `ref.onDispose` to close clients and cancel subscriptions.
 - **No global singletons or mutable static state.** Everything goes through Riverpod so tests can swap dependencies with `overrides`.
 - **Notifiers:** Use `ref.watch` for reactive dependencies in `build`, and `ref.read` only inside callbacks and action methods. Always check `if (!ref.mounted) return;` after an `await` before updating state.

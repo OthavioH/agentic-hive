@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:agentic_hive_backend/src/mcp/hive_mcp_server.dart';
+import 'package:agentic_hive_backend/src/mcp/hive_mcp_socket_client.dart';
+import 'package:agentic_hive_backend/src/mcp/hive_mcp_tools_client.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/stdio.dart';
 import 'package:path/path.dart' as p;
@@ -22,7 +24,11 @@ void main() {
         output: clientToServer.sink,
       );
 
-      final server = HiveMcpServer(serverChannel, client: null);
+      final server = HiveMcpServer(
+        serverChannel,
+        client: null,
+        tools: _NoTools(),
+      );
       addTearDown(server.shutdown);
 
       final client = MCPClient(
@@ -136,4 +142,12 @@ void main() {
       expect(result['isError'], isTrue);
     });
   });
+}
+
+final class _NoTools implements HiveMcpToolForwarder {
+  @override
+  Future<BackendToolCallResponse> callTool(
+    String name,
+    Map<String, Object?> arguments,
+  ) async => const BackendToolCallResponse(isError: true, message: 'unused');
 }

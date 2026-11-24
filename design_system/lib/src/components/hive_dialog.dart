@@ -88,8 +88,9 @@ class HiveDialog extends StatelessWidget {
   /// Shows a cancel/confirm dialog and completes with true only when the
   /// user confirms; cancel, Escape and a scrim tap complete with false.
   ///
-  /// [destructive] styles the confirm button as `danger` (delete, discard);
-  /// otherwise it is the `primary` action.
+  /// [destructive] styles the confirm button as `danger` (delete, discard) and
+  /// gives Cancel the initial focus so Enter does not destroy; otherwise
+  /// Confirm is the `primary` action and takes the initial focus.
   static Future<bool> confirm({
     required BuildContext context,
     required String title,
@@ -108,6 +109,7 @@ class HiveDialog extends StatelessWidget {
           HiveButton(
             label: cancelLabel,
             variant: HiveButtonVariant.secondary,
+            autofocus: destructive,
             onPressed: () => Navigator.of(dialogContext).pop(false),
           ),
           HiveButton(
@@ -115,7 +117,7 @@ class HiveDialog extends StatelessWidget {
             variant: destructive
                 ? HiveButtonVariant.danger
                 : HiveButtonVariant.primary,
-            autofocus: true,
+            autofocus: !destructive,
             onPressed: () => Navigator.of(dialogContext).pop(true),
           ),
         ],

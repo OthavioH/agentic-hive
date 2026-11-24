@@ -374,6 +374,67 @@ final class DriftRunRepository implements RunRepository {
     }
   }
 
+  @override
+  Future<Result<List<String>>> deleteAllOfWorkflow(
+    String workflowId, {
+    String? workspaceId,
+    Set<String> orphanIds = const {},
+  }) async {
+    try {
+      return await _db.transaction(() async {
+        final query = _db.select(_db.runs)
+          ..where(
+            (row) =>
+                row.workflowId.equals(workflowId) &
+                (workspaceId == null
+                    ? const Constant(true)
+                    : row.workspaceId.equals(workspaceId)),
+          )
+          ..orderBy([(row) => OrderingTerm.asc(row.startedAt)]);
+        final rows = await query.get();
+        final kept = {
+          for (final row in rows)
+            if (orphanIds.contains(row.id)) row.id,
+        };
+        final active = <String, RunStatus>{
+          for (final row in rows)
+            if (!kept.contains(row.id) &&
+                RunStatus.fromName(row.status).isActive)
+              row.id: RunStatus.fromName(row.status),
+        };
+        if (active.isNotEmpty) {
+          return FailureResult(
+            WorkflowHasActiveRunsFailure(
+              'Workflow "$workflowId" has ${active.length} active run(s). '
+              'Stop them, then delete it again.',
+              activeRuns: active,
+            ),
+          );
+        }
+        final ids = [
+          for (final row in rows)
+            if (!kept.contains(row.id)) row.id,
+        ];
+        if (ids.isNotEmpty) {
+          await (_db.delete(_db.runs)..where((row) => row.id.isIn(ids))).go();
+        }
+        if (kept.isNotEmpty) {
+          await (_db.update(_db.runs)..where((row) => row.id.isIn(kept))).write(
+            const RunsCompanion(workflowId: Value(null)),
+          );
+        }
+        return Success(ids);
+      });
+    } on Object catch (error) {
+      return FailureResult(
+        PersistenceFailure(
+          'Failed to delete runs of workflow "$workflowId".',
+          cause: error,
+        ),
+      );
+    }
+  }
+
   Run _fromRow(RunRow row) {
     final decodedWorkflow = jsonDecode(row.workflowDefinitionJson) as JsonMap;
     return Run(
