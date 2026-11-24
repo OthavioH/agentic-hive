@@ -366,7 +366,7 @@ void main() {
 
   test('create_workflow accepts model and effort on claude_code', () async {
     final result = await create.call(
-      McpToolInput(
+      const McpToolInput(
         arguments: {
           'name': 'With Model Effort',
           'workspace': 'global',
@@ -382,7 +382,7 @@ void main() {
               },
             },
           ],
-          'edges': const <Object?>[],
+          'edges': <Object?>[],
           'entryNodeId': 'n1',
         },
       ),
@@ -392,7 +392,7 @@ void main() {
 
   test('create_workflow refuses effort on gemini_cli', () async {
     final result = await create.call(
-      McpToolInput(
+      const McpToolInput(
         arguments: {
           'name': 'Bad Gemini Effort',
           'workspace': 'global',
@@ -404,16 +404,13 @@ void main() {
               'config': {'additionalInstructions': 'x', 'effort': 'high'},
             },
           ],
-          'edges': const <Object?>[],
+          'edges': <Object?>[],
           'entryNodeId': 'n1',
         },
       ),
     );
     expect(result.isSuccess, isTrue);
-    expect(
-      result.valueOrNull!.text,
-      contains('does not support choosing an effort'),
-    );
+    expect(result.valueOrNull, contains('does not support choosing an effort'));
   });
 }
 

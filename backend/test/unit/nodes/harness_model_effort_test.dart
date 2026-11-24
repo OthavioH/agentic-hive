@@ -3,12 +3,11 @@ import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/headless_harness_nodes.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_execution_context.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
-import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_coordinator.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:test/test.dart';
 
 final class _FakeProcessRunner implements NodeProcessRunner {
-  _FakeProcessRunner(this.result);
+  new(this.result);
 
   ProcessExecutionResult result;
   ProcessInvocation? lastInvocation;
@@ -24,7 +23,7 @@ final class _FakeProcessRunner implements NodeProcessRunner {
 }
 
 final class _FakeResultContract implements ResultContract {
-  _FakeResultContract({this.report});
+  new({this.report});
 
   ResultContractReport? report;
 
@@ -50,7 +49,7 @@ final class _FakeResultContract implements ResultContract {
 }
 
 final class _FakeResultContractSession implements ResultContractSession {
-  _FakeResultContractSession({
+  new({
     required NodeExecutionContext context,
     required this.instructions,
     required this._readReport,
@@ -117,7 +116,7 @@ final class _FakeResultContractSession implements ResultContractSession {
 }
 
 final class _FakeAgentPromptResolver implements AgentPromptResolver {
-  _FakeAgentPromptResolver();
+  new();
 
   @override
   Future<Result<String>> resolvePrompt(
@@ -143,8 +142,6 @@ NodeExecutionContext _context({
 
 const ProcessExecutionResult _okProcessResult = ProcessExecutionResult(
   exitCode: 0,
-  stdout: '',
-  stderr: '',
 );
 
 void main() {
