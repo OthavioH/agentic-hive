@@ -133,9 +133,8 @@ void main() {
       expect(decoded, config);
       expect(decoded.validate(), isEmpty);
 
-      final defaultJson = const HarnessNodeConfig(
-        additionalInstructions: 'x',
-      ).toJson();
+      final defaultJson = const HarnessNodeConfig(additionalInstructions: 'x')
+          .toJson();
       expect(defaultJson.containsKey('model'), isFalse);
       expect(defaultJson.containsKey('effort'), isFalse);
 
@@ -164,10 +163,7 @@ void main() {
     });
 
     test('T-S6 harnessEffortIds mirrors HarnessEffort', () {
-      expect(
-        harnessEffortIds,
-        HarnessEffort.values.map((e) => e.name).toSet(),
-      );
+      expect(harnessEffortIds, HarnessEffort.values.map((e) => e.name).toSet());
     });
 
     test('TerminalHarnessNodeConfig round-trips and validates', () {
@@ -477,18 +473,15 @@ void main() {
       ]) {
         expect(_field(descriptor, 'model').values, isEmpty);
         expect(_field(descriptor, 'effort').values, harnessEffortIds);
-        expect(
-          descriptor.configFields.map((f) => f.name).toList(),
-          [
-            'agentId',
-            'additionalInstructions',
-            'workingDirectory',
-            'timeoutSeconds',
-            'model',
-            'effort',
-            'extraArgs',
-          ],
-        );
+        expect(descriptor.configFields.map((f) => f.name).toList(), [
+          'agentId',
+          'additionalInstructions',
+          'workingDirectory',
+          'timeoutSeconds',
+          'model',
+          'effort',
+          'extraArgs',
+        ]);
       }
 
       expect(
