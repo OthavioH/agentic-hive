@@ -126,7 +126,7 @@ void main() {
     ]);
     service = WorkflowService(
       repository: globalRepo,
-      validator: WorkflowValidator(),
+      validator: const WorkflowValidator(),
       workspaceWorkflows: workspaceWorkflows,
       workspaces: workspaces,
     );
@@ -190,7 +190,11 @@ void main() {
         response.validation.issues,
         contains(
           isA<WorkflowValidationIssue>()
-              .having((i) => i.code, 'code', WorkflowValidationCode.nestedFanOut)
+              .having(
+                (i) => i.code,
+                'code',
+                WorkflowValidationCode.nestedFanOut,
+              )
               .having(
                 (i) => i.severity,
                 'severity',
@@ -200,21 +204,24 @@ void main() {
       );
     });
 
-    test('workspace parent resolves the child in the workspace first', () async {
-      await workspaceWorkflows.create('/ws-1', _parentWorkflow());
-      await workspaceWorkflows.create('/ws-1', _plainWorkflow('child'));
+    test(
+      'workspace parent resolves the child in the workspace first',
+      () async {
+        await workspaceWorkflows.create('/ws-1', _parentWorkflow());
+        await workspaceWorkflows.create('/ws-1', _plainWorkflow('child'));
 
-      final result = await service.getWorkflow('parent', workspaceId: 'ws-1');
-      final response = result.valueOrNull!;
+        final result = await service.getWorkflow('parent', workspaceId: 'ws-1');
+        final response = result.valueOrNull!;
 
-      expect(response.validation.isValid, isTrue);
-      expect(
-        response.validation.issues.where(
-          (i) => i.code == WorkflowValidationCode.unresolvedChildWorkflow,
-        ),
-        isEmpty,
-      );
-    });
+        expect(response.validation.isValid, isTrue);
+        expect(
+          response.validation.issues.where(
+            (i) => i.code == WorkflowValidationCode.unresolvedChildWorkflow,
+          ),
+          isEmpty,
+        );
+      },
+    );
 
     test('workspace parent falls back to the global child', () async {
       await workspaceWorkflows.create('/ws-1', _parentWorkflow());

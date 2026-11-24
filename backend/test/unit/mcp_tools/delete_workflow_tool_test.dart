@@ -594,19 +594,22 @@ void main() {
       );
     });
 
-    test('lists a workspace referencing workflow with its workspace id', () async {
-      global.store['child'] = childWorkflow();
-      workspaceFiles.byRoot[workspace.rootPath] = {
-        'planner': referencingWorkflow(),
-      };
+    test(
+      'lists a workspace referencing workflow with its workspace id',
+      () async {
+        global.store['child'] = childWorkflow();
+        workspaceFiles.byRoot[workspace.rootPath] = {
+          'planner': referencingWorkflow(),
+        };
 
-      final result = await call({
-        'id': 'child',
-        'revision': revisionOf(childWorkflow()),
-      });
+        final result = await call({
+          'id': 'child',
+          'revision': revisionOf(childWorkflow()),
+        });
 
-      expect(_bodyOf(result), contains('workspace ws-1'));
-    });
+        expect(_bodyOf(result), contains('workspace ws-1'));
+      },
+    );
 
     test('lists several nodes of one workflow joined by comma', () async {
       global.store['child'] = childWorkflow();
@@ -665,14 +668,9 @@ void main() {
       global.store['planner'] = referencingWorkflow();
       deleter.activeRuns = {'r1': RunStatus.running};
 
-      final failure =
-          _failureOf(
-                await call({
-                  'id': 'child',
-                  'revision': revisionOf(childWorkflow()),
-                }),
-              )
-              as WorkflowHasActiveRunsFailure;
+      final failure = _failureOf(
+        await call({'id': 'child', 'revision': revisionOf(childWorkflow())}),
+      ) as WorkflowHasActiveRunsFailure;
 
       expect(failure.message, isNot(contains('Used by fan-out')));
     });

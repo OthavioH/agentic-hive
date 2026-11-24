@@ -12,22 +12,34 @@ final class BuildingBlocksTextFormatter {
     ':int :bool :[string] :{string} :[{...}] types (default string).',
   ].join(' ');
 
+  static const String _fanOut1 =
+      'Fan-out (fan_out): starts one child run of the saved workflow '
+      'workflowId for each item of the list at itemsPath in the output of '
+      'the earlier node itemsNodeId, and waits for all of them.';
+  static const String _fanOut2 =
+      '  The child workflow is resolved in the workspace first, then global; '
+      'it must not contain a fan_out node.';
+  static const String _fanOut3 =
+      '  Without inputField the whole item is the child input; inputField, '
+      'nameField and overridesField are dot paths inside each item '
+      '(nameField names the worktree).';
+  static const String _fanOut4 =
+      '  overridesField points to an object {"<child node id>": {agentId?, '
+      'model?, effort?}} that overrides those settings of the child '
+      'workflow nodes for that child only; the node type (harness) stays '
+      'fixed.';
+  static const String _fanOut5 =
+      '  concurrency (default 2) children run at once; more than maxItems '
+      '(default 20) items fails the node. onSuccess only if every child '
+      'succeeded, else onFailure.';
+
   /// Notes printed when the fan-out node type is listed (ADR 0029).
   static const List<String> fanOutNotes = [
-    'Fan-out (fan_out): starts one child run of the saved workflow workflowId '
-        'for each item of the list at itemsPath in the output of the earlier '
-        'node itemsNodeId, and waits for all of them.',
-    '  The child workflow is resolved in the workspace first, then global; it '
-        'must not contain a fan_out node.',
-    '  Without inputField the whole item is the child input; inputField, '
-        'nameField and overridesField are dot paths inside each item '
-        '(nameField names the worktree).',
-    '  overridesField points to an object {"<child node id>": {agentId?, model?, '
-        'effort?}} that overrides those settings of the child workflow nodes for '
-        'that child only; the node type (harness) stays fixed.',
-    '  concurrency (default 2) children run at once; more than maxItems '
-        '(default 20) items fails the node. onSuccess only if every child '
-        'succeeded, else onFailure.',
+    _fanOut1,
+    _fanOut2,
+    _fanOut3,
+    _fanOut4,
+    _fanOut5,
   ];
 
   /// Formats node types, listed agents and the count of omitted broken agents.

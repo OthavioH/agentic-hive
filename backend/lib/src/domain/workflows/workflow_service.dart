@@ -588,7 +588,10 @@ final class WorkflowService {
       final target = await _resolveTarget(workspaceId);
       final scoped = target.valueOrNull;
       if (scoped != null) {
-        final inWorkspace = await scoped.repository.getById(scoped.rootPath, id);
+        final inWorkspace = await scoped.repository.getById(
+          scoped.rootPath,
+          id,
+        );
         if (inWorkspace case Success<Workflow>(:final value)) return value;
       }
     }
