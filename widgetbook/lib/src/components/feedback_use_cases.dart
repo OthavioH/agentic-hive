@@ -221,6 +221,70 @@ WidgetbookComponent bannerComponent() {
           ),
         ),
       ),
+      for (final tone in HiveFeedbackTone.values)
+        WidgetbookUseCase(
+          name: 'Compact · ${tone.name}',
+          builder: (context) => UseCaseFrame(
+            child: sized(
+              context,
+              HiveBanner(
+                tone: tone,
+                density: HiveBannerDensity.compact,
+                title: _bannerCopy[tone]!.$1,
+                message: _bannerCopy[tone]!.$2,
+              ),
+            ),
+          ),
+        ),
+      WidgetbookUseCase(
+        name: 'Compact · With action and message',
+        builder: (context) => UseCaseFrame(
+          child: sized(
+            context,
+            const HiveBanner(
+              tone: HiveFeedbackTone.danger,
+              density: HiveBannerDensity.compact,
+              title: 'Could not install the skill',
+              message: 'Permission denied writing to ~/.claude/skills.',
+              actions: <Widget>[
+                HiveButton(
+                  label: 'Retry',
+                  size: HiveButtonSize.small,
+                  variant: HiveButtonVariant.secondary,
+                  onPressed: _noop,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Compact · Long message',
+        builder: (context) => UseCaseFrame(
+          child: SizedBox(
+            width: context.hiveSpacing.space8 * 5,
+            child: const HiveBanner(
+              tone: HiveFeedbackTone.warning,
+              density: HiveBannerDensity.compact,
+              title: 'Hive MCP server is not installed for Claude Code',
+              message:
+                  'Install the Hive MCP server so Claude Code can report '
+                  'structured run results instead of relying on result.json '
+                  'in the workspace.',
+              actions: <Widget>[
+                HiveButton(
+                  label: 'Install MCP',
+                  size: HiveButtonSize.small,
+                  variant: HiveButtonVariant.secondary,
+                  onPressed: _noop,
+                ),
+              ],
+              onDismiss: _noop,
+              dismissSemanticLabel: 'Dismiss',
+            ),
+          ),
+        ),
+      ),
     ],
   );
 }
