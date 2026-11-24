@@ -26,15 +26,13 @@ void main() {
     updatedAt: DateTime.utc(2026, 11, 20, 9),
   );
 
-  test(
-    'migrates schemaVersion 10 to 11 adding pauses.parent_run_id',
-    () async {
-      final dir = createTestDir();
-      final dbFile = databaseFileIn(dir);
+  test('migrates schemaVersion 10 to 11 adding pauses.parent_run_id', () async {
+    final dir = createTestDir();
+    final dbFile = databaseFileIn(dir);
 
-      final v10 = NativeDatabase(dbFile);
-      await v10.ensureOpen(_V10SeedUser());
-      await v10.runCustom('''
+    final v10 = NativeDatabase(dbFile);
+    await v10.ensureOpen(_V10SeedUser());
+    await v10.runCustom('''
         CREATE TABLE runs (
           id TEXT NOT NULL PRIMARY KEY,
           workflow_id TEXT,
@@ -56,7 +54,7 @@ void main() {
           child_name TEXT
         )
       ''');
-      await v10.runCustom('''
+    await v10.runCustom('''
         INSERT INTO runs (
           id, workflow_id, workflow_name, workflow_definition_json,
           workspace_path, status, started_at
@@ -65,7 +63,7 @@ void main() {
           '/tmp/ws', 'paused', '2026-11-21T10:00:00.000Z'
         )
       ''');
-      await v10.runCustom('''
+    await v10.runCustom('''
         CREATE TABLE pauses (
           id TEXT NOT NULL PRIMARY KEY,
           run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
@@ -90,7 +88,7 @@ void main() {
           answered_at TEXT
         )
       ''');
-      await v10.runCustom('''
+    await v10.runCustom('''
         INSERT INTO pauses (
           id, run_id, node_id, kind, status, workflow_name, node_label,
           options_json, created_at
@@ -99,23 +97,22 @@ void main() {
           '[]', '2026-11-21T10:00:00.000Z'
         )
       ''');
-      await v10.close();
+    await v10.close();
 
-      final db = AppDatabase.open(dbFile);
-      addTearDown(db.close);
+    final db = AppDatabase.open(dbFile);
+    addTearDown(db.close);
 
-      final tableInfo = await db.customSelect('PRAGMA table_info(pauses)').get();
-      expect(await readUserVersion(dbFile), 11);
-      final columnNames = tableInfo
-          .map((row) => row.read<String>('name'))
-          .toSet();
-      expect(columnNames, contains('parent_run_id'));
+    final tableInfo = await db.customSelect('PRAGMA table_info(pauses)').get();
+    expect(await readUserVersion(dbFile), 11);
+    final columnNames = tableInfo
+        .map((row) => row.read<String>('name'))
+        .toSet();
+    expect(columnNames, contains('parent_run_id'));
 
-      final repo = DriftPauseRepository(db);
-      final oldPause = (await repo.getById('p-old')).valueOrNull!;
-      expect(oldPause.parentRunId, isNull);
-    },
-  );
+    final repo = DriftPauseRepository(db);
+    final oldPause = (await repo.getById('p-old')).valueOrNull!;
+    expect(oldPause.parentRunId, isNull);
+  });
 
   test('round-trips Pause.parentRunId', () async {
     final dir = createTestDir();
