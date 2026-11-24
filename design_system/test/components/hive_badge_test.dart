@@ -11,15 +11,12 @@ void main() {
       'light': (theme: HiveTheme.light(), colors: HiveColors.light),
     }.entries) {
       testWidgets(
-        'neutral tone draws a 1px borderStrong foreground outline (${entry.key})',
+        'neutral tone draws 1px borderStrong foreground outline (${entry.key})',
         (tester) async {
           await tester.pumpWidget(
             hiveTestApp(
               theme: entry.value.theme,
-              child: const HiveBadge(
-                label: 'Not installed',
-                tone: HiveBadgeTone.neutral,
-              ),
+              child: const HiveBadge(label: 'Not installed'),
             ),
           );
 
@@ -78,7 +75,7 @@ void main() {
           child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              HiveBadge(label: 'Status', tone: HiveBadgeTone.neutral),
+              HiveBadge(label: 'Status'),
               HiveBadge(label: 'Status', tone: HiveBadgeTone.info),
             ],
           ),
