@@ -143,7 +143,7 @@ void main() {
       await db.close();
     }
 
-    expect(await readUserVersion(dbFile), 10);
+    expect(await readUserVersion(dbFile), 11);
     final metadata = await readMetadataRows(dbFile);
     expect(metadata['installed_at'], '2026-11-20T00:00:00.000Z');
   });

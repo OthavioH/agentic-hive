@@ -12,11 +12,8 @@ import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 /// Executes a child workflow once per item in an upstream list output.
 ///
-/// Known limitations for ticket 130-3:
-/// - Cancelling the parent run while children are running does not cascade to
-///   children yet (ticket 130-4).
-/// - A backend restart mid-fan-out interrupts the parent, and resuming it
-///   starts children again (ticket 130-4).
+/// Re-running the node, resuming it after a restart and parent cancellation
+/// are handled here and in `GraphEngine` (ADR 0029).
 final class FanOutNode extends Node {
   /// Creates a [FanOutNode].
   new({
@@ -35,6 +32,13 @@ final class FanOutNode extends Node {
     RunStatus.failed,
     RunStatus.cancelled,
     RunStatus.cancellationUncertain,
+  };
+
+  static const Set<RunStatus> _parentStoppedStatuses = {
+    RunStatus.cancelling,
+    RunStatus.cancelled,
+    RunStatus.cancellationUncertain,
+    RunStatus.failed,
   };
 
   static final RegExp _invalidWorktreeChars = RegExp('[^A-Za-z0-9._-]+');
@@ -122,6 +126,15 @@ final class FanOutNode extends Node {
       );
     }
 
+    final previousResult = await childRuns.listChildRuns(
+      parentRunId: context.runId,
+      parentNodeId: context.nodeId,
+    );
+    if (previousResult case FailureResult(:final failure)) {
+      return FailureResult(failure);
+    }
+    final previous = previousResult.valueOrNull!;
+
     final usedWorktreeNames = <String>{};
     final plans = [
       for (var i = 0; i < items.length; i++)
@@ -132,6 +145,7 @@ final class FanOutNode extends Node {
           nodeLabel: nodeLabel,
           placement: placement,
           usedWorktreeNames: usedWorktreeNames,
+          previous: previous,
         ),
     ];
 
@@ -144,7 +158,7 @@ final class FanOutNode extends Node {
     final workers = List.generate(workerCount, (_) async {
       while (next < plans.length) {
         final i = next++;
-        entries[i] = await _runChild(
+        entries[i] = await _runItem(
           plans[i],
           context: context,
           workflow: pinnedWorkflow,
@@ -228,15 +242,25 @@ final class FanOutNode extends Node {
     required String nodeLabel,
     required ChildRunPlacement placement,
     required Set<String> usedWorktreeNames,
+    required List<Run> previous,
   }) {
     final oneBased = index + 1;
-    final name = _resolveChildName(
+    final resolved = _resolveChildName(
       item: item,
       nameField: config.nameField,
       defaultName: '$nodeLabel-$oneBased',
     );
+    final name = resolved.name;
+    final matches = resolved.fromField
+        ? previous.where((r) => r.childName == name).toList()
+        : previous.where((r) => r.childIndex == index).toList();
     final worktreeName = placement == ChildRunPlacement.worktree
-        ? _uniqueWorktreeName(name, oneBased, usedWorktreeNames)
+        ? _uniqueWorktreeName(
+            name,
+            oneBased,
+            usedWorktreeNames,
+            retryOrdinal: matches.length,
+          )
         : null;
 
     String? input;
@@ -276,35 +300,38 @@ final class FanOutNode extends Node {
       input: input,
       overrides: overrides,
       error: error,
+      previous: matches,
     );
   }
 
-  String _resolveChildName({
+  ({String name, bool fromField}) _resolveChildName({
     required Object? item,
     required String? nameField,
     required String defaultName,
   }) {
     final field = nameField?.trim() ?? '';
-    if (field.isEmpty) return defaultName;
+    if (field.isEmpty) return (name: defaultName, fromField: false);
     final raw = ProposalPath.resolve(item, field);
     if (raw is String) {
       final trimmed = raw.trim();
-      if (trimmed.isNotEmpty) return trimmed;
+      if (trimmed.isNotEmpty) return (name: trimmed, fromField: true);
     } else if (raw is num) {
-      return raw.toString();
+      return (name: raw.toString(), fromField: true);
     }
-    return defaultName;
+    return (name: defaultName, fromField: false);
   }
 
   String _uniqueWorktreeName(
     String childName,
     int oneBasedIndex,
-    Set<String> usedLower,
-  ) {
+    Set<String> usedLower, {
+    int retryOrdinal = 0,
+  }) {
     var sanitized = childName
         .replaceAll(_invalidWorktreeChars, '-')
         .replaceFirst(_leadingNonAlnum, '');
     if (sanitized.isEmpty) sanitized = 'item';
+    if (retryOrdinal > 0) sanitized = '$sanitized-r$retryOrdinal';
     var candidate = sanitized;
     while (!usedLower.add(candidate.toLowerCase())) {
       candidate = '$sanitized-$oneBasedIndex';
@@ -353,13 +380,17 @@ final class FanOutNode extends Node {
     return Success(result);
   }
 
-  Future<Map<String, Object?>> _runChild(
+  Future<Map<String, Object?>> _runItem(
     _ChildPlan plan, {
     required NodeExecutionContext context,
     required Workflow workflow,
     required ChildRunPlacement placement,
     required String? baseCommit,
   }) async {
+    final last = plan.previous.lastOrNull;
+    if (last != null && last.status == RunStatus.succeeded) {
+      return await _reuse(plan, last);
+    }
     if (plan.error != null) {
       return _entry(
         index: plan.index,
@@ -367,6 +398,33 @@ final class FanOutNode extends Node {
         status: RunStatus.failed.name,
         error: plan.error,
       );
+    }
+    if (await _parentStopped(context)) {
+      return _stoppedEntry(plan);
+    }
+    if (last != null) {
+      switch (last.status) {
+        case RunStatus.running || RunStatus.paused || RunStatus.cancelling:
+          return await _collect(plan, last.id);
+        case RunStatus.interrupted:
+          final resumed = await childRuns.resumeChildRun(last.id);
+          if (resumed case FailureResult(:final failure)
+              when failure is! ConflictFailure) {
+            return _entry(
+              index: plan.index,
+              name: plan.name,
+              status: RunStatus.failed.name,
+              runId: last.id,
+              error: failure.message,
+            );
+          }
+          return await _collect(plan, last.id);
+        case RunStatus.succeeded ||
+            RunStatus.failed ||
+            RunStatus.cancelled ||
+            RunStatus.cancellationUncertain:
+          break;
+      }
     }
     try {
       final started = await childRuns.startChildRun(
@@ -393,6 +451,22 @@ final class FanOutNode extends Node {
         );
       }
       final runId = started.valueOrNull!.id;
+      if (await _parentStopped(context)) {
+        await childRuns.cancelChildRun(runId);
+      }
+      return await _collect(plan, runId);
+    } on Object catch (error) {
+      return _entry(
+        index: plan.index,
+        name: plan.name,
+        status: RunStatus.failed.name,
+        error: '$error',
+      );
+    }
+  }
+
+  Future<Map<String, Object?>> _collect(_ChildPlan plan, String runId) async {
+    try {
       final finalRunResult = await _awaitFinal(runId);
       if (finalRunResult case FailureResult(:final failure)) {
         final message = failure is NotFoundFailure
@@ -426,10 +500,35 @@ final class FanOutNode extends Node {
         index: plan.index,
         name: plan.name,
         status: RunStatus.failed.name,
+        runId: runId,
         error: '$error',
       );
     }
   }
+
+  Future<Map<String, Object?>> _reuse(_ChildPlan plan, Run previous) async {
+    final output = (await childRuns.finalOutputOf(previous.id)).valueOrNull;
+    return _entry(
+      index: plan.index,
+      name: previous.childName ?? plan.name,
+      status: RunStatus.succeeded.name,
+      runId: previous.id,
+      output: output,
+    );
+  }
+
+  Future<bool> _parentStopped(NodeExecutionContext context) async {
+    final res = await childRuns.getRun(context.runId);
+    final run = res.valueOrNull;
+    return run == null || _parentStoppedStatuses.contains(run.status);
+  }
+
+  Map<String, Object?> _stoppedEntry(_ChildPlan plan) => _entry(
+    index: plan.index,
+    name: plan.name,
+    status: RunStatus.cancelled.name,
+    error: 'The parent run stopped before this item started.',
+  );
 
   Future<Result<Run>> _awaitFinal(String runId) async {
     while (true) {
@@ -479,6 +578,7 @@ final class _ChildPlan {
   const new({
     required this.index,
     required this.name,
+    required this.previous,
     this.worktreeName,
     this.input,
     this.overrides,
@@ -487,6 +587,7 @@ final class _ChildPlan {
 
   final int index;
   final String name;
+  final List<Run> previous;
   final String? worktreeName;
   final String? input;
   final Map<String, NodeOverride>? overrides;

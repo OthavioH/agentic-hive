@@ -3,6 +3,7 @@ import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/data/workspace/git_client.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/child_run_port.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_canceller.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workspace_workflow_repository.dart';
@@ -343,4 +344,121 @@ void main() {
       expect(res.valueOrNull!.name, 'Workspace Workflow');
     },
   );
+
+  test('listChildRuns delegates to the repository', () async {
+    await harness.runs.create(
+      Run(
+        id: 'c2',
+        workflowId: 'wf-1',
+        workflowName: 'Child',
+        workflowDefinition: pinnedWorkflow,
+        workspacePath: '.',
+        workspaceId: 'ws-1',
+        status: RunStatus.succeeded,
+        startedAt: DateTime.utc(2026, 1, 2),
+        parentRunId: 'parent-1',
+        parentNodeId: 'fan',
+        childIndex: 1,
+      ),
+    );
+    await harness.runs.create(
+      Run(
+        id: 'c1',
+        workflowId: 'wf-1',
+        workflowName: 'Child',
+        workflowDefinition: pinnedWorkflow,
+        workspacePath: '.',
+        workspaceId: 'ws-1',
+        status: RunStatus.succeeded,
+        startedAt: DateTime.utc(2026),
+        parentRunId: 'parent-1',
+        parentNodeId: 'fan',
+        childIndex: 0,
+      ),
+    );
+
+    final res = await service.listChildRuns(
+      parentRunId: 'parent-1',
+      parentNodeId: 'fan',
+    );
+    expect(res.valueOrNull!.map((r) => r.id), ['c1', 'c2']);
+  });
+
+  test(
+    'resumeChildRun returns ConflictFailure for non-interrupted child',
+    () async {
+      await harness.runs.create(
+        Run(
+          id: 'c-run',
+          workflowId: 'wf-1',
+          workflowName: 'Child',
+          workflowDefinition: pinnedWorkflow,
+          workspacePath: '.',
+          workspaceId: 'ws-1',
+          status: RunStatus.succeeded,
+          startedAt: DateTime.utc(2026),
+          parentRunId: 'parent-1',
+          parentNodeId: 'fan',
+        ),
+      );
+
+      final res = await service.resumeChildRun('c-run');
+      expect(res.failureOrNull, isA<ConflictFailure>());
+    },
+  );
+
+  test('cancelChildRun cancels through the canceller', () async {
+    final cancelled = <String>[];
+    final customService = RunService(
+      runs: harness.runs,
+      checkpoints: harness.checkpoints,
+      events: harness.events,
+      workspaces: WorkspaceService(
+        workspaces: _FakeWorkspaceRepository(),
+        capabilities: const WorkspaceCapabilitiesService(
+          GitClient(_FakeProcessRunner()),
+        ),
+      ),
+      workflows: _SingleWorkflowRepository(savedWorkflow),
+      engine: harness.engine,
+      canceller: _RecordingCanceller(cancelled),
+      workspacePreparation: const WorkspacePreparationService(
+        git: GitClient(_FakeProcessRunner()),
+      ),
+    );
+
+    final res = await customService.cancelChildRun('c-1');
+    expect(res.isSuccess, isTrue);
+    expect(cancelled, ['c-1']);
+  });
+}
+
+final class _RecordingCanceller implements RunCanceller {
+  new(this.cancelled);
+
+  final List<String> cancelled;
+
+  @override
+  Future<Result<Run>> cancel(String runId) async {
+    cancelled.add(runId);
+    return Success(
+      Run(
+        id: runId,
+        workflowId: 'wf-1',
+        workflowName: 'Child',
+        workflowDefinition: Workflow(
+          id: 'wf-1',
+          name: 'Child',
+          nodes: const [],
+          edges: const [],
+          entryNodeId: 'n1',
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+        ),
+        workspacePath: '.',
+        status: RunStatus.cancelled,
+        startedAt: DateTime.utc(2026),
+      ),
+    );
+  }
 }

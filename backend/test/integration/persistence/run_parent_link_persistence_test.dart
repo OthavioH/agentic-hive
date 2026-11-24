@@ -34,6 +34,17 @@ void main() {
       final v9 = NativeDatabase(dbFile);
       await v9.ensureOpen(_V9SeedUser());
       await v9.runCustom('''
+        CREATE TABLE pauses (
+          id TEXT NOT NULL PRIMARY KEY,
+          run_id TEXT NOT NULL,
+          node_id TEXT NOT NULL,
+          kind TEXT NOT NULL,
+          question TEXT NOT NULL,
+          status TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        )
+      ''');
+      await v9.runCustom('''
         CREATE TABLE runs (
           id TEXT NOT NULL PRIMARY KEY,
           workflow_id TEXT,
@@ -67,7 +78,7 @@ void main() {
 
       final repo = DriftRunRepository(db);
       final oldRun = (await repo.getById('r-old')).valueOrNull!;
-      expect(await readUserVersion(dbFile), 10);
+      expect(await readUserVersion(dbFile), 11);
       expect(oldRun.parentRunId, isNull);
       expect(oldRun.parentNodeId, isNull);
       expect(oldRun.childIndex, isNull);

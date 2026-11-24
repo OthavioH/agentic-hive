@@ -523,15 +523,17 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     try {
       if (!engine.isExecuting(id)) {
         normalizedWorkspace = canonicalFolder(_runFolder(run), _pathContext);
-        if (!_reservedFolders.add(normalizedWorkspace)) {
-          return FailureResult(
-            ConflictFailure(
-              'An active run is already starting or executing in '
-              '"$normalizedWorkspace".',
-            ),
-          );
+        if (!_isLentChild(run)) {
+          if (!_reservedFolders.add(normalizedWorkspace)) {
+            return FailureResult(
+              ConflictFailure(
+                'An active run is already starting or executing in '
+                '"$normalizedWorkspace".',
+              ),
+            );
+          }
+          reservedDirect = true;
         }
-        reservedDirect = true;
         final conflict = await _checkFolderConflict(
           normalizedWorkspace,
           excludeRunIds: _resumeConflictExclusions(run),
@@ -605,15 +607,17 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
 
       {
         normalizedWorkspace = canonicalFolder(_runFolder(run), _pathContext);
-        if (!_reservedFolders.add(normalizedWorkspace)) {
-          return FailureResult(
-            ConflictFailure(
-              'An active run is already starting or executing in '
-              '"$normalizedWorkspace".',
-            ),
-          );
+        if (!_isLentChild(run)) {
+          if (!_reservedFolders.add(normalizedWorkspace)) {
+            return FailureResult(
+              ConflictFailure(
+                'An active run is already starting or executing in '
+                '"$normalizedWorkspace".',
+              ),
+            );
+          }
+          reservedDirect = true;
         }
-        reservedDirect = true;
         final conflict = await _checkFolderConflict(
           normalizedWorkspace,
           excludeRunIds: _resumeConflictExclusions(run),
@@ -744,12 +748,14 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
   /// The folder a run executes in: its worktree, or the workspace root.
   static String _runFolder(Run run) => run.worktreePath ?? run.workspacePath;
 
-  Set<String> _resumeConflictExclusions(Run run) {
-    final isLentChild =
-        run.parentRunId != null &&
-        run.isolationMode == WorkspaceIsolationMode.direct;
-    return {run.id, if (isLentChild) run.parentRunId!};
-  }
+  static bool _isLentChild(Run run) =>
+      run.parentRunId != null &&
+      run.isolationMode == WorkspaceIsolationMode.direct;
+
+  Set<String> _resumeConflictExclusions(Run run) => {
+    run.id,
+    if (_isLentChild(run)) run.parentRunId!,
+  };
 
   Result<Workflow> _applyOverrides(
     Workflow workflow,
@@ -891,6 +897,18 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
       createdAt: _now().toUtc(),
     );
   }
+
+  @override
+  Future<Result<List<Run>>> listChildRuns({
+    required String parentRunId,
+    required String parentNodeId,
+  }) => _runs.listChildren(parentRunId, parentNodeId: parentNodeId);
+
+  @override
+  Future<Result<Run>> resumeChildRun(String runId) => resumeRun(runId);
+
+  @override
+  Future<Result<Run>> cancelChildRun(String runId) => cancelRun(runId);
 
   Future<ConflictFailure?> _checkFolderConflict(
     String normalizedFolder, {

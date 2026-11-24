@@ -29,6 +29,12 @@ final class _FakeRunRepository implements RunRepository {
   }
 
   @override
+  Future<Result<List<Run>>> listChildren(
+    String parentRunId, {
+    String? parentNodeId,
+  }) async => const Success(<Run>[]);
+
+  @override
   Future<Result<void>> delete(String id) async {
     final existing = store[id];
     if (existing == null) {
