@@ -70,7 +70,7 @@ The run that contains the fan-out node that started a child run.
 _Avoid_: root run, outer run
 
 **Child run**:
-A run of a saved workflow started by a fan-out node for one item of its list. It is a full run with its own history and run target, linked to its parent run.
+A run of a saved workflow started by a fan-out node for one item of its list. It is a full run with its own history and run target, linked to its parent run and deleted with it.
 _Avoid_: subrun, spawned run, batch item
 
 **Node override**:
