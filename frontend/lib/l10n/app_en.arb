@@ -1839,6 +1839,61 @@
   "@nodeConfigExtraArgsAddLabel": {
     "description": "Button label to append an extra CLI argument."
   },
+  "nodeConfigModelLabel": "Model",
+  "@nodeConfigModelLabel": {
+    "description": "Text field label for the harness model override."
+  },
+  "nodeConfigEffortLabel": "Effort",
+  "@nodeConfigEffortLabel": {
+    "description": "Select field label for choosing the harness reasoning effort."
+  },
+  "nodeConfigHarnessDefaultHint": "Harness default",
+  "@nodeConfigHarnessDefaultHint": {
+    "description": "Placeholder hint and default option label indicating the harness chooses its own default."
+  },
+  "nodeConfigEffortLow": "Low",
+  "@nodeConfigEffortLow": {
+    "description": "Option label for low reasoning effort."
+  },
+  "nodeConfigEffortMedium": "Medium",
+  "@nodeConfigEffortMedium": {
+    "description": "Option label for medium reasoning effort."
+  },
+  "nodeConfigEffortHigh": "High",
+  "@nodeConfigEffortHigh": {
+    "description": "Option label for high reasoning effort."
+  },
+  "nodeConfigEffortMax": "Max",
+  "@nodeConfigEffortMax": {
+    "description": "Option label for maximum reasoning effort."
+  },
+  "nodeConfigModelUnsupportedError": "{harness} does not support choosing a model.",
+  "@nodeConfigModelUnsupportedError": {
+    "description": "Error text shown when a stored model value is configured on a harness that does not support model selection.",
+    "placeholders": {
+      "harness": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeConfigEffortUnsupportedError": "{harness} does not support choosing an effort.",
+  "@nodeConfigEffortUnsupportedError": {
+    "description": "Error text shown when a stored effort value is configured on a harness that does not support effort selection.",
+    "placeholders": {
+      "harness": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeConfigEffortInvalidError": "\"{effort}\" is not a valid effort.",
+  "@nodeConfigEffortInvalidError": {
+    "description": "Error text shown when a stored effort value is not one of the recognized effort levels.",
+    "placeholders": {
+      "effort": {
+        "type": "String"
+      }
+    }
+  },
   "nodeConfigCommandLabel": "Command",
   "@nodeConfigCommandLabel": {
     "description": "Text field label for the executable or shell command."
