@@ -363,6 +363,58 @@ void main() {
     expect(result.failureOrNull!.message, contains('name'));
     expect(global.store, hasLength(1));
   });
+
+  test('create_workflow accepts model and effort on claude_code', () async {
+    final result = await create.call(
+      McpToolInput(
+        arguments: {
+          'name': 'With Model Effort',
+          'workspace': 'global',
+          'nodes': [
+            {
+              'id': 'n1',
+              'type': 'harness.claude_code',
+              'label': 'N1',
+              'config': {
+                'additionalInstructions': 'x',
+                'model': 'opus',
+                'effort': 'high',
+              },
+            },
+          ],
+          'edges': const <Object?>[],
+          'entryNodeId': 'n1',
+        },
+      ),
+    );
+    expect(result.isSuccess, isTrue);
+  });
+
+  test('create_workflow refuses effort on gemini_cli', () async {
+    final result = await create.call(
+      McpToolInput(
+        arguments: {
+          'name': 'Bad Gemini Effort',
+          'workspace': 'global',
+          'nodes': [
+            {
+              'id': 'n1',
+              'type': 'harness.gemini_cli',
+              'label': 'N1',
+              'config': {'additionalInstructions': 'x', 'effort': 'high'},
+            },
+          ],
+          'edges': const <Object?>[],
+          'entryNodeId': 'n1',
+        },
+      ),
+    );
+    expect(result.isSuccess, isTrue);
+    expect(
+      result.valueOrNull!.text,
+      contains('does not support choosing an effort'),
+    );
+  });
 }
 
 Map<String, Object?> _node(String id) => {

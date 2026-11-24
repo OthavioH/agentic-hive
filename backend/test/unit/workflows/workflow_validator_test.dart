@@ -346,5 +346,81 @@ void main() {
       expect(configIssues, hasLength(2));
       expect(configIssues.every((i) => i.nodeId == 'n1'), isTrue);
     });
+
+    group('model and effort', () {
+      test('accepts valid model and effort on claude_code', () {
+        final wf = _workflow(
+          nodes: [
+            _node(
+              'n1',
+              type: NodeTypeId.claudeCode,
+              config: const {
+                'additionalInstructions': 'x',
+                'model': 'opus',
+                'effort': 'max',
+              },
+            ),
+          ],
+        );
+        expect(validator.validate(wf).isValid, isTrue);
+      });
+
+      test('refuses effort on gemini_cli', () {
+        final wf = _workflow(
+          nodes: [
+            _node(
+              'n1',
+              type: NodeTypeId.geminiCli,
+              config: const {'additionalInstructions': 'x', 'effort': 'high'},
+            ),
+          ],
+        );
+        final result = validator.validate(wf);
+        expect(result.isValid, isFalse);
+        expect(result.issues, hasLength(1));
+        expect(
+          result.issues.first.code,
+          WorkflowValidationCode.invalidNodeConfig,
+        );
+        expect(result.issues.first.nodeId, 'n1');
+        expect(
+          result.issues.first.message,
+          'effort: harness.gemini_cli does not support choosing an effort.',
+        );
+      });
+
+      test('refuses effort on terminal', () {
+        final wf = _workflow(
+          nodes: [
+            _node(
+              'n1',
+              type: NodeTypeId.terminal,
+              config: const {'command': 'x', 'effort': 'low'},
+            ),
+          ],
+        );
+        final result = validator.validate(wf);
+        expect(result.isValid, isFalse);
+        expect(
+          result.issues.first.code,
+          WorkflowValidationCode.invalidNodeConfig,
+        );
+      });
+
+      test('refuses unknown effort on claude_code', () {
+        final wf = _workflow(
+          nodes: [
+            _node(
+              'n1',
+              type: NodeTypeId.claudeCode,
+              config: const {'additionalInstructions': 'x', 'effort': 'turbo'},
+            ),
+          ],
+        );
+        final result = validator.validate(wf);
+        expect(result.isValid, isFalse);
+        expect(result.issues.first.message, startsWith('effort:'));
+      });
+    });
   });
 }
