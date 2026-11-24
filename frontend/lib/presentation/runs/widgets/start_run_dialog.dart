@@ -109,39 +109,53 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
   }
 
   Future<void> _loadInitial() async {
-    final workflowsFuture = ref.read(listWorkflowsProvider).call();
-    final registryFuture = ref.read(workspaceRegistryControllerProvider.future);
-
-    final workflowsResult = await workflowsFuture;
     WorkspaceRegistryState? registry;
     try {
-      registry = await registryFuture;
+      registry = await ref.read(workspaceRegistryControllerProvider.future);
     } on Object {
       registry = null;
     }
-    if (!mounted) return;
-
-    final workflows = workflowsResult.valueOrNull ?? const <WorkflowSummary>[];
-    var selectedId = _selectedWorkflowId;
-    if (selectedId == null || !workflows.any((w) => w.id == selectedId)) {
-      selectedId = workflows.isNotEmpty ? workflows.first.id : null;
-    }
-
     final workspaces = registry?.workspaces ?? const <Workspace>[];
     final workspaceId = _preselectedWorkspaceId(
       workspaces,
       registry?.currentWorkspaceId,
     );
+    final workflows = await _fetchWorkflows(workspaceId);
+    if (!mounted) return;
 
     setState(() {
       _workflows = workflows;
       _workspaces = workspaces;
-      _selectedWorkflowId = selectedId;
+      _selectedWorkflowId = _keptWorkflowId(workflows);
       _selectedWorkspaceId = workspaceId;
       _isLoadingInitial = false;
     });
 
     await _loadWorkspaceContext(_selectedWorkspace);
+  }
+
+  /// Global workflows plus those of [workspaceId].
+  Future<List<WorkflowSummary>> _fetchWorkflows(String? workspaceId) async =>
+      (await ref.read(listWorkflowsProvider).call(workspaceId: workspaceId))
+          .valueOrNull ??
+      const <WorkflowSummary>[];
+
+  /// The selected workflow when [workflows] still has it, else the first.
+  String? _keptWorkflowId(List<WorkflowSummary> workflows) {
+    final selected = _selectedWorkflowId;
+    if (selected != null && workflows.any((w) => w.id == selected)) {
+      return selected;
+    }
+    return workflows.isNotEmpty ? workflows.first.id : null;
+  }
+
+  Future<void> _reloadWorkflows(String? workspaceId) async {
+    final workflows = await _fetchWorkflows(workspaceId);
+    if (!mounted || workspaceId != _selectedWorkspaceId) return;
+    setState(() {
+      _workflows = workflows;
+      _selectedWorkflowId = _keptWorkflowId(workflows);
+    });
   }
 
   /// The workspace the dialog opens on: the one it was launched for, else the
@@ -432,6 +446,7 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
                             unawaited(
                               _loadWorkspaceContext(_selectedWorkspace),
                             );
+                            unawaited(_reloadWorkflows(value));
                           },
                   ),
                 if (_selectedWorkspace != null) ...<Widget>[

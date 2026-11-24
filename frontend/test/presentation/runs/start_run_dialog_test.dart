@@ -97,19 +97,34 @@ final class _FakeRunRepository implements RunRepository {
 final class _FakeWorkflowRepository implements WorkflowRepository {
   final DateTime now = DateTime.utc(2026, 11, 21, 4, 30);
 
+  /// Workspace ids passed to [listWorkflows], in call order.
+  final List<String?> listedWorkspaceIds = <String?>[];
+
   @override
   Future<Result<List<WorkflowSummary>>> listWorkflows({
     String? workspaceId,
-  }) async => Success(<WorkflowSummary>[
-    WorkflowSummary(
-      id: 'wf-1',
-      name: 'Release Build',
-      nodeCount: 2,
-      edgeCount: 1,
-      hasValidationErrors: false,
-      updatedAt: now,
-    ),
-  ]);
+  }) async {
+    listedWorkspaceIds.add(workspaceId);
+    return Success(<WorkflowSummary>[
+      WorkflowSummary(
+        id: 'wf-1',
+        name: 'Release Build',
+        nodeCount: 2,
+        edgeCount: 1,
+        hasValidationErrors: false,
+        updatedAt: now,
+      ),
+      if (workspaceId == 'ws-2')
+        WorkflowSummary(
+          id: 'wf-ws-2',
+          name: 'Ticket Implementation',
+          nodeCount: 9,
+          edgeCount: 11,
+          hasValidationErrors: false,
+          updatedAt: now,
+        ),
+    ]);
+  }
 
   @override
   Future<Result<WorkflowResponse>> getWorkflow(
@@ -467,6 +482,61 @@ void main() {
 
     expect(runsRepo.lastStartRequest?.workspaceId, 'ws-2');
     expect(workspaceRepo.capabilityPaths, contains('/projects/two'));
+  });
+
+  testWidgets('StartRunDialog lists and preselects a workspace workflow', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final runsRepo = _FakeRunRepository();
+    final workflowRepo = _FakeWorkflowRepository();
+    final workspaceRepo = FakeWorkspaceRepository(
+      workspaces: <Workspace>[
+        makeWorkspace(rootPath: '/projects/hive'),
+        makeWorkspace(id: 'ws-2', name: 'Second', rootPath: '/projects/two'),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          runRepositoryProvider.overrideWithValue(runsRepo),
+          workflowRepositoryProvider.overrideWithValue(workflowRepo),
+          workspaceRepositoryProvider.overrideWithValue(workspaceRepo),
+        ],
+        child: MaterialApp(
+          theme: HiveTheme.light(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: HiveButton(
+                label: 'Open',
+                onPressed: () => StartRunDialog.show(
+                  context,
+                  initialWorkspaceId: 'ws-2',
+                  initialWorkflowId: 'wf-ws-2',
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(workflowRepo.listedWorkspaceIds, contains('ws-2'));
+    expect(find.text('Ticket Implementation'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('start_run_confirm_button')));
+    await tester.pumpAndSettle();
+
+    expect(runsRepo.lastStartRequest?.workflowId, 'wf-ws-2');
+    expect(runsRepo.lastStartRequest?.workspaceId, 'ws-2');
   });
 
   testWidgets('StartRunDialog warns and disables start with no workspace', (
