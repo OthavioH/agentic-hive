@@ -1029,29 +1029,27 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     return listResult.map((items) => RunCheckpointsResponse(items: items));
   }
 
-  /// Atomically deletes a non-active run [id] (cascading its checkpoints,
-  /// events, and snapshots) and cleans up its shadow repository and log files.
-  /// Its worktree is kept: a worktree is removed only when the user asks
-  /// (ADR 0025).
+  /// Atomically deletes a non-active run [id] and its child runs (cascading
+  /// their checkpoints, events, and snapshots) and cleans up their shadow
+  /// repositories and log files. Their worktrees are kept (ADR 0025).
   ///
-  /// Returns [ConflictFailure] when the run is active (`running`, `paused`,
-  /// or `cancelling`).
+  /// Returns [ConflictFailure] when the run or any of its children is active
+  /// (`running`, `paused`, or `cancelling`).
   Future<Result<void>> deleteRun(String id) async {
     final deleteResult = await _runs.delete(id);
-    if (deleteResult case FailureResult<void>()) {
-      return deleteResult;
+    if (deleteResult case FailureResult<List<String>>(:final failure)) {
+      return FailureResult(failure);
     }
 
-    await _cleanUpRunArtifacts(id);
-    return deleteResult;
+    for (final deletedId in deleteResult.valueOrNull!) {
+      await _cleanUpRunArtifacts(deletedId);
+    }
+    return const Success<void>(null);
   }
 
-  /// Deletes all runs of [workflowId] in [workspaceId]'s scope (`null` =
-  /// global workflow: runs in any workspace) and cleans their shadow
-  /// repositories and logs. Worktrees are kept (ADR 0025).
-  ///
   /// Lists active runs (`running`, `paused`, and `cancelling`) of [workflowId]
-  /// in [workspaceId]'s scope, oldest first. A null scope matches all.
+  /// in [workspaceId]'s scope, children included, oldest first. A null scope
+  /// matches all.
   @override
   Future<Result<Map<String, RunStatus>>> activeRunsOfWorkflow(
     String workflowId, {
@@ -1069,17 +1067,13 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
       }
       activeRuns.addAll(result.valueOrNull!);
     }
-    final matching =
-        activeRuns
-            .where(
-              (run) =>
-                  run.workflowId == workflowId &&
-                  (workspaceId == null || run.workspaceId == workspaceId),
-            )
-            .toList()
-          ..sort((a, b) {
-            return a.startedAt.compareTo(b.startedAt);
-          });
+    final matching = <Run>[];
+    for (final run in activeRuns) {
+      if (await _belongsToWorkflow(run, workflowId, workspaceId)) {
+        matching.add(run);
+      }
+    }
+    matching.sort((a, b) => a.startedAt.compareTo(b.startedAt));
     return Success({for (final run in matching) run.id: run.status});
   }
 
@@ -1096,12 +1090,12 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     if (uncertainResult case FailureResult<List<Run>>(:final failure)) {
       return FailureResult(failure);
     }
-    final preExistingUncertain = [
-      for (final run in uncertainResult.valueOrNull!)
-        if (run.workflowId == workflowId &&
-            (workspaceId == null || run.workspaceId == workspaceId))
-          run,
-    ];
+    final preExistingUncertain = <Run>[];
+    for (final run in uncertainResult.valueOrNull!) {
+      if (await _belongsToWorkflow(run, workflowId, workspaceId)) {
+        preExistingUncertain.add(run);
+      }
+    }
     final preExistingIds = [for (final run in preExistingUncertain) run.id];
 
     final first = await _deleteRunsAndArtifacts(
@@ -1228,6 +1222,23 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
       FailureResult<Run>(failure: NotFoundFailure()) => null,
       FailureResult<Run>() => (id: runId, startedAt: null),
     };
+  }
+
+  /// Whether [run] belongs to [workflowId] in [workspaceId]'s scope, directly
+  /// or as a child of a run that does (spec #130, R5).
+  Future<bool> _belongsToWorkflow(
+    Run run,
+    String workflowId,
+    String? workspaceId,
+  ) async {
+    bool inScope(Run r) =>
+        r.workflowId == workflowId &&
+        (workspaceId == null || r.workspaceId == workspaceId);
+    if (inScope(run)) return true;
+    final parentId = run.parentRunId;
+    if (parentId == null) return false;
+    final parent = await _runs.getById(parentId);
+    return parent is Success<Run> && inScope(parent.value);
   }
 
   Future<void> _cleanUpRunArtifacts(String id) async {

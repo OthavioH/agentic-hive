@@ -19,7 +19,8 @@ final class WorkflowHandler {
       ..get('/<id>', _getById)
       ..put('/<id>', _update)
       ..delete('/<id>', _delete)
-      ..post('/<id>/duplicate', _duplicate);
+      ..post('/<id>/duplicate', _duplicate)
+      ..get('/<id>/references', _references);
   }
 
   final WorkflowService _service;
@@ -54,6 +55,14 @@ final class WorkflowHandler {
 
   Future<Response> _getById(Request request, String id) async {
     final result = await _service.getWorkflow(
+      id,
+      workspaceId: _workspaceId(request),
+    );
+    return _mapResult(request, result, 200);
+  }
+
+  Future<Response> _references(Request request, String id) async {
+    final result = await _service.getReferences(
       id,
       workspaceId: _workspaceId(request),
     );
