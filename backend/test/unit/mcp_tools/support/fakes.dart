@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
@@ -7,6 +8,16 @@ import 'package:agentic_hive_backend/src/domain/workflows/workflow_runs_deleter.
 import 'package:agentic_hive_backend/src/domain/workflows/workspace_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_repository.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+import 'package:path/path.dart' as p;
+
+/// Builds a synthetic host-separator path under [Directory.systemTemp] so
+/// tests do not hardcode OS-specific path literals.
+String hostTestPath(
+  String part1, [
+  String? part2,
+  String? part3,
+  String? part4,
+]) => p.join(Directory.systemTemp.path, part1, part2, part3, part4);
 
 final class MemoryWorkflows implements WorkflowRepository {
   final store = <String, Workflow>{};

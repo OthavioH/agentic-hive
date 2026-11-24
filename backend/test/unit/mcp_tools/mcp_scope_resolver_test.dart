@@ -228,4 +228,25 @@ void main() {
     expect(result, isA<FailureResult<McpScope>>());
     expect((result as FailureResult<McpScope>).failure.message, 'db down');
   });
+
+  test(
+    'resolves workspace root and cwd with an injected POSIX path context',
+    () async {
+      const posixRoot = '/hive-posix-guard/repos/app';
+      final posixCwd = p.posix.join(posixRoot, 'src');
+      final posixResolver = McpScopeResolver(
+        workspaces: _FakeWorkspaces(
+          items: [_ws('ws-posix', 'POSIX App', posixRoot)],
+        ),
+        worktreesDir: '/hive-posix-guard/data/worktrees',
+        path: p.posix,
+      );
+
+      final result = await posixResolver.resolve(cwd: posixCwd);
+      final scope = (result as Success<McpScope>).value;
+      expect(scope, isA<WorkspaceMcpScope>());
+      expect(scope.workspaceId, 'ws-posix');
+      expect(scope.source, McpScopeSource.currentDirectory);
+    },
+  );
 }

@@ -50,7 +50,7 @@ void main() {
   final workspace = Workspace(
     id: 'ws-1',
     name: 'App',
-    rootPath: r'C:\repos\app',
+    rootPath: hostTestPath('repos', 'app'),
     isGit: false,
     createdAt: DateTime.utc(2026),
     updatedAt: DateTime.utc(2026),
@@ -72,7 +72,7 @@ void main() {
     edit = EditWorkflowTool(
       scopes: McpScopeResolver(
         workspaces: workspaces,
-        worktreesDir: r'C:\data\worktrees',
+        worktreesDir: hostTestPath('data', 'worktrees'),
         path: p.context,
       ),
       workflows: service,
@@ -189,7 +189,7 @@ void main() {
       final before = await seed(workspaceId: 'ws-1');
       final result = await call(before.workflow.id, before.revision!, [
         {'op': 'update_node', 'id': 'plan', 'label': 'Changed'},
-      ], cwd: r'C:\repos\app\src');
+      ], cwd: p.join(workspace.rootPath, 'src'));
       expect(result, isA<Success<String>>());
       expect(
         workspaceFiles

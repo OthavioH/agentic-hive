@@ -59,7 +59,7 @@ void main() {
   final workspace = Workspace(
     id: 'ws-1',
     name: 'App',
-    rootPath: r'C:\repos\app',
+    rootPath: hostTestPath('repos', 'app'),
     isGit: false,
     createdAt: DateTime.utc(2026),
     updatedAt: DateTime.utc(2026),
@@ -114,7 +114,7 @@ void main() {
   }) => DeleteWorkflowTool(
     scopes: McpScopeResolver(
       workspaces: workspaces,
-      worktreesDir: r'C:\data\worktrees',
+      worktreesDir: hostTestPath('data', 'worktrees'),
       path: p.context,
     ),
     workflows: service,
@@ -516,7 +516,7 @@ void main() {
   });
 
   test('R10 a workspace workflow is deleted from its workspace', () async {
-    workspaceFiles.byRoot[r'C:\repos\app'] = {'review-loop': fixture()};
+    workspaceFiles.byRoot[workspace.rootPath] = {'review-loop': fixture()};
 
     final result = await tool.call(
       McpToolInput(
@@ -532,7 +532,7 @@ void main() {
     expect(lines.first, startsWith('Scope: workspace "App"'));
     expect(lines.last, endsWith('and 0 runs (operation op-1).'));
     expect(
-      workspaceFiles.byRoot[r'C:\repos\app']!.containsKey('review-loop'),
+      workspaceFiles.byRoot[workspace.rootPath]!.containsKey('review-loop'),
       isFalse,
     );
     await pumpEventQueue();

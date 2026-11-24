@@ -58,7 +58,7 @@ void main() {
   final workspace = Workspace(
     id: 'ws-1',
     name: 'App',
-    rootPath: r'C:\repos\app',
+    rootPath: hostTestPath('repos', 'app'),
     isGit: false,
     createdAt: DateTime.utc(2026),
     updatedAt: DateTime.utc(2026),
@@ -78,7 +78,7 @@ void main() {
     );
     scopes = McpScopeResolver(
       workspaces: workspaces,
-      worktreesDir: r'C:\data\worktrees',
+      worktreesDir: hostTestPath('data', 'worktrees'),
       path: p.context,
     );
     events = _Events();
@@ -133,7 +133,10 @@ void main() {
     'creates in the workspace of the current directory with a slug id',
     () async {
       final result = await create.call(
-        McpToolInput(arguments: input(), cwd: r'C:\repos\app\src'),
+        McpToolInput(
+          arguments: input(),
+          cwd: p.join(workspace.rootPath, 'src'),
+        ),
       );
       expect(result, isA<Success<String>>());
       expect(

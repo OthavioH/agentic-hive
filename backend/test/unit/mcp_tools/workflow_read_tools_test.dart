@@ -44,7 +44,7 @@ void main() {
   final ws1 = Workspace(
     id: 'ws-1',
     name: 'App',
-    rootPath: r'C:\repos\app',
+    rootPath: hostTestPath('repos', 'app'),
     isGit: true,
     createdAt: DateTime.utc(2026),
     updatedAt: DateTime.utc(2026),
@@ -52,7 +52,7 @@ void main() {
   final ws2 = Workspace(
     id: 'ws-2',
     name: 'Lib',
-    rootPath: r'C:\repos\lib',
+    rootPath: hostTestPath('repos', 'lib'),
     isGit: false,
     createdAt: DateTime.utc(2026),
     updatedAt: DateTime.utc(2026),
@@ -70,7 +70,7 @@ void main() {
     );
     scopes = McpScopeResolver(
       workspaces: workspaces,
-      worktreesDir: r'C:\data\worktrees',
+      worktreesDir: hostTestPath('data', 'worktrees'),
       path: p.context,
     );
 
@@ -94,8 +94,8 @@ void main() {
         (result as Success<String>).value,
         'Workspaces (3):\n'
         '- global "Global scope": 1 workflows\n'
-        '- ws-1 "App" C:\\repos\\app: 1 workflows\n'
-        r'- ws-2 "Lib" C:\repos\lib: 0 workflows',
+        '- ws-1 "App" ${ws1.rootPath}: 1 workflows\n'
+        '- ws-2 "Lib" ${ws2.rootPath}: 0 workflows',
       );
     },
   );
@@ -113,7 +113,7 @@ void main() {
     );
     expect(
       (result as Success<String>).value,
-      contains(r'- ws-2 "Lib" C:\repos\lib: ? workflows'),
+      contains('- ws-2 "Lib" ${ws2.rootPath}: ? workflows'),
     );
   });
 
@@ -131,7 +131,8 @@ void main() {
     expect(
       text,
       startsWith(
-        'Scope: workspace "App" (id ws-1, root C:\\repos\\app; from the workspace argument)\n'
+        'Scope: workspace "App" (id ws-1, root ${ws1.rootPath}; '
+        'from the workspace argument)\n'
         'Workflows (1):\n'
         '- w-1 "Workspace One":',
       ),
@@ -184,7 +185,8 @@ void main() {
     expect(
       text,
       startsWith(
-        'Scope: workspace "App" (id ws-1, root C:\\repos\\app; from the workspace argument)\n'
+        'Scope: workspace "App" (id ws-1, root ${ws1.rootPath}; '
+        'from the workspace argument)\n'
         'Workflow w-1 "Workspace One" revision ',
       ),
     );
