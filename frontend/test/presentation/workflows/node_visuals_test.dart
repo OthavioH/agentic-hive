@@ -11,7 +11,8 @@ void main() {
     (tester) async {
       final registry = createNodeVisualRegistry();
 
-      // fan_out visual is added by ticket 130-W (#143), which removes this exclusion.
+      // fan_out visual is added by ticket 130-W (#143), which removes this
+      // exclusion.
       for (final descriptor in NodeDescriptors.all.where(
         (d) => d.typeId != NodeTypeId.fanOut,
       )) {
@@ -36,7 +37,8 @@ void main() {
           home: Builder(
             builder: (context) {
               final l10n = AppLocalizations.of(context)!;
-              // fan_out visual is added by ticket 130-W (#143), which removes this exclusion.
+              // fan_out visual is added by ticket 130-W (#143), which removes this
+      // exclusion.
               for (final descriptor in NodeDescriptors.all.where(
                 (d) => d.typeId != NodeTypeId.fanOut,
               )) {
