@@ -476,3 +476,67 @@ sealed class HumanApprovalNodeConfig with _$HumanApprovalNodeConfig {
     return issues;
   }
 }
+
+/// Default simultaneous children of a fan-out node.
+const int fanOutDefaultConcurrency = 2;
+
+/// Default maximum number of items of a fan-out node.
+const int fanOutDefaultMaxItems = 20;
+
+/// Typed configuration for `fan_out` nodes.
+@freezed
+sealed class FanOutNodeConfig with _$FanOutNodeConfig {
+  /// Creates a fan-out node configuration.
+  const factory({
+    required String workflowId,
+    required String itemsNodeId,
+    required String itemsPath,
+    String? inputField,
+    String? overridesField,
+    String? nameField,
+    @Default(fanOutDefaultConcurrency) int concurrency,
+    @Default(fanOutDefaultMaxItems) int maxItems,
+  }) = _FanOutNodeConfig;
+
+  const new _();
+
+  /// Decodes a [FanOutNodeConfig] from JSON.
+  factory fromJson(JsonMap json) => parseJson(json, _$FanOutNodeConfigFromJson);
+
+  /// Validates the configuration and returns any field-level issues.
+  List<NodeConfigIssue> validate() {
+    final issues = <NodeConfigIssue>[];
+    if (isBlank(workflowId)) {
+      issues.add(
+        const NodeConfigIssue(
+          field: 'workflowId',
+          message: 'Must not be blank.',
+        ),
+      );
+    }
+    if (isBlank(itemsNodeId)) {
+      issues.add(
+        const NodeConfigIssue(
+          field: 'itemsNodeId',
+          message: 'Must not be blank.',
+        ),
+      );
+    }
+    if (isBlank(itemsPath)) {
+      issues.add(
+        const NodeConfigIssue(
+          field: 'itemsPath',
+          message: 'Must not be blank.',
+        ),
+      );
+    } else {
+      validateDotPath(itemsPath, field: 'itemsPath', issues: issues);
+    }
+    validateDotPath(inputField, field: 'inputField', issues: issues);
+    validateDotPath(overridesField, field: 'overridesField', issues: issues);
+    validateDotPath(nameField, field: 'nameField', issues: issues);
+    validatePositiveInt(concurrency, field: 'concurrency', issues: issues);
+    validatePositiveInt(maxItems, field: 'maxItems', issues: issues);
+    return issues;
+  }
+}

@@ -44,6 +44,9 @@ abstract final class NodeTypeId {
 
   /// Human approval pause node.
   static const String humanApproval = 'human_approval';
+
+  /// Fan-out node: starts one child run per item of a list.
+  static const String fanOut = 'fan_out';
 }
 
 /// Standard edge output labels emitted by nodes.
