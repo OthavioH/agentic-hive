@@ -2026,6 +2026,34 @@
   "@nodeConfigHumanAllowFeedbackLabel": {
     "description": "Switch label for allowing the human reviewer to enter feedback."
   },
+  "nodeConfigHumanProposalHeading": "Proposal",
+  "@nodeConfigHumanProposalHeading": {
+    "description": "Section heading for proposal source fields in human approval node config."
+  },
+  "nodeConfigHumanProposalNodeLabel": "Proposal source",
+  "@nodeConfigHumanProposalNodeLabel": {
+    "description": "Select label for choosing the upstream node that supplies a proposal."
+  },
+  "nodeConfigHumanProposalNodeNone": "None",
+  "@nodeConfigHumanProposalNodeNone": {
+    "description": "Select option indicating the approval node has no proposal source."
+  },
+  "nodeConfigHumanProposalPathLabel": "Field",
+  "@nodeConfigHumanProposalPathLabel": {
+    "description": "Text field label for the dot path inside the proposal source node output data."
+  },
+  "nodeConfigHumanProposalPathHint": "e.g. issues",
+  "@nodeConfigHumanProposalPathHint": {
+    "description": "Placeholder hint for the proposal field dot path."
+  },
+  "nodeConfigHumanProposalSchemaLabel": "JSON Schema (optional)",
+  "@nodeConfigHumanProposalSchemaLabel": {
+    "description": "Multiline text area label for an optional JSON Schema validating edited proposals."
+  },
+  "nodeConfigHumanProposalSchemaHint": "Paste a JSON Schema that the edited proposal must match",
+  "@nodeConfigHumanProposalSchemaHint": {
+    "description": "Placeholder hint for the optional proposal JSON Schema text area."
+  },
   "runDetailTabsLabel": "Inspector view",
   "@runDetailTabsLabel": {
     "description": "Semantic label for the Checkpoints/Snapshots toggle on Run Detail."
@@ -2591,6 +2619,39 @@
   "pausesSubmitAnswerAction": "Submit Answer",
   "@pausesSubmitAnswerAction": {
     "description": "Primary button label to submit an ask_human answer."
+  },
+  "pausesProposalHeading": "Proposal from {source}",
+  "@pausesProposalHeading": {
+    "description": "Heading for the proposal section on an approval pause when the source node label is known.",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "pausesProposalHeadingGeneric": "Proposal",
+  "@pausesProposalHeadingGeneric": {
+    "description": "Fallback heading for the proposal section on an approval pause when no source node label is present."
+  },
+  "pausesProposalEditAction": "Edit proposal",
+  "@pausesProposalEditAction": {
+    "description": "Button label to switch the approval proposal from read-only to JSON editing mode."
+  },
+  "pausesProposalDiscardAction": "Discard edit",
+  "@pausesProposalDiscardAction": {
+    "description": "Button label to discard proposal edits and return to read-only view."
+  },
+  "pausesProposalCopy": "Copy proposal",
+  "@pausesProposalCopy": {
+    "description": "Tooltip and semantics label for copying the read-only proposal JSON."
+  },
+  "pausesProposalEditorLabel": "Edited proposal (JSON)",
+  "@pausesProposalEditorLabel": {
+    "description": "Label for the multiline JSON editor used to edit an approval proposal."
+  },
+  "pausesApproveEditedAction": "Approve edited proposal",
+  "@pausesApproveEditedAction": {
+    "description": "Primary button label when approving a pause while editing its proposal."
   },
   "pausesSubmittingLabel": "Submitting...",
   "@pausesSubmittingLabel": {

@@ -6,6 +6,7 @@ import 'package:agentic_hive_frontend/domain/agents/agent_repository.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflow_editor_controller.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/node_config_form_registry.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_palette.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/workflow_inspector_panel.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
@@ -1417,6 +1418,200 @@ void main() {
         l10n.nodeConfigModelUnsupportedError('X'),
         'X does not support choosing a model.',
       );
+    });
+  });
+
+  group('HumanApprovalConfigForm proposal', () {
+    const nodeSelectKey = Key('config_human_proposal_node');
+    const pathKey = Key('config_human_proposal_path');
+    const schemaKey = Key('config_human_proposal_schema');
+
+    WorkflowNode makeUpstream(String id, String label) => WorkflowNode(
+      id: id,
+      type: NodeTypeId.claudeCode,
+      label: label,
+      config: NodeDescriptors.claudeCode.defaultConfig(),
+      position: const WorkflowPosition(x: 0, y: 0),
+    );
+
+    WorkflowNode makeApproval({String id = 'n-approve', JsonMap? config}) =>
+        WorkflowNode(
+          id: id,
+          type: NodeTypeId.humanApproval,
+          label: 'Approval Gate',
+          config: config ?? NodeDescriptors.humanApproval.defaultConfig(),
+          position: const WorkflowPosition(x: 200, y: 0),
+        );
+
+    Future<void> pumpApproval(
+      WidgetTester tester, {
+      required WorkflowNode approval,
+      List<WorkflowNode> others = const <WorkflowNode>[],
+      ValueChanged<JsonMap>? onConfig,
+    }) {
+      tester.view.physicalSize = const Size(900, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      return _pumpWithHost(
+        tester,
+        WorkflowInspectorPanel(
+          state: _stateWith(
+            nodes: <WorkflowNode>[...others, approval],
+            selectedNodeId: approval.id,
+          ),
+          onUpdateMetadata: ({name, description}) {},
+          onUpdateNodeLabel: (_, _) {},
+          onUpdateNodeConfig: (_, c) => onConfig?.call(c),
+          onToggleEntryNode: (_, {required isEntry}) {},
+          onDeleteNode: (_) {},
+          onUpdateEdge: (
+            _, {
+            sourceOutput,
+            maxRetries,
+            clearMaxRetries = false,
+          }) {},
+          onDeleteEdge: (_) {},
+          onFocusIssue: (_) {},
+        ),
+      );
+    }
+
+    testWidgets('R10: lists None and upstream nodes, emits config, and clears '
+        'all keys when None is selected', (tester) async {
+      JsonMap? latest;
+      final n1 = makeUpstream('n-plan', 'Planner');
+      final n2 = makeUpstream('n-build', 'Builder');
+      final approval = makeApproval();
+
+      await pumpApproval(
+        tester,
+        approval: approval,
+        others: <WorkflowNode>[n1, n2],
+        onConfig: (c) => latest = c,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(pathKey), findsNothing);
+      expect(find.byKey(schemaKey), findsNothing);
+
+      final selectFinder = find.byKey(nodeSelectKey);
+      await tester.ensureVisible(selectFinder);
+      await tester.tap(selectFinder);
+      await tester.pumpAndSettle();
+
+      expect(find.text('None'), findsWidgets);
+      expect(find.text('Planner'), findsWidgets);
+      expect(find.text('Builder'), findsWidgets);
+
+      await tester.tap(find.text('Planner').last);
+      await tester.pumpAndSettle();
+
+      var decoded = HumanApprovalNodeConfig.fromJson(latest!);
+      expect(decoded.proposalNodeId, 'n-plan');
+      expect(decoded.proposalPath, isNull);
+      expect(decoded.proposalSchema, isNull);
+
+      expect(find.byKey(pathKey), findsOneWidget);
+      expect(find.byKey(schemaKey), findsOneWidget);
+
+      await tester.enterText(find.byKey(pathKey), '  issues  ');
+      await tester.pumpAndSettle();
+      decoded = HumanApprovalNodeConfig.fromJson(latest!);
+      expect(decoded.proposalPath, 'issues');
+
+      await tester.enterText(find.byKey(schemaKey), '{"type":"array"}');
+      await tester.pumpAndSettle();
+      decoded = HumanApprovalNodeConfig.fromJson(latest!);
+      expect(decoded.proposalSchema, '{"type":"array"}');
+
+      await tester.ensureVisible(selectFinder);
+      await tester.tap(selectFinder);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('None').last);
+      await tester.pumpAndSettle();
+
+      decoded = HumanApprovalNodeConfig.fromJson(latest!);
+      expect(decoded.proposalNodeId, isNull);
+      expect(decoded.proposalPath, isNull);
+      expect(decoded.proposalSchema, isNull);
+      expect(find.byKey(pathKey), findsNothing);
+      expect(find.byKey(schemaKey), findsNothing);
+    });
+
+    testWidgets('R11: shows inline validation issues for proposalPath and '
+        'proposalSchema', (tester) async {
+      final n1 = makeUpstream('n-plan', 'Planner');
+      final approval = makeApproval(
+        config: const HumanApprovalNodeConfig(
+          instructions: 'Check items.',
+          proposalNodeId: 'n-plan',
+          proposalPath: '',
+          proposalSchema: '{bad',
+        ).toJson(),
+      );
+
+      final expectedIssues = HumanApprovalNodeConfig.fromJson(approval.config)
+          .validate();
+      final expectedPathMsg = expectedIssues
+          .firstWhere((i) => i.field == 'proposalPath')
+          .message;
+
+      await pumpApproval(
+        tester,
+        approval: approval,
+        others: <WorkflowNode>[n1],
+      );
+      await tester.pumpAndSettle();
+
+      final pathField = tester.widget<HiveTextField>(find.byKey(pathKey));
+      final schemaArea = tester.widget<HiveTextArea>(find.byKey(schemaKey));
+      expect(pathField.errorText, expectedPathMsg);
+      expect(schemaArea.errorText, contains('Not valid JSON'));
+    });
+
+    testWidgets('handles dangling proposalNodeId without crashing', (
+      tester,
+    ) async {
+      final approval = makeApproval(
+        config: const HumanApprovalNodeConfig(
+          instructions: 'Check items.',
+          proposalNodeId: 'gone',
+          proposalPath: 'issues',
+        ).toJson(),
+      );
+
+      await pumpApproval(tester, approval: approval);
+      await tester.pumpAndSettle();
+
+      final select = tester.widget<HiveSelect<String?>>(
+        find.byKey(nodeSelectKey),
+      );
+      expect(select.value, 'gone');
+      expect(find.text('gone'), findsOneWidget);
+    });
+
+    testWidgets('registry buildForm passes workflowNodes to '
+        'HumanApprovalConfigForm', (tester) async {
+      final registry = createNodeConfigFormRegistry();
+      final upstream = makeUpstream('n-plan', 'Planner');
+      final approval = makeApproval();
+
+      await _pumpWithHost(
+        tester,
+        Builder(
+          builder: (context) => registry.buildForm(
+            context,
+            approval,
+            (_) {},
+            workflowNodes: <WorkflowNode>[upstream],
+          )!,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(nodeSelectKey));
+      await tester.pumpAndSettle();
+      expect(find.text('Planner'), findsWidgets);
     });
   });
 }

@@ -32,6 +32,7 @@ import 'package:agentic_hive_frontend/domain/overview/use_cases/get_overview_use
 import 'package:agentic_hive_frontend/domain/overview/use_cases/watch_overview_events_use_case.dart';
 import 'package:agentic_hive_frontend/domain/pauses/use_cases/answer_pause_use_case.dart';
 import 'package:agentic_hive_frontend/domain/pauses/use_cases/list_pending_pauses_use_case.dart';
+import 'package:agentic_hive_frontend/domain/pauses/use_cases/validate_proposal_draft.dart';
 import 'package:agentic_hive_frontend/domain/pauses/use_cases/watch_pause_events_use_case.dart';
 import 'package:agentic_hive_frontend/domain/pauses/use_cases/watch_pending_pauses_count_use_case.dart';
 import 'package:agentic_hive_frontend/domain/runs/use_cases/build_run_output_messages.dart';
@@ -322,6 +323,11 @@ ListPendingPausesUseCase listPendingPausesUseCase(Ref ref) =>
 @riverpod
 AnswerPauseUseCase answerPauseUseCase(Ref ref) =>
     AnswerPauseUseCase(ref.watch(pauseRepositoryProvider));
+
+/// Provides [ValidateProposalDraft].
+@riverpod
+ValidateProposalDraft validateProposalDraftUseCase(Ref ref) =>
+    const ValidateProposalDraft();
 
 /// Provides [WatchPendingPausesCountUseCase].
 @riverpod

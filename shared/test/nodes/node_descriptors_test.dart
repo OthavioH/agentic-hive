@@ -28,8 +28,8 @@ NodeConfigField _field(NodeDescriptor descriptor, String name) =>
 
 void main() {
   group('NodeDescriptors catalog', () {
-    test('contains all 10 canonical node types across 4 categories', () {
-      expect(NodeDescriptors.all, hasLength(10));
+    test('contains all 11 canonical node types across 4 categories', () {
+      expect(NodeDescriptors.all, hasLength(11));
       expect(
         NodeDescriptors.byTypeId.keys,
         unorderedEquals([
@@ -43,6 +43,7 @@ void main() {
           NodeTypeId.checklistValidator,
           NodeTypeId.reviewValidator,
           NodeTypeId.humanApproval,
+          NodeTypeId.fanOut,
         ]),
       );
 
@@ -56,7 +57,7 @@ void main() {
         NodeDescriptors.all
             .where((d) => d.category == NodeCategory.execution)
             .length,
-        1,
+        2,
       );
       expect(
         NodeDescriptors.all
@@ -449,6 +450,7 @@ void main() {
           ReviewValidatorNodeConfig.fromJson(json).toJson(),
       NodeTypeId.humanApproval: (json) =>
           HumanApprovalNodeConfig.fromJson(json).toJson(),
+      NodeTypeId.fanOut: (json) => FanOutNodeConfig.fromJson(json).toJson(),
     };
 
     test('T-S1 every descriptor declares config fields', () {
@@ -650,6 +652,187 @@ void main() {
         }),
         isEmpty,
       );
+    });
+
+    test('T-S3 fan_out declares required and optional fields', () {
+      expect(
+        NodeDescriptors.fanOut.configFields
+            .where((f) => f.required)
+            .map((f) => f.name)
+            .toList(),
+        ['workflowId', 'itemsNodeId', 'itemsPath'],
+      );
+      expect(NodeDescriptors.fanOut.configFields.map((f) => f.name).toList(), [
+        'workflowId',
+        'itemsNodeId',
+        'itemsPath',
+        'inputField',
+        'overridesField',
+        'nameField',
+        'concurrency',
+        'maxItems',
+      ]);
+    });
+  });
+
+  group('FanOutNodeConfig', () {
+    const base = FanOutNodeConfig(
+      workflowId: 'child',
+      itemsNodeId: 'planner',
+      itemsPath: 'issues',
+    );
+
+    test('valid config has no issues and defaults are 2 and 20', () {
+      expect(base.validate(), isEmpty);
+      expect(base.concurrency, fanOutDefaultConcurrency);
+      expect(base.concurrency, 2);
+      expect(base.maxItems, 20);
+    });
+
+    test('blank required fields are refused', () {
+      expect(
+        const FanOutNodeConfig(
+          workflowId: '  ',
+          itemsNodeId: 'planner',
+          itemsPath: 'issues',
+        ).validate().map((i) => i.field),
+        contains('workflowId'),
+      );
+      expect(
+        const FanOutNodeConfig(
+          workflowId: 'child',
+          itemsNodeId: '  ',
+          itemsPath: 'issues',
+        ).validate().map((i) => i.field),
+        contains('itemsNodeId'),
+      );
+      expect(
+        const FanOutNodeConfig(
+          workflowId: 'child',
+          itemsNodeId: 'planner',
+          itemsPath: '  ',
+        ).validate().map((i) => i.field),
+        contains('itemsPath'),
+      );
+    });
+
+    test('dot paths are validated', () {
+      for (final bad in ['a..b', '.a', 'a.']) {
+        expect(
+          FanOutNodeConfig(
+            workflowId: 'child',
+            itemsNodeId: 'planner',
+            itemsPath: bad,
+          ).validate().map((i) => i.field),
+          contains('itemsPath'),
+        );
+        expect(
+          FanOutNodeConfig(
+            workflowId: 'child',
+            itemsNodeId: 'planner',
+            itemsPath: 'issues',
+            inputField: bad,
+          ).validate().map((i) => i.field),
+          contains('inputField'),
+        );
+        expect(
+          FanOutNodeConfig(
+            workflowId: 'child',
+            itemsNodeId: 'planner',
+            itemsPath: 'issues',
+            overridesField: bad,
+          ).validate().map((i) => i.field),
+          contains('overridesField'),
+        );
+        expect(
+          FanOutNodeConfig(
+            workflowId: 'child',
+            itemsNodeId: 'planner',
+            itemsPath: 'issues',
+            nameField: bad,
+          ).validate().map((i) => i.field),
+          contains('nameField'),
+        );
+      }
+
+      expect(
+        const FanOutNodeConfig(
+          workflowId: 'child',
+          itemsNodeId: 'planner',
+          itemsPath: 'plan.items.0',
+          inputField: 'title',
+          overridesField: '  ',
+          nameField: '  ',
+        ).validate(),
+        isEmpty,
+      );
+    });
+
+    test('concurrency and maxItems must be positive', () {
+      for (final bad in [0, -1]) {
+        expect(
+          FanOutNodeConfig(
+            workflowId: 'child',
+            itemsNodeId: 'planner',
+            itemsPath: 'issues',
+            concurrency: bad,
+          ).validate().map((i) => i.field),
+          contains('concurrency'),
+        );
+        expect(
+          FanOutNodeConfig(
+            workflowId: 'child',
+            itemsNodeId: 'planner',
+            itemsPath: 'issues',
+            maxItems: bad,
+          ).validate().map((i) => i.field),
+          contains('maxItems'),
+        );
+      }
+    });
+
+    test('optional fields are omitted from JSON when null', () {
+      final json = base.toJson();
+      expect(json.containsKey('inputField'), isFalse);
+      expect(json.containsKey('overridesField'), isFalse);
+      expect(json.containsKey('nameField'), isFalse);
+      expect(json['concurrency'], 2);
+      expect(json['maxItems'], 20);
+      expect(FanOutNodeConfig.fromJson(_overTheWire(json)), base);
+    });
+
+    test('defaultConfig is a blank draft with defaults', () {
+      final defaults = NodeDescriptors.fanOut.defaultConfig();
+      expect(defaults, {
+        'workflowId': '',
+        'itemsNodeId': '',
+        'itemsPath': '',
+        'concurrency': 2,
+        'maxItems': 20,
+      });
+      expect(
+        NodeDescriptors.fanOut.validateConfig(defaults).map((i) => i.field),
+        containsAll(['workflowId', 'itemsNodeId', 'itemsPath']),
+      );
+    });
+
+    test('outputs and category', () {
+      expect(NodeDescriptors.fanOut.availableOutputs, [
+        NodeOutput.onSuccess,
+        NodeOutput.onFailure,
+      ]);
+      expect(NodeDescriptors.fanOut.category, NodeCategory.execution);
+      expect(NodeDescriptors.of('fan_out'), same(NodeDescriptors.fanOut));
+    });
+
+    test('a malformed config is a config issue', () {
+      final issues = NodeDescriptors.fanOut.validateConfig(const {
+        'workflowId': 1,
+        'itemsNodeId': 'planner',
+        'itemsPath': 'issues',
+      });
+      expect(issues, hasLength(1));
+      expect(issues.first.field, 'config');
     });
   });
 }

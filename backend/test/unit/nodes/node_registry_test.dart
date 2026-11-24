@@ -91,7 +91,10 @@ void main() {
 
     test('registers all 10 canonical node types', () {
       expect(registry.descriptors, hasLength(10));
-      for (final descriptor in NodeDescriptors.all) {
+      // fan_out is registered by ticket 130-3.
+      for (final descriptor in NodeDescriptors.all.where(
+        (d) => d.typeId != NodeTypeId.fanOut,
+      )) {
         expect(registry.contains(descriptor.typeId), isTrue);
         expect(registry.descriptorFor(descriptor.typeId), same(descriptor));
         expect(registry.create(descriptor.typeId).isSuccess, isTrue);

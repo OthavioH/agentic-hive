@@ -11,7 +11,11 @@ void main() {
     (tester) async {
       final registry = createNodeVisualRegistry();
 
-      for (final descriptor in NodeDescriptors.all) {
+      // fan_out visual is added by ticket 130-W (#143), which removes this
+      // exclusion.
+      for (final descriptor in NodeDescriptors.all.where(
+        (d) => d.typeId != NodeTypeId.fanOut,
+      )) {
         expect(
           registry.contains(descriptor.typeId),
           isTrue,
@@ -33,7 +37,11 @@ void main() {
           home: Builder(
             builder: (context) {
               final l10n = AppLocalizations.of(context)!;
-              for (final descriptor in NodeDescriptors.all) {
+              // fan_out visual is added by ticket 130-W (#143), which
+              // removes this exclusion.
+              for (final descriptor in NodeDescriptors.all.where(
+                (d) => d.typeId != NodeTypeId.fanOut,
+              )) {
                 final label = resolveNodeVisualLabel(
                   l10n,
                   registry.resolve(descriptor.typeId).labelKey,
