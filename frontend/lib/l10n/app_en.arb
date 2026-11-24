@@ -3395,5 +3395,223 @@
   "windowCloseToTray": "Close to tray",
   "@windowCloseToTray": {
     "description": "Accessible label and tooltip for the window close-to-tray button."
+  },
+  "nodeTypeFanOut": "Fan-out",
+  "@nodeTypeFanOut": {
+    "description": "Display label for the fan-out workflow node type."
+  },
+  "nodeConfigFanOutWorkflowLabel": "Child workflow",
+  "@nodeConfigFanOutWorkflowLabel": {
+    "description": "Select field label for picking the child workflow of a fan-out node."
+  },
+  "nodeConfigFanOutWorkflowHint": "Select a saved workflow",
+  "@nodeConfigFanOutWorkflowHint": {
+    "description": "Placeholder hint for the child workflow select."
+  },
+  "nodeConfigFanOutWorkflowLoadingHint": "Loading workflows…",
+  "@nodeConfigFanOutWorkflowLoadingHint": {
+    "description": "Placeholder hint while saved workflows are loading."
+  },
+  "nodeConfigFanOutWorkflowLoadError": "Could not load workflows.",
+  "@nodeConfigFanOutWorkflowLoadError": {
+    "description": "Error text when loading saved workflows fails."
+  },
+  "nodeConfigFanOutWorkflowEmptyHint": "No saved workflows",
+  "@nodeConfigFanOutWorkflowEmptyHint": {
+    "description": "Placeholder hint when no saved workflows are available."
+  },
+  "nodeConfigFanOutWorkflowMissingError": "Workflow \"{workflowId}\" was not found.",
+  "@nodeConfigFanOutWorkflowMissingError": {
+    "description": "Error text when a fan-out node references a workflow ID that was not found.",
+    "placeholders": {
+      "workflowId": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeConfigFanOutItemsNodeLabel": "Items node",
+  "@nodeConfigFanOutItemsNodeLabel": {
+    "description": "Select field label for choosing the upstream node producing the fan-out list."
+  },
+  "nodeConfigFanOutItemsNodeHint": "Node whose output holds the list",
+  "@nodeConfigFanOutItemsNodeHint": {
+    "description": "Placeholder hint for the items node select."
+  },
+  "nodeConfigFanOutItemsPathLabel": "Items path",
+  "@nodeConfigFanOutItemsPathLabel": {
+    "description": "Text field label for the dot path to the list of items."
+  },
+  "nodeConfigFanOutItemsPathHint": "For example: issues",
+  "@nodeConfigFanOutItemsPathHint": {
+    "description": "Placeholder hint for the items path field."
+  },
+  "nodeConfigFanOutInputFieldLabel": "Input field (optional)",
+  "@nodeConfigFanOutInputFieldLabel": {
+    "description": "Text field label for the optional dot path to each child run input."
+  },
+  "nodeConfigFanOutInputFieldHint": "Whole item when empty",
+  "@nodeConfigFanOutInputFieldHint": {
+    "description": "Placeholder hint for the input field."
+  },
+  "nodeConfigFanOutOverridesFieldLabel": "Overrides field (optional)",
+  "@nodeConfigFanOutOverridesFieldLabel": {
+    "description": "Text field label for the optional dot path to per-child node overrides."
+  },
+  "nodeConfigFanOutOverridesFieldHint": "For example: overrides",
+  "@nodeConfigFanOutOverridesFieldHint": {
+    "description": "Placeholder hint for the overrides field."
+  },
+  "nodeConfigFanOutNameFieldLabel": "Name field (optional)",
+  "@nodeConfigFanOutNameFieldLabel": {
+    "description": "Text field label for the optional dot path to each child run name."
+  },
+  "nodeConfigFanOutNameFieldHint": "Names the child run and its worktree",
+  "@nodeConfigFanOutNameFieldHint": {
+    "description": "Placeholder hint for the name field."
+  },
+  "nodeConfigFanOutConcurrencyLabel": "Concurrency",
+  "@nodeConfigFanOutConcurrencyLabel": {
+    "description": "Text field label for the maximum concurrent child runs."
+  },
+  "nodeConfigFanOutMaxItemsLabel": "Item cap",
+  "@nodeConfigFanOutMaxItemsLabel": {
+    "description": "Text field label for the maximum number of items processed."
+  },
+  "nodeConfigFanOutPositiveIntError": "Enter a whole number of 1 or more.",
+  "@nodeConfigFanOutPositiveIntError": {
+    "description": "Validation error when concurrency or item cap is not a positive integer."
+  },
+  "runsChildCount": "{count, plural, =1{1 child run} other{{count} child runs}}",
+  "@runsChildCount": {
+    "description": "Number of loaded child runs under a parent run in the runs list.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "runsChildrenExpandTooltip": "Show child runs",
+  "@runsChildrenExpandTooltip": {
+    "description": "Semantic label and tooltip to expand child runs under a parent run."
+  },
+  "runsChildrenCollapseTooltip": "Hide child runs",
+  "@runsChildrenCollapseTooltip": {
+    "description": "Semantic label and tooltip to collapse child runs under a parent run."
+  },
+  "runDetailFanOutPanelTitle": "Child runs",
+  "@runDetailFanOutPanelTitle": {
+    "description": "Title of the fan-out child runs panel in the run detail inspector."
+  },
+  "runDetailFanOutProgress": "{done}/{total} done, {failed} failed",
+  "@runDetailFanOutProgress": {
+    "description": "Progress summary for a fan-out node when one or more items failed.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "runDetailFanOutProgressNoFailures": "{done}/{total} done",
+  "@runDetailFanOutProgressNoFailures": {
+    "description": "Progress summary for a fan-out node with zero failed items.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "runDetailFanOutNeedsYou": "{count, plural, =1{1 child needs you} other{{count} children need you}}",
+  "@runDetailFanOutNeedsYou": {
+    "description": "Warning badge text when one or more child runs are paused waiting for human input.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "runDetailFanOutNoItems": "No items",
+  "@runDetailFanOutNoItems": {
+    "description": "Label shown when a fan-out node received an empty list."
+  },
+  "runDetailFanOutFailedGeneric": "The fan-out node failed.",
+  "@runDetailFanOutFailedGeneric": {
+    "description": "Fallback error message when a fan-out node fails before starting child runs."
+  },
+  "runDetailFanOutFailedTitle": "Fan-out failed before starting",
+  "@runDetailFanOutFailedTitle": {
+    "description": "Banner title when a fan-out node fails before starting any child run."
+  },
+  "runDetailFanOutDeleted": "Deleted",
+  "@runDetailFanOutDeleted": {
+    "description": "Badge label on a fan-out item whose child run was deleted."
+  },
+  "runDetailFanOutNotStarted": "Not started",
+  "@runDetailFanOutNotStarted": {
+    "description": "Badge label on a fan-out item that failed to start a child run."
+  },
+  "runDetailFanOutItemFallbackName": "Item {number}",
+  "@runDetailFanOutItemFallbackName": {
+    "description": "Fallback display name for a fan-out item without an explicit name.",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "runDetailFanOutLoadError": "Could not load child runs.",
+  "@runDetailFanOutLoadError": {
+    "description": "Error banner title when loading child runs fails."
+  },
+  "runDetailFanOutChildSemantic": "{name}, {status}",
+  "@runDetailFanOutChildSemantic": {
+    "description": "Accessibility label for a fan-out child item card.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "workflowsDeleteReferencedMessage": "Used by fan-out nodes in: {workflows}",
+  "@workflowsDeleteReferencedMessage": {
+    "description": "Extra warning in the workflow deletion dialog listing workflows whose fan-out nodes reference it.",
+    "placeholders": {
+      "workflows": {
+        "type": "String"
+      }
+    }
+  },
+  "pausesChildOfRun": "In run {runId}",
+  "@pausesChildOfRun": {
+    "description": "Muted parent run label shown on a pause row belonging to a child run.",
+    "placeholders": {
+      "runId": {
+        "type": "String"
+      }
+    }
+  },
+  "pausesOpenParentRunAction": "Open parent run",
+  "@pausesOpenParentRunAction": {
+    "description": "Button label in the pause detail header to open the parent run."
+  },
+  "pausesOpenParentRunSemantic": "Open parent run {runId}",
+  "@pausesOpenParentRunSemantic": {
+    "description": "Accessibility label for opening the parent run from a pause detail pane.",
+    "placeholders": {
+      "runId": {
+        "type": "String"
+      }
+    }
   }
 }

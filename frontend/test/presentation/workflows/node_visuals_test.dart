@@ -7,15 +7,11 @@ import 'package:material_ui/material_ui.dart';
 
 void main() {
   testWidgets(
-    'createNodeVisualRegistry registers all 10 canonical NodeDescriptors',
+    'createNodeVisualRegistry registers all 11 canonical NodeDescriptors',
     (tester) async {
       final registry = createNodeVisualRegistry();
 
-      // fan_out visual is added by ticket 130-W (#143), which removes this
-      // exclusion.
-      for (final descriptor in NodeDescriptors.all.where(
-        (d) => d.typeId != NodeTypeId.fanOut,
-      )) {
+      for (final descriptor in NodeDescriptors.all) {
         expect(
           registry.contains(descriptor.typeId),
           isTrue,
@@ -37,11 +33,7 @@ void main() {
           home: Builder(
             builder: (context) {
               final l10n = AppLocalizations.of(context)!;
-              // fan_out visual is added by ticket 130-W (#143), which
-              // removes this exclusion.
-              for (final descriptor in NodeDescriptors.all.where(
-                (d) => d.typeId != NodeTypeId.fanOut,
-              )) {
+              for (final descriptor in NodeDescriptors.all) {
                 final label = resolveNodeVisualLabel(
                   l10n,
                   registry.resolve(descriptor.typeId).labelKey,
@@ -56,4 +48,26 @@ void main() {
       );
     },
   );
+
+  testWidgets('fan_out has the branch icon and the Fan-out label', (
+    tester,
+  ) async {
+    final registry = createNodeVisualRegistry();
+    final visual = registry.resolve(NodeTypeId.fanOut);
+    expect(visual.icon, HiveIcons.branch);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) {
+            final l10n = AppLocalizations.of(context)!;
+            expect(resolveNodeVisualLabel(l10n, visual.labelKey), 'Fan-out');
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+  });
 }
