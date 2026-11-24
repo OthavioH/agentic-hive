@@ -1,0 +1,345 @@
+{
+  "id": "spec-implementation",
+  "name": "Spec Implementation",
+  "nodes": [
+    {
+      "id": "setup",
+      "type": "harness.terminal",
+      "label": "Spec setup",
+      "position": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "config": {
+        "extraArgs": [],
+        "command": "C:/Users/Ots/fvm/default/bin/cache/dart-sdk/bin/dart.exe",
+        "args": [
+          "run",
+          "tool/hive/spec_setup.dart",
+          "--base",
+          "development"
+        ],
+        "sendPromptToStdin": false,
+        "timeoutSeconds": 900
+      }
+    },
+    {
+      "id": "pr_scope",
+      "type": "harness.claude_code",
+      "label": "Spec PR scope (Haiku 5.5)",
+      "position": {
+        "x": 260.0,
+        "y": -200.0
+      },
+      "config": {
+        "additionalInstructions": "The output of node setup has the spec number, the draft spec PR number (data.pr) and its tickets. Read the spec with gh issue view. Rewrite the PR body with `gh pr edit <pr> --body-file` using the pr skill template: Summary = what the spec will deliver, one line per ticket (#n title); Evidence = \"Filled in when every ticket is merged.\"; Merge Danger = your estimate from the spec. Keep the line \"Part of #<spec>\". End the body with: 🤖 Generated with Agentic Hive.",
+        "extraArgs": [],
+        "model": "claude-haiku-5-5",
+        "effort": "medium",
+        "timeoutSeconds": 900
+      }
+    },
+    {
+      "id": "sync",
+      "type": "command",
+      "label": "git pull spec branch",
+      "position": {
+        "x": 260.0,
+        "y": 0.0
+      },
+      "config": {
+        "command": "git",
+        "args": [
+          "pull",
+          "--ff-only"
+        ],
+        "env": {},
+        "timeoutSeconds": 300
+      }
+    },
+    {
+      "id": "next_wave",
+      "type": "harness.terminal",
+      "label": "Next wave",
+      "position": {
+        "x": 520.0,
+        "y": 0.0
+      },
+      "config": {
+        "extraArgs": [],
+        "command": "C:/Users/Ots/fvm/default/bin/cache/dart-sdk/bin/dart.exe",
+        "args": [
+          "run",
+          "tool/hive/next_wave.dart"
+        ],
+        "sendPromptToStdin": false,
+        "timeoutSeconds": 600
+      }
+    },
+    {
+      "id": "tickets",
+      "type": "fan_out",
+      "label": "Ticket Implementation × wave",
+      "position": {
+        "x": 780.0,
+        "y": 0.0
+      },
+      "config": {
+        "workflowId": "ticket-implementation",
+        "itemsNodeId": "next_wave",
+        "itemsPath": "items",
+        "concurrency": 2,
+        "maxItems": 20,
+        "inputField": "input",
+        "overridesField": "overrides",
+        "nameField": "name"
+      }
+    },
+    {
+      "id": "children_failed",
+      "type": "human_approval",
+      "label": "Tickets failed",
+      "position": {
+        "x": 780.0,
+        "y": 220.0
+      },
+      "config": {
+        "instructions": "One or more Ticket Implementation runs failed (see the child runs). Fix what blocks them if needed, then approve to re-run only the failed tickets, or reject to stop the spec run.",
+        "allowFeedback": true,
+        "title": "Some tickets of this wave failed"
+      }
+    },
+    {
+      "id": "merge_wave",
+      "type": "command",
+      "label": "Merge wave into spec branch",
+      "position": {
+        "x": 1040.0,
+        "y": 0.0
+      },
+      "config": {
+        "command": "C:/Users/Ots/fvm/default/bin/cache/dart-sdk/bin/dart.exe",
+        "args": [
+          "run",
+          "tool/hive/merge_wave.dart"
+        ],
+        "env": {},
+        "timeoutSeconds": 900
+      }
+    },
+    {
+      "id": "stuck",
+      "type": "human_approval",
+      "label": "No ticket can start",
+      "position": {
+        "x": 520.0,
+        "y": 220.0
+      },
+      "config": {
+        "instructions": "Tickets remain but none can start, or a ticket PR could not be merged into the spec branch (see the output of node next_wave or merge_wave). Resolve it (merge or close the PR, fix a dependency), then approve to plan the next wave again, or reject to stop.",
+        "allowFeedback": true,
+        "title": "The spec cannot advance"
+      }
+    },
+    {
+      "id": "done",
+      "type": "command",
+      "label": "All tickets done?",
+      "position": {
+        "x": 1300.0,
+        "y": 0.0
+      },
+      "config": {
+        "command": "C:/Users/Ots/fvm/default/bin/cache/dart-sdk/bin/dart.exe",
+        "args": [
+          "run",
+          "tool/hive/spec_done.dart"
+        ],
+        "env": {},
+        "timeoutSeconds": 600
+      }
+    },
+    {
+      "id": "ready_ci",
+      "type": "command",
+      "label": "Spec PR ready + wait for CI",
+      "position": {
+        "x": 1560.0,
+        "y": 0.0
+      },
+      "config": {
+        "command": "C:/Users/Ots/fvm/default/bin/cache/dart-sdk/bin/dart.exe",
+        "args": [
+          "run",
+          "tool/hive/wait_ci.dart",
+          "--ready"
+        ],
+        "env": {},
+        "timeoutSeconds": 7500
+      }
+    },
+    {
+      "id": "investigate_ci",
+      "type": "harness.claude_code",
+      "label": "Investigate CI (Sonnet 5.5)",
+      "position": {
+        "x": 1560.0,
+        "y": 220.0
+      },
+      "config": {
+        "additionalInstructions": "The failing checks are in the stdout of node ready_ci. The PR is the spec PR (data.pr of node setup).",
+        "extraArgs": [],
+        "agentId": "ci-investigator",
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "timeoutSeconds": 1800
+      }
+    },
+    {
+      "id": "fix_ci",
+      "type": "harness.antigravity",
+      "label": "Fix CI (Hydrogen low)",
+      "position": {
+        "x": 1820.0,
+        "y": 220.0
+      },
+      "config": {
+        "additionalInstructions": "Work in ponytail mode (ponytail skill). The plan is data.plan in the output of node investigate_ci. Commit and push to the current branch (it tracks the spec branch).",
+        "extraArgs": [],
+        "agentId": "ci-fixer",
+        "model": "gemini-4-hydrogen-low",
+        "effort": "low",
+        "timeoutSeconds": 3600
+      }
+    },
+    {
+      "id": "final_pr",
+      "type": "harness.claude_code",
+      "label": "Final spec PR body (Haiku 5.5)",
+      "position": {
+        "x": 1820.0,
+        "y": 0.0
+      },
+      "config": {
+        "additionalInstructions": "Rewrite the spec PR body (data.pr of node setup) with `gh pr edit --body-file`, using the pr skill template. Summary: one line per merged ticket PR (`gh pr list --base <spec branch> --state merged`), linking it. Evidence: the CI result from node ready_ci. Merge Danger: door and blast radius for the whole spec, plus a ledger of the `shortcut:` comments the spec adds (run /ponytail-debt and keep only the ones in `git diff origin/<base>...HEAD`). Keep the line \"Part of #<spec>\". End the body with: 🤖 Generated with Agentic Hive. Do not merge the PR.",
+        "extraArgs": [],
+        "model": "claude-haiku-5-5",
+        "effort": "medium",
+        "timeoutSeconds": 900
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_1",
+      "sourceNodeId": "setup",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "pr_scope"
+    },
+    {
+      "id": "edge_2",
+      "sourceNodeId": "setup",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "sync"
+    },
+    {
+      "id": "edge_3",
+      "sourceNodeId": "sync",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "next_wave"
+    },
+    {
+      "id": "edge_4",
+      "sourceNodeId": "next_wave",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "tickets"
+    },
+    {
+      "id": "edge_5",
+      "sourceNodeId": "next_wave",
+      "sourceOutput": "onFailure",
+      "targetNodeId": "stuck"
+    },
+    {
+      "id": "edge_6",
+      "sourceNodeId": "tickets",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "merge_wave"
+    },
+    {
+      "id": "edge_7",
+      "sourceNodeId": "tickets",
+      "sourceOutput": "onFailure",
+      "targetNodeId": "children_failed"
+    },
+    {
+      "id": "edge_8",
+      "sourceNodeId": "children_failed",
+      "sourceOutput": "approved",
+      "targetNodeId": "tickets",
+      "maxRetries": 2
+    },
+    {
+      "id": "edge_9",
+      "sourceNodeId": "merge_wave",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "done"
+    },
+    {
+      "id": "edge_10",
+      "sourceNodeId": "merge_wave",
+      "sourceOutput": "onFailure",
+      "targetNodeId": "stuck"
+    },
+    {
+      "id": "edge_11",
+      "sourceNodeId": "stuck",
+      "sourceOutput": "approved",
+      "targetNodeId": "sync",
+      "maxRetries": 3
+    },
+    {
+      "id": "edge_12",
+      "sourceNodeId": "done",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "ready_ci"
+    },
+    {
+      "id": "edge_13",
+      "sourceNodeId": "done",
+      "sourceOutput": "onFailure",
+      "targetNodeId": "sync",
+      "maxRetries": 10
+    },
+    {
+      "id": "edge_14",
+      "sourceNodeId": "ready_ci",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "final_pr"
+    },
+    {
+      "id": "edge_15",
+      "sourceNodeId": "ready_ci",
+      "sourceOutput": "onFailure",
+      "targetNodeId": "investigate_ci"
+    },
+    {
+      "id": "edge_16",
+      "sourceNodeId": "investigate_ci",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "fix_ci"
+    },
+    {
+      "id": "edge_17",
+      "sourceNodeId": "fix_ci",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "ready_ci",
+      "maxRetries": 3
+    }
+  ],
+  "createdAt": "2026-11-24T19:53:09.443552Z",
+  "updatedAt": "2026-11-24T19:53:09.443552Z",
+  "description": "Implements every sub-issue of a spec in dependency waves. Run input: the spec issue number (for example \"100\"). Start it in a NEW worktree based on development. Setup pushes spec/<n> and opens a draft spec PR; each wave fans out Ticket Implementation (2 at a time) with PRs into spec/<n>, merges the green ones, and loops until every ticket is done; then the spec PR leaves draft and waits for CI, with an investigate/fix loop. Humans are asked only when tickets fail or no ticket can start. Requires the sub-issues to carry GitHub blocked-by dependencies.",
+  "entryNodeId": "setup",
+  "schemaVersion": 1
+}

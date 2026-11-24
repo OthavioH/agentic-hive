@@ -135,3 +135,13 @@ WavePlan planWave(List<Ticket> tickets, List<PullRequest> pullRequests) {
           : .blocked,
   });
 }
+
+/// The open PRs among [pullRequests] that close one of [tickets], in PR
+/// order, each listed once.
+List<PullRequest> openTicketPullRequests(
+  List<Ticket> tickets,
+  List<PullRequest> pullRequests,
+) => [
+  for (final pr in pullRequests)
+    if (pr.state == 'OPEN' && tickets.any((t) => pr.closesIssue(t.number))) pr,
+];
