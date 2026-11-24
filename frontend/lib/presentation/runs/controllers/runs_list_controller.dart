@@ -18,6 +18,7 @@ final class RunsListState {
     this.isGlobalSelected = false,
     this.statusFilter,
     this.workflowFilter,
+    this.expandedRunIds = const <String>{},
     this.busyRunId,
     this.isRefreshing = false,
     this.isLoadingMore = false,
@@ -43,6 +44,9 @@ final class RunsListState {
   /// Active workflow ID filter, or `null` for all workflows.
   final String? workflowFilter;
 
+  /// Parent run IDs currently expanded in the runs list (R2).
+  final Set<String> expandedRunIds;
+
   /// ID of the run currently undergoing deletion.
   final String? busyRunId;
 
@@ -61,6 +65,25 @@ final class RunsListState {
   /// Whether more runs are available to fetch from the backend.
   bool get hasMore => runs.length < total;
 
+  /// Runs shown at top level: not children, or children whose parent is not
+  /// loaded (R1).
+  List<RunSummary> get topLevelRuns {
+    final ids = <String>{for (final r in runs) r.id};
+    return <RunSummary>[
+      for (final r in runs)
+        if (r.parentRunId == null || !ids.contains(r.parentRunId)) r,
+    ];
+  }
+
+  /// Loaded child runs of [parentId], oldest first (R3).
+  List<RunSummary> childrenOf(String parentId) {
+    final children = <RunSummary>[
+      for (final r in runs)
+        if (r.parentRunId == parentId) r,
+    ]..sort((a, b) => a.startedAt.compareTo(b.startedAt));
+    return children;
+  }
+
   /// Returns a copy with updated fields.
   RunsListState copyWith({
     List<RunSummary>? runs,
@@ -69,6 +92,7 @@ final class RunsListState {
     bool? isGlobalSelected,
     RunStatus? Function()? statusFilter,
     String? Function()? workflowFilter,
+    Set<String>? expandedRunIds,
     String? Function()? busyRunId,
     bool? isRefreshing,
     bool? isLoadingMore,
@@ -83,6 +107,7 @@ final class RunsListState {
       workflowFilter: workflowFilter != null
           ? workflowFilter()
           : this.workflowFilter,
+      expandedRunIds: expandedRunIds ?? this.expandedRunIds,
       busyRunId: busyRunId != null ? busyRunId() : this.busyRunId,
       isRefreshing: isRefreshing ?? this.isRefreshing,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
@@ -157,7 +182,9 @@ class RunsListController extends _$RunsListController {
         isGlobal: selection.isGlobal,
       );
       if (!ref.mounted || token != _requestToken) return;
-      state = AsyncData(loaded);
+      state = AsyncData(
+        loaded.copyWith(expandedRunIds: current?.expandedRunIds),
+      );
     } on Failure catch (failure, stackTrace) {
       if (!ref.mounted || token != _requestToken) return;
       if (current != null) {
@@ -248,7 +275,19 @@ class RunsListController extends _$RunsListController {
     await _reloadWithFilters(current, statusFilter: null, workflowFilter: null);
   }
 
-  /// Deletes a non-active run by [id] and removes it from the list on success.
+  /// Toggles whether child runs of [runId] are expanded in the list (R2).
+  void toggleExpanded(String runId) {
+    final current = state.asData?.value;
+    if (current == null) return;
+    final next = Set<String>.from(current.expandedRunIds);
+    if (!next.add(runId)) {
+      next.remove(runId);
+    }
+    state = AsyncData(current.copyWith(expandedRunIds: next));
+  }
+
+  /// Deletes a non-active run by [id] and removes it (and any loaded
+  /// children) from the list on success.
   Future<Result<void>> deleteRun(String id) async {
     _setBusy(id);
     final result = await ref.read(deleteRunProvider).call(id);
@@ -258,10 +297,18 @@ class RunsListController extends _$RunsListController {
       case Success<void>():
         final current = state.asData?.value;
         if (current != null) {
+          final remaining = current.runs
+              .where((run) => run.id != id && run.parentRunId != id)
+              .toList();
+          final removedCount = current.runs.length - remaining.length;
+          final nextTotal = current.total - removedCount;
+          final nextExpanded = Set<String>.from(current.expandedRunIds)
+            ..remove(id);
           state = AsyncData(
             current.copyWith(
-              runs: current.runs.where((run) => run.id != id).toList(),
-              total: current.total > 0 ? current.total - 1 : 0,
+              runs: remaining,
+              total: nextTotal < 0 ? 0 : nextTotal,
+              expandedRunIds: nextExpanded,
               busyRunId: () => null,
               actionFailure: () => null,
             ),

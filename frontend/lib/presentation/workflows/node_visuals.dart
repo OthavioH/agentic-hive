@@ -5,7 +5,7 @@ import 'package:material_ui/material_ui.dart';
 
 Color _warningAccent(HiveColors colors) => colors.warning;
 
-/// Registers visuals for all 10 canonical [NodeDescriptors] in [registry].
+/// Registers visuals for all 11 canonical [NodeDescriptors] in [registry].
 void registerCanonicalNodeVisuals(NodeVisualRegistry registry) {
   const entries = <String, NodeVisual>{
     NodeTypeId.claudeCode: NodeVisual(
@@ -49,6 +49,10 @@ void registerCanonicalNodeVisuals(NodeVisualRegistry registry) {
       labelKey: 'nodeTypeHumanApproval',
       accent: _warningAccent,
     ),
+    NodeTypeId.fanOut: NodeVisual(
+      icon: HiveIcons.branch,
+      labelKey: 'nodeTypeFanOut',
+    ),
   };
 
   for (final entry in entries.entries) {
@@ -75,6 +79,7 @@ final Map<String, String Function(AppLocalizations)> _labelKeyResolvers =
       'nodeTypeChecklistValidator': (l10n) => l10n.nodeTypeChecklistValidator,
       'nodeTypeReviewValidator': (l10n) => l10n.nodeTypeReviewValidator,
       'nodeTypeHumanApproval': (l10n) => l10n.nodeTypeHumanApproval,
+      'nodeTypeFanOut': (l10n) => l10n.nodeTypeFanOut,
       'nodeTypeUnknown': (l10n) => l10n.nodeTypeUnknown,
     };
 

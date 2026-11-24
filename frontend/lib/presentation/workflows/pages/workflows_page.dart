@@ -87,11 +87,25 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
     BuildContext context,
     WorkflowSummary workflow,
   ) async {
+    final refs = await ref
+        .read(getWorkflowReferencesProvider)
+        .call(workflow.id, workspaceId: workflow.workspaceId);
+    if (!context.mounted) return;
     final l10n = AppLocalizations.of(context)!;
+    final names = switch (refs) {
+      Success(:final value) =>
+        value.map((r) => r.workflowName).toSet().toList(),
+      FailureResult() => const <String>[],
+    };
+    final baseMessage = l10n.workflowsDeleteMessage(workflow.name);
+    final message = names.isEmpty
+        ? baseMessage
+        : '$baseMessage\n\n'
+              '${l10n.workflowsDeleteReferencedMessage(names.join(', '))}';
     final choice = await showHiveConfirmDialog(
       context,
       title: l10n.workflowsDeleteTitle,
-      message: l10n.workflowsDeleteMessage(workflow.name),
+      message: message,
       confirmLabel: l10n.workflowsDeleteConfirm,
       cancelLabel: l10n.workflowsCancelAction,
       tone: HiveConfirmTone.destructive,

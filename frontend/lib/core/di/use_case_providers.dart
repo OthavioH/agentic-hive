@@ -12,6 +12,7 @@ import 'package:agentic_hive_frontend/data/settings/settings_repository_impl.dar
 import 'package:agentic_hive_frontend/data/window/window_providers.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_deletion_providers.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
+import 'package:agentic_hive_frontend/data/workflows/workflow_reference_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_settings_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_tree_changes_providers.dart';
@@ -66,6 +67,7 @@ import 'package:agentic_hive_frontend/domain/workflows/use_cases/create_workflow
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/delete_workflow.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/duplicate_workflow.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/get_workflow.dart';
+import 'package:agentic_hive_frontend/domain/workflows/use_cases/get_workflow_references.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/list_workflows.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/update_workflow.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/validate_workflow.dart';
@@ -186,6 +188,11 @@ DuplicateWorkflow duplicateWorkflow(Ref ref) =>
 @riverpod
 DeleteWorkflow deleteWorkflow(Ref ref) =>
     DeleteWorkflow(ref.watch(workflowRepositoryProvider));
+
+/// Provides [GetWorkflowReferences].
+@riverpod
+GetWorkflowReferences getWorkflowReferences(Ref ref) =>
+    GetWorkflowReferences(ref.watch(workflowReferenceRepositoryProvider));
 
 /// Provides [WatchWorkflowChanges].
 @riverpod

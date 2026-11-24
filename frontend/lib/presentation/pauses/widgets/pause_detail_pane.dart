@@ -218,6 +218,20 @@ class _PauseDetailPaneState extends State<PauseDetailPane> {
                       icon: HiveIcons.runs,
                       onPressed: () => widget.onOpenRun(pause.runId),
                     ),
+                    if (pause.parentRunId != null) ...<Widget>[
+                      SizedBox(width: spacing.space1),
+                      HiveButton(
+                        key: const Key('pauses_open_parent_run_button'),
+                        label: l10n.pausesOpenParentRunAction,
+                        semanticLabel: l10n.pausesOpenParentRunSemantic(
+                          pause.parentRunId!,
+                        ),
+                        variant: HiveButtonVariant.ghost,
+                        size: HiveButtonSize.small,
+                        icon: HiveIcons.runs,
+                        onPressed: () => widget.onOpenRun(pause.parentRunId!),
+                      ),
+                    ],
                   ],
                 ),
                 SizedBox(height: spacing.space2),

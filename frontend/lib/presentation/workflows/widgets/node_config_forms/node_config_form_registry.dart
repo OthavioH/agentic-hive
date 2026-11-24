@@ -1,5 +1,6 @@
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/checklist_validator_config_form.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/command_config_form.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/fan_out_config_form.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/harness_config_form.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/human_approval_config_form.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/review_validator_config_form.dart';
@@ -50,7 +51,7 @@ class NodeConfigFormRegistry {
   }
 }
 
-/// Creates a [NodeConfigFormRegistry] with all 10 canonical node types
+/// Creates a [NodeConfigFormRegistry] with all 11 canonical node types
 /// registered.
 NodeConfigFormRegistry createNodeConfigFormRegistry() {
   final registry = NodeConfigFormRegistry();
@@ -123,6 +124,15 @@ NodeConfigFormRegistry createNodeConfigFormRegistry() {
             onConfigChanged: onConfigChanged,
             upstreamNodes: workflowNodes,
           ),
+    )
+    ..register(
+      NodeTypeId.fanOut,
+      (context, node, onConfigChanged, workflowNodes) => FanOutConfigForm(
+        key: ValueKey<String>(node.id),
+        node: node,
+        onConfigChanged: onConfigChanged,
+        upstreamNodes: workflowNodes,
+      ),
     );
 
   return registry;
