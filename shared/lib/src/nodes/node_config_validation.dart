@@ -34,6 +34,25 @@ final RegExp _windowsDrivePrefix = RegExp('^[a-zA-Z]:');
 /// Returns `true` when [value] is `null` or contains only whitespace.
 bool isBlank(String? value) => value == null || value.trim().isEmpty;
 
+/// Adds an issue when [path] (when non-blank) has an empty dot segment.
+void validateDotPath(
+  String? path, {
+  required String field,
+  required List<NodeConfigIssue> issues,
+}) {
+  if (isBlank(path)) {
+    return;
+  }
+  if (path!.trim().split('.').any((s) => s.isEmpty)) {
+    issues.add(
+      NodeConfigIssue(
+        field: field,
+        message: 'Must be a dot path with no empty segment.',
+      ),
+    );
+  }
+}
+
 /// Validates that [path] (when non-null) is a safe relative path within the
 /// workspace (no leading slash/backslash, no Windows drive prefix, no `..`
 /// traversal segments, and no null bytes).

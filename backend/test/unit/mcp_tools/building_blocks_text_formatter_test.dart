@@ -3,7 +3,7 @@ import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:test/test.dart';
 
 const _legend =
-    'Node types (10). Config: * required, =a|b closed values, :int :bool '
+    'Node types (11). Config: * required, =a|b closed values, :int :bool '
     ':[string] :{string} :[{...}] types (default string).';
 
 final _canonicalBlocks = <String>[
@@ -51,6 +51,11 @@ final _canonicalBlocks = <String>[
     '- human_approval -> approved|rejected\n',
     '  config: instructions*, title, allowFeedback:bool, ',
     'proposalNodeId, proposalPath, proposalSchema',
+  ].join(),
+  [
+    '- fan_out -> onSuccess|onFailure\n',
+    '  config: workflowId*, itemsNodeId*, itemsPath*, inputField, ',
+    'overridesField, nameField, concurrency:int, maxItems:int',
   ].join(),
 ];
 

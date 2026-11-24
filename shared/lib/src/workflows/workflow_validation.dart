@@ -38,6 +38,12 @@ abstract final class WorkflowValidationCode {
 
   /// A node's `config` failed validation for its node type.
   static const String invalidNodeConfig = 'invalid_node_config';
+
+  /// A fan-out node references a workflow that does not resolve.
+  static const String unresolvedChildWorkflow = 'unresolved_child_workflow';
+
+  /// A fan-out node references a workflow that itself contains a fan-out node.
+  static const String nestedFanOut = 'nested_fan_out';
 }
 
 /// Severity of a [WorkflowValidationIssue].

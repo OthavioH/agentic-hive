@@ -268,6 +268,26 @@ abstract final class NodeDescriptors {
         (c) => c.validate(),
       );
 
+  static const List<NodeConfigField> _fanOutFields = [
+    NodeConfigField(name: 'workflowId', required: true),
+    NodeConfigField(name: 'itemsNodeId', required: true),
+    NodeConfigField(name: 'itemsPath', required: true),
+    NodeConfigField(name: 'inputField'),
+    NodeConfigField(name: 'overridesField'),
+    NodeConfigField(name: 'nameField'),
+    NodeConfigField(name: 'concurrency', kind: NodeConfigFieldKind.integer),
+    NodeConfigField(name: 'maxItems', kind: NodeConfigFieldKind.integer),
+  ];
+
+  static JsonMap _defaultFanOutConfig() => const FanOutNodeConfig(
+    workflowId: '',
+    itemsNodeId: '',
+    itemsPath: '',
+  ).toJson();
+
+  static List<NodeConfigIssue> _validateFanOutConfig(JsonMap raw) =>
+      validateTypedConfig(raw, FanOutNodeConfig.fromJson, (c) => c.validate());
+
   /// Descriptor for `harness.claude_code`.
   static const NodeDescriptor claudeCode = NodeDescriptor(
     typeId: NodeTypeId.claudeCode,
@@ -374,7 +394,17 @@ abstract final class NodeDescriptors {
     configFields: _humanApprovalFields,
   );
 
-  /// All 10 canonical node descriptors.
+  /// Descriptor for `fan_out`.
+  static const NodeDescriptor fanOut = NodeDescriptor(
+    typeId: NodeTypeId.fanOut,
+    category: NodeCategory.execution,
+    availableOutputs: _standardOutputs,
+    defaultConfig: _defaultFanOutConfig,
+    validateConfig: _validateFanOutConfig,
+    configFields: _fanOutFields,
+  );
+
+  /// All 11 canonical node descriptors.
   static const List<NodeDescriptor> all = [
     claudeCode,
     codex,
@@ -386,6 +416,7 @@ abstract final class NodeDescriptors {
     checklistValidator,
     reviewValidator,
     humanApproval,
+    fanOut,
   ];
 
   /// Lookup map keyed by [NodeDescriptor.typeId].
