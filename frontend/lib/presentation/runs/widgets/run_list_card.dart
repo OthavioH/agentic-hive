@@ -49,6 +49,7 @@ class RunListCard extends StatelessWidget {
     final spacing = context.hiveSpacing;
     final colors = context.hiveColors;
     final typography = context.hiveTypography;
+    final motion = context.hiveMotion;
     final nodeStatus = RunL10n.nodeStatusFor(run.status);
     final statusLabel = RunL10n.localizeStatus(l10n, run.status);
 
@@ -133,13 +134,18 @@ class RunListCard extends StatelessWidget {
             ),
             if (childCount > 0) ...<Widget>[
               SizedBox(width: spacing.space2),
-              HiveIconButton(
-                key: Key('run_children_toggle_${run.id}'),
-                icon: HiveIcons.chevronDown,
-                semanticLabel: expanded
-                    ? l10n.runsChildrenCollapseTooltip
-                    : l10n.runsChildrenExpandTooltip,
-                onPressed: onToggleChildren,
+              AnimatedRotation(
+                turns: expanded ? 0.5 : 0,
+                duration: motion.resolve(context, motion.short),
+                curve: motion.standardCurve,
+                child: HiveIconButton(
+                  key: Key('run_children_toggle_${run.id}'),
+                  icon: HiveIcons.chevronDown,
+                  semanticLabel: expanded
+                      ? l10n.runsChildrenCollapseTooltip
+                      : l10n.runsChildrenExpandTooltip,
+                  onPressed: onToggleChildren,
+                ),
               ),
             ],
             if (!run.status.isActive) ...<Widget>[

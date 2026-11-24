@@ -64,7 +64,7 @@ class FanOutChildrenPanel extends StatelessWidget {
         children: <Widget>[
           Text(
             l10n.runDetailFanOutPanelTitle,
-            style: typography.labelLarge.copyWith(color: colors.onSurface),
+            style: typography.titleSmall.copyWith(color: colors.onSurface),
           ),
           SizedBox(height: spacing.space2),
           Expanded(
@@ -185,43 +185,54 @@ class FanOutChildrenPanel extends StatelessWidget {
                 onPressed: item.isOpenable
                     ? () => onOpenRun(item.runId!)
                     : null,
-                child: Row(
-                  children: <Widget>[
-                    HiveStatusDot(
-                      status: RunL10n.nodeStatusFor(item.status),
-                      semanticLabel: statusLabel,
-                      size: spacing.space2,
-                    ),
-                    SizedBox(width: spacing.space2),
-                    Expanded(
-                      child: Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: typography.titleSmall.copyWith(
-                          color: colors.onSurface,
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Row(
+                    children: <Widget>[
+                      HiveStatusDot(
+                        status: RunL10n.nodeStatusFor(item.status),
+                        semanticLabel: statusLabel,
+                        size: spacing.space2,
+                      ),
+                      SizedBox(width: spacing.space2),
+                      Expanded(
+                        child: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: typography.titleSmall.copyWith(
+                            color: colors.onSurface,
+                          ),
                         ),
                       ),
-                    ),
-                    SizedBox(width: spacing.space2),
-                    HiveBadge(
-                      label: statusLabel,
-                      tone: RunL10n.badgeToneFor(item.status),
-                    ),
-                    if (item.deleted) ...<Widget>[
-                      SizedBox(width: spacing.space1),
-                      HiveBadge(
-                        key: Key('fan_out_child_deleted_${item.index}'),
-                        label: l10n.runDetailFanOutDeleted,
-                      ),
-                    ] else if (item.runId == null) ...<Widget>[
-                      SizedBox(width: spacing.space1),
-                      HiveBadge(
-                        label: l10n.runDetailFanOutNotStarted,
-                        tone: HiveBadgeTone.danger,
+                      SizedBox(width: spacing.space2),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: constraints.maxWidth / 2,
+                        ),
+                        child: Wrap(
+                          spacing: spacing.space1,
+                          runSpacing: spacing.spaceHalf,
+                          alignment: WrapAlignment.end,
+                          children: <Widget>[
+                            HiveBadge(
+                              label: statusLabel,
+                              tone: RunL10n.badgeToneFor(item.status),
+                            ),
+                            if (item.deleted)
+                              HiveBadge(
+                                key: Key('fan_out_child_deleted_${item.index}'),
+                                label: l10n.runDetailFanOutDeleted,
+                              )
+                            else if (item.runId == null)
+                              HiveBadge(
+                                label: l10n.runDetailFanOutNotStarted,
+                                tone: HiveBadgeTone.danger,
+                              ),
+                          ],
+                        ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
               );
             },
