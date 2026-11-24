@@ -405,9 +405,7 @@ class _PauseDetailPaneState extends State<PauseDetailPane> {
                 header: true,
                 child: Text(
                   headingText,
-                  style: typography.labelLarge.copyWith(
-                    color: colors.onSurface,
-                  ),
+                  style: typography.label.copyWith(color: colors.onSurface),
                 ),
               ),
             ),
@@ -436,6 +434,7 @@ class _PauseDetailPaneState extends State<PauseDetailPane> {
             key: const Key('pauses_proposal_view'),
             code: PauseL10n.prettyJson(pause.proposal),
             copyLabel: l10n.pausesProposalCopy,
+            maxHeight: spacing.space8 * 5,
           ),
       ],
     );
