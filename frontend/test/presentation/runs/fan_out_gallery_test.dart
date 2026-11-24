@@ -793,11 +793,11 @@ void main() {
           size: size,
           drive: (tester) async {
             final toggle = find.byKey(const Key('run_children_toggle_p1'));
-            final detector = find.descendant(
+            final iconFinder = find.descendant(
               of: toggle,
-              matching: find.byType(Focus),
+              matching: find.byType(HiveIcon),
             );
-            final targetNode = Focus.of(tester.element(detector.first));
+            final targetNode = Focus.of(tester.element(iconFinder.first));
             for (var i = 0; i < 30 && !targetNode.hasFocus; i++) {
               await tester.sendKeyEvent(LogicalKeyboardKey.tab);
               await tester.pump();
