@@ -319,6 +319,18 @@ class Pauses extends Table {
   /// Free-text answer for `askHuman` when answered.
   TextColumn get answer => text().nullable()();
 
+  /// JSON-encoded original proposal value read from the source node.
+  TextColumn get proposalJson => text().nullable()();
+
+  /// Optional JSON Schema text snapshotted at pause creation.
+  TextColumn get proposalSchema => text().nullable()();
+
+  /// Label of the source node that produced the proposal.
+  TextColumn get proposalSource => text().nullable()();
+
+  /// JSON-encoded edited proposal value approved by the human.
+  TextColumn get editedProposalJson => text().nullable()();
+
   /// UTC ISO-8601 creation timestamp.
   TextColumn get createdAt => text()();
 
@@ -359,7 +371,7 @@ class AppDatabase extends _$AppDatabase {
   static const installedAtKey = 'installed_at';
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -413,6 +425,14 @@ class AppDatabase extends _$AppDatabase {
         }
         await m.createIndex(idxRunsWorkspaceId);
         await _attachRunsToWorkspaces();
+      }
+      if (from < 9) {
+        if (from >= 6) {
+          await m.addColumn(pauses, pauses.proposalJson);
+          await m.addColumn(pauses, pauses.proposalSchema);
+          await m.addColumn(pauses, pauses.proposalSource);
+          await m.addColumn(pauses, pauses.editedProposalJson);
+        }
       }
     },
     beforeOpen: (details) async {

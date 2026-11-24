@@ -359,6 +359,167 @@ void main() {
         await otherRunWaiter;
       },
     );
+
+    group('proposals', () {
+      Future<void> seedProposalPause({
+        String id = 'p-prop',
+        Object? proposal = const [
+          {'id': 1},
+        ],
+        String? proposalSchema =
+            '{"type":"array","items":{"type":"object","required":["id"]}}',
+      }) => repo.create(
+        Pause(
+          id: id,
+          runId: 'run-prop',
+          nodeId: 'gate',
+          kind: PauseKind.humanApproval,
+          status: PauseStatus.pending,
+          workflowName: 'Flow',
+          nodeLabel: 'Gate',
+          instructions: 'Review',
+          proposal: proposal,
+          proposalSchema: proposalSchema,
+          proposalSource: 'Planner',
+          createdAt: DateTime.utc(2026, 11, 21),
+        ),
+      );
+
+      test('approve unchanged keeps original and edited=false', () async {
+        await seedProposalPause();
+        final res = await service.answerPause(
+          'p-prop',
+          const AnswerPauseRequest(decision: 'approved'),
+        );
+        expect(res.isSuccess, isTrue);
+        expect(res.valueOrNull!.editedProposal, isNull);
+        final input = resumedCalls.single.$2 as ApprovalDecisionInput;
+        expect(input.proposal, [
+          {'id': 1},
+        ]);
+        expect(input.edited, isFalse);
+      });
+
+      test('approve edited stores editedProposal and edited=true', () async {
+        await seedProposalPause();
+        final edit = [
+          {'id': 2},
+        ];
+        final res = await service.answerPause(
+          'p-prop',
+          AnswerPauseRequest(decision: 'approved', proposal: edit),
+        );
+        expect(res.isSuccess, isTrue);
+        expect(res.valueOrNull!.editedProposal, edit);
+        final input = resumedCalls.single.$2 as ApprovalDecisionInput;
+        expect(input.proposal, edit);
+        expect(input.edited, isTrue);
+      });
+
+      test('approve echoing original yields edited=false', () async {
+        await seedProposalPause();
+        final res = await service.answerPause(
+          'p-prop',
+          const AnswerPauseRequest(
+            decision: 'approved',
+            proposal: [
+              {'id': 1},
+            ],
+          ),
+        );
+        expect(res.isSuccess, isTrue);
+        expect(res.valueOrNull!.editedProposal, isNull);
+        final input = resumedCalls.single.$2 as ApprovalDecisionInput;
+        expect(input.edited, isFalse);
+      });
+
+      test('reject passes original with edited=false', () async {
+        await seedProposalPause();
+        final res = await service.answerPause(
+          'p-prop',
+          const AnswerPauseRequest(decision: 'rejected'),
+        );
+        expect(res.isSuccess, isTrue);
+        final input = resumedCalls.single.$2 as ApprovalDecisionInput;
+        expect(input.proposal, [
+          {'id': 1},
+        ]);
+        expect(input.edited, isFalse);
+      });
+
+      test('reject with proposal fails ValidationFailure', () async {
+        await seedProposalPause();
+        final res = await service.answerPause(
+          'p-prop',
+          const AnswerPauseRequest(decision: 'rejected', proposal: []),
+        );
+        expect(res.failureOrNull, isA<ValidationFailure>());
+        expect(resumedCalls, isEmpty);
+        expect(
+          (await repo.getById('p-prop')).valueOrNull!.status,
+          PauseStatus.pending,
+        );
+      });
+
+      test(
+        'proposal on pause without proposal fails ValidationFailure',
+        () async {
+          await seedProposalPause(proposal: null, proposalSchema: null);
+          final res = await service.answerPause(
+            'p-prop',
+            const AnswerPauseRequest(decision: 'approved', proposal: {'a': 1}),
+          );
+          expect(res.failureOrNull, isA<ValidationFailure>());
+          expect(resumedCalls, isEmpty);
+        },
+      );
+
+      test('edit failing schema returns ValidationFailure', () async {
+        await seedProposalPause();
+        final res = await service.answerPause(
+          'p-prop',
+          const AnswerPauseRequest(
+            decision: 'approved',
+            proposal: [
+              {'x': 1},
+            ],
+          ),
+        );
+        expect(res.failureOrNull, isA<ValidationFailure>());
+        expect(
+          res.failureOrNull!.message,
+          contains('does not match the schema'),
+        );
+        expect(resumedCalls, isEmpty);
+      });
+
+      test(
+        'unchanged original failing schema returns ValidationFailure',
+        () async {
+          await seedProposalPause(
+            proposal: const [
+              {'x': 1},
+            ],
+          );
+          final res = await service.answerPause(
+            'p-prop',
+            const AnswerPauseRequest(decision: 'approved'),
+          );
+          expect(res.failureOrNull, isA<ValidationFailure>());
+          expect(resumedCalls, isEmpty);
+        },
+      );
+
+      test('uncompilable stored schema returns UnexpectedFailure', () async {
+        await seedProposalPause(proposalSchema: '{"type":12}');
+        final res = await service.answerPause(
+          'p-prop',
+          const AnswerPauseRequest(decision: 'approved'),
+        );
+        expect(res.failureOrNull, isA<UnexpectedFailure>());
+        expect(resumedCalls, isEmpty);
+      });
+    });
   });
 }
 
@@ -411,6 +572,7 @@ final class _FakePauseRepository implements PauseRepository {
     String? decision,
     String? feedback,
     String? answer,
+    Object? editedProposal,
   }) async {
     final existing = _items[id];
     if (existing == null) return FailureResult(NotFoundFailure('Missing $id'));
@@ -422,6 +584,7 @@ final class _FakePauseRepository implements PauseRepository {
       decision: decision,
       feedback: feedback,
       answer: answer,
+      editedProposal: editedProposal,
       answeredAt: answeredAt,
     );
     _items[id] = updated;

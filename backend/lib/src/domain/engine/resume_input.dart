@@ -1,3 +1,5 @@
+import 'package:agentic_hive_backend/src/domain/nodes/approval_outcome.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/node_outcome.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 
 /// What a human supplies to resume a `paused` run.
@@ -14,13 +16,34 @@ sealed class ResumeInput {
 /// directly to `approved` or `rejected` without re-running it (ADR 0007).
 final class ApprovalDecisionInput extends ResumeInput {
   /// Creates an approval decision.
-  const new({required this.decision, this.feedback, super.nodeId});
+  const new({
+    required this.decision,
+    this.feedback,
+    this.proposal,
+    this.edited = false,
+    super.nodeId,
+  });
 
   /// The human's decision.
   final HumanApprovalDecision decision;
 
   /// Optional free-form reviewer feedback.
   final String? feedback;
+
+  /// Final proposal value to emit (original on reject, edited-or-original on
+  /// approve, or `null` when the pause has no proposal).
+  final Object? proposal;
+
+  /// Whether the human edited [proposal] before approving.
+  final bool edited;
+
+  /// Builds the [NodeOutcome] for this approval decision.
+  NodeOutcome toOutcome() => approvalOutcome(
+    decision: decision,
+    feedback: feedback,
+    proposal: proposal,
+    edited: edited,
+  );
 }
 
 /// An answer to an `ask_human` question. The engine re-runs the paused node

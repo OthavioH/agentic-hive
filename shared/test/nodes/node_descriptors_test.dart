@@ -6,7 +6,12 @@ import 'package:test/test.dart';
 JsonMap _overTheWire(JsonMap json) => jsonDecode(jsonEncode(json)) as JsonMap;
 
 Object? _sampleValue(NodeConfigField field) => switch (field.kind) {
-  NodeConfigFieldKind.string => field.values.isEmpty ? 'x' : field.values.first,
+  NodeConfigFieldKind.string =>
+    field.name == 'proposalSchema'
+        ? '{"type":"object"}'
+        : field.values.isEmpty
+        ? 'x'
+        : field.values.first,
   NodeConfigFieldKind.integer => 1,
   NodeConfigFieldKind.boolean => true,
   NodeConfigFieldKind.stringList => ['x'],
@@ -326,6 +331,102 @@ void main() {
         isNotEmpty,
       );
     });
+
+    test('HumanApprovalNodeConfig round-trips proposal keys', () {
+      const config = HumanApprovalNodeConfig(
+        instructions: 'Review the plan.',
+        proposalNodeId: 'planner',
+        proposalPath: 'issues',
+        proposalSchema: '{"type":"array"}',
+      );
+      final decoded = HumanApprovalNodeConfig.fromJson(
+        _overTheWire(config.toJson()),
+      );
+      expect(decoded, config);
+      expect(decoded.validate(), isEmpty);
+
+      final defaultJson = NodeDescriptors.humanApproval.defaultConfig();
+      expect(defaultJson.containsKey('proposalNodeId'), isFalse);
+      expect(defaultJson.containsKey('proposalPath'), isFalse);
+      expect(defaultJson.containsKey('proposalSchema'), isFalse);
+    });
+
+    test(
+      'HumanApprovalNodeConfig validates proposalNodeId and proposalPath',
+      () {
+        final missingPath = const HumanApprovalNodeConfig(
+          instructions: 'Review.',
+          proposalNodeId: 'planner',
+        ).validate();
+        expect(missingPath.map((i) => i.field), contains('proposalPath'));
+
+        final missingNode = const HumanApprovalNodeConfig(
+          instructions: 'Review.',
+          proposalPath: 'issues',
+        ).validate();
+        expect(missingNode.map((i) => i.field), contains('proposalNodeId'));
+
+        final bothBlank = const HumanApprovalNodeConfig(
+          instructions: 'Review.',
+          proposalNodeId: '   ',
+          proposalPath: '',
+        ).validate();
+        expect(bothBlank, isEmpty);
+      },
+    );
+
+    test('HumanApprovalNodeConfig proposalSchema requires proposalNodeId', () {
+      final issues = const HumanApprovalNodeConfig(
+        instructions: 'Review.',
+        proposalSchema: '{"type":"object"}',
+      ).validate();
+      expect(issues.map((i) => i.field), contains('proposalSchema'));
+    });
+
+    test(
+      'HumanApprovalNodeConfig validates proposalSchema JSON Schema syntax',
+      () {
+        final invalid = const HumanApprovalNodeConfig(
+          instructions: 'Review.',
+          proposalNodeId: 'planner',
+          proposalPath: 'issues',
+          proposalSchema: '{bad',
+        ).validate();
+        expect(invalid.map((i) => i.field), contains('proposalSchema'));
+
+        final valid = const HumanApprovalNodeConfig(
+          instructions: 'Review.',
+          proposalNodeId: 'planner',
+          proposalPath: 'issues',
+          proposalSchema: '{"type":"array"}',
+        ).validate();
+        expect(valid, isEmpty);
+      },
+    );
+
+    test('HumanApprovalNodeConfig validates proposalPath dot segments', () {
+      for (final bad in ['a..b', '.a', 'a.']) {
+        final issues = HumanApprovalNodeConfig(
+          instructions: 'Review.',
+          proposalNodeId: 'planner',
+          proposalPath: bad,
+        ).validate();
+        expect(
+          issues.map((i) => i.field),
+          contains('proposalPath'),
+          reason: 'Expected issue for $bad',
+        );
+      }
+
+      for (final good in ['issues', 'plan.items.0']) {
+        final issues = HumanApprovalNodeConfig(
+          instructions: 'Review.',
+          proposalNodeId: 'planner',
+          proposalPath: good,
+        ).validate();
+        expect(issues, isEmpty, reason: 'Expected no issue for $good');
+      }
+    });
   });
 
   group('Config fields', () {
@@ -431,6 +532,14 @@ void main() {
             .map((f) => f.name),
         ['instructions'],
       );
+      expect(NodeDescriptors.humanApproval.configFields.map((f) => f.name), [
+        'instructions',
+        'title',
+        'allowFeedback',
+        'proposalNodeId',
+        'proposalPath',
+        'proposalSchema',
+      ]);
     });
 
     test('T-S4 closed values come from the shared constants', () {

@@ -36,6 +36,7 @@ export 'src/pauses/pause.dart';
 export 'src/pauses/pause_dtos.dart';
 export 'src/pauses/pause_kind.dart';
 export 'src/pauses/pause_status.dart';
+export 'src/pauses/proposal_schema.dart';
 export 'src/runs/checkpoint.dart';
 export 'src/runs/run.dart';
 export 'src/runs/run_dtos.dart';

@@ -7,7 +7,6 @@ import 'package:agentic_hive_backend/src/domain/engine/workflow_graph.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_execution_context.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_outcome.dart';
-import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_registry.dart';
 import 'package:agentic_hive_backend/src/domain/pauses/pause_repository.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/human_pause_gateway.dart';
@@ -33,6 +32,9 @@ final class _PausedNode {
     this.options = const <String>[],
     this.pauseId,
     this.live = false,
+    this.proposalNodeId,
+    this.proposal,
+    this.proposalSchema,
   });
 
   /// Decodes a paused node from a `run.paused` event payload, accepting both
@@ -53,6 +55,9 @@ final class _PausedNode {
   final String nodeId;
   final PauseKind kind;
   final String? question;
+  final String? proposalNodeId;
+  final Object? proposal;
+  final String? proposalSchema;
   final List<String> options;
 
   /// Id of the pending gateway request of a live `ask_human` pause.
@@ -514,16 +519,7 @@ final class GraphEngine implements RunCanceller {
     switch ((target.kind, input)) {
       case (PauseKind.humanApproval, final ApprovalDecisionInput approval):
         x.paused.remove(target.nodeId);
-        x.resolved[target.nodeId] = NodeOutcome(
-          outputLabel: switch (approval.decision) {
-            HumanApprovalDecision.approved => NodeOutput.approved,
-            HumanApprovalDecision.rejected => NodeOutput.rejected,
-          },
-          data: <String, Object?>{
-            'decision': approval.decision.name,
-            if (approval.feedback != null) 'feedback': approval.feedback,
-          },
-        );
+        x.resolved[target.nodeId] = approval.toOutcome();
         x.wakeUp();
         return const Success(null);
       case (PauseKind.askHuman, HumanAnswerInput(:final answer)):
@@ -730,16 +726,7 @@ final class GraphEngine implements RunCanceller {
     switch ((target.kind, input)) {
       case (PauseKind.humanApproval, ApprovalDecisionInput()):
         final approval = input as ApprovalDecisionInput;
-        x.resolved[target.nodeId] = NodeOutcome(
-          outputLabel: switch (approval.decision) {
-            HumanApprovalDecision.approved => NodeOutput.approved,
-            HumanApprovalDecision.rejected => NodeOutput.rejected,
-          },
-          data: <String, Object?>{
-            'decision': approval.decision.name,
-            if (approval.feedback != null) 'feedback': approval.feedback,
-          },
-        );
+        x.resolved[target.nodeId] = approval.toOutcome();
       case (PauseKind.askHuman, HumanAnswerInput(:final answer)):
         if (answer.trim().isEmpty) {
           return const FailureResult(
@@ -1384,8 +1371,21 @@ final class GraphEngine implements RunCanceller {
     String id,
     Failure failure,
   ) async {
-    if (failure case PauseRequestedFailure(:final kind, :final question)) {
-      x.paused[id] = _PausedNode(nodeId: id, kind: kind, question: question);
+    if (failure case PauseRequestedFailure(
+      :final kind,
+      :final question,
+      :final proposalNodeId,
+      :final proposal,
+      :final proposalSchema,
+    )) {
+      x.paused[id] = _PausedNode(
+        nodeId: id,
+        kind: kind,
+        question: question,
+        proposalNodeId: proposalNodeId,
+        proposal: proposal,
+        proposalSchema: proposalSchema,
+      );
       return;
     }
 
@@ -1693,6 +1693,11 @@ final class GraphEngine implements RunCanceller {
         allowFeedback: allowFeedback,
         question: node.kind == PauseKind.askHuman ? node.question : null,
         options: node.options,
+        proposal: node.proposal,
+        proposalSchema: node.proposal != null ? node.proposalSchema : null,
+        proposalSource: node.proposal != null && node.proposalNodeId != null
+            ? (x.graph.node(node.proposalNodeId!)?.label ?? node.proposalNodeId)
+            : null,
         createdAt: _now(),
       );
       final created = await pausesRepo.create(pause);
