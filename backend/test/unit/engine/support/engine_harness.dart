@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/engine/graph_engine.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/child_run_port.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/fan_out_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/human_approval_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_registry.dart';
@@ -91,6 +93,7 @@ final class EngineHarness {
     int maxConcurrency = GraphEngine.defaultMaxConcurrency,
     int circuitBreakerThreshold = GraphEngine.defaultCircuitBreakerThreshold,
     Duration cancelGracePeriod = const Duration(seconds: 1),
+    ChildRunPort Function()? childRuns,
   }) {
     snapshots.clock = tick;
     final registry = NodeRegistry()
@@ -99,6 +102,15 @@ final class EngineHarness {
         NodeDescriptors.humanApproval,
         () => HumanApprovalNode(approvalPort: approvalPort),
       );
+    if (childRuns != null) {
+      registry.register(
+        NodeDescriptors.fanOut,
+        () => FanOutNode(
+          childRuns: childRuns(),
+          pollInterval: const Duration(milliseconds: 1),
+        ),
+      );
+    }
     recovery = RunRecoveryService(
       runs: runs,
       checkpoints: checkpoints,

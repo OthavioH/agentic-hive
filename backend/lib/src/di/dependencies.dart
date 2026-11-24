@@ -79,6 +79,7 @@ import 'package:agentic_hive_backend/src/domain/mcp_tools/workflow_create_input.
 import 'package:agentic_hive_backend/src/domain/mcp_tools/workflow_patcher.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/workflow_text_formatter.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/child_run_port.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_registry.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/pty_session.dart';
 import 'package:agentic_hive_backend/src/domain/overview/overview_repository.dart';
@@ -332,6 +333,7 @@ Future<void> registerDependencies(
         agentPromptResolver: di<AgentPromptResolver>(),
         processTreeKiller: di<ProcessTreeKiller>(),
         executionSettings: () => di<ExecutionSettingsService>(),
+        childRuns: () => di<ChildRunPort>(),
       ),
     )
     ..registerSingleton<WorkflowValidator>(
@@ -536,6 +538,10 @@ Future<void> registerDependencies(
         GraphEngine,
       ],
       dispose: (service) => service.dispose(),
+    )
+    ..registerSingletonWithDependencies<ChildRunPort>(
+      () => di<RunService>(),
+      dependsOn: [RunService],
     )
     ..registerSingletonWithDependencies<WorkflowService>(
       () => WorkflowService(

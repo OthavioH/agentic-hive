@@ -1,5 +1,7 @@
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/child_run_port.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/fan_out_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/command_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/headless_harness_nodes.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/human_approval_node.dart';
@@ -27,10 +29,10 @@ final class NodeRegistry {
   /// Creates an empty node registry.
   new();
 
-  /// Creates a registry populated with all 10 canonical node types.
+  /// Creates a registry populated with all 11 canonical node types.
   ///
-  /// [executionSettings] is resolved lazily, when a node is created, so it can
-  /// be registered after the registry.
+  /// [executionSettings] and [childRuns] are resolved lazily, when a node is
+  /// created, so they can be registered after the registry.
   factory withDefaults({
     required NodeProcessRunner processRunner,
     required PtyRunner ptyRunner,
@@ -38,6 +40,7 @@ final class NodeRegistry {
     required ResultContract resultContract,
     required HumanApprovalPort approvalPort,
     required AgentPromptResolver agentPromptResolver,
+    required ChildRunPort Function() childRuns,
     ProcessTreeKiller? processTreeKiller,
     ExecutionSettingsService Function()? executionSettings,
   }) {
@@ -105,6 +108,10 @@ final class NodeRegistry {
       ..register(
         NodeDescriptors.humanApproval,
         () => HumanApprovalNode(approvalPort: approvalPort),
+      )
+      ..register(
+        NodeDescriptors.fanOut,
+        () => FanOutNode(childRuns: childRuns()),
       );
     return registry;
   }

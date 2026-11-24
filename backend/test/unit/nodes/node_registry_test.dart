@@ -1,5 +1,7 @@
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/child_run_port.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/fan_out_node.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_shell_provider.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/command_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/headless_harness_nodes.dart';
@@ -74,6 +76,13 @@ final class _FakeAgentPromptResolver implements AgentPromptResolver {
   }) async => FailureResult(NotFoundFailure('Agent "$agentId" not found.'));
 }
 
+final class _FakeChildRunPort implements ChildRunPort {
+  const new();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
   group('NodeRegistry', () {
     late NodeRegistry registry;
@@ -86,15 +95,13 @@ void main() {
         resultContract: const _FakeResultContract(),
         approvalPort: const _FakeHumanApprovalPort(),
         agentPromptResolver: const _FakeAgentPromptResolver(),
+        childRuns: () => const _FakeChildRunPort(),
       );
     });
 
-    test('registers all 10 canonical node types', () {
-      expect(registry.descriptors, hasLength(10));
-      // fan_out is registered by ticket 130-3.
-      for (final descriptor in NodeDescriptors.all.where(
-        (d) => d.typeId != NodeTypeId.fanOut,
-      )) {
+    test('registers all 11 canonical node types', () {
+      expect(registry.descriptors, hasLength(11));
+      for (final descriptor in NodeDescriptors.all) {
         expect(registry.contains(descriptor.typeId), isTrue);
         expect(registry.descriptorFor(descriptor.typeId), same(descriptor));
         expect(registry.create(descriptor.typeId).isSuccess, isTrue);
@@ -103,6 +110,10 @@ void main() {
       expect(
         registry.create(NodeTypeId.claudeCode).valueOrNull,
         isA<ClaudeCodeNode>(),
+      );
+      expect(
+        registry.create(NodeTypeId.fanOut).valueOrNull,
+        isA<FanOutNode>(),
       );
       expect(registry.create(NodeTypeId.codex).valueOrNull, isA<CodexNode>());
       expect(
