@@ -80,6 +80,7 @@ class Workflows extends Table {
 /// Execution runs of saved workflows.
 @DataClassName('RunRow')
 @TableIndex(name: 'idx_runs_workspace_id', columns: {#workspaceId})
+@TableIndex(name: 'idx_runs_parent_run_id', columns: {#parentRunId})
 class Runs extends Table {
   /// Unique run identifier.
   TextColumn get id => text()();
@@ -156,9 +157,6 @@ class Checkpoints extends Table {
   TextColumn get runId =>
       text().references(Runs, #id, onDelete: KeyAction.cascade)();
 
-  /// Id of the parent run when the pause belongs to a fan-out child run.
-  TextColumn get parentRunId => text().nullable()();
-
   /// Monotonic 1-based sequence number within [runId].
   IntColumn get sequence => integer()();
 
@@ -200,9 +198,6 @@ class RunEvents extends Table {
   TextColumn get runId =>
       text().references(Runs, #id, onDelete: KeyAction.cascade)();
 
-  /// Id of the parent run when the pause belongs to a fan-out child run.
-  TextColumn get parentRunId => text().nullable()();
-
   /// Monotonic 1-based sequence number within [runId].
   IntColumn get sequence => integer()();
 
@@ -240,9 +235,6 @@ class Snapshots extends Table {
   /// Owning run identifier.
   TextColumn get runId =>
       text().references(Runs, #id, onDelete: KeyAction.cascade)();
-
-  /// Id of the parent run when the pause belongs to a fan-out child run.
-  TextColumn get parentRunId => text().nullable()();
 
   /// Optional node identifier associated with this snapshot.
   TextColumn get nodeId => text().nullable()();
@@ -465,6 +457,7 @@ class AppDatabase extends _$AppDatabase {
           await m.addColumn(runs, runs.childIndex);
           await m.addColumn(runs, runs.childName);
         }
+        await m.createIndex(idxRunsParentRunId);
       }
       if (from < 11) {
         if (from >= 6) {

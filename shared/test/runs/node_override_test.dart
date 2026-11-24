@@ -55,6 +55,17 @@ void main() {
       expect(const NodeOverride(agentId: 'a').isEmpty, isFalse);
       expect(const NodeOverride(effort: 'low').isEmpty, isFalse);
     });
+
+    test('fields exposes every overridable field and its getter', () {
+      const override = NodeOverride(agentId: 'a1', model: 'm1', effort: 'high');
+      expect(
+        {
+          for (final (name, getter) in NodeOverride.fields)
+            name: getter(override),
+        },
+        {'agentId': 'a1', 'model': 'm1', 'effort': 'high'},
+      );
+    });
   });
 
   group('NodeOverrideValidation', () {

@@ -22,7 +22,7 @@ A workflow often produces a list whose length is only known at run time (for exa
 - **Deleting the child workflow.** Allowed, and ADR 0027 applies unchanged: its runs are deleted, including children of finished parents, and active children refuse the delete unless it is forced, which cancels them and counts each as a failure for its parent. The confirmation and the MCP answer list the workflows whose fan-out nodes reference it. A parent's output keeps the ids of deleted children, shown as deleted.
 - **Deleting the parent.** Deleting a parent run, or the workflow it belongs to, deletes its child runs with it; their worktrees are kept (ADR 0025). The active-run check of a delete includes the children.
 - **Restart.** Each child follows the normal recovery of an interrupted run. The parent waits until every child reaches a final state; an interrupted child is not final.
-- **Rollback.** The parent's snapshot before the fan-out node covers only the parent's target folder. Child worktrees keep their own snapshots.
+- **Rollback.** The parent's snapshot before the fan-out node covers only the parent's target folder. Child worktrees keep their own snapshots. On interrupted resume, the parent skips its pre-node rollback for a fan-out node whose children used the lent folder (non-git workspace), so succeeded children's work stays and their reuse stays valid.
 
 ## Considered options
 

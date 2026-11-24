@@ -976,7 +976,8 @@ class RunDetailController extends _$RunDetailController {
       RunEventType.checkpointSaved ||
       RunEventType.snapshotCaptured ||
       RunEventType.snapshotRestored ||
-      RunEventType.snapshotWarning => fallback,
+      RunEventType.snapshotWarning ||
+      RunEventType.warning => fallback,
     };
   }
 
@@ -1104,6 +1105,7 @@ class RunDetailController extends _$RunDetailController {
       case RunEventType.snapshotCaptured:
       case RunEventType.snapshotRestored:
       case RunEventType.snapshotWarning:
+      case RunEventType.warning:
         break;
     }
 

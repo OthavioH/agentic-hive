@@ -96,6 +96,9 @@ abstract interface class ChildRunPort {
   /// Creates and starts one child run.
   Future<Result<Run>> startChildRun(ChildRunRequest request);
 
+  /// Whether [parentRunId] is currently stopping (failing or cancelling).
+  bool isStopping(String parentRunId);
+
   /// Loads the current state of [runId].
   Future<Result<Run>> getRun(String runId);
 

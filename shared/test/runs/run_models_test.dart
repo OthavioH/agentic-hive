@@ -249,6 +249,7 @@ void main() {
         RunEventType.snapshotCaptured: 'snapshot.captured',
         RunEventType.snapshotRestored: 'snapshot.restored',
         RunEventType.snapshotWarning: 'snapshot.warning',
+        RunEventType.warning: 'run.warning',
       };
 
       expect(expected.length, RunEventType.values.length);

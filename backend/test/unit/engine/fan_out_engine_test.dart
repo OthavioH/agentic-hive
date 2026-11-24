@@ -292,10 +292,7 @@ void main() {
       await h.engine.start('run-1');
 
       expect(h.run.status, RunStatus.succeeded, reason: h.run.errorMessage);
-      expect(
-        h.events.ofType('run-1', RunEventType.snapshotWarning),
-        hasLength(1),
-      );
+      expect(h.events.ofType('run-1', RunEventType.warning), hasLength(1));
     },
   );
 
@@ -672,6 +669,120 @@ void main() {
     );
   });
 
+  test('a failing parent branch with queued items stops the fan-out without '
+      'starting new children', () async {
+    final hung = <String, Completer<void>>{};
+    final badGate = Completer<void>();
+    h.killer.onKill = (runId, nodeId) => hung[runId]?.complete();
+    addTearDown(() {
+      for (final c in hung.values) {
+        if (!c.isCompleted) c.complete();
+      }
+      if (!badGate.isCompleted) badGate.complete();
+    });
+
+    final branchedWorkflow = Workflow(
+      id: 'parent-wf',
+      name: 'Parent Flow',
+      nodes: [
+        fakeNode('seed'),
+        const WorkflowNode(
+          id: 'fan',
+          type: 'fan_out',
+          label: 'Fan',
+          position: WorkflowPosition(x: 200, y: 0),
+          config: {
+            'workflowId': 'child-wf',
+            'itemsNodeId': 'seed',
+            'itemsPath': 'items',
+            'concurrency': 1,
+          },
+        ),
+        const WorkflowNode(
+          id: 'bad',
+          type: 'command',
+          label: 'Bad',
+          position: WorkflowPosition(x: 200, y: 120),
+        ),
+      ],
+      edges: const [
+        WorkflowEdge(
+          id: 'e1',
+          sourceNodeId: 'seed',
+          sourceOutput: NodeOutput.onSuccess,
+          targetNodeId: 'fan',
+        ),
+        WorkflowEdge(
+          id: 'e2',
+          sourceNodeId: 'seed',
+          sourceOutput: NodeOutput.onSuccess,
+          targetNodeId: 'bad',
+        ),
+      ],
+      entryNodeId: 'seed',
+      createdAt: DateTime.utc(2026),
+      updatedAt: DateTime.utc(2026),
+    );
+
+    h.script.on('seed', [
+      (_) async => const Success(
+        NodeOutcome(
+          outputLabel: NodeOutput.onSuccess,
+          data: {
+            'items': ['a', 'b', 'c'],
+          },
+        ),
+      ),
+    ]);
+    h.script.on('work', [
+      (ctx) async {
+        final c = hung.putIfAbsent(ctx.runId, Completer<void>.new);
+        await c.future;
+        return const FailureResult(NodeExecutionFailure('killed'));
+      },
+    ]);
+    h.script.on('bad', [
+      (_) async {
+        await badGate.future;
+        return const Success(NodeOutcome(outputLabel: NodeOutput.onFailure));
+      },
+    ]);
+
+    await h.runs.create(
+      Run(
+        id: 'run-1',
+        workflowId: 'parent-wf',
+        workflowName: 'Parent Flow',
+        workflowDefinition: branchedWorkflow,
+        workspacePath: '.',
+        workspaceId: 'ws-1',
+        status: RunStatus.running,
+        startedAt: DateTime.utc(2026),
+      ),
+    );
+    final startFuture = h.engine.start('run-1');
+    await h.settle();
+    while (hung.isEmpty) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+
+    badGate.complete();
+    await startFuture;
+    await service.waitForActiveExecutions();
+
+    expect(h.run.status, RunStatus.failed);
+    final children = h.runs.runs.values
+        .where((r) => r.parentRunId == 'run-1')
+        .toList();
+    expect(children, hasLength(1));
+    expect(children.single.status, RunStatus.cancelled);
+    final failedEvents = h.events.ofType('run-1', RunEventType.runFailed);
+    expect(
+      failedEvents.single.payload.containsKey('kill_unconfirmed'),
+      isFalse,
+    );
+  });
+
   test(
     'retrying the fan-out node after a failure only restarts the failed item',
     () async {
@@ -939,4 +1050,185 @@ void main() {
     await service.waitForActiveExecutions();
     expect(h.run.status, RunStatus.succeeded, reason: h.run.errorMessage);
   });
+
+  test('restart: resuming an interrupted parent skips pre-node rollback for a '
+      'fan-out node with lent children', () async {
+    await h.runs.create(
+      Run(
+        id: 'run-1',
+        workflowId: 'parent-wf',
+        workflowName: 'Parent Flow',
+        workflowDefinition: _parentWorkflow(),
+        workspacePath: '.',
+        workspaceId: 'ws-1',
+        status: RunStatus.interrupted,
+        startedAt: DateTime.utc(2026),
+      ),
+    );
+    h.checkpoints.checkpoints.add(
+      Checkpoint(
+        id: 'cp-1',
+        runId: 'run-1',
+        sequence: 1,
+        completedNodeId: 'seed',
+        pendingNodeIds: const ['fan'],
+        attemptsByEdge: const {},
+        circuitBreakerCount: 0,
+        nodeOutputs: const {
+          'seed': {
+            'outputLabel': 'onSuccess',
+            'data': {
+              'items': ['a', 'b'],
+            },
+          },
+        },
+        createdAt: DateTime.utc(2026, 1, 1, 0, 0, 10),
+      ),
+    );
+    h.snapshots.snapshots.add(
+      Snapshot(
+        id: 'snap-fan',
+        runId: 'run-1',
+        nodeId: 'fan',
+        commitHash: 'abc',
+        kind: SnapshotKind.preNode,
+        addedCount: 0,
+        modifiedCount: 0,
+        deletedCount: 0,
+        createdAt: DateTime.utc(2026, 1, 1, 0, 0, 20),
+      ),
+    );
+    final cw = Workflow(
+      id: 'child-wf',
+      name: 'Child Flow',
+      entryNodeId: 'work',
+      nodes: [fakeNode('work')],
+      edges: const [],
+      createdAt: DateTime.utc(2026),
+      updatedAt: DateTime.utc(2026),
+    );
+    await h.runs.create(
+      Run(
+        id: 'c-ok',
+        workflowId: 'child-wf',
+        workflowName: 'Child Flow',
+        workflowDefinition: cw,
+        workspacePath: '.',
+        workspaceId: 'ws-1',
+        status: RunStatus.succeeded,
+        startedAt: DateTime.utc(2026, 1, 1, 0, 1),
+        parentRunId: 'run-1',
+        parentNodeId: 'fan',
+        childIndex: 0,
+      ),
+    );
+    await h.runs.create(
+      Run(
+        id: 'c-int',
+        workflowId: 'child-wf',
+        workflowName: 'Child Flow',
+        workflowDefinition: cw,
+        workspacePath: '.',
+        workspaceId: 'ws-1',
+        status: RunStatus.interrupted,
+        startedAt: DateTime.utc(2026, 1, 1, 0, 2),
+        parentRunId: 'run-1',
+        parentNodeId: 'fan',
+        childIndex: 1,
+      ),
+    );
+    h.script.on('work', [
+      (_) async => const Success(
+        NodeOutcome(outputLabel: NodeOutput.onSuccess, data: {'v': 2}),
+      ),
+    ]);
+
+    await h.engine.resume('run-1');
+    await service.waitForActiveExecutions();
+
+    expect(h.run.status, RunStatus.succeeded, reason: h.run.errorMessage);
+    expect(h.snapshots.restored, isNot(contains('snap-fan')));
+  });
+
+  test(
+    'lent children of two parallel fan-out nodes run one at a time',
+    () async {
+      final parallelFanOutWorkflow = Workflow(
+        id: 'parent-wf',
+        name: 'Parent Flow',
+        nodes: [
+          fakeNode('seed'),
+          const WorkflowNode(
+            id: 'fanA',
+            type: 'fan_out',
+            label: 'FanA',
+            position: WorkflowPosition(x: 200, y: 0),
+            config: {
+              'workflowId': 'child-wf',
+              'itemsNodeId': 'seed',
+              'itemsPath': 'items',
+            },
+          ),
+          const WorkflowNode(
+            id: 'fanB',
+            type: 'fan_out',
+            label: 'FanB',
+            position: WorkflowPosition(x: 200, y: 120),
+            config: {
+              'workflowId': 'child-wf',
+              'itemsNodeId': 'seed',
+              'itemsPath': 'items',
+            },
+          ),
+        ],
+        edges: [
+          edge('seed', NodeOutput.onSuccess, 'fanA'),
+          edge('seed', NodeOutput.onSuccess, 'fanB'),
+        ],
+        entryNodeId: 'seed',
+        createdAt: DateTime.utc(2026),
+        updatedAt: DateTime.utc(2026),
+      );
+
+      h.script.on('seed', [
+        (_) async => const Success(
+          NodeOutcome(
+            outputLabel: NodeOutput.onSuccess,
+            data: {
+              'items': ['1', '2'],
+            },
+          ),
+        ),
+      ]);
+      var inFlight = 0;
+      var maxInFlight = 0;
+      h.script.on('work', [
+        (_) async {
+          inFlight++;
+          if (inFlight > maxInFlight) maxInFlight = inFlight;
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          inFlight--;
+          return const Success(NodeOutcome(outputLabel: NodeOutput.onSuccess));
+        },
+      ]);
+
+      await h.runs.create(
+        Run(
+          id: 'run-1',
+          workflowId: 'parent-wf',
+          workflowName: 'Parent Flow',
+          workflowDefinition: parallelFanOutWorkflow,
+          workspacePath: '.',
+          workspaceId: 'ws-1',
+          status: RunStatus.running,
+          startedAt: DateTime.utc(2026),
+        ),
+      );
+      await h.engine.start('run-1');
+      await service.waitForActiveExecutions();
+
+      expect(h.run.status, RunStatus.succeeded, reason: h.run.errorMessage);
+      expect(maxInFlight, 1);
+    },
+  );
 }

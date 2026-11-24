@@ -35,6 +35,10 @@ final class _FakeRunRepository implements RunRepository {
   }) async => const Success(<Run>[]);
 
   @override
+  Future<Result<Map<String, Run>>> getByIds(Iterable<String> ids) async =>
+      Success({for (final id in ids) id: ?store[id]});
+
+  @override
   Future<Result<List<String>>> delete(String id) async {
     final existing = store[id];
     if (existing == null) {

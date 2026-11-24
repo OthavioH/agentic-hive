@@ -103,6 +103,29 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
   /// duplicate resume requests receive `409 Conflict`.
   final Set<String> _resumingRunIds = <String>{};
 
+  /// Per-parent mutex serializing lent-folder child runs across all fan-out
+  /// nodes of the same parent (ADR 0029).
+  final Map<String, Completer<void>> _lendLocks = <String, Completer<void>>{};
+
+  Future<void Function()> _acquireLendLock(String parentRunId) async {
+    while (true) {
+      final current = _lendLocks[parentRunId];
+      if (current == null) {
+        final completer = Completer<void>();
+        _lendLocks[parentRunId] = completer;
+        return () {
+          if (identical(_lendLocks[parentRunId], completer)) {
+            _lendLocks.remove(parentRunId);
+          }
+          if (!completer.isCompleted) {
+            completer.complete();
+          }
+        };
+      }
+      await current.future;
+    }
+  }
+
   /// Waits for any in-flight background run executions launched by [startRun]
   /// or [resumeRun] to settle.
   Future<void> waitForActiveExecutions() async {
@@ -227,6 +250,8 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     String? reservedFolder;
     String? createdWorktreePath;
     String? createdWorktreeBranch;
+    void Function()? releaseLend;
+    var launched = false;
 
     // Claims [folder] for this run, or reports the conflicting active run.
     Future<ConflictFailure?> claim(String folder) async {
@@ -241,6 +266,14 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     }
 
     try {
+      if (lend && child != null) {
+        releaseLend = await _acquireLendLock(child.parentRunId);
+        if (engine.isStopping(child.parentRunId)) {
+          return FailureResult(
+            ValidationFailure('Parent run "${child.parentRunId}" is stopping.'),
+          );
+        }
+      }
       final Workflow workflow;
       if (child != null) {
         workflow = child.workflow;
@@ -429,9 +462,17 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
         );
       }
 
-      _launchBackground(runId, () => engine.start(runId));
+      launched = true;
+      _launchBackground(
+        runId,
+        () => engine.start(runId),
+        onSettled: releaseLend,
+      );
       return Success(run);
     } finally {
+      if (!launched) {
+        releaseLend?.call();
+      }
       final reserved = reservedFolder;
       if (reserved != null) {
         // Once the run row is persisted as `running` (or if setup failed),
@@ -523,7 +564,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     try {
       if (!engine.isExecuting(id)) {
         normalizedWorkspace = canonicalFolder(_runFolder(run), _pathContext);
-        if (!_isLentChild(run)) {
+        if (!_isLentChildWithExecutingParent(run, engine)) {
           if (!_reservedFolders.add(normalizedWorkspace)) {
             return FailureResult(
               ConflictFailure(
@@ -588,6 +629,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
 
     var reservedDirect = false;
     String? normalizedWorkspace;
+    void Function()? releaseLend;
     var launched = false;
     try {
       final runResult = await _runs.getById(id);
@@ -606,8 +648,9 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
       }
 
       {
+        final parentExecuting = _isLentChildWithExecutingParent(run, engine);
         normalizedWorkspace = canonicalFolder(_runFolder(run), _pathContext);
-        if (!_isLentChild(run)) {
+        if (!parentExecuting) {
           if (!_reservedFolders.add(normalizedWorkspace)) {
             return FailureResult(
               ConflictFailure(
@@ -623,6 +666,9 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
           excludeRunIds: _resumeConflictExclusions(run),
         );
         if (conflict != null) return FailureResult(conflict);
+        if (parentExecuting) {
+          releaseLend = await _acquireLendLock(run.parentRunId!);
+        }
       }
 
       launched = true;
@@ -630,6 +676,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
         id,
         () => engine.resume(id, input: input),
         onSettled: () {
+          releaseLend?.call();
           _resumingRunIds.remove(id);
           if (reservedDirect && normalizedWorkspace != null) {
             _reservedFolders.remove(normalizedWorkspace);
@@ -639,6 +686,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
       return Success(run);
     } finally {
       if (!launched) {
+        releaseLend?.call();
         _resumingRunIds.remove(id);
         if (reservedDirect && normalizedWorkspace != null) {
           _reservedFolders.remove(normalizedWorkspace);
@@ -751,6 +799,9 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
   static bool _isLentChild(Run run) =>
       run.parentRunId != null &&
       run.isolationMode == WorkspaceIsolationMode.direct;
+
+  static bool _isLentChildWithExecutingParent(Run run, GraphEngine engine) =>
+      _isLentChild(run) && engine.isExecuting(run.parentRunId!);
 
   Set<String> _resumeConflictExclusions(Run run) => {
     run.id,
@@ -868,6 +919,10 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
   );
 
   @override
+  bool isStopping(String parentRunId) =>
+      _engine?.isStopping(parentRunId) ?? false;
+
+  @override
   Future<Result<Map<String, Object?>?>> finalOutputOf(String runId) async {
     final cpResult = await _checkpoints.getLatestForRun(runId);
     if (cpResult case FailureResult<Checkpoint?>(:final failure)) {
@@ -891,7 +946,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     await _events.append(
       id: _generateId(),
       runId: runId,
-      type: RunEventType.snapshotWarning,
+      type: RunEventType.warning,
       nodeId: nodeId,
       payload: {'message': message, 'source': 'fan_out'},
       createdAt: _now().toUtc(),
@@ -1067,12 +1122,11 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
       }
       activeRuns.addAll(result.valueOrNull!);
     }
-    final matching = <Run>[];
-    for (final run in activeRuns) {
-      if (await _belongsToWorkflow(run, workflowId, workspaceId)) {
-        matching.add(run);
-      }
-    }
+    final matching = await _filterWorkflowRuns(
+      activeRuns,
+      workflowId,
+      workspaceId,
+    );
     matching.sort((a, b) => a.startedAt.compareTo(b.startedAt));
     return Success({for (final run in matching) run.id: run.status});
   }
@@ -1090,12 +1144,11 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     if (uncertainResult case FailureResult<List<Run>>(:final failure)) {
       return FailureResult(failure);
     }
-    final preExistingUncertain = <Run>[];
-    for (final run in uncertainResult.valueOrNull!) {
-      if (await _belongsToWorkflow(run, workflowId, workspaceId)) {
-        preExistingUncertain.add(run);
-      }
-    }
+    final preExistingUncertain = await _filterWorkflowRuns(
+      uncertainResult.valueOrNull!,
+      workflowId,
+      workspaceId,
+    );
     final preExistingIds = [for (final run in preExistingUncertain) run.id];
 
     final first = await _deleteRunsAndArtifacts(
@@ -1224,21 +1277,35 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     };
   }
 
-  /// Whether [run] belongs to [workflowId] in [workspaceId]'s scope, directly
-  /// or as a child of a run that does (spec #130, R5).
-  Future<bool> _belongsToWorkflow(
-    Run run,
+  /// Filters [candidates] to runs that belong to [workflowId] in
+  /// [workspaceId]'s scope, directly or as a child of a run that does
+  /// (spec #130, R5), fetching parents in a single batch query.
+  Future<List<Run>> _filterWorkflowRuns(
+    List<Run> candidates,
     String workflowId,
     String? workspaceId,
   ) async {
     bool inScope(Run r) =>
         r.workflowId == workflowId &&
         (workspaceId == null || r.workspaceId == workspaceId);
-    if (inScope(run)) return true;
-    final parentId = run.parentRunId;
-    if (parentId == null) return false;
-    final parent = await _runs.getById(parentId);
-    return parent is Success<Run> && inScope(parent.value);
+
+    final parentIds = <String>{
+      for (final run in candidates)
+        if (!inScope(run) && run.parentRunId != null) run.parentRunId!,
+    };
+    final parentsById = parentIds.isEmpty
+        ? const <String, Run>{}
+        : (await _runs.getByIds(parentIds)).valueOrNull ??
+              const <String, Run>{};
+
+    return [
+      for (final run in candidates)
+        if (inScope(run) ||
+            (run.parentRunId != null &&
+                parentsById[run.parentRunId!] != null &&
+                inScope(parentsById[run.parentRunId!]!)))
+          run,
+    ];
   }
 
   Future<void> _cleanUpRunArtifacts(String id) async {

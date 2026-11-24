@@ -68,7 +68,11 @@ enum RunEventType {
 
   /// A non-fatal workspace snapshot or worktree warning occurred.
   @JsonValue('snapshot.warning')
-  snapshotWarning('snapshot.warning');
+  snapshotWarning('snapshot.warning'),
+
+  /// A non-fatal warning occurred during run execution.
+  @JsonValue('run.warning')
+  warning('run.warning');
 
   new(this.wireName);
 

@@ -405,20 +405,36 @@ final class FanOutNode extends Node {
     if (last != null) {
       switch (last.status) {
         case RunStatus.running || RunStatus.paused || RunStatus.cancelling:
-          return await _collect(plan, last.id);
+          return await _collect(plan, last.id, context.runId);
         case RunStatus.interrupted:
           final resumed = await childRuns.resumeChildRun(last.id);
-          if (resumed case FailureResult(:final failure)
-              when failure is! ConflictFailure) {
-            return _entry(
-              index: plan.index,
-              name: plan.name,
-              status: RunStatus.failed.name,
-              runId: last.id,
-              error: failure.message,
-            );
+          if (resumed case FailureResult(:final failure)) {
+            if (failure is! ConflictFailure) {
+              return _entry(
+                index: plan.index,
+                name: plan.name,
+                status: RunStatus.failed.name,
+                runId: last.id,
+                error: failure.message,
+              );
+            }
+            final current = await childRuns.getRun(last.id);
+            if (current case Success(:final value)
+                when value.status == RunStatus.interrupted) {
+              await _warn(
+                context,
+                'Could not resume child run "${last.id}": ${failure.message}',
+              );
+              return _entry(
+                index: plan.index,
+                name: plan.name,
+                status: RunStatus.failed.name,
+                runId: last.id,
+                error: failure.message,
+              );
+            }
           }
-          return await _collect(plan, last.id);
+          return await _collect(plan, last.id, context.runId);
         case RunStatus.succeeded ||
             RunStatus.failed ||
             RunStatus.cancelled ||
@@ -454,7 +470,7 @@ final class FanOutNode extends Node {
       if (await _parentStopped(context)) {
         await childRuns.cancelChildRun(runId);
       }
-      return await _collect(plan, runId);
+      return await _collect(plan, runId, context.runId);
     } on Object catch (error) {
       return _entry(
         index: plan.index,
@@ -465,9 +481,13 @@ final class FanOutNode extends Node {
     }
   }
 
-  Future<Map<String, Object?>> _collect(_ChildPlan plan, String runId) async {
+  Future<Map<String, Object?>> _collect(
+    _ChildPlan plan,
+    String runId,
+    String parentRunId,
+  ) async {
     try {
-      final finalRunResult = await _awaitFinal(runId);
+      final finalRunResult = await _awaitFinal(runId, parentRunId);
       if (finalRunResult case FailureResult(:final failure)) {
         final message = failure is NotFoundFailure
             ? 'Child run was deleted.'
@@ -518,6 +538,7 @@ final class FanOutNode extends Node {
   }
 
   Future<bool> _parentStopped(NodeExecutionContext context) async {
+    if (childRuns.isStopping(context.runId)) return true;
     final res = await childRuns.getRun(context.runId);
     final run = res.valueOrNull;
     return run == null || _parentStoppedStatuses.contains(run.status);
@@ -530,7 +551,8 @@ final class FanOutNode extends Node {
     error: 'The parent run stopped before this item started.',
   );
 
-  Future<Result<Run>> _awaitFinal(String runId) async {
+  Future<Result<Run>> _awaitFinal(String runId, String parentRunId) async {
+    var cancelSent = false;
     while (true) {
       final res = await childRuns.getRun(runId);
       if (res case FailureResult(:final failure)) {
@@ -539,6 +561,11 @@ final class FanOutNode extends Node {
       final run = res.valueOrNull!;
       if (_finalStatuses.contains(run.status)) {
         return Success(run);
+      }
+      if (!cancelSent && childRuns.isStopping(parentRunId)) {
+        cancelSent = true;
+        await childRuns.cancelChildRun(runId);
+        continue;
       }
       await Future<void>.delayed(pollInterval);
     }

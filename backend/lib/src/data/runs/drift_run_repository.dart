@@ -68,6 +68,24 @@ final class DriftRunRepository implements RunRepository {
   }
 
   @override
+  Future<Result<Map<String, Run>>> getByIds(Iterable<String> ids) async {
+    final uniqueIds = ids.toSet().toList(growable: false);
+    if (uniqueIds.isEmpty) {
+      return const Success(<String, Run>{});
+    }
+    try {
+      final rows = await (_db.select(
+        _db.runs,
+      )..where((row) => row.id.isIn(uniqueIds))).get();
+      return Success({for (final row in rows) row.id: _fromRow(row)});
+    } on Object catch (error) {
+      return FailureResult(
+        PersistenceFailure('Failed to load runs by ids.', cause: error),
+      );
+    }
+  }
+
+  @override
   Future<Result<({List<RunSummary> items, int total})>> list({
     RunStatus? status,
     String? workflowId,

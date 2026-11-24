@@ -9,6 +9,9 @@ abstract interface class RunRepository {
   /// Loads a run by [id], or returns `NotFoundFailure`.
   Future<Result<Run>> getById(String id);
 
+  /// Loads every existing run whose id is in [ids], keyed by id.
+  Future<Result<Map<String, Run>>> getByIds(Iterable<String> ids);
+
   /// Lists [RunSummary] items ordered by `startedAt DESC`, with optional
   /// filters and pagination.
   Future<Result<({List<RunSummary> items, int total})>> list({
