@@ -286,7 +286,8 @@ void main() {
             await tester.ensureVisible(approveFinder);
             await tester.pumpAndSettle();
             await tester.tap(approveFinder);
-            await tester.pump(const Duration(milliseconds: 50));
+            await tester.pump();
+            await tester.pump(HiveMotionTokens.standard.short);
           },
         ),
         (
