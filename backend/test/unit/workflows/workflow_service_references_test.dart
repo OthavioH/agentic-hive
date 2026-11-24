@@ -191,7 +191,7 @@ void main() {
     expect(repository.store.containsKey('wf-child'), isFalse);
   });
 
-  test('deleteWorkflow without force still fails with WorkflowHasActiveRunsFailure '
+  test('deleteWorkflow without force fails with WorkflowHasActiveRunsFailure '
       'when only a child is active', () async {
     repository.store['wf-parent'] = _plainWorkflow('wf-parent', 'Parent');
     deleter.activeRuns = {'c1': RunStatus.running};
