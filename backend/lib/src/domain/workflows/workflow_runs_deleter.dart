@@ -29,7 +29,8 @@ typedef WorkflowRunsProgressListener = void Function(
   WorkflowRunsProgress progress,
 );
 
-/// Outcome of deleting the runs of one workflow.
+/// Outcome of deleting the runs of one workflow (including child runs of its
+/// runs).
 final class WorkflowRunsDeletion {
   /// Creates a deletion outcome.
   const new({required this.deletedRuns, this.orphanedRuns = const []});

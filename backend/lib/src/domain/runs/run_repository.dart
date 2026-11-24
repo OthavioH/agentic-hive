@@ -9,6 +9,9 @@ abstract interface class RunRepository {
   /// Loads a run by [id], or returns `NotFoundFailure`.
   Future<Result<Run>> getById(String id);
 
+  /// Loads every existing run whose id is in [ids], keyed by id.
+  Future<Result<Map<String, Run>>> getByIds(Iterable<String> ids);
+
   /// Lists [RunSummary] items ordered by `startedAt DESC`, with optional
   /// filters and pagination.
   Future<Result<({List<RunSummary> items, int total})>> list({
@@ -20,6 +23,13 @@ abstract interface class RunRepository {
 
   /// Lists all runs currently in [status], ordered by `startedAt ASC`.
   Future<Result<List<Run>>> listByStatus(RunStatus status);
+
+  /// Lists the child runs of [parentRunId] ordered by `startedAt ASC`;
+  /// with [parentNodeId] only those started by that fan-out node.
+  Future<Result<List<Run>>> listChildren(
+    String parentRunId, {
+    String? parentNodeId,
+  });
 
   /// Counts runs currently in [status] whose `finishedAt` timestamp is non-null
   /// and at or after [finishedSince] (inclusive).
@@ -68,25 +78,33 @@ abstract interface class RunRepository {
     JsonMap payload = const {},
   });
 
-  /// Atomically deletes a non-active run [id] (cascading its checkpoints and
-  /// events).
+  /// Atomically deletes non-active run [id] and every child run
+  /// (`parentRunId == id`), cascading checkpoints, events, snapshots and
+  /// pauses.
+  /// Returns the deleted ids, children first (oldest first) and [id] last.
   ///
-  /// Returns `ConflictFailure` when the run is active (`running`, `paused`,
-  /// or `cancelling`), or `NotFoundFailure` when [id] does not exist.
-  Future<Result<void>> delete(String id);
+  /// Returns `ConflictFailure` when the run, or any of its children, is active
+  /// (`running`, `paused`, or `cancelling`), or `NotFoundFailure` when [id]
+  /// does not exist. Nothing is deleted on failure.
+  Future<Result<List<String>>> delete(String id);
 
-  /// Atomically deletes every run of [workflowId] (cascading checkpoints,
-  /// events, snapshots and pauses) and returns their ids.
+  /// Atomically deletes every run of [workflowId] and the child runs of every
+  /// deleted matching run (cascading checkpoints, events, snapshots and pauses)
+  /// and returns their ids (matching runs oldest first, then their children
+  /// oldest first).
   ///
   /// With [workspaceId] only runs of that workspace match; without it runs of
-  /// every workspace match. When any matching run is active (`running`,
-  /// `paused` or `cancelling`) nothing is deleted and the result is
-  /// `WorkflowHasActiveRunsFailure` listing the active runs, oldest first.
+  /// every workspace match. When any matching run or any child of a matching
+  /// run is active (`running`, `paused` or `cancelling`) nothing is deleted and
+  /// the result is `WorkflowHasActiveRunsFailure` listing the active runs,
+  /// oldest first.
   ///
   /// Runs whose id is in [orphanIds] (and that match [workflowId] and the
   /// scope) are excluded from the active check and from deletion; in the same
-  /// transaction their `workflowId` is set to `null`. Nothing is orphaned when
-  /// the result is a failure.
+  /// transaction their `workflowId` is set to `null` and their children are
+  /// kept. An orphan child of a deleted parent is kept with `workflowId`,
+  /// `parentRunId` and `parentNodeId` cleared. Nothing is orphaned when the
+  /// result is a failure.
   Future<Result<List<String>>> deleteAllOfWorkflow(
     String workflowId, {
     String? workspaceId,

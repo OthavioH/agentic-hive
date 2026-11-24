@@ -47,4 +47,8 @@ void main() {
     );
     expect(deleteIndex + 1, blocksIndex);
   });
+
+  test('delete_workflow description mentions fan-out references', () {
+    expect(tool.description, contains('fan-out'));
+  });
 }

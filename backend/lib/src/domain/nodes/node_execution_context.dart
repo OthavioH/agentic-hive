@@ -10,6 +10,7 @@ final class NodeExecutionContext {
     required this.runId,
     required this.nodeId,
     required this.workspacePath,
+    this.nodeLabel,
     this.workspaceRoot,
     this.workspaceId,
     this.attempt = 1,
@@ -31,6 +32,9 @@ final class NodeExecutionContext {
 
   /// Identifier of the node being executed.
   final String nodeId;
+
+  /// Display label of the node being executed.
+  final String? nodeLabel;
 
   /// Absolute path to the run's workspace directory.
   final String workspacePath;

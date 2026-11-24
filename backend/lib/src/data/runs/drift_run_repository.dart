@@ -37,6 +37,10 @@ final class DriftRunRepository implements RunRepository {
               worktreePath: Value(run.worktreePath),
               worktreeBranch: Value(run.worktreeBranch),
               input: Value(run.input),
+              parentRunId: Value(run.parentRunId),
+              parentNodeId: Value(run.parentNodeId),
+              childIndex: Value(run.childIndex),
+              childName: Value(run.childName),
             ),
           );
       return Success(run);
@@ -59,6 +63,24 @@ final class DriftRunRepository implements RunRepository {
     } on Object catch (error) {
       return FailureResult(
         PersistenceFailure('Failed to load run "$id".', cause: error),
+      );
+    }
+  }
+
+  @override
+  Future<Result<Map<String, Run>>> getByIds(Iterable<String> ids) async {
+    final uniqueIds = ids.toSet().toList(growable: false);
+    if (uniqueIds.isEmpty) {
+      return const Success(<String, Run>{});
+    }
+    try {
+      final rows = await (_db.select(
+        _db.runs,
+      )..where((row) => row.id.isIn(uniqueIds))).get();
+      return Success({for (final row in rows) row.id: _fromRow(row)});
+    } on Object catch (error) {
+      return FailureResult(
+        PersistenceFailure('Failed to load runs by ids.', cause: error),
       );
     }
   }
@@ -131,6 +153,8 @@ final class DriftRunRepository implements RunRepository {
               isolationMode: WorkspaceIsolationMode.fromName(row.isolationMode),
               worktreePath: row.worktreePath,
               worktreeBranch: row.worktreeBranch,
+              parentRunId: row.parentRunId,
+              parentNodeId: row.parentNodeId,
             ),
           )
           .toList();
@@ -155,6 +179,32 @@ final class DriftRunRepository implements RunRepository {
       return FailureResult(
         PersistenceFailure(
           'Failed to list runs with status "${status.name}".',
+          cause: error,
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Result<List<Run>>> listChildren(
+    String parentRunId, {
+    String? parentNodeId,
+  }) async {
+    try {
+      final query = _db.select(_db.runs)
+        ..where((row) {
+          final byParent = row.parentRunId.equals(parentRunId);
+          return parentNodeId == null
+              ? byParent
+              : byParent & row.parentNodeId.equals(parentNodeId);
+        })
+        ..orderBy([(row) => OrderingTerm.asc(row.startedAt)]);
+      final rows = await query.get();
+      return Success(rows.map(_fromRow).toList());
+    } on Object catch (error) {
+      return FailureResult(
+        PersistenceFailure(
+          'Failed to list child runs of "$parentRunId".',
           cause: error,
         ),
       );
@@ -337,35 +387,41 @@ final class DriftRunRepository implements RunRepository {
   }
 
   @override
-  Future<Result<void>> delete(String id) async {
+  Future<Result<List<String>>> delete(String id) async {
     try {
       return await _db.transaction(() async {
-        final deleted =
-            await (_db.delete(_db.runs)..where(
-                  (row) =>
-                      row.id.equals(id) &
-                      row.status.isNotIn([
-                        RunStatus.running.name,
-                        RunStatus.paused.name,
-                        RunStatus.cancelling.name,
-                      ]),
-                ))
-                .go();
-        if (deleted > 0) {
-          return const Success<void>(null);
-        }
-
         final existing = await (_db.select(
           _db.runs,
         )..where((row) => row.id.equals(id))).getSingleOrNull();
         if (existing == null) {
           return FailureResult(NotFoundFailure('Run "$id" not found.'));
         }
-        return FailureResult(
-          ConflictFailure(
-            'Cannot delete active run "$id" with status "${existing.status}".',
-          ),
-        );
+        if (RunStatus.fromName(existing.status).isActive) {
+          return FailureResult(
+            ConflictFailure(
+              'Cannot delete active run "$id" with status '
+              '"${existing.status}".',
+            ),
+          );
+        }
+        final children =
+            await (_db.select(_db.runs)
+                  ..where((row) => row.parentRunId.equals(id))
+                  ..orderBy([(row) => OrderingTerm.asc(row.startedAt)]))
+                .get();
+        for (final child in children) {
+          if (RunStatus.fromName(child.status).isActive) {
+            return FailureResult(
+              ConflictFailure(
+                'Cannot delete run "$id": child run "${child.id}" is active '
+                'with status "${child.status}".',
+              ),
+            );
+          }
+        }
+        final ids = [for (final child in children) child.id, id];
+        await (_db.delete(_db.runs)..where((row) => row.id.isIn(ids))).go();
+        return Success(ids);
       });
     } on Object catch (error) {
       return FailureResult(
@@ -396,11 +452,37 @@ final class DriftRunRepository implements RunRepository {
           for (final row in rows)
             if (orphanIds.contains(row.id)) row.id,
         };
-        final active = <String, RunStatus>{
+        final deletedParentIds = [
+          for (final row in rows)
+            if (!kept.contains(row.id)) row.id,
+        ];
+        final children = deletedParentIds.isEmpty
+            ? <RunRow>[]
+            : await (_db.select(_db.runs)
+                    ..where((row) => row.parentRunId.isIn(deletedParentIds))
+                    ..orderBy([(row) => OrderingTerm.asc(row.startedAt)]))
+                  .get();
+        final known = {for (final row in rows) row.id};
+        final extraChildren = [
+          for (final child in children)
+            if (!known.contains(child.id)) child,
+        ];
+        final keptChildren = {
+          for (final child in extraChildren)
+            if (orphanIds.contains(child.id)) child.id,
+        };
+        final activeRows = <RunRow>[
           for (final row in rows)
             if (!kept.contains(row.id) &&
                 RunStatus.fromName(row.status).isActive)
-              row.id: RunStatus.fromName(row.status),
+              row,
+          for (final child in extraChildren)
+            if (!keptChildren.contains(child.id) &&
+                RunStatus.fromName(child.status).isActive)
+              child,
+        ]..sort((a, b) => a.startedAt.compareTo(b.startedAt));
+        final active = <String, RunStatus>{
+          for (final row in activeRows) row.id: RunStatus.fromName(row.status),
         };
         if (active.isNotEmpty) {
           return FailureResult(
@@ -412,8 +494,9 @@ final class DriftRunRepository implements RunRepository {
           );
         }
         final ids = [
-          for (final row in rows)
-            if (!kept.contains(row.id)) row.id,
+          ...deletedParentIds,
+          for (final child in extraChildren)
+            if (!keptChildren.contains(child.id)) child.id,
         ];
         if (ids.isNotEmpty) {
           await (_db.delete(_db.runs)..where((row) => row.id.isIn(ids))).go();
@@ -421,6 +504,17 @@ final class DriftRunRepository implements RunRepository {
         if (kept.isNotEmpty) {
           await (_db.update(_db.runs)..where((row) => row.id.isIn(kept))).write(
             const RunsCompanion(workflowId: Value(null)),
+          );
+        }
+        if (keptChildren.isNotEmpty) {
+          await (_db.update(
+            _db.runs,
+          )..where((row) => row.id.isIn(keptChildren))).write(
+            const RunsCompanion(
+              workflowId: Value(null),
+              parentRunId: Value(null),
+              parentNodeId: Value(null),
+            ),
           );
         }
         return Success(ids);
@@ -454,6 +548,10 @@ final class DriftRunRepository implements RunRepository {
       worktreePath: row.worktreePath,
       worktreeBranch: row.worktreeBranch,
       input: row.input,
+      parentRunId: row.parentRunId,
+      parentNodeId: row.parentNodeId,
+      childIndex: row.childIndex,
+      childName: row.childName,
     );
   }
 }

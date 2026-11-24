@@ -550,4 +550,69 @@ void main() {
     expect(find.text(l10n.editorUnsavedBadge), findsOneWidget);
     expect(repo.getCalls, 1);
   });
+
+  testWidgets('inspector proposal source lists other workflow nodes and '
+      'excludes the selected approval node', (tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final repo = _FakeWorkflowRepository();
+    repo.stored = repo.stored.copyWith(
+      nodes: <WorkflowNode>[
+        WorkflowNode(
+          id: 'n1',
+          type: NodeTypeId.command,
+          label: 'Planner Step',
+          config: NodeDescriptors.command.defaultConfig(),
+          position: const WorkflowPosition(x: 40, y: 40),
+        ),
+        WorkflowNode(
+          id: 'n2',
+          type: NodeTypeId.command,
+          label: 'Validator Step',
+          config: NodeDescriptors.command.defaultConfig(),
+          position: const WorkflowPosition(x: 240, y: 40),
+        ),
+        WorkflowNode(
+          id: 'n3',
+          type: NodeTypeId.humanApproval,
+          label: 'Approval Gate',
+          config: NodeDescriptors.humanApproval.defaultConfig(),
+          position: const WorkflowPosition(x: 40, y: 200),
+        ),
+      ],
+      entryNodeId: 'n1',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+        child: _buildEditorHost(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('canvas_node_n3')));
+    await tester.pumpAndSettle();
+
+    final selectFinder = find.byKey(const Key('config_human_proposal_node'));
+    await tester.ensureVisible(selectFinder);
+    await tester.tap(selectFinder);
+    await tester.pumpAndSettle();
+
+    final menuItems = find.byType(MenuItemButton);
+    expect(
+      find.descendant(of: menuItems, matching: find.text('Planner Step')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: menuItems, matching: find.text('Validator Step')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: menuItems, matching: find.text('Approval Gate')),
+      findsNothing,
+    );
+  });
 }

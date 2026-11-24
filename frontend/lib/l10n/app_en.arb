@@ -668,8 +668,12 @@
   "@agentsMigrationBannerMessage": {
     "description": "Explanation under the agents migration banner title.",
     "placeholders": {
-      "legacyDir": {"type": "String"},
-      "targetDir": {"type": "String"}
+      "legacyDir": {
+        "type": "String"
+      },
+      "targetDir": {
+        "type": "String"
+      }
     }
   },
   "agentsDismissTooltip": "Dismiss",
@@ -1977,7 +1981,7 @@
   },
   "runDetailTabSnapshots": "Snapshots",
   "@runDetailTabSnapshots": {
-    "description": "Segment label for the workspace snapshots view on Run Detail."
+    "description": "Inspector tab label for workspace snapshots."
   },
   "runDetailIsolationLabel": "Isolation",
   "@runDetailIsolationLabel": {
@@ -2345,10 +2349,6 @@
   "runDetailTabCheckpoints": "Checkpoints",
   "@runDetailTabCheckpoints": {
     "description": "Inspector tab label for saved run checkpoints."
-  },
-  "runDetailTabSnapshots": "Snapshots",
-  "@runDetailTabSnapshots": {
-    "description": "Inspector tab label for workspace snapshots."
   },
   "runDetailOutputTitle": "Node output",
   "@runDetailOutputTitle": {
@@ -3520,5 +3520,339 @@
   "settingsAutoInstallSkillsHelp": "The first time Agentic Hive finds a harness, it installs the agentic-hive skill and the Hive MCP server for it. It never updates them by itself.",
   "@settingsAutoInstallSkillsHelp": {
     "description": "Helper text under the automatic skill install switch in Settings."
+  },
+  "nodeConfigModelLabel": "Model",
+  "@nodeConfigModelLabel": {
+    "description": "Text field label for the harness model override."
+  },
+  "nodeConfigEffortLabel": "Effort",
+  "@nodeConfigEffortLabel": {
+    "description": "Select field label for choosing the harness reasoning effort."
+  },
+  "nodeConfigHarnessDefaultHint": "Harness default",
+  "@nodeConfigHarnessDefaultHint": {
+    "description": "Placeholder hint and default option label indicating the harness chooses its own default."
+  },
+  "nodeConfigEffortLow": "Low",
+  "@nodeConfigEffortLow": {
+    "description": "Option label for low reasoning effort."
+  },
+  "nodeConfigEffortMedium": "Medium",
+  "@nodeConfigEffortMedium": {
+    "description": "Option label for medium reasoning effort."
+  },
+  "nodeConfigEffortHigh": "High",
+  "@nodeConfigEffortHigh": {
+    "description": "Option label for high reasoning effort."
+  },
+  "nodeConfigEffortMax": "Max",
+  "@nodeConfigEffortMax": {
+    "description": "Option label for maximum reasoning effort."
+  },
+  "nodeConfigModelUnsupportedError": "{harness} does not support choosing a model.",
+  "@nodeConfigModelUnsupportedError": {
+    "description": "Error text shown when a stored model value is configured on a harness that does not support model selection.",
+    "placeholders": {
+      "harness": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeConfigEffortUnsupportedError": "{harness} does not support choosing an effort.",
+  "@nodeConfigEffortUnsupportedError": {
+    "description": "Error text shown when a stored effort value is configured on a harness that does not support effort selection.",
+    "placeholders": {
+      "harness": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeConfigEffortInvalidError": "\"{effort}\" is not a valid effort.",
+  "@nodeConfigEffortInvalidError": {
+    "description": "Error text shown when a stored effort value is not one of the recognized effort levels.",
+    "placeholders": {
+      "effort": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeConfigHumanProposalHeading": "Proposal",
+  "@nodeConfigHumanProposalHeading": {
+    "description": "Section heading for proposal source fields in human approval node config."
+  },
+  "nodeConfigHumanProposalNodeLabel": "Proposal source",
+  "@nodeConfigHumanProposalNodeLabel": {
+    "description": "Select label for choosing the upstream node that supplies a proposal."
+  },
+  "nodeConfigHumanProposalNodeNone": "None",
+  "@nodeConfigHumanProposalNodeNone": {
+    "description": "Select option indicating the approval node has no proposal source."
+  },
+  "nodeConfigHumanProposalPathLabel": "Field",
+  "@nodeConfigHumanProposalPathLabel": {
+    "description": "Text field label for the dot path inside the proposal source node output data."
+  },
+  "nodeConfigHumanProposalPathHint": "e.g. issues",
+  "@nodeConfigHumanProposalPathHint": {
+    "description": "Placeholder hint for the proposal field dot path."
+  },
+  "nodeConfigHumanProposalSchemaLabel": "JSON Schema (optional)",
+  "@nodeConfigHumanProposalSchemaLabel": {
+    "description": "Multiline text area label for an optional JSON Schema validating edited proposals."
+  },
+  "nodeConfigHumanProposalSchemaHint": "Paste a JSON Schema that the edited proposal must match",
+  "@nodeConfigHumanProposalSchemaHint": {
+    "description": "Placeholder hint for the optional proposal JSON Schema text area."
+  },
+  "pausesProposalHeading": "Proposal from {source}",
+  "@pausesProposalHeading": {
+    "description": "Heading for the proposal section on an approval pause when the source node label is known.",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "pausesProposalHeadingGeneric": "Proposal",
+  "@pausesProposalHeadingGeneric": {
+    "description": "Fallback heading for the proposal section on an approval pause when no source node label is present."
+  },
+  "pausesProposalEditAction": "Edit proposal",
+  "@pausesProposalEditAction": {
+    "description": "Button label to switch the approval proposal from read-only to JSON editing mode."
+  },
+  "pausesProposalDiscardAction": "Discard edit",
+  "@pausesProposalDiscardAction": {
+    "description": "Button label to discard proposal edits and return to read-only view."
+  },
+  "pausesProposalCopy": "Copy proposal",
+  "@pausesProposalCopy": {
+    "description": "Tooltip and semantics label for copying the read-only proposal JSON."
+  },
+  "pausesProposalEditorLabel": "Edited proposal (JSON)",
+  "@pausesProposalEditorLabel": {
+    "description": "Label for the multiline JSON editor used to edit an approval proposal."
+  },
+  "pausesApproveEditedAction": "Approve edited proposal",
+  "@pausesApproveEditedAction": {
+    "description": "Primary button label when approving a pause while editing its proposal."
+  },
+  "nodeTypeFanOut": "Fan-out",
+  "@nodeTypeFanOut": {
+    "description": "Display label for the fan-out workflow node type."
+  },
+  "nodeConfigFanOutWorkflowLabel": "Child workflow",
+  "@nodeConfigFanOutWorkflowLabel": {
+    "description": "Select field label for picking the child workflow of a fan-out node."
+  },
+  "nodeConfigFanOutWorkflowHint": "Select a saved workflow",
+  "@nodeConfigFanOutWorkflowHint": {
+    "description": "Placeholder hint for the child workflow select."
+  },
+  "nodeConfigFanOutWorkflowLoadingHint": "Loading workflows…",
+  "@nodeConfigFanOutWorkflowLoadingHint": {
+    "description": "Placeholder hint while saved workflows are loading."
+  },
+  "nodeConfigFanOutWorkflowLoadError": "Could not load workflows.",
+  "@nodeConfigFanOutWorkflowLoadError": {
+    "description": "Error text when loading saved workflows fails."
+  },
+  "nodeConfigFanOutWorkflowEmptyHint": "No saved workflows",
+  "@nodeConfigFanOutWorkflowEmptyHint": {
+    "description": "Placeholder hint when no saved workflows are available."
+  },
+  "nodeConfigFanOutWorkflowMissingError": "Workflow \"{workflowId}\" was not found.",
+  "@nodeConfigFanOutWorkflowMissingError": {
+    "description": "Error text when a fan-out node references a workflow ID that was not found.",
+    "placeholders": {
+      "workflowId": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeConfigFanOutItemsNodeLabel": "Items node",
+  "@nodeConfigFanOutItemsNodeLabel": {
+    "description": "Select field label for choosing the upstream node producing the fan-out list."
+  },
+  "nodeConfigFanOutItemsNodeHint": "Node whose output holds the list",
+  "@nodeConfigFanOutItemsNodeHint": {
+    "description": "Placeholder hint for the items node select."
+  },
+  "nodeConfigFanOutItemsPathLabel": "Items path",
+  "@nodeConfigFanOutItemsPathLabel": {
+    "description": "Text field label for the dot path to the list of items."
+  },
+  "nodeConfigFanOutItemsPathHint": "For example: issues",
+  "@nodeConfigFanOutItemsPathHint": {
+    "description": "Placeholder hint for the items path field."
+  },
+  "nodeConfigFanOutInputFieldLabel": "Input field (optional)",
+  "@nodeConfigFanOutInputFieldLabel": {
+    "description": "Text field label for the optional dot path to each child run input."
+  },
+  "nodeConfigFanOutInputFieldHint": "Whole item when empty",
+  "@nodeConfigFanOutInputFieldHint": {
+    "description": "Placeholder hint for the input field."
+  },
+  "nodeConfigFanOutOverridesFieldLabel": "Overrides field (optional)",
+  "@nodeConfigFanOutOverridesFieldLabel": {
+    "description": "Text field label for the optional dot path to per-child node overrides."
+  },
+  "nodeConfigFanOutOverridesFieldHint": "For example: overrides",
+  "@nodeConfigFanOutOverridesFieldHint": {
+    "description": "Placeholder hint for the overrides field."
+  },
+  "nodeConfigFanOutNameFieldLabel": "Name field (optional)",
+  "@nodeConfigFanOutNameFieldLabel": {
+    "description": "Text field label for the optional dot path to each child run name."
+  },
+  "nodeConfigFanOutNameFieldHint": "Names the child run and its worktree",
+  "@nodeConfigFanOutNameFieldHint": {
+    "description": "Placeholder hint for the name field."
+  },
+  "nodeConfigFanOutConcurrencyLabel": "Concurrency",
+  "@nodeConfigFanOutConcurrencyLabel": {
+    "description": "Text field label for the maximum concurrent child runs."
+  },
+  "nodeConfigFanOutMaxItemsLabel": "Item cap",
+  "@nodeConfigFanOutMaxItemsLabel": {
+    "description": "Text field label for the maximum number of items processed."
+  },
+  "nodeConfigFanOutPositiveIntError": "Enter a whole number of 1 or more.",
+  "@nodeConfigFanOutPositiveIntError": {
+    "description": "Validation error when concurrency or item cap is not a positive integer."
+  },
+  "runsChildCount": "{count, plural, =1{1 child run} other{{count} child runs}}",
+  "@runsChildCount": {
+    "description": "Number of loaded child runs under a parent run in the runs list.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "runsChildrenExpandTooltip": "Show child runs",
+  "@runsChildrenExpandTooltip": {
+    "description": "Semantic label and tooltip to expand child runs under a parent run."
+  },
+  "runsChildrenCollapseTooltip": "Hide child runs",
+  "@runsChildrenCollapseTooltip": {
+    "description": "Semantic label and tooltip to collapse child runs under a parent run."
+  },
+  "runDetailFanOutPanelTitle": "Child runs",
+  "@runDetailFanOutPanelTitle": {
+    "description": "Title of the fan-out child runs panel in the run detail inspector."
+  },
+  "runDetailFanOutProgress": "{done}/{total} done, {failed} failed",
+  "@runDetailFanOutProgress": {
+    "description": "Progress summary for a fan-out node when one or more items failed.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "runDetailFanOutProgressNoFailures": "{done}/{total} done",
+  "@runDetailFanOutProgressNoFailures": {
+    "description": "Progress summary for a fan-out node with zero failed items.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "runDetailFanOutNeedsYou": "{count, plural, =1{1 child needs you} other{{count} children need you}}",
+  "@runDetailFanOutNeedsYou": {
+    "description": "Warning badge text when one or more child runs are paused waiting for human input.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "runDetailFanOutNoItems": "No items",
+  "@runDetailFanOutNoItems": {
+    "description": "Label shown when a fan-out node received an empty list."
+  },
+  "runDetailFanOutFailedGeneric": "The fan-out node failed.",
+  "@runDetailFanOutFailedGeneric": {
+    "description": "Fallback error message when a fan-out node fails before starting child runs."
+  },
+  "runDetailFanOutFailedTitle": "Fan-out failed before starting",
+  "@runDetailFanOutFailedTitle": {
+    "description": "Banner title when a fan-out node fails before starting any child run."
+  },
+  "runDetailFanOutDeleted": "Deleted",
+  "@runDetailFanOutDeleted": {
+    "description": "Badge label on a fan-out item whose child run was deleted."
+  },
+  "runDetailFanOutNotStarted": "Not started",
+  "@runDetailFanOutNotStarted": {
+    "description": "Badge label on a fan-out item that failed to start a child run."
+  },
+  "runDetailFanOutItemFallbackName": "Item {number}",
+  "@runDetailFanOutItemFallbackName": {
+    "description": "Fallback display name for a fan-out item without an explicit name.",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "runDetailFanOutLoadError": "Could not load child runs.",
+  "@runDetailFanOutLoadError": {
+    "description": "Error banner title when loading child runs fails."
+  },
+  "runDetailFanOutChildSemantic": "{name}, {status}",
+  "@runDetailFanOutChildSemantic": {
+    "description": "Accessibility label for a fan-out child item card.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "workflowsDeleteReferencedMessage": "Used by fan-out nodes in: {workflows}",
+  "@workflowsDeleteReferencedMessage": {
+    "description": "Extra warning in the workflow deletion dialog listing workflows whose fan-out nodes reference it.",
+    "placeholders": {
+      "workflows": {
+        "type": "String"
+      }
+    }
+  },
+  "pausesChildOfRun": "In run {runId}",
+  "@pausesChildOfRun": {
+    "description": "Muted parent run label shown on a pause row belonging to a child run.",
+    "placeholders": {
+      "runId": {
+        "type": "String"
+      }
+    }
+  },
+  "pausesOpenParentRunAction": "Open parent run",
+  "@pausesOpenParentRunAction": {
+    "description": "Button label in the pause detail header to open the parent run."
+  },
+  "pausesOpenParentRunSemantic": "Open parent run {runId}",
+  "@pausesOpenParentRunSemantic": {
+    "description": "Accessibility label for opening the parent run from a pause detail pane.",
+    "placeholders": {
+      "runId": {
+        "type": "String"
+      }
+    }
   }
 }

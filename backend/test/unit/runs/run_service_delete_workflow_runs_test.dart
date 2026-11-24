@@ -135,4 +135,41 @@ void main() {
     expect(logStore.deletedRunIds, ['r1']);
     expect(runs.runs.keys, ['r2']);
   });
+
+  test(
+    'activeRunsOfWorkflow batches parent lookups without per-run getById',
+    () async {
+      final countingRuns = InMemoryRunRepository();
+      final batchService = RunService(
+        runs: countingRuns,
+        checkpoints: InMemoryCheckpointRepository(),
+        events: InMemoryRunEventRepository(),
+      );
+      await countingRuns.create(
+        makeRun(id: 'p1', workflowId: 'wf-1', status: RunStatus.running),
+      );
+      await countingRuns.create(
+        makeRun(id: 'p2', workflowId: 'wf-1', status: RunStatus.running),
+      );
+      await countingRuns.create(
+        makeRun(
+          id: 'c1',
+          workflowId: 'wf-child',
+          status: RunStatus.running,
+        ).copyWith(parentRunId: 'p1'),
+      );
+      await countingRuns.create(
+        makeRun(
+          id: 'c2',
+          workflowId: 'wf-child',
+          status: RunStatus.paused,
+        ).copyWith(parentRunId: 'p2'),
+      );
+
+      final result = await batchService.activeRunsOfWorkflow('wf-1');
+
+      expect(result.valueOrNull?.keys.toSet(), {'p1', 'p2', 'c1', 'c2'});
+      expect(countingRuns.getByIdCalls, 0);
+    },
+  );
 }

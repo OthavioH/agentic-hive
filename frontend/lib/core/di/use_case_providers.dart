@@ -14,6 +14,7 @@ import 'package:agentic_hive_frontend/data/skills/skill_notice_repository_impl.d
 import 'package:agentic_hive_frontend/data/window/window_providers.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_deletion_providers.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
+import 'package:agentic_hive_frontend/data/workflows/workflow_reference_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_settings_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_tree_changes_providers.dart';
@@ -36,6 +37,7 @@ import 'package:agentic_hive_frontend/domain/overview/use_cases/get_overview_use
 import 'package:agentic_hive_frontend/domain/overview/use_cases/watch_overview_events_use_case.dart';
 import 'package:agentic_hive_frontend/domain/pauses/use_cases/answer_pause_use_case.dart';
 import 'package:agentic_hive_frontend/domain/pauses/use_cases/list_pending_pauses_use_case.dart';
+import 'package:agentic_hive_frontend/domain/pauses/use_cases/validate_proposal_draft.dart';
 import 'package:agentic_hive_frontend/domain/pauses/use_cases/watch_pause_events_use_case.dart';
 import 'package:agentic_hive_frontend/domain/pauses/use_cases/watch_pending_pauses_count_use_case.dart';
 import 'package:agentic_hive_frontend/domain/runs/use_cases/build_run_output_messages.dart';
@@ -74,6 +76,7 @@ import 'package:agentic_hive_frontend/domain/workflows/use_cases/create_workflow
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/delete_workflow.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/duplicate_workflow.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/get_workflow.dart';
+import 'package:agentic_hive_frontend/domain/workflows/use_cases/get_workflow_references.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/list_workflows.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/update_workflow.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/validate_workflow.dart';
@@ -233,6 +236,11 @@ DuplicateWorkflow duplicateWorkflow(Ref ref) =>
 DeleteWorkflow deleteWorkflow(Ref ref) =>
     DeleteWorkflow(ref.watch(workflowRepositoryProvider));
 
+/// Provides [GetWorkflowReferences].
+@riverpod
+GetWorkflowReferences getWorkflowReferences(Ref ref) =>
+    GetWorkflowReferences(ref.watch(workflowReferenceRepositoryProvider));
+
 /// Provides [WatchWorkflowChanges].
 @riverpod
 WatchWorkflowChanges watchWorkflowChanges(Ref ref) =>
@@ -369,6 +377,11 @@ ListPendingPausesUseCase listPendingPausesUseCase(Ref ref) =>
 @riverpod
 AnswerPauseUseCase answerPauseUseCase(Ref ref) =>
     AnswerPauseUseCase(ref.watch(pauseRepositoryProvider));
+
+/// Provides [ValidateProposalDraft].
+@riverpod
+ValidateProposalDraft validateProposalDraftUseCase(Ref ref) =>
+    const ValidateProposalDraft();
 
 /// Provides [WatchPendingPausesCountUseCase].
 @riverpod

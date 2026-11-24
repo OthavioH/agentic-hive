@@ -755,4 +755,88 @@ void main() {
       expect(answersByNode['ask2'], 'A2');
     });
   });
+
+  group('Pause parentRunId linkage', () {
+    test('a pause in a child run carries the parent run id', () async {
+      final wf = Workflow(
+        id: 'wf-child',
+        name: 'Child Flow',
+        nodes: const [
+          WorkflowNode(
+            id: 'gate',
+            type: 'human_approval',
+            label: 'Approve',
+            position: WorkflowPosition(x: 0, y: 0),
+            config: {'instructions': 'Please approve'},
+          ),
+        ],
+        edges: const [],
+        entryNodeId: 'gate',
+        createdAt: DateTime.utc(2026),
+        updatedAt: DateTime.utc(2026),
+      );
+      await h.runs.create(
+        Run(
+          id: 'child-1',
+          workflowId: wf.id,
+          workflowName: wf.name,
+          workflowDefinition: wf,
+          workspacePath: '.',
+          status: RunStatus.running,
+          startedAt: DateTime.utc(2026),
+          parentRunId: 'parent-1',
+        ),
+      );
+
+      final startFuture = h.engine.start('child-1');
+      await h.settle();
+      while (h.pauses.pauses.isEmpty) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+
+      expect(h.pauses.pauses.values.single.parentRunId, 'parent-1');
+
+      await h.engine.cancel('child-1');
+      await startFuture;
+    });
+
+    test('a pause in an ordinary run has no parent run id', () async {
+      final wf = Workflow(
+        id: 'wf-plain',
+        name: 'Plain Flow',
+        nodes: const [
+          WorkflowNode(
+            id: 'gate',
+            type: 'human_approval',
+            label: 'Approve',
+            position: WorkflowPosition(x: 0, y: 0),
+            config: {'instructions': 'Please approve'},
+          ),
+        ],
+        edges: const [],
+        entryNodeId: 'gate',
+        createdAt: DateTime.utc(2026),
+        updatedAt: DateTime.utc(2026),
+      );
+      await h.runs.create(
+        Run(
+          id: 'plain-1',
+          workflowId: wf.id,
+          workflowName: wf.name,
+          workflowDefinition: wf,
+          workspacePath: '.',
+          status: RunStatus.running,
+          startedAt: DateTime.utc(2026),
+        ),
+      );
+
+      final startFuture = h.engine.start('plain-1');
+      await h.settle();
+
+      expect(h.pauses.pauses.values.single.parentRunId, isNull);
+
+      await h.engine.cancel('plain-1');
+      await startFuture;
+    });
+  });
 }

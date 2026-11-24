@@ -71,6 +71,15 @@ final class ClaudeCodeNode extends HeadlessHarnessNode {
   }
 
   @override
+  List<String> buildModelArgs(String model) => <String>['--model', model];
+
+  @override
+  List<String> buildEffortArgs(HarnessEffort effort) => <String>[
+    '--effort',
+    effort.name,
+  ];
+
+  @override
   ProcessInvocation buildInvocation({
     required HarnessNodeConfig config,
     required String workingDirectory,
@@ -97,6 +106,7 @@ final class ClaudeCodeNode extends HeadlessHarnessNode {
         deniedTools: deniedTools,
         runId: runId,
       ),
+      ...buildModelAndEffortArgs(config),
       ...config.extraArgs,
     ],
     workingDirectory: workingDirectory,
@@ -184,6 +194,22 @@ final class CodexNode extends HeadlessHarnessNode {
     ];
   }
 
+  static const Map<HarnessEffort, String> _effortValue = {
+    HarnessEffort.low: 'low',
+    HarnessEffort.medium: 'medium',
+    HarnessEffort.high: 'high',
+    HarnessEffort.max: 'xhigh',
+  };
+
+  @override
+  List<String> buildModelArgs(String model) => <String>['--model', model];
+
+  @override
+  List<String> buildEffortArgs(HarnessEffort effort) => <String>[
+    '-c',
+    'model_reasoning_effort=${_effortValue[effort]}',
+  ];
+
   @override
   ProcessInvocation buildInvocation({
     required HarnessNodeConfig config,
@@ -208,6 +234,7 @@ final class CodexNode extends HeadlessHarnessNode {
         deniedTools: deniedTools,
         runId: runId,
       ),
+      ...buildModelAndEffortArgs(config),
       ...config.extraArgs,
     ],
     workingDirectory: workingDirectory,
@@ -297,6 +324,9 @@ final class GeminiCliNode extends HeadlessHarnessNode {
   }
 
   @override
+  List<String> buildModelArgs(String model) => <String>['--model', model];
+
+  @override
   ProcessInvocation buildInvocation({
     required HarnessNodeConfig config,
     required String workingDirectory,
@@ -322,6 +352,7 @@ final class GeminiCliNode extends HeadlessHarnessNode {
         deniedTools: deniedTools,
         runId: runId,
       ),
+      ...buildModelAndEffortArgs(config),
       ...config.extraArgs,
     ],
     workingDirectory: workingDirectory,
@@ -411,6 +442,15 @@ final class AntigravityNode extends HeadlessHarnessNode {
   }
 
   @override
+  List<String> buildModelArgs(String model) => <String>['--model', model];
+
+  @override
+  List<String> buildEffortArgs(HarnessEffort effort) => <String>[
+    '--effort',
+    effort.name,
+  ];
+
+  @override
   ProcessInvocation buildInvocation({
     required HarnessNodeConfig config,
     required String workingDirectory,
@@ -436,6 +476,7 @@ final class AntigravityNode extends HeadlessHarnessNode {
         deniedTools: deniedTools,
         runId: runId,
       ),
+      ...buildModelAndEffortArgs(config),
       ...config.extraArgs,
     ],
     workingDirectory: workingDirectory,

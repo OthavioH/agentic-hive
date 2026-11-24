@@ -272,6 +272,9 @@ class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
       context,
       node,
       (config) => widget.onUpdateNodeConfig(node.id, config),
+      workflowNodes: widget.state.workflow.nodes
+          .where((n) => n.id != node.id)
+          .toList(growable: false),
     );
 
     return Column(

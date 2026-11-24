@@ -23,6 +23,9 @@ abstract interface class PauseRepository {
 
   /// Atomically transitions a `pending` pause [id] to [PauseStatus.answered].
   ///
+  /// [editedProposal] is the JSON value the human approved when it differs from
+  /// the original proposal.
+  ///
   /// Returns `NotFoundFailure` when [id] does not exist, or `ConflictFailure`
   /// when the pause is no longer `pending`.
   Future<Result<Pause>> markAnswered(
@@ -31,6 +34,7 @@ abstract interface class PauseRepository {
     String? decision,
     String? feedback,
     String? answer,
+    Object? editedProposal,
   });
 
   /// Atomically transitions all `pending` pauses for [runId] to

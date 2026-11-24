@@ -20,6 +20,9 @@ final class InMemoryRunRepository implements RunRepository {
   /// Statuses whose write fails with a [PersistenceFailure].
   final Set<RunStatus> failingStatuses = <RunStatus>{};
 
+  /// Number of [getById] calls observed.
+  int getByIdCalls = 0;
+
   @override
   Future<Result<Run>> create(Run run) async {
     runs[run.id] = run;
@@ -28,11 +31,16 @@ final class InMemoryRunRepository implements RunRepository {
 
   @override
   Future<Result<Run>> getById(String id) async {
+    getByIdCalls++;
     final run = runs[id];
     return run == null
         ? FailureResult(NotFoundFailure('Run "$id" not found.'))
         : Success(run);
   }
+
+  @override
+  Future<Result<Map<String, Run>>> getByIds(Iterable<String> ids) async =>
+      Success({for (final id in ids) id: ?runs[id]});
 
   @override
   Future<Result<({List<RunSummary> items, int total})>> list({
@@ -46,6 +54,23 @@ final class InMemoryRunRepository implements RunRepository {
   Future<Result<List<Run>>> listByStatus(RunStatus status) async => Success(
     runs.values.where((r) => r.status == status).toList(growable: false),
   );
+
+  @override
+  Future<Result<List<Run>>> listChildren(
+    String parentRunId, {
+    String? parentNodeId,
+  }) async {
+    final matches =
+        runs.values
+            .where(
+              (r) =>
+                  r.parentRunId == parentRunId &&
+                  (parentNodeId == null || r.parentNodeId == parentNodeId),
+            )
+            .toList()
+          ..sort((a, b) => a.startedAt.compareTo(b.startedAt));
+    return Success(matches);
+  }
 
   @override
   Future<Result<int>> countByStatusFinishedSince(
@@ -106,9 +131,34 @@ final class InMemoryRunRepository implements RunRepository {
   }) => updateStatus(runId, status: RunStatus.cancellationUncertain);
 
   @override
-  Future<Result<void>> delete(String id) async {
-    runs.remove(id);
-    return const Success(null);
+  Future<Result<List<String>>> delete(String id) async {
+    final existing = runs[id];
+    if (existing == null) {
+      return FailureResult(NotFoundFailure('Run "$id" not found.'));
+    }
+    if (existing.status.isActive) {
+      return FailureResult(
+        ConflictFailure(
+          'Cannot delete active run "$id" with status '
+          '"${existing.status.name}".',
+        ),
+      );
+    }
+    final children = runs.values.where((r) => r.parentRunId == id).toList()
+      ..sort((a, b) => a.startedAt.compareTo(b.startedAt));
+    for (final child in children) {
+      if (child.status.isActive) {
+        return FailureResult(
+          ConflictFailure(
+            'Cannot delete run "$id": child run "${child.id}" is active '
+            'with status "${child.status.name}".',
+          ),
+        );
+      }
+    }
+    final ids = [for (final child in children) child.id, id]
+      ..forEach(runs.remove);
+    return Success(ids);
   }
 
   @override
@@ -130,9 +180,33 @@ final class InMemoryRunRepository implements RunRepository {
       for (final run in matching)
         if (orphanIds.contains(run.id)) run.id,
     };
-    final active = <String, RunStatus>{
+    final deletedParentIds = {
       for (final run in matching)
-        if (!kept.contains(run.id) && run.status.isActive) run.id: run.status,
+        if (!kept.contains(run.id)) run.id,
+    };
+    final known = {for (final run in matching) run.id};
+    final extraChildren =
+        runs.values
+            .where(
+              (r) =>
+                  r.parentRunId != null &&
+                  deletedParentIds.contains(r.parentRunId) &&
+                  !known.contains(r.id),
+            )
+            .toList()
+          ..sort((a, b) => a.startedAt.compareTo(b.startedAt));
+    final keptChildren = {
+      for (final child in extraChildren)
+        if (orphanIds.contains(child.id)) child.id,
+    };
+    final activeRuns = <Run>[
+      for (final run in matching)
+        if (!kept.contains(run.id) && run.status.isActive) run,
+      for (final child in extraChildren)
+        if (!keptChildren.contains(child.id) && child.status.isActive) child,
+    ]..sort((a, b) => a.startedAt.compareTo(b.startedAt));
+    final active = <String, RunStatus>{
+      for (final run in activeRuns) run.id: run.status,
     };
     if (active.isNotEmpty) {
       return FailureResult(
@@ -146,11 +220,23 @@ final class InMemoryRunRepository implements RunRepository {
     final ids = [
       for (final run in matching)
         if (!kept.contains(run.id)) run.id,
+      for (final child in extraChildren)
+        if (!keptChildren.contains(child.id)) child.id,
     ]..forEach(runs.remove);
     for (final id in kept) {
       final run = runs[id];
       if (run != null) {
         runs[id] = run.copyWith(workflowId: null);
+      }
+    }
+    for (final id in keptChildren) {
+      final run = runs[id];
+      if (run != null) {
+        runs[id] = run.copyWith(
+          workflowId: null,
+          parentRunId: null,
+          parentNodeId: null,
+        );
       }
     }
     return Success(ids);
@@ -361,6 +447,7 @@ final class InMemoryPauseRepository implements PauseRepository {
     String? decision,
     String? feedback,
     String? answer,
+    Object? editedProposal,
   }) async {
     final existing = pauses[id];
     if (existing == null) {
@@ -376,6 +463,7 @@ final class InMemoryPauseRepository implements PauseRepository {
       decision: decision,
       feedback: feedback,
       answer: answer,
+      editedProposal: editedProposal,
       answeredAt: answeredAt,
     );
     pauses[id] = updated;

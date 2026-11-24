@@ -80,6 +80,7 @@ class Workflows extends Table {
 /// Execution runs of saved workflows.
 @DataClassName('RunRow')
 @TableIndex(name: 'idx_runs_workspace_id', columns: {#workspaceId})
+@TableIndex(name: 'idx_runs_parent_run_id', columns: {#parentRunId})
 class Runs extends Table {
   /// Unique run identifier.
   TextColumn get id => text()();
@@ -128,6 +129,18 @@ class Runs extends Table {
 
   /// Optional free-text run input passed to the entry node.
   TextColumn get input => text().nullable()();
+
+  /// Optional identifier of the parent run when this run is a child run.
+  TextColumn get parentRunId => text().nullable()();
+
+  /// Optional identifier of the fan-out node in the parent run.
+  TextColumn get parentNodeId => text().nullable()();
+
+  /// Optional 0-based index of this child within the fan-out execution.
+  IntColumn get childIndex => integer().nullable()();
+
+  /// Optional display name of this child within the fan-out execution.
+  TextColumn get childName => text().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -280,6 +293,9 @@ class Pauses extends Table {
   TextColumn get runId =>
       text().references(Runs, #id, onDelete: KeyAction.cascade)();
 
+  /// Id of the parent run when the pause belongs to a fan-out child run.
+  TextColumn get parentRunId => text().nullable()();
+
   /// Node identifier that requested the pause.
   TextColumn get nodeId => text()();
 
@@ -318,6 +334,18 @@ class Pauses extends Table {
 
   /// Free-text answer for `askHuman` when answered.
   TextColumn get answer => text().nullable()();
+
+  /// JSON-encoded original proposal value read from the source node.
+  TextColumn get proposalJson => text().nullable()();
+
+  /// Optional JSON Schema text snapshotted at pause creation.
+  TextColumn get proposalSchema => text().nullable()();
+
+  /// Label of the source node that produced the proposal.
+  TextColumn get proposalSource => text().nullable()();
+
+  /// JSON-encoded edited proposal value approved by the human.
+  TextColumn get editedProposalJson => text().nullable()();
 
   /// UTC ISO-8601 creation timestamp.
   TextColumn get createdAt => text()();
@@ -359,7 +387,7 @@ class AppDatabase extends _$AppDatabase {
   static const installedAtKey = 'installed_at';
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -413,6 +441,28 @@ class AppDatabase extends _$AppDatabase {
         }
         await m.createIndex(idxRunsWorkspaceId);
         await _attachRunsToWorkspaces();
+      }
+      if (from < 9) {
+        if (from >= 6) {
+          await m.addColumn(pauses, pauses.proposalJson);
+          await m.addColumn(pauses, pauses.proposalSchema);
+          await m.addColumn(pauses, pauses.proposalSource);
+          await m.addColumn(pauses, pauses.editedProposalJson);
+        }
+      }
+      if (from < 10) {
+        if (from >= 3) {
+          await m.addColumn(runs, runs.parentRunId);
+          await m.addColumn(runs, runs.parentNodeId);
+          await m.addColumn(runs, runs.childIndex);
+          await m.addColumn(runs, runs.childName);
+        }
+        await m.createIndex(idxRunsParentRunId);
+      }
+      if (from < 11) {
+        if (from >= 6) {
+          await m.addColumn(pauses, pauses.parentRunId);
+        }
       }
     },
     beforeOpen: (details) async {

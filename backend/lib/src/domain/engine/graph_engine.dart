@@ -7,7 +7,6 @@ import 'package:agentic_hive_backend/src/domain/engine/workflow_graph.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_execution_context.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_outcome.dart';
-import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_registry.dart';
 import 'package:agentic_hive_backend/src/domain/pauses/pause_repository.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/human_pause_gateway.dart';
@@ -33,6 +32,9 @@ final class _PausedNode {
     this.options = const <String>[],
     this.pauseId,
     this.live = false,
+    this.proposalNodeId,
+    this.proposal,
+    this.proposalSchema,
   });
 
   /// Decodes a paused node from a `run.paused` event payload, accepting both
@@ -53,6 +55,9 @@ final class _PausedNode {
   final String nodeId;
   final PauseKind kind;
   final String? question;
+  final String? proposalNodeId;
+  final Object? proposal;
+  final String? proposalSchema;
   final List<String> options;
 
   /// Id of the pending gateway request of a live `ask_human` pause.
@@ -267,6 +272,12 @@ final class GraphEngine implements RunCanceller {
 
   /// Whether the engine is currently driving [runId] in this process.
   bool isExecuting(String runId) => _claimed.contains(runId);
+
+  /// Whether [runId] is currently stopping (failing or cancelling).
+  bool isStopping(String runId) {
+    final x = _active[runId];
+    return x != null && (x.finishing || x.cancelRequested);
+  }
 
   /// Starts the `running` run [runId] at its workflow's entry node and drives
   /// it until it succeeds, fails, is cancelled, or pauses.
@@ -514,16 +525,7 @@ final class GraphEngine implements RunCanceller {
     switch ((target.kind, input)) {
       case (PauseKind.humanApproval, final ApprovalDecisionInput approval):
         x.paused.remove(target.nodeId);
-        x.resolved[target.nodeId] = NodeOutcome(
-          outputLabel: switch (approval.decision) {
-            HumanApprovalDecision.approved => NodeOutput.approved,
-            HumanApprovalDecision.rejected => NodeOutput.rejected,
-          },
-          data: <String, Object?>{
-            'decision': approval.decision.name,
-            if (approval.feedback != null) 'feedback': approval.feedback,
-          },
-        );
+        x.resolved[target.nodeId] = approval.toOutcome();
         x.wakeUp();
         return const Success(null);
       case (PauseKind.askHuman, HumanAnswerInput(:final answer)):
@@ -586,6 +588,21 @@ final class GraphEngine implements RunCanceller {
       final run = runResult.valueOrNull!;
       switch (run.status) {
         case RunStatus.paused || RunStatus.interrupted:
+          final childrenStopped = await _cancelChildRuns(runId);
+          if (childrenStopped case FailureResult<void>(:final failure)) {
+            return await _finishTerminal(
+              runId,
+              status: RunStatus.cancellationUncertain,
+              eventType: RunEventType.runCancellationUncertain,
+              payload: <String, Object?>{
+                'from': run.status.name,
+                'error': failure.message,
+              },
+              errorMessage:
+                  'Could not confirm that all processes exited: '
+                  '${failure.message}',
+            );
+          }
           _pauseGateway.cancelRun(runId);
           await _pauses?.cancelPendingForRun(runId, cancelledAt: _now());
           return await _finishTerminal(
@@ -730,16 +747,7 @@ final class GraphEngine implements RunCanceller {
     switch ((target.kind, input)) {
       case (PauseKind.humanApproval, ApprovalDecisionInput()):
         final approval = input as ApprovalDecisionInput;
-        x.resolved[target.nodeId] = NodeOutcome(
-          outputLabel: switch (approval.decision) {
-            HumanApprovalDecision.approved => NodeOutput.approved,
-            HumanApprovalDecision.rejected => NodeOutput.rejected,
-          },
-          data: <String, Object?>{
-            'decision': approval.decision.name,
-            if (approval.feedback != null) 'feedback': approval.feedback,
-          },
-        );
+        x.resolved[target.nodeId] = approval.toOutcome();
       case (PauseKind.askHuman, HumanAnswerInput(:final answer)):
         if (answer.trim().isEmpty) {
           return const FailureResult(
@@ -772,12 +780,32 @@ final class GraphEngine implements RunCanceller {
   Future<Result<_RunExecution>> _prepareInterruptedResume(
     ResumePoint point,
   ) async {
-    final rollback = await _rollbackBefore(
-      point.run.id,
-      point.pendingNodeIds.toSet(),
-    );
-    if (rollback case FailureResult<void>(:final failure)) {
-      return FailureResult(failure);
+    final rollbackNodeIds = <String>{};
+    final nodesById = {
+      for (final node in point.run.workflowDefinition.nodes) node.id: node,
+    };
+    for (final nodeId in point.pendingNodeIds) {
+      if (nodesById[nodeId]?.type == NodeTypeId.fanOut) {
+        final children = await _runs.listChildren(
+          point.run.id,
+          parentNodeId: nodeId,
+        );
+        if (children case FailureResult<List<Run>>(:final failure)) {
+          return FailureResult(failure);
+        }
+        final hasLentChildren = children.valueOrNull!.any(
+          (c) => c.isolationMode == WorkspaceIsolationMode.direct,
+        );
+        if (hasLentChildren) continue;
+      }
+      rollbackNodeIds.add(nodeId);
+    }
+
+    if (rollbackNodeIds.isNotEmpty) {
+      final rollback = await _rollbackBefore(point.run.id, rollbackNodeIds);
+      if (rollback case FailureResult<void>(:final failure)) {
+        return FailureResult(failure);
+      }
     }
     return Success(_newExecution(point, circuitBreakerCount: 0));
   }
@@ -1250,6 +1278,7 @@ final class GraphEngine implements RunCanceller {
         NodeExecutionContext(
           runId: x.run.id,
           nodeId: id,
+          nodeLabel: workflowNode.label,
           workspacePath: _workspaceOf(x.run),
           workspaceRoot: x.run.workspacePath,
           workspaceId: x.run.workspaceId,
@@ -1384,8 +1413,21 @@ final class GraphEngine implements RunCanceller {
     String id,
     Failure failure,
   ) async {
-    if (failure case PauseRequestedFailure(:final kind, :final question)) {
-      x.paused[id] = _PausedNode(nodeId: id, kind: kind, question: question);
+    if (failure case PauseRequestedFailure(
+      :final kind,
+      :final question,
+      :final proposalNodeId,
+      :final proposal,
+      :final proposalSchema,
+    )) {
+      x.paused[id] = _PausedNode(
+        nodeId: id,
+        kind: kind,
+        question: question,
+        proposalNodeId: proposalNodeId,
+        proposal: proposal,
+        proposalSchema: proposalSchema,
+      );
       return;
     }
 
@@ -1693,7 +1735,13 @@ final class GraphEngine implements RunCanceller {
         allowFeedback: allowFeedback,
         question: node.kind == PauseKind.askHuman ? node.question : null,
         options: node.options,
+        proposal: node.proposal,
+        proposalSchema: node.proposal != null ? node.proposalSchema : null,
+        proposalSource: node.proposal != null && node.proposalNodeId != null
+            ? (x.graph.node(node.proposalNodeId!)?.label ?? node.proposalNodeId)
+            : null,
         createdAt: _now(),
+        parentRunId: x.run.parentRunId,
       );
       final created = await pausesRepo.create(pause);
       if (created case FailureResult<Pause>(:final failure)) {
@@ -1738,9 +1786,17 @@ final class GraphEngine implements RunCanceller {
   /// run still fails, with `kill_unconfirmed` in the `run.failed` payload and
   /// the error message, so leftover processes are never silent.
   Future<Result<Run>> _finishFailed(_RunExecution x) async {
+    x.finishing = true;
     var reason = x.failReason ?? 'The run failed.';
     var killError = '';
-    final stopped = await _stopRunningNodes(x);
+    final childrenStopped = await _cancelChildRuns(x.run.id);
+    final nodesStopped = await _stopRunningNodes(x);
+    final childrenStoppedAfter = await _cancelChildRuns(x.run.id);
+    final stopped = childrenStopped.isFailure
+        ? childrenStopped
+        : nodesStopped.isFailure
+        ? nodesStopped
+        : childrenStoppedAfter;
     if (stopped case FailureResult<void>(:final failure)) {
       killError = failure.message;
       reason = '$reason (process exit unconfirmed: $killError)';
@@ -1781,7 +1837,9 @@ final class GraphEngine implements RunCanceller {
       payload: <String, Object?>{'from': fromStatus},
     );
 
-    final stopped = await _stopRunningNodes(x);
+    final childrenStopped = await _cancelChildRuns(x.run.id);
+    final nodesStopped = await _stopRunningNodes(x);
+    final stopped = childrenStopped.isFailure ? childrenStopped : nodesStopped;
     if (stopped case FailureResult<void>(:final failure)) {
       _log.warning(
         LogEvent(
@@ -1831,6 +1889,28 @@ final class GraphEngine implements RunCanceller {
       },
     );
 
+    final childrenStopped = await _cancelChildRuns(runId);
+    if (childrenStopped case FailureResult<void>(:final failure)) {
+      _log.warning(
+        LogEvent(
+          'graph_engine.retry_cancel_unconfirmed',
+          fields: {'runId': runId, 'error': failure.message},
+        ),
+      );
+      return await _finishTerminal(
+        runId,
+        status: RunStatus.cancellationUncertain,
+        eventType: RunEventType.runCancellationUncertain,
+        payload: <String, Object?>{
+          'from': 'cancellationUncertain',
+          'retry': true,
+          'error': failure.message,
+        },
+        errorMessage:
+            'Could not confirm that all processes exited: ${failure.message}',
+      );
+    }
+
     final killed = await _processTreeKiller.killTree(runId: runId);
     if (killed case FailureResult<void>(:final failure)) {
       _log.warning(
@@ -1864,6 +1944,56 @@ final class GraphEngine implements RunCanceller {
         'retry': true,
       },
     );
+  }
+
+  /// Cancels every child run of [parentRunId] that is not final, through this
+  /// engine (a [RunCanceller]), and waits until each cancel settled.
+  /// Fails when a child could not be confirmed stopped (ADR 0029).
+  Future<Result<void>> _cancelChildRuns(String parentRunId) async {
+    const terminal = {
+      RunStatus.succeeded,
+      RunStatus.failed,
+      RunStatus.cancelled,
+    };
+    final attempted = <String>{};
+    final unconfirmed = <String>[];
+    for (var pass = 0; pass < 5; pass++) {
+      final listed = await _runs.listChildren(parentRunId);
+      if (listed case FailureResult<List<Run>>(:final failure)) {
+        return FailureResult(failure);
+      }
+      final todo = listed.valueOrNull!
+          .where((r) => !terminal.contains(r.status) && attempted.add(r.id))
+          .toList();
+      if (todo.isEmpty) break;
+      final results = await Future.wait(todo.map((r) => _cancelOneChild(r.id)));
+      for (final id in results) {
+        if (id != null) unconfirmed.add(id);
+      }
+    }
+    if (unconfirmed.isEmpty) return const Success(null);
+    return FailureResult(
+      NodeExecutionFailure(
+        'Could not confirm that child run(s) '
+        '${unconfirmed.join(', ')} stopped.',
+      ),
+    );
+  }
+
+  Future<String?> _cancelOneChild(String id) async {
+    try {
+      await cancel(id);
+    } on Object {
+      // Checked below.
+    }
+    final current = await _runs.getById(id);
+    if (current case Success<Run>(:final value)) {
+      if (value.status == RunStatus.cancellationUncertain ||
+          value.status.isActive) {
+        return id;
+      }
+    }
+    return null;
   }
 
   /// Kills the process trees of every running node, waits for the kill to be

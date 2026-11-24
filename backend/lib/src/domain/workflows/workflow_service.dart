@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/fan_out_reference_finder.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_events.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_operation.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_registry.dart';
@@ -97,7 +98,10 @@ final class WorkflowService {
     String? workspaceId,
   }) async {
     final result = await _load(id, workspaceId);
-    return result.map((workflow) => _response(workflow, workspaceId));
+    if (result case FailureResult<Workflow>(:final failure)) {
+      return FailureResult(failure);
+    }
+    return Success(await _response(result.valueOrNull!, workspaceId));
   }
 
   /// Creates and persists a new workflow in the scope named by
@@ -165,7 +169,10 @@ final class WorkflowService {
       final scoped = target.valueOrNull!;
       result = await scoped.repository.update(scoped.rootPath, updated);
     }
-    return result.map((saved) => _response(saved, workspaceId));
+    if (result case FailureResult<Workflow>(:final failure)) {
+      return FailureResult(failure);
+    }
+    return Success(await _response(result.valueOrNull!, workspaceId));
   });
 
   /// Accepts asynchronous deletion of the workflow [id] (ADR 0027).
@@ -213,6 +220,15 @@ final class WorkflowService {
         );
       }
     }
+    final referencesResult = await _referenceFinder.find(
+      id,
+      workspaceId: workspaceId,
+    );
+    if (referencesResult case FailureResult<List<WorkflowReference>>(
+      :final failure,
+    )) {
+      return FailureResult(failure);
+    }
     final phase = force && activeRuns.isNotEmpty
         ? WorkflowDeletionPhase.stoppingRuns
         : WorkflowDeletionPhase.deletingRuns;
@@ -229,9 +245,32 @@ final class WorkflowService {
     _deletionEvents?.progress(operation);
     unawaited(_runDeletion(operation.id, force: force));
     return Success(
-      WorkflowDeletionAccepted(operationId: operation.id, workflowId: id),
+      WorkflowDeletionAccepted(
+        operationId: operation.id,
+        workflowId: id,
+        references: referencesResult.valueOrNull!,
+      ),
     );
   });
+
+  /// Lists the workflows whose fan-out nodes reference workflow [id] (R16).
+  Future<Result<WorkflowReferencesResponse>> getReferences(
+    String id, {
+    String? workspaceId,
+  }) async {
+    final existing = await _load(id, workspaceId);
+    if (existing case FailureResult<Workflow>(:final failure)) {
+      return FailureResult(failure);
+    }
+    final found = await _referenceFinder.find(id, workspaceId: workspaceId);
+    return found.map((refs) => WorkflowReferencesResponse(references: refs));
+  }
+
+  FanOutReferenceFinder get _referenceFinder => FanOutReferenceFinder(
+    repository: _repository,
+    workspaceWorkflows: _workspaceWorkflows,
+    workspaces: _workspaces,
+  );
 
   /// Returns the operation status or a not-found failure.
   Result<WorkflowDeletionOperation> getDeletion(String operationId) {
@@ -438,7 +477,10 @@ final class WorkflowService {
         build(candidate),
       );
     }
-    return result.map((saved) => _response(saved, workspaceId));
+    if (result case FailureResult<Workflow>(:final failure)) {
+      return FailureResult(failure);
+    }
+    return Success(await _response(result.valueOrNull!, workspaceId));
   }
 
   Future<bool> _exists(_Target target, String id) async =>
@@ -500,16 +542,61 @@ final class WorkflowService {
           );
   }
 
-  WorkflowResponse _response(Workflow workflow, String? workspaceId) =>
-      WorkflowResponse(
-        workflow: workflow,
-        validation: _validator.validate(workflow),
-        scope: workspaceId == null
-            ? WorkflowScope.global
-            : WorkflowScope.workspace,
-        workspaceId: workspaceId,
-        revision: workflowRevision(workflow),
-      );
+  Future<WorkflowResponse> _response(
+    Workflow workflow,
+    String? workspaceId,
+  ) async {
+    final base = _validator.validate(workflow);
+    final extra = await _fanOutIssues(workflow, workspaceId);
+    final issues = [...base.issues, ...extra];
+    return WorkflowResponse(
+      workflow: workflow,
+      validation: WorkflowValidationResult(
+        isValid: !issues.any(
+          (i) => i.severity == WorkflowValidationSeverity.error,
+        ),
+        issues: issues,
+      ),
+      scope: workspaceId == null
+          ? WorkflowScope.global
+          : WorkflowScope.workspace,
+      workspaceId: workspaceId,
+      revision: workflowRevision(workflow),
+    );
+  }
+
+  Future<List<WorkflowValidationIssue>> _fanOutIssues(
+    Workflow workflow,
+    String? workspaceId,
+  ) async {
+    final childIds = {
+      for (final n in workflow.nodes)
+        if (n.type == NodeTypeId.fanOut && n.config['workflowId'] is String)
+          (n.config['workflowId']! as String).trim(),
+    }..remove('');
+    if (childIds.isEmpty) return const [];
+    final found = <String, Workflow>{};
+    for (final id in childIds) {
+      final child = await _resolveChild(id, workspaceId);
+      if (child != null) found[id] = child;
+    }
+    return FanOutValidation.validate(workflow, findWorkflow: (id) => found[id]);
+  }
+
+  Future<Workflow?> _resolveChild(String id, String? workspaceId) async {
+    if (workspaceId != null) {
+      final target = await _resolveTarget(workspaceId);
+      final scoped = target.valueOrNull;
+      if (scoped != null) {
+        final inWorkspace = await scoped.repository.getById(
+          scoped.rootPath,
+          id,
+        );
+        if (inWorkspace case Success<Workflow>(:final value)) return value;
+      }
+    }
+    return (await _repository.getById(id)).valueOrNull;
+  }
 
   /// Runs [action] after every earlier write to the same workflow finished.
   Future<T> _serialized<T>(

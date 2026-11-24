@@ -3,14 +3,15 @@ import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:test/test.dart';
 
 const _legend =
-    'Node types (10). Config: * required, =a|b closed values, :int :bool '
+    'Node types (11). Config: * required, =a|b closed values, :int :bool '
     ':[string] :{string} :[{...}] types (default string).';
 
 final _canonicalBlocks = <String>[
   [
     '- harness.claude_code -> onSuccess|onFailure\n',
     '  config: agentId, additionalInstructions, ',
-    'workingDirectory, timeoutSeconds:int, ',
+    'workingDirectory, timeoutSeconds:int, model, ',
+    'effort=low|medium|high|max, ',
     'extraArgs:[string]; set at least one of ',
     'agentId|additionalInstructions',
   ].join(),
@@ -48,7 +49,13 @@ final _canonicalBlocks = <String>[
   ].join(),
   [
     '- human_approval -> approved|rejected\n',
-    '  config: instructions*, title, allowFeedback:bool',
+    '  config: instructions*, title, allowFeedback:bool, ',
+    'proposalNodeId, proposalPath, proposalSchema',
+  ].join(),
+  [
+    '- fan_out -> onSuccess|onFailure\n',
+    '  config: workflowId*, itemsNodeId*, itemsPath*, inputField, ',
+    'overridesField, nameField, concurrency:int, maxItems:int',
   ].join(),
 ];
 
@@ -81,6 +88,39 @@ void main() {
       for (final block in _canonicalBlocks) {
         expect(out, contains(block));
       }
+    });
+
+    test('T-F4 harness blocks list model and effort only where supported', () {
+      final out = formatter.format(
+        nodeTypes: NodeDescriptors.all,
+        agents: const [],
+        brokenAgents: 0,
+      );
+      String blockFor(String typeId) {
+        final start = out.indexOf('- $typeId ->');
+        final next = out.indexOf('\n- ', start + 1);
+        return next == -1 ? out.substring(start) : out.substring(start, next);
+      }
+
+      expect(
+        blockFor(NodeTypeId.geminiCli),
+        allOf(
+          contains(', model, extraArgs:[string]'),
+          isNot(contains('effort')),
+        ),
+      );
+      expect(
+        blockFor(NodeTypeId.codex),
+        contains('effort=low|medium|high|max'),
+      );
+      expect(
+        blockFor(NodeTypeId.antigravity),
+        contains('effort=low|medium|high|max'),
+      );
+      expect(
+        blockFor(NodeTypeId.terminal),
+        allOf(isNot(contains('model')), isNot(contains('effort'))),
+      );
     });
 
     test('T-F2 field without config shows none', () {
@@ -152,6 +192,55 @@ void main() {
 
       expect(one, endsWith('1 agent with file errors omitted.'));
       expect(two, endsWith('2 agents with file errors omitted.'));
+    });
+  });
+
+  group('fan-out notes', () {
+    test(
+      'T-FO1 inserts the fan-out notes after the node blocks and before agents',
+      () {
+        final out = formatter.format(
+          nodeTypes: NodeDescriptors.all,
+          agents: [_agent(id: 'a', name: 'A')],
+          brokenAgents: 0,
+        );
+        final notes = BuildingBlocksTextFormatter.fanOutNotes.join('\n');
+
+        expect(out, contains(notes));
+        expect(out.indexOf(notes), greaterThan(out.indexOf('- fan_out ->')));
+        expect(out.indexOf(notes), lessThan(out.indexOf('Agents (1;')));
+      },
+    );
+
+    test('T-FO2 omits the notes when fan_out is not listed', () {
+      final out = formatter.format(
+        nodeTypes: NodeDescriptors.all
+            .where((d) => d.typeId != NodeTypeId.fanOut)
+            .toList(),
+        agents: const [],
+        brokenAgents: 0,
+      );
+
+      expect(out, isNot(contains('Fan-out')));
+    });
+
+    test('T-FO3 notes mention every contract keyword', () {
+      final notes = BuildingBlocksTextFormatter.fanOutNotes.join('\n');
+
+      for (final keyword in const [
+        'itemsPath',
+        'inputField',
+        'nameField',
+        'overridesField',
+        'agentId',
+        'model',
+        'effort',
+        'concurrency',
+        'maxItems',
+        'workspace first',
+      ]) {
+        expect(notes, contains(keyword));
+      }
     });
   });
 }

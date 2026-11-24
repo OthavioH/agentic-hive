@@ -1,4 +1,5 @@
 import 'package:agentic_hive_shared/src/json_fields.dart';
+import 'package:agentic_hive_shared/src/nodes/harness_effort.dart';
 import 'package:agentic_hive_shared/src/nodes/node_category.dart';
 import 'package:agentic_hive_shared/src/nodes/node_config_field.dart';
 import 'package:agentic_hive_shared/src/nodes/node_config_validation.dart';
@@ -55,16 +56,33 @@ abstract final class NodeDescriptors {
     name: 'timeoutSeconds',
     kind: NodeConfigFieldKind.integer,
   );
+  static const NodeConfigField _model = NodeConfigField(name: 'model');
+  static const NodeConfigField _effort = NodeConfigField(
+    name: 'effort',
+    values: harnessEffortIds,
+  );
   static const NodeConfigField _args = NodeConfigField(
     name: 'args',
     kind: NodeConfigFieldKind.stringList,
   );
 
-  static const List<NodeConfigField> _harnessFields = [
+  static const List<NodeConfigField> _claudeCodeFields = [
     NodeConfigField(name: 'agentId'),
     NodeConfigField(name: 'additionalInstructions'),
     _workingDirectory,
     _timeoutSeconds,
+    _model,
+    _effort,
+    NodeConfigField(name: 'extraArgs', kind: NodeConfigFieldKind.stringList),
+  ];
+  static const List<NodeConfigField> _codexFields = _claudeCodeFields;
+  static const List<NodeConfigField> _antigravityFields = _claudeCodeFields;
+  static const List<NodeConfigField> _geminiCliFields = [
+    NodeConfigField(name: 'agentId'),
+    NodeConfigField(name: 'additionalInstructions'),
+    _workingDirectory,
+    _timeoutSeconds,
+    _model,
     NodeConfigField(name: 'extraArgs', kind: NodeConfigFieldKind.stringList),
   ];
   static const List<NodeConfigField> _terminalFields = [
@@ -134,23 +152,72 @@ abstract final class NodeDescriptors {
     NodeConfigField(name: 'instructions', required: true),
     NodeConfigField(name: 'title'),
     NodeConfigField(name: 'allowFeedback', kind: NodeConfigFieldKind.boolean),
+    NodeConfigField(name: 'proposalNodeId'),
+    NodeConfigField(name: 'proposalPath'),
+    NodeConfigField(name: 'proposalSchema'),
   ];
 
   static JsonMap _defaultHarnessConfig() =>
       const HarnessNodeConfig(additionalInstructions: '').toJson();
 
-  static List<NodeConfigIssue> _validateHarnessConfig(JsonMap raw) =>
-      validateTypedConfig(raw, HarnessNodeConfig.fromJson, (c) => c.validate());
+  static List<NodeConfigIssue> _validateHarnessConfigFor(
+    JsonMap raw,
+    String typeId,
+    List<NodeConfigField> fields,
+  ) {
+    final issues = validateTypedConfig(
+      raw,
+      HarnessNodeConfig.fromJson,
+      (c) => c.validate(),
+    );
+    if (issues.any((i) => i.field == 'config')) {
+      return issues;
+    }
+    validateUndeclaredHarnessFields(
+      raw,
+      typeId: typeId,
+      declaredFieldNames: {for (final f in fields) f.name},
+      issues: issues,
+    );
+    return issues;
+  }
+
+  static List<NodeConfigIssue> _validateClaudeCodeConfig(JsonMap raw) =>
+      _validateHarnessConfigFor(raw, NodeTypeId.claudeCode, _claudeCodeFields);
+
+  static List<NodeConfigIssue> _validateCodexConfig(JsonMap raw) =>
+      _validateHarnessConfigFor(raw, NodeTypeId.codex, _codexFields);
+
+  static List<NodeConfigIssue> _validateGeminiCliConfig(JsonMap raw) =>
+      _validateHarnessConfigFor(raw, NodeTypeId.geminiCli, _geminiCliFields);
+
+  static List<NodeConfigIssue> _validateAntigravityConfig(JsonMap raw) =>
+      _validateHarnessConfigFor(
+        raw,
+        NodeTypeId.antigravity,
+        _antigravityFields,
+      );
 
   static JsonMap _defaultTerminalConfig() =>
       const TerminalHarnessNodeConfig(command: '').toJson();
 
-  static List<NodeConfigIssue> _validateTerminalConfig(JsonMap raw) =>
-      validateTypedConfig(
-        raw,
-        TerminalHarnessNodeConfig.fromJson,
-        (c) => c.validate(),
-      );
+  static List<NodeConfigIssue> _validateTerminalConfig(JsonMap raw) {
+    final issues = validateTypedConfig(
+      raw,
+      TerminalHarnessNodeConfig.fromJson,
+      (c) => c.validate(),
+    );
+    if (issues.any((i) => i.field == 'config')) {
+      return issues;
+    }
+    validateUndeclaredHarnessFields(
+      raw,
+      typeId: NodeTypeId.terminal,
+      declaredFieldNames: {for (final f in _terminalFields) f.name},
+      issues: issues,
+    );
+    return issues;
+  }
 
   static JsonMap _defaultCommandConfig() =>
       const CommandNodeConfig(command: '').toJson();
@@ -201,14 +268,34 @@ abstract final class NodeDescriptors {
         (c) => c.validate(),
       );
 
+  static const List<NodeConfigField> _fanOutFields = [
+    NodeConfigField(name: 'workflowId', required: true),
+    NodeConfigField(name: 'itemsNodeId', required: true),
+    NodeConfigField(name: 'itemsPath', required: true),
+    NodeConfigField(name: 'inputField'),
+    NodeConfigField(name: 'overridesField'),
+    NodeConfigField(name: 'nameField'),
+    NodeConfigField(name: 'concurrency', kind: NodeConfigFieldKind.integer),
+    NodeConfigField(name: 'maxItems', kind: NodeConfigFieldKind.integer),
+  ];
+
+  static JsonMap _defaultFanOutConfig() => const FanOutNodeConfig(
+    workflowId: '',
+    itemsNodeId: '',
+    itemsPath: '',
+  ).toJson();
+
+  static List<NodeConfigIssue> _validateFanOutConfig(JsonMap raw) =>
+      validateTypedConfig(raw, FanOutNodeConfig.fromJson, (c) => c.validate());
+
   /// Descriptor for `harness.claude_code`.
   static const NodeDescriptor claudeCode = NodeDescriptor(
     typeId: NodeTypeId.claudeCode,
     category: NodeCategory.harnesses,
     availableOutputs: _standardOutputs,
     defaultConfig: _defaultHarnessConfig,
-    validateConfig: _validateHarnessConfig,
-    configFields: _harnessFields,
+    validateConfig: _validateClaudeCodeConfig,
+    configFields: _claudeCodeFields,
     requiredOneOf: ['agentId', 'additionalInstructions'],
   );
 
@@ -218,8 +305,8 @@ abstract final class NodeDescriptors {
     category: NodeCategory.harnesses,
     availableOutputs: _standardOutputs,
     defaultConfig: _defaultHarnessConfig,
-    validateConfig: _validateHarnessConfig,
-    configFields: _harnessFields,
+    validateConfig: _validateCodexConfig,
+    configFields: _codexFields,
     requiredOneOf: ['agentId', 'additionalInstructions'],
   );
 
@@ -229,8 +316,8 @@ abstract final class NodeDescriptors {
     category: NodeCategory.harnesses,
     availableOutputs: _standardOutputs,
     defaultConfig: _defaultHarnessConfig,
-    validateConfig: _validateHarnessConfig,
-    configFields: _harnessFields,
+    validateConfig: _validateGeminiCliConfig,
+    configFields: _geminiCliFields,
     requiredOneOf: ['agentId', 'additionalInstructions'],
   );
 
@@ -240,8 +327,8 @@ abstract final class NodeDescriptors {
     category: NodeCategory.harnesses,
     availableOutputs: _standardOutputs,
     defaultConfig: _defaultHarnessConfig,
-    validateConfig: _validateHarnessConfig,
-    configFields: _harnessFields,
+    validateConfig: _validateAntigravityConfig,
+    configFields: _antigravityFields,
     requiredOneOf: ['agentId', 'additionalInstructions'],
   );
 
@@ -307,7 +394,17 @@ abstract final class NodeDescriptors {
     configFields: _humanApprovalFields,
   );
 
-  /// All 10 canonical node descriptors.
+  /// Descriptor for `fan_out`.
+  static const NodeDescriptor fanOut = NodeDescriptor(
+    typeId: NodeTypeId.fanOut,
+    category: NodeCategory.execution,
+    availableOutputs: _standardOutputs,
+    defaultConfig: _defaultFanOutConfig,
+    validateConfig: _validateFanOutConfig,
+    configFields: _fanOutFields,
+  );
+
+  /// All 11 canonical node descriptors.
   static const List<NodeDescriptor> all = [
     claudeCode,
     codex,
@@ -319,6 +416,7 @@ abstract final class NodeDescriptors {
     checklistValidator,
     reviewValidator,
     humanApproval,
+    fanOut,
   ];
 
   /// Lookup map keyed by [NodeDescriptor.typeId].

@@ -103,6 +103,35 @@ void main() {
       expect(json.containsKey('worktreePath'), isFalse);
       expect(json.containsKey('worktreeBranch'), isFalse);
       expect(json.containsKey('input'), isFalse);
+      expect(json.containsKey('parentRunId'), isFalse);
+      expect(json.containsKey('parentNodeId'), isFalse);
+      expect(json.containsKey('childIndex'), isFalse);
+      expect(json.containsKey('childName'), isFalse);
+      expect(json.containsKey('nodeOverrides'), isFalse);
+      expect(Run.fromJson(json), run);
+    });
+
+    test('round-trips parent link and node overrides', () {
+      final run = Run(
+        id: 'run-child',
+        workflowId: 'wf-1',
+        workflowName: 'Child Workflow',
+        workflowDefinition: sampleWorkflow,
+        workspacePath: '/tmp/ws',
+        status: RunStatus.running,
+        startedAt: DateTime.utc(2026, 11, 20, 12),
+        parentRunId: 'run-0',
+        parentNodeId: 'fan',
+        childIndex: 2,
+        childName: 'issue-3',
+        nodeOverrides: const {'h': NodeOverride(model: 'm')},
+      );
+
+      final json = run.toJson();
+      expect(json['parentRunId'], 'run-0');
+      expect(json['nodeOverrides'], {
+        'h': {'model': 'm'},
+      });
       expect(Run.fromJson(json), run);
     });
 
@@ -150,6 +179,33 @@ void main() {
 
       expect(RunSummary.fromJson(summary.toJson()), summary);
     });
+
+    test('round-trips parent link and omits null keys', () {
+      final child = RunSummary(
+        id: 'run-child',
+        workflowName: 'Child',
+        status: RunStatus.running,
+        startedAt: DateTime.utc(2026, 11, 20, 12),
+        checkpointCount: 0,
+        parentRunId: 'run-0',
+        parentNodeId: 'fan',
+      );
+      final childJson = child.toJson();
+      expect(childJson['parentRunId'], 'run-0');
+      expect(childJson['parentNodeId'], 'fan');
+      expect(RunSummary.fromJson(childJson), child);
+
+      final root = RunSummary(
+        id: 'run-root',
+        workflowName: 'Root',
+        status: RunStatus.running,
+        startedAt: DateTime.utc(2026, 11, 20, 12),
+        checkpointCount: 0,
+      );
+      final rootJson = root.toJson();
+      expect(rootJson.containsKey('parentRunId'), isFalse);
+      expect(rootJson.containsKey('parentNodeId'), isFalse);
+    });
   });
 
   group('Checkpoint', () {
@@ -193,6 +249,7 @@ void main() {
         RunEventType.snapshotCaptured: 'snapshot.captured',
         RunEventType.snapshotRestored: 'snapshot.restored',
         RunEventType.snapshotWarning: 'snapshot.warning',
+        RunEventType.warning: 'run.warning',
       };
 
       expect(expected.length, RunEventType.values.length);
@@ -304,7 +361,21 @@ void main() {
       expect(minimalJson.containsKey('workspaceIsolationMode'), isFalse);
       expect(minimalJson.containsKey('ignorePatterns'), isFalse);
       expect(minimalJson.containsKey('input'), isFalse);
+      expect(minimalJson.containsKey('nodeOverrides'), isFalse);
       expect(StartRunRequest.fromJson(minimalJson), minimal);
+    });
+
+    test('StartRunRequest carries node overrides', () {
+      const dto = StartRunRequest(
+        workflowId: 'wf-1',
+        workspaceId: 'ws-1',
+        nodeOverrides: {'h': NodeOverride(effort: 'low')},
+      );
+      final json = dto.toJson();
+      expect(json['nodeOverrides'], {
+        'h': {'effort': 'low'},
+      });
+      expect(StartRunRequest.fromJson(json), dto);
     });
 
     test('StartRunRequest requires workspaceId and drops workspacePath', () {

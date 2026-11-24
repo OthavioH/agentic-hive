@@ -7,7 +7,7 @@ import 'package:material_ui/material_ui.dart';
 
 void main() {
   testWidgets(
-    'createNodeVisualRegistry registers all 10 canonical NodeDescriptors',
+    'createNodeVisualRegistry registers all 11 canonical NodeDescriptors',
     (tester) async {
       final registry = createNodeVisualRegistry();
 
@@ -48,4 +48,26 @@ void main() {
       );
     },
   );
+
+  testWidgets('fan_out has the branch icon and the Fan-out label', (
+    tester,
+  ) async {
+    final registry = createNodeVisualRegistry();
+    final visual = registry.resolve(NodeTypeId.fanOut);
+    expect(visual.icon, HiveIcons.branch);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) {
+            final l10n = AppLocalizations.of(context)!;
+            expect(resolveNodeVisualLabel(l10n, visual.labelKey), 'Fan-out');
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+  });
 }
