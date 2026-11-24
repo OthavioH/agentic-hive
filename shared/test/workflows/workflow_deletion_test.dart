@@ -24,7 +24,7 @@ void main() {
   });
 
   test(
-    'WorkflowDeletionAccepted decodes a body without references as an empty list',
+    'WorkflowDeletionAccepted decodes a body without references as empty',
     () {
       final decoded = WorkflowDeletionAccepted.fromJson({
         'operationId': 'op-1',
@@ -51,20 +51,17 @@ void main() {
     expect(WorkflowDeletionAccepted.fromJson(json), accepted);
   });
 
-  test(
-    'WorkflowReference round-trips through json with nodeIds and workspace scope',
-    () {
-      const ref = WorkflowReference(
-        workflowId: 'wf-parent',
-        workflowName: 'Parent',
-        scope: WorkflowScope.workspace,
-        workspaceId: 'ws-1',
-        nodeIds: ['n1', 'n2'],
-      );
-      final json = _overTheWire(ref.toJson());
-      expect(WorkflowReference.fromJson(json), ref);
-    },
-  );
+  test('WorkflowReference round-trips through json with nodeIds and scope', () {
+    const ref = WorkflowReference(
+      workflowId: 'wf-parent',
+      workflowName: 'Parent',
+      scope: WorkflowScope.workspace,
+      workspaceId: 'ws-1',
+      nodeIds: ['n1', 'n2'],
+    );
+    final json = _overTheWire(ref.toJson());
+    expect(WorkflowReference.fromJson(json), ref);
+  });
 
   test('WorkflowReferencesResponse defaults to an empty list', () {
     final decoded = WorkflowReferencesResponse.fromJson(<String, Object?>{});

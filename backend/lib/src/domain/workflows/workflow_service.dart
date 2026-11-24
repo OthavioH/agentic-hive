@@ -218,8 +218,9 @@ final class WorkflowService {
       id,
       workspaceId: workspaceId,
     );
-    if (referencesResult
-        case FailureResult<List<WorkflowReference>>(:final failure)) {
+    if (referencesResult case FailureResult<List<WorkflowReference>>(
+      :final failure,
+    )) {
       return FailureResult(failure);
     }
     final phase = force && activeRuns.isNotEmpty

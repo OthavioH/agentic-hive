@@ -61,7 +61,8 @@ void main() {
   );
 
   test(
-    'delete removes the children with the parent and returns children first, parent last',
+    'delete removes the children with the parent and returns children first, '
+    'parent last',
     () async {
       final db = AppDatabase.open(dbFile);
       addTearDown(db.close);
@@ -229,100 +230,95 @@ void main() {
     expect(res.failureOrNull, isA<NotFoundFailure>());
   });
 
-  test(
-    'deleteAllOfWorkflow deletes the children of deleted parents',
-    () async {
-      final db = AppDatabase.open(dbFile);
-      addTearDown(db.close);
-      final now = DateTime.utc(2026, 11, 20, 9);
-      final workspaces = DriftWorkspaceRepository(db);
-      for (final wsId in ['ws-1', 'ws-2']) {
-        await workspaces.create(
-          Workspace(
-            id: wsId,
-            name: wsId,
-            rootPath: '/tmp/$wsId',
-            isGit: false,
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
-      }
-      final repo = DriftRunRepository(db);
-
-      final t0 = DateTime.utc(2026, 11, 20, 10);
-      await repo.create(
-        makeRun(id: 'p', status: RunStatus.succeeded, startedAt: t0),
-      );
-      await repo.create(
-        makeRun(
-          id: 'c1',
-          status: RunStatus.succeeded,
-          startedAt: t0.add(const Duration(seconds: 1)),
-          workflowId: 'wf-child',
-          parentRunId: 'p',
+  test('deleteAllOfWorkflow deletes the children of deleted parents', () async {
+    final db = AppDatabase.open(dbFile);
+    addTearDown(db.close);
+    final now = DateTime.utc(2026, 11, 20, 9);
+    final workspaces = DriftWorkspaceRepository(db);
+    for (final wsId in ['ws-1', 'ws-2']) {
+      await workspaces.create(
+        Workspace(
+          id: wsId,
+          name: wsId,
+          rootPath: '/tmp/$wsId',
+          isGit: false,
+          createdAt: now,
+          updatedAt: now,
         ),
       );
-      await repo.create(
-        makeRun(
-          id: 'c2',
-          status: RunStatus.failed,
-          startedAt: t0.add(const Duration(seconds: 2)),
-          workflowId: 'wf-child',
-          parentRunId: 'p',
+    }
+    final repo = DriftRunRepository(db);
+
+    final t0 = DateTime.utc(2026, 11, 20, 10);
+    await repo.create(
+      makeRun(id: 'p', status: RunStatus.succeeded, startedAt: t0),
+    );
+    await repo.create(
+      makeRun(
+        id: 'c1',
+        status: RunStatus.succeeded,
+        startedAt: t0.add(const Duration(seconds: 1)),
+        workflowId: 'wf-child',
+        parentRunId: 'p',
+      ),
+    );
+    await repo.create(
+      makeRun(
+        id: 'c2',
+        status: RunStatus.failed,
+        startedAt: t0.add(const Duration(seconds: 2)),
+        workflowId: 'wf-child',
+        parentRunId: 'p',
+      ),
+    );
+
+    final res = await repo.deleteAllOfWorkflow('wf-parent');
+    expect(res.valueOrNull, ['p', 'c1', 'c2']);
+    expect((await repo.getById('p')).isFailure, isTrue);
+    expect((await repo.getById('c1')).isFailure, isTrue);
+    expect((await repo.getById('c2')).isFailure, isTrue);
+  });
+
+  test('deleteAllOfWorkflow reports active children in the failure map, oldest '
+      'first', () async {
+    final db = AppDatabase.open(dbFile);
+    addTearDown(db.close);
+    final now = DateTime.utc(2026, 11, 20, 9);
+    final workspaces = DriftWorkspaceRepository(db);
+    for (final wsId in ['ws-1', 'ws-2']) {
+      await workspaces.create(
+        Workspace(
+          id: wsId,
+          name: wsId,
+          rootPath: '/tmp/$wsId',
+          isGit: false,
+          createdAt: now,
+          updatedAt: now,
         ),
       );
+    }
+    final repo = DriftRunRepository(db);
 
-      final res = await repo.deleteAllOfWorkflow('wf-parent');
-      expect(res.valueOrNull, ['p', 'c1', 'c2']);
-      expect((await repo.getById('p')).isFailure, isTrue);
-      expect((await repo.getById('c1')).isFailure, isTrue);
-      expect((await repo.getById('c2')).isFailure, isTrue);
-    },
-  );
+    final t0 = DateTime.utc(2026, 11, 20, 10);
+    await repo.create(
+      makeRun(id: 'p', status: RunStatus.succeeded, startedAt: t0),
+    );
+    await repo.create(
+      makeRun(
+        id: 'c1',
+        status: RunStatus.running,
+        startedAt: t0.add(const Duration(seconds: 1)),
+        workflowId: 'wf-child',
+        parentRunId: 'p',
+      ),
+    );
 
-  test(
-    'deleteAllOfWorkflow reports active children in the failure map, oldest first',
-    () async {
-      final db = AppDatabase.open(dbFile);
-      addTearDown(db.close);
-      final now = DateTime.utc(2026, 11, 20, 9);
-      final workspaces = DriftWorkspaceRepository(db);
-      for (final wsId in ['ws-1', 'ws-2']) {
-        await workspaces.create(
-          Workspace(
-            id: wsId,
-            name: wsId,
-            rootPath: '/tmp/$wsId',
-            isGit: false,
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
-      }
-      final repo = DriftRunRepository(db);
-
-      final t0 = DateTime.utc(2026, 11, 20, 10);
-      await repo.create(
-        makeRun(id: 'p', status: RunStatus.succeeded, startedAt: t0),
-      );
-      await repo.create(
-        makeRun(
-          id: 'c1',
-          status: RunStatus.running,
-          startedAt: t0.add(const Duration(seconds: 1)),
-          workflowId: 'wf-child',
-          parentRunId: 'p',
-        ),
-      );
-
-      final res = await repo.deleteAllOfWorkflow('wf-parent');
-      final failure = res.failureOrNull! as WorkflowHasActiveRunsFailure;
-      expect(failure.activeRuns.keys, ['c1']);
-      expect((await repo.getById('p')).isSuccess, isTrue);
-      expect((await repo.getById('c1')).isSuccess, isTrue);
-    },
-  );
+    final res = await repo.deleteAllOfWorkflow('wf-parent');
+    final failure = res.failureOrNull! as WorkflowHasActiveRunsFailure;
+    expect(failure.activeRuns.keys, ['c1']);
+    expect((await repo.getById('p')).isSuccess, isTrue);
+    expect((await repo.getById('c1')).isSuccess, isTrue);
+  });
 
   test(
     'deleteAllOfWorkflow with an orphan parent keeps its children',
@@ -363,10 +359,7 @@ void main() {
         ),
       );
 
-      final res = await repo.deleteAllOfWorkflow(
-        'wf-parent',
-        orphanIds: {'p'},
-      );
+      final res = await repo.deleteAllOfWorkflow('wf-parent', orphanIds: {'p'});
       expect(res.valueOrNull, isEmpty);
       expect((await repo.getById('p')).valueOrNull?.workflowId, isNull);
       final child = (await repo.getById('c1')).valueOrNull!;
@@ -375,130 +368,124 @@ void main() {
     },
   );
 
-  test(
-    'deleteAllOfWorkflow with an orphan child keeps it with workflowId, parentRunId and parentNodeId cleared',
-    () async {
-      final db = AppDatabase.open(dbFile);
-      addTearDown(db.close);
-      final now = DateTime.utc(2026, 11, 20, 9);
-      final workspaces = DriftWorkspaceRepository(db);
-      for (final wsId in ['ws-1', 'ws-2']) {
-        await workspaces.create(
-          Workspace(
-            id: wsId,
-            name: wsId,
-            rootPath: '/tmp/$wsId',
-            isGit: false,
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
-      }
-      final repo = DriftRunRepository(db);
-
-      final t0 = DateTime.utc(2026, 11, 20, 10);
-      await repo.create(
-        makeRun(id: 'p', status: RunStatus.succeeded, startedAt: t0),
-      );
-      await repo.create(
-        makeRun(
-          id: 'c1',
-          status: RunStatus.cancellationUncertain,
-          startedAt: t0.add(const Duration(seconds: 1)),
-          workflowId: 'wf-child',
-          parentRunId: 'p',
-          parentNodeId: 'fan-1',
-          childIndex: 2,
-          childName: 'item-2',
+  test('deleteAllOfWorkflow with an orphan child keeps it with workflowId, '
+      'parentRunId and parentNodeId cleared', () async {
+    final db = AppDatabase.open(dbFile);
+    addTearDown(db.close);
+    final now = DateTime.utc(2026, 11, 20, 9);
+    final workspaces = DriftWorkspaceRepository(db);
+    for (final wsId in ['ws-1', 'ws-2']) {
+      await workspaces.create(
+        Workspace(
+          id: wsId,
+          name: wsId,
+          rootPath: '/tmp/$wsId',
+          isGit: false,
+          createdAt: now,
+          updatedAt: now,
         ),
       );
+    }
+    final repo = DriftRunRepository(db);
 
-      final res = await repo.deleteAllOfWorkflow(
-        'wf-parent',
-        orphanIds: {'c1'},
-      );
-      expect(res.valueOrNull, ['p']);
-      expect((await repo.getById('p')).isFailure, isTrue);
-      final child = (await repo.getById('c1')).valueOrNull!;
-      expect(child.workflowId, isNull);
-      expect(child.parentRunId, isNull);
-      expect(child.parentNodeId, isNull);
-      expect(child.childIndex, 2);
-      expect(child.childName, 'item-2');
-    },
-  );
+    final t0 = DateTime.utc(2026, 11, 20, 10);
+    await repo.create(
+      makeRun(id: 'p', status: RunStatus.succeeded, startedAt: t0),
+    );
+    await repo.create(
+      makeRun(
+        id: 'c1',
+        status: RunStatus.cancellationUncertain,
+        startedAt: t0.add(const Duration(seconds: 1)),
+        workflowId: 'wf-child',
+        parentRunId: 'p',
+        parentNodeId: 'fan-1',
+        childIndex: 2,
+        childName: 'item-2',
+      ),
+    );
 
-  test(
-    'deleteAllOfWorkflow does not delete children of other parents and respects workspaceId scope',
-    () async {
-      final db = AppDatabase.open(dbFile);
-      addTearDown(db.close);
-      final now = DateTime.utc(2026, 11, 20, 9);
-      final workspaces = DriftWorkspaceRepository(db);
-      for (final wsId in ['ws-1', 'ws-2']) {
-        await workspaces.create(
-          Workspace(
-            id: wsId,
-            name: wsId,
-            rootPath: '/tmp/$wsId',
-            isGit: false,
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
-      }
-      final repo = DriftRunRepository(db);
+    final res = await repo.deleteAllOfWorkflow('wf-parent', orphanIds: {'c1'});
+    expect(res.valueOrNull, ['p']);
+    expect((await repo.getById('p')).isFailure, isTrue);
+    final child = (await repo.getById('c1')).valueOrNull!;
+    expect(child.workflowId, isNull);
+    expect(child.parentRunId, isNull);
+    expect(child.parentNodeId, isNull);
+    expect(child.childIndex, 2);
+    expect(child.childName, 'item-2');
+  });
 
-      final t0 = DateTime.utc(2026, 11, 20, 10);
-      await repo.create(
-        makeRun(
-          id: 'p-ws1',
-          status: RunStatus.succeeded,
-          startedAt: t0,
-          workspaceId: 'ws-1',
+  test('deleteAllOfWorkflow does not delete children of other parents and '
+      'respects workspaceId scope', () async {
+    final db = AppDatabase.open(dbFile);
+    addTearDown(db.close);
+    final now = DateTime.utc(2026, 11, 20, 9);
+    final workspaces = DriftWorkspaceRepository(db);
+    for (final wsId in ['ws-1', 'ws-2']) {
+      await workspaces.create(
+        Workspace(
+          id: wsId,
+          name: wsId,
+          rootPath: '/tmp/$wsId',
+          isGit: false,
+          createdAt: now,
+          updatedAt: now,
         ),
       );
-      await repo.create(
-        makeRun(
-          id: 'c-ws1',
-          status: RunStatus.succeeded,
-          startedAt: t0.add(const Duration(seconds: 1)),
-          workflowId: 'wf-child',
-          workspaceId: 'ws-1',
-          parentRunId: 'p-ws1',
-        ),
-      );
-      await repo.create(
-        makeRun(
-          id: 'p-ws2',
-          status: RunStatus.succeeded,
-          startedAt: t0.add(const Duration(seconds: 2)),
-          workspaceId: 'ws-2',
-        ),
-      );
-      await repo.create(
-        makeRun(
-          id: 'c-ws2',
-          status: RunStatus.succeeded,
-          startedAt: t0.add(const Duration(seconds: 3)),
-          workflowId: 'wf-child',
-          workspaceId: 'ws-2',
-          parentRunId: 'p-ws2',
-        ),
-      );
+    }
+    final repo = DriftRunRepository(db);
 
-      final res = await repo.deleteAllOfWorkflow(
-        'wf-parent',
+    final t0 = DateTime.utc(2026, 11, 20, 10);
+    await repo.create(
+      makeRun(
+        id: 'p-ws1',
+        status: RunStatus.succeeded,
+        startedAt: t0,
         workspaceId: 'ws-1',
-      );
-      expect(res.valueOrNull, ['p-ws1', 'c-ws1']);
-      expect((await repo.getById('p-ws2')).isSuccess, isTrue);
-      expect((await repo.getById('c-ws2')).isSuccess, isTrue);
-    },
-  );
+      ),
+    );
+    await repo.create(
+      makeRun(
+        id: 'c-ws1',
+        status: RunStatus.succeeded,
+        startedAt: t0.add(const Duration(seconds: 1)),
+        workflowId: 'wf-child',
+        workspaceId: 'ws-1',
+        parentRunId: 'p-ws1',
+      ),
+    );
+    await repo.create(
+      makeRun(
+        id: 'p-ws2',
+        status: RunStatus.succeeded,
+        startedAt: t0.add(const Duration(seconds: 2)),
+        workspaceId: 'ws-2',
+      ),
+    );
+    await repo.create(
+      makeRun(
+        id: 'c-ws2',
+        status: RunStatus.succeeded,
+        startedAt: t0.add(const Duration(seconds: 3)),
+        workflowId: 'wf-child',
+        workspaceId: 'ws-2',
+        parentRunId: 'p-ws2',
+      ),
+    );
+
+    final res = await repo.deleteAllOfWorkflow(
+      'wf-parent',
+      workspaceId: 'ws-1',
+    );
+    expect(res.valueOrNull, ['p-ws1', 'c-ws1']);
+    expect((await repo.getById('p-ws2')).isSuccess, isTrue);
+    expect((await repo.getById('c-ws2')).isSuccess, isTrue);
+  });
 
   test(
-    'deleteAllOfWorkflow of the child workflow deletes the children and leaves the parent',
+    'deleteAllOfWorkflow of the child workflow deletes the children and leaves '
+    'the parent',
     () async {
       final db = AppDatabase.open(dbFile);
       addTearDown(db.close);

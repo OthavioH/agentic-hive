@@ -151,7 +151,8 @@ void main() {
   });
 
   test(
-    'deleteWorkflow accepted answer carries references and joining a running operation answers empty references',
+    'deleteWorkflow accepted answer carries references and joining a running '
+    'operation answers empty references',
     () async {
       repository.store['wf-child'] = _plainWorkflow('wf-child', 'Child');
       repository.store['wf-parent'] = _fanOutWorkflow(
@@ -190,15 +191,13 @@ void main() {
     expect(repository.store.containsKey('wf-child'), isFalse);
   });
 
-  test(
-    'deleteWorkflow without force still fails with WorkflowHasActiveRunsFailure when only a child is active',
-    () async {
-      repository.store['wf-parent'] = _plainWorkflow('wf-parent', 'Parent');
-      deleter.activeRuns = {'c1': RunStatus.running};
+  test('deleteWorkflow without force still fails with WorkflowHasActiveRunsFailure '
+      'when only a child is active', () async {
+    repository.store['wf-parent'] = _plainWorkflow('wf-parent', 'Parent');
+    deleter.activeRuns = {'c1': RunStatus.running};
 
-      final res = await service.deleteWorkflow('wf-parent');
-      final failure = res.failureOrNull! as WorkflowHasActiveRunsFailure;
-      expect(failure.activeRuns.keys, ['c1']);
-    },
-  );
+    final res = await service.deleteWorkflow('wf-parent');
+    final failure = res.failureOrNull! as WorkflowHasActiveRunsFailure;
+    expect(failure.activeRuns.keys, ['c1']);
+  });
 }

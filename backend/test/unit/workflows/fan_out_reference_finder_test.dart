@@ -83,7 +83,7 @@ Workflow _fanOutWorkflow(
         type: NodeTypeId.fanOut,
         label: 'Fan-out',
         position: const WorkflowPosition(x: 0, y: 0),
-        config: {if (childId != null) 'workflowId': childId},
+        config: {'workflowId': ?childId},
       ),
   ],
   edges: const [],
@@ -159,7 +159,8 @@ void main() {
   );
 
   test(
-    'workflows without a fan-out node or referencing another workflow are not listed',
+    'workflows without a fan-out node or referencing another workflow are not '
+    'listed',
     () async {
       globals.store['wf-x'] = _plainWorkflow('wf-x', 'X');
       globals.store['wf-plain'] = _plainWorkflow('wf-plain', 'Plain');
@@ -188,7 +189,8 @@ void main() {
   });
 
   test(
-    'deleting a workspace workflow scans that workspace and the global scope, not other workspaces',
+    'deleting a workspace workflow scans that workspace and the global scope, '
+    'not other workspaces',
     () async {
       workspaces.store['ws-1'] = _ws('ws-1');
       workspaces.store['ws-2'] = _ws('ws-2');
@@ -206,20 +208,17 @@ void main() {
     },
   );
 
-  test(
-    'deleting a global workflow scans global and every workspace',
-    () async {
-      workspaces.store['ws-1'] = _ws('ws-1');
-      globals.store['wf-x'] = _plainWorkflow('wf-x', 'X');
-      globals.store['wf-g'] = _fanOutWorkflow('wf-g', 'GlobalRef', 'wf-x');
-      wsWorkflows.store['/tmp/ws-1'] = {
-        'wf-w1': _fanOutWorkflow('wf-w1', 'Ws1Ref', 'wf-x'),
-      };
+  test('deleting a global workflow scans global and every workspace', () async {
+    workspaces.store['ws-1'] = _ws('ws-1');
+    globals.store['wf-x'] = _plainWorkflow('wf-x', 'X');
+    globals.store['wf-g'] = _fanOutWorkflow('wf-g', 'GlobalRef', 'wf-x');
+    wsWorkflows.store['/tmp/ws-1'] = {
+      'wf-w1': _fanOutWorkflow('wf-w1', 'Ws1Ref', 'wf-x'),
+    };
 
-      final res = await finder.find('wf-x');
-      expect(res.valueOrNull!.map((r) => r.workflowId), ['wf-g', 'wf-w1']);
-    },
-  );
+    final res = await finder.find('wf-x');
+    expect(res.valueOrNull!.map((r) => r.workflowId), ['wf-g', 'wf-w1']);
+  });
 
   test(
     'a workspace with its own copy of X is skipped when deleting the global X',

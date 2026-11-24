@@ -131,7 +131,8 @@ final class InMemoryRunRepository implements RunRepository {
     if (existing.status.isActive) {
       return FailureResult(
         ConflictFailure(
-          'Cannot delete active run "$id" with status "${existing.status.name}".',
+          'Cannot delete active run "$id" with status '
+          '"${existing.status.name}".',
         ),
       );
     }
@@ -147,8 +148,8 @@ final class InMemoryRunRepository implements RunRepository {
         );
       }
     }
-    final ids = [for (final child in children) child.id, id];
-    ids.forEach(runs.remove);
+    final ids = [for (final child in children) child.id, id]
+      ..forEach(runs.remove);
     return Success(ids);
   }
 

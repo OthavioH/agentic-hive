@@ -98,34 +98,32 @@ void main() {
     fail('Deletion $operationId did not finish');
   }
 
-  test(
-    'GET references lists the parent workflow that references the child workflow, and DELETE answer carries the same list',
-    () async {
-      final child = await createCommandWorkflow(name: 'Child Flow');
-      final parent = await createFanOutWorkflow(
-        name: 'Parent Flow',
-        targetWorkflowId: child.id,
-      );
+  test('GET references lists the parent workflow that references the child '
+      'workflow, and DELETE answer carries the same list', () async {
+    final child = await createCommandWorkflow(name: 'Child Flow');
+    final parent = await createFanOutWorkflow(
+      name: 'Parent Flow',
+      targetWorkflowId: child.id,
+    );
 
-      final refsRes = await http.get('/api/v1/workflows/${child.id}/references');
-      expect(refsRes.statusCode, 200);
-      final refs = WorkflowReferencesResponse.fromJson(refsRes.json);
-      expect(refs.references, [
-        WorkflowReference(
-          workflowId: parent.id,
-          workflowName: 'Parent Flow',
-          scope: WorkflowScope.global,
-          nodeIds: const ['fan-1'],
-        ),
-      ]);
+    final refsRes = await http.get('/api/v1/workflows/${child.id}/references');
+    expect(refsRes.statusCode, 200);
+    final refs = WorkflowReferencesResponse.fromJson(refsRes.json);
+    expect(refs.references, [
+      WorkflowReference(
+        workflowId: parent.id,
+        workflowName: 'Parent Flow',
+        scope: WorkflowScope.global,
+        nodeIds: const ['fan-1'],
+      ),
+    ]);
 
-      final delRes = await http.delete('/api/v1/workflows/${child.id}');
-      expect(delRes.statusCode, 202);
-      final accepted = WorkflowDeletionAccepted.fromJson(delRes.json);
-      expect(accepted.references, refs.references);
+    final delRes = await http.delete('/api/v1/workflows/${child.id}');
+    expect(delRes.statusCode, 202);
+    final accepted = WorkflowDeletionAccepted.fromJson(delRes.json);
+    expect(accepted.references, refs.references);
 
-      final done = await waitForDeletion(accepted.operationId);
-      expect(done.outcome, WorkflowDeletionOutcome.deleted);
-    },
-  );
+    final done = await waitForDeletion(accepted.operationId);
+    expect(done.outcome, WorkflowDeletionOutcome.deleted);
+  });
 }

@@ -146,9 +146,7 @@ void main() {
 
   test('GET /<id>/references answers 200 with the references json', () async {
     await workflows.create(_plainWorkflow('wf-child', 'Child'));
-    await workflows.create(
-      _fanOutWorkflow('wf-parent', 'Parent', 'wf-child'),
-    );
+    await workflows.create(_fanOutWorkflow('wf-parent', 'Parent', 'wf-child'));
 
     final res = await handler(
       Request('GET', Uri.parse('http://localhost/wf-child/references')),
@@ -206,9 +204,7 @@ void main() {
 
   test('DELETE /<id> answers 202 with a references array', () async {
     await workflows.create(_plainWorkflow('wf-child', 'Child'));
-    await workflows.create(
-      _fanOutWorkflow('wf-parent', 'Parent', 'wf-child'),
-    );
+    await workflows.create(_fanOutWorkflow('wf-parent', 'Parent', 'wf-child'));
 
     final res = await handler(
       Request('DELETE', Uri.parse('http://localhost/wf-child')),

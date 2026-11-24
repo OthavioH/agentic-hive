@@ -28,7 +28,7 @@ final class _FakeRunCanceller implements RunCanceller {
   final List<String> calls = <String>[];
 
   @override
-  Future<Result<Run>> cancel(String runId) async {
+  Future<Result<Run>> cancel(String runId) {
     calls.add(runId);
     return runs.updateStatus(
       runId,
@@ -254,77 +254,70 @@ void main() {
     },
   );
 
-  test(
-    'deleteRunsOfWorkflow without force fails with children in the active map',
-    () async {
-      await runs.create(
-        makeRun(id: 'p', workflowId: 'wf-parent', status: RunStatus.succeeded),
-      );
-      await runs.create(
-        makeRun(
-          id: 'c1',
-          workflowId: 'wf-child',
-          status: RunStatus.running,
-          parentRunId: 'p',
-        ),
-      );
+  test('deleteRunsOfWorkflow without force fails with children in the active '
+      'map', () async {
+    await runs.create(
+      makeRun(id: 'p', workflowId: 'wf-parent', status: RunStatus.succeeded),
+    );
+    await runs.create(
+      makeRun(
+        id: 'c1',
+        workflowId: 'wf-child',
+        status: RunStatus.running,
+        parentRunId: 'p',
+      ),
+    );
 
-      final res = await service.deleteRunsOfWorkflow('wf-parent');
-      final failure = res.failureOrNull! as WorkflowHasActiveRunsFailure;
-      expect(failure.activeRuns.keys, ['c1']);
-    },
-  );
+    final res = await service.deleteRunsOfWorkflow('wf-parent');
+    final failure = res.failureOrNull! as WorkflowHasActiveRunsFailure;
+    expect(failure.activeRuns.keys, ['c1']);
+  });
 
-  test(
-    'forced deleteRunsOfWorkflow cancels the active parent and its active child',
-    () async {
-      final t0 = DateTime.utc(2026, 11, 20, 10);
-      await runs.create(
-        makeRun(
-          id: 'p',
-          workflowId: 'wf-parent',
-          status: RunStatus.running,
-          startedAt: t0,
-        ),
-      );
-      await runs.create(
-        makeRun(
-          id: 'c1',
-          workflowId: 'wf-child',
-          status: RunStatus.running,
-          parentRunId: 'p',
-          startedAt: t0.add(const Duration(seconds: 1)),
-        ),
-      );
+  test('forced deleteRunsOfWorkflow cancels the active parent and its active child', () async {
+    final t0 = DateTime.utc(2026, 11, 20, 10);
+    await runs.create(
+      makeRun(
+        id: 'p',
+        workflowId: 'wf-parent',
+        status: RunStatus.running,
+        startedAt: t0,
+      ),
+    );
+    await runs.create(
+      makeRun(
+        id: 'c1',
+        workflowId: 'wf-child',
+        status: RunStatus.running,
+        parentRunId: 'p',
+        startedAt: t0.add(const Duration(seconds: 1)),
+      ),
+    );
 
-      final res = await service.deleteRunsOfWorkflow('wf-parent', force: true);
-      expect(res.valueOrNull!.deletedRuns, 2);
-      expect(canceller.calls, ['p', 'c1']);
-      expect(runs.runs, isEmpty);
-    },
-  );
+    final res = await service.deleteRunsOfWorkflow('wf-parent', force: true);
+    expect(res.valueOrNull!.deletedRuns, 2);
+    expect(canceller.calls, ['p', 'c1']);
+    expect(runs.runs, isEmpty);
+  });
 
-  test(
-    'deleteRunsOfWorkflow keeps a pre-existing uncertain child as an orphan and does not delete it',
-    () async {
-      await runs.create(
-        makeRun(id: 'p', workflowId: 'wf-parent', status: RunStatus.succeeded),
-      );
-      await runs.create(
-        makeRun(
-          id: 'c-uncertain',
-          workflowId: 'wf-child',
-          status: RunStatus.cancellationUncertain,
-          parentRunId: 'p',
-        ),
-      );
+  test('deleteRunsOfWorkflow keeps a pre-existing uncertain child as an orphan '
+      'and does not delete it', () async {
+    await runs.create(
+      makeRun(id: 'p', workflowId: 'wf-parent', status: RunStatus.succeeded),
+    );
+    await runs.create(
+      makeRun(
+        id: 'c-uncertain',
+        workflowId: 'wf-child',
+        status: RunStatus.cancellationUncertain,
+        parentRunId: 'p',
+      ),
+    );
 
-      final res = await service.deleteRunsOfWorkflow('wf-parent');
-      expect(res.valueOrNull!.deletedRuns, 1);
-      expect(res.valueOrNull!.orphanedRuns, ['c-uncertain']);
-      final orphan = runs.runs['c-uncertain']!;
-      expect(orphan.workflowId, isNull);
-      expect(orphan.parentRunId, isNull);
-    },
-  );
+    final res = await service.deleteRunsOfWorkflow('wf-parent');
+    expect(res.valueOrNull!.deletedRuns, 1);
+    expect(res.valueOrNull!.orphanedRuns, ['c-uncertain']);
+    final orphan = runs.runs['c-uncertain']!;
+    expect(orphan.workflowId, isNull);
+    expect(orphan.parentRunId, isNull);
+  });
 }

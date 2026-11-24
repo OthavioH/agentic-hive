@@ -76,7 +76,8 @@ abstract interface class RunRepository {
   });
 
   /// Atomically deletes non-active run [id] and every child run
-  /// (`parentRunId == id`), cascading checkpoints, events, snapshots and pauses.
+  /// (`parentRunId == id`), cascading checkpoints, events, snapshots and
+  /// pauses.
   /// Returns the deleted ids, children first (oldest first) and [id] last.
   ///
   /// Returns `ConflictFailure` when the run, or any of its children, is active

@@ -381,7 +381,8 @@ final class DriftRunRepository implements RunRepository {
         if (RunStatus.fromName(existing.status).isActive) {
           return FailureResult(
             ConflictFailure(
-              'Cannot delete active run "$id" with status "${existing.status}".',
+              'Cannot delete active run "$id" with status '
+              '"${existing.status}".',
             ),
           );
         }
@@ -488,15 +489,15 @@ final class DriftRunRepository implements RunRepository {
           );
         }
         if (keptChildren.isNotEmpty) {
-          await (_db.update(_db.runs)
-                ..where((row) => row.id.isIn(keptChildren)))
-              .write(
-                const RunsCompanion(
-                  workflowId: Value(null),
-                  parentRunId: Value(null),
-                  parentNodeId: Value(null),
-                ),
-              );
+          await (_db.update(
+            _db.runs,
+          )..where((row) => row.id.isIn(keptChildren))).write(
+            const RunsCompanion(
+              workflowId: Value(null),
+              parentRunId: Value(null),
+              parentNodeId: Value(null),
+            ),
+          );
         }
         return Success(ids);
       });
