@@ -540,4 +540,141 @@ void main() {
       (WorkflowChangeKind.deleted, 'review-loop', 'ws-1', null),
     ]);
   });
+
+  group('fan-out references', () {
+    Workflow childWorkflow() => fixture().copyWith(id: 'child', name: 'Child');
+
+    Workflow referencingWorkflow({
+      String id = 'planner',
+      String name = 'Planner',
+      List<String> nodeIds = const ['fan'],
+    }) {
+      final now = DateTime.utc(2026);
+      return Workflow(
+        id: id,
+        name: name,
+        nodes: [
+          for (final nodeId in nodeIds)
+            WorkflowNode(
+              id: nodeId,
+              type: NodeTypeId.fanOut,
+              label: nodeId,
+              position: const WorkflowPosition(x: 0, y: 0),
+              config: const {
+                'workflowId': 'child',
+                'itemsNodeId': 'plan',
+                'itemsPath': 'items',
+              },
+            ),
+        ],
+        edges: const [],
+        entryNodeId: nodeIds.first,
+        createdAt: now,
+        updatedAt: now,
+      );
+    }
+
+    test('lists referencing workflows after the delete', () async {
+      global.store['child'] = childWorkflow();
+      global.store['planner'] = referencingWorkflow();
+
+      final result = await call({
+        'id': 'child',
+        'revision': revisionOf(childWorkflow()),
+      });
+
+      final body = _bodyOf(result);
+      expect(body, contains('Deleted workflow "child"'));
+      expect(
+        body,
+        contains(
+          'Used by fan-out nodes in 1 workflow: "Planner" (id planner, global, '
+          'nodes: fan).',
+        ),
+      );
+    });
+
+    test('lists a workspace referencing workflow with its workspace id', () async {
+      global.store['child'] = childWorkflow();
+      workspaceFiles.byRoot[workspace.rootPath] = {
+        'planner': referencingWorkflow(),
+      };
+
+      final result = await call({
+        'id': 'child',
+        'revision': revisionOf(childWorkflow()),
+      });
+
+      expect(_bodyOf(result), contains('workspace ws-1'));
+    });
+
+    test('lists several nodes of one workflow joined by comma', () async {
+      global.store['child'] = childWorkflow();
+      global.store['planner'] = referencingWorkflow(nodeIds: ['b', 'a']);
+
+      final result = await call({
+        'id': 'child',
+        'revision': revisionOf(childWorkflow()),
+      });
+
+      expect(_bodyOf(result), contains('nodes: a, b'));
+    });
+
+    test('no references appends nothing', () async {
+      final result = await call({
+        'id': 'review-loop',
+        'revision': revisionOf(fixture()),
+      });
+
+      expect(_bodyOf(result), isNot(contains('fan-out')));
+    });
+
+    test('in progress answer also lists the references', () async {
+      global.store['child'] = childWorkflow();
+      global.store['planner'] = referencingWorkflow();
+      deleter.gate = Completer<void>();
+      addTearDown(() {
+        if (!deleter.gate!.isCompleted) deleter.gate!.complete();
+      });
+
+      final slowTool = DeleteWorkflowTool(
+        workflows: service,
+        scopes: McpScopeResolver(
+          workspaces: workspaces,
+          worktreesDir: '/worktrees',
+          path: p.context,
+        ),
+        events: events,
+        maxWait: const Duration(milliseconds: 5),
+        pollInterval: const Duration(milliseconds: 1),
+      );
+
+      final result = await slowTool.call(
+        McpToolInput(
+          arguments: {'id': 'child', 'revision': revisionOf(childWorkflow())},
+        ),
+      );
+
+      final body = _bodyOf(result);
+      expect(body, contains('deletion in progress'));
+      expect(body, contains('Used by fan-out nodes in'));
+    });
+
+    test('refusal on active runs does not list references', () async {
+      global.store['child'] = childWorkflow();
+      global.store['planner'] = referencingWorkflow();
+      deleter.activeRuns = {'r1': RunStatus.running};
+
+      final failure =
+          _failureOf(
+                await call({
+                  'id': 'child',
+                  'revision': revisionOf(childWorkflow()),
+                }),
+              )
+              as WorkflowHasActiveRunsFailure;
+
+      expect(failure.message, isNot(contains('Used by fan-out')));
+    });
+  });
 }

@@ -94,33 +94,31 @@ final class DeleteWorkflowTool extends ScopedMcpTool {
           ),
         ),
       FailureResult(:final failure) => FailureResult(failure),
-      Success(value: final started) => await _wait(
-        id,
-        started.operationId,
-        scope,
-      ),
+      Success(value: final started) => await _wait(id, started, scope),
     };
   }
 
   /// Polls the operation until it finishes or [maxWait] elapses.
   Future<Result<String>> _wait(
     String id,
-    String operationId,
+    WorkflowDeletionAccepted started,
     McpScope scope,
   ) async {
+    final operationId = started.operationId;
+    final references = started.references;
     _announceWhenDeleted(id, operationId, scope);
     var waited = Duration.zero;
     while (true) {
       final status = workflows.getDeletion(operationId);
       if (status case FailureResult()) {
-        return Success(_gone(id, operationId));
+        return Success(_gone(id, operationId, references));
       }
       final operation = (status as Success<WorkflowDeletionOperation>).value;
       if (operation.isFinished) {
-        return _finished(id, operation);
+        return _finished(id, operation, references);
       }
       if (waited >= maxWait) {
-        return Success(_inProgress(id, operationId));
+        return Success(_inProgress(id, operationId, references));
       }
       await Future<void>.delayed(pollInterval);
       waited += pollInterval;
@@ -145,7 +143,11 @@ final class DeleteWorkflowTool extends ScopedMcpTool {
     );
   }
 
-  Result<String> _finished(String id, WorkflowDeletionOperation operation) {
+  Result<String> _finished(
+    String id,
+    WorkflowDeletionOperation operation,
+    List<WorkflowReference> references,
+  ) {
     if (operation.outcome != WorkflowDeletionOutcome.deleted) {
       return FailureResult(
         ConflictFailure(
@@ -164,7 +166,8 @@ final class DeleteWorkflowTool extends ScopedMcpTool {
               'in Agentic Hive.';
     return Success(
       'Deleted workflow "$id" and ${_runs(operation.runsDeleted)} '
-      '(operation ${operation.id}).$orphanLine',
+      '(operation ${operation.id}).$orphanLine'
+      '${_referencesLine(references)}',
     );
   }
 
@@ -184,15 +187,40 @@ final class DeleteWorkflowTool extends ScopedMcpTool {
         'was deleted.';
   }
 
-  String _inProgress(String id, String operationId) =>
+  String _inProgress(
+    String id,
+    String operationId,
+    List<WorkflowReference> references,
+  ) =>
       'Workflow "$id": deletion in progress (operation $operationId). It '
       'finishes on its own; call delete_workflow again with the same id to '
-      'wait for the result.';
+      'wait for the result.${_referencesLine(references)}';
 
-  String _gone(String id, String operationId) =>
+  String _gone(
+    String id,
+    String operationId,
+    List<WorkflowReference> references,
+  ) =>
       'Workflow "$id": deletion finished (operation $operationId) but its '
       'result is no longer available. Call list_workflows to confirm it is '
-      'gone.';
+      'gone.${_referencesLine(references)}';
+
+  String _referencesLine(List<WorkflowReference> references) {
+    if (references.isEmpty) return '';
+    final count = references.length;
+    final noun = count == 1 ? 'workflow' : 'workflows';
+    final entries = references
+        .map((ref) {
+          final scope = ref.scope == WorkflowScope.global
+              ? 'global'
+              : 'workspace ${ref.workspaceId}';
+          return '"${ref.workflowName}" (id ${ref.workflowId}, $scope, '
+              'nodes: ${ref.nodeIds.join(', ')})';
+        })
+        .join('; ');
+    return '\nUsed by fan-out nodes in $count $noun: $entries. Those nodes no '
+        'longer resolve it; fix them with edit_workflow.';
+  }
 
   static String _runs(int count) => count == 1 ? '1 run' : '$count runs';
 }
