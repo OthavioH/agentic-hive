@@ -470,10 +470,8 @@ void main() {
       }
     });
 
-    test(
-      'installs skill and returns 200 HarnessInfo, and GET includes '
-      'skillStatus',
-      () async {
+    test('installs skill and returns 200 HarnessInfo, and GET includes '
+        'skillStatus', () async {
       final response = await skillHandler(
         buildRequest('/api/v1/harnesses/codex/skill/install', method: 'POST'),
       );
@@ -489,10 +487,8 @@ void main() {
       expect(items.first['skillStatus'], 'installed');
     });
 
-    test(
-      'returns 409 on modified without flag and 200 with '
-      'overwriteModified=true',
-      () async {
+    test('returns 409 on modified without flag and 200 with '
+        'overwriteModified=true', () async {
       await skillHandler(
         buildRequest('/api/v1/harnesses/codex/skill/install', method: 'POST'),
       );

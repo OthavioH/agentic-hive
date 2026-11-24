@@ -255,49 +255,54 @@ void main() {
       'installSkill and removeSkill update shared harnesses without spawning '
       'detectors',
       () async {
-      final codex = _FakeDetector(
-        HarnessId.codex,
-        readyInfo(HarnessId.codex, executablePath: '/usr/bin/codex'),
-      );
-      final gemini = _FakeDetector(
-        HarnessId.geminiCli,
-        readyInfo(HarnessId.geminiCli, executablePath: '/usr/bin/gemini'),
-      );
-      final service = DefaultHarnessService(
-        detectors: [codex, gemini],
-        skillInstallers: registry,
-      );
-      addTearDown(service.dispose);
+        final codex = _FakeDetector(
+          HarnessId.codex,
+          readyInfo(HarnessId.codex, executablePath: '/usr/bin/codex'),
+        );
+        final gemini = _FakeDetector(
+          HarnessId.geminiCli,
+          readyInfo(HarnessId.geminiCli, executablePath: '/usr/bin/gemini'),
+        );
+        final service = DefaultHarnessService(
+          detectors: [codex, gemini],
+          skillInstallers: registry,
+        );
+        addTearDown(service.dispose);
 
-      await service.listHarnesses();
-      final callsBefore = codex.calls + gemini.calls;
+        await service.listHarnesses();
+        final callsBefore = codex.calls + gemini.calls;
 
-      final updates = <HarnessInfo>[];
-      final sub = service.statusUpdates.listen(updates.add);
-      addTearDown(sub.cancel);
+        final updates = <HarnessInfo>[];
+        final sub = service.statusUpdates.listen(updates.add);
+        addTearDown(sub.cancel);
 
-      final installed = await service.installSkill(HarnessId.codex);
-      expect(installed.valueOrNull?.skillStatus, HarnessSkillStatus.installed);
-      expect(codex.calls + gemini.calls, callsBefore);
+        final installed = await service.installSkill(HarnessId.codex);
+        expect(
+          installed.valueOrNull?.skillStatus,
+          HarnessSkillStatus.installed,
+        );
+        expect(codex.calls + gemini.calls, callsBefore);
 
-      await Future<void>.delayed(Duration.zero);
-      expect(
-        updates.map((u) => (u.id, u.skillStatus)),
-        containsAll([
-          (HarnessId.codex, HarnessSkillStatus.installed),
-          (HarnessId.geminiCli, HarnessSkillStatus.installed),
-        ]),
-      );
+        await Future<void>.delayed(Duration.zero);
+        expect(
+          updates.map((u) => (u.id, u.skillStatus)),
+          containsAll([
+            (HarnessId.codex, HarnessSkillStatus.installed),
+            (HarnessId.geminiCli, HarnessSkillStatus.installed),
+          ]),
+        );
 
-      final removed = await service.removeSkill(HarnessId.codex);
-      expect(removed.valueOrNull?.skillStatus, HarnessSkillStatus.notInstalled);
-      expect(codex.calls + gemini.calls, callsBefore);
-    });
+        final removed = await service.removeSkill(HarnessId.codex);
+        expect(
+          removed.valueOrNull?.skillStatus,
+          HarnessSkillStatus.notInstalled,
+        );
+        expect(codex.calls + gemini.calls, callsBefore);
+      },
+    );
 
-    test(
-      'installSkill returns ConflictFailure when CLI is not installed or '
-      'registry missing',
-      () async {
+    test('installSkill returns ConflictFailure when CLI is not installed or '
+        'registry missing', () async {
       final gemini = _FakeDetector(
         HarnessId.geminiCli,
         HarnessInfo(
