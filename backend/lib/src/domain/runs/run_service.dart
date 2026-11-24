@@ -5,6 +5,7 @@ import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/engine/graph_engine.dart';
 import 'package:agentic_hive_backend/src/domain/engine/resume_input.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/child_run_port.dart';
 import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/node_override_applier.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_canceller.dart';
@@ -30,7 +31,7 @@ import 'package:path/path.dart' as p;
 
 /// Domain service / coordinator for starting, querying, resuming, cancelling,
 /// and deleting [Run]s, [Checkpoint]s, [RunEvent]s, and node logs.
-final class RunService implements WorkflowRunsDeleter {
+final class RunService implements WorkflowRunsDeleter, ChildRunPort {
   /// Creates a run service.
   new({
     required this._runs,
@@ -148,7 +149,12 @@ final class RunService implements WorkflowRunsDeleter {
   /// (the primary checkout, an existing worktree or a new worktree), enforces
   /// the one-active-run-per-folder guard, creates the [Run], and starts
   /// `GraphEngine` execution asynchronously.
-  Future<Result<Run>> startRun(StartRunRequest request) async {
+  Future<Result<Run>> startRun(StartRunRequest request) => _startRun(request);
+
+  Future<Result<Run>> _startRun(
+    StartRunRequest request, {
+    ChildRunRequest? child,
+  }) async {
     final workflowId = request.workflowId.trim();
     if (workflowId.isEmpty) {
       return const FailureResult(
@@ -199,7 +205,13 @@ final class RunService implements WorkflowRunsDeleter {
     }
 
     // No target means the primary checkout (ADR 0025).
-    final target = request.target ?? const RunTarget.primary();
+    final target = child != null
+        ? RunTarget.newWorktree(
+            name: child.worktreeName,
+            baseBranch: child.baseCommit,
+          )
+        : request.target ?? const RunTarget.primary();
+    final lend = child?.placement == ChildRunPlacement.lentFolder;
     var ignorePatterns = request.ignorePatterns;
     final executionSettings = _executionSettings;
     if (executionSettings != null && ignorePatterns == null) {
@@ -229,15 +241,20 @@ final class RunService implements WorkflowRunsDeleter {
     }
 
     try {
-      final workflowResult = await _resolveWorkflow(
-        workflows,
-        workflowId,
-        workspaceRoot,
-      );
-      if (workflowResult case FailureResult<Workflow>(:final failure)) {
-        return FailureResult(failure);
+      final Workflow workflow;
+      if (child != null) {
+        workflow = child.workflow;
+      } else {
+        final workflowResult = await _resolveWorkflow(
+          workflows,
+          workflowId,
+          workspaceRoot,
+        );
+        if (workflowResult case FailureResult<Workflow>(:final failure)) {
+          return FailureResult(failure);
+        }
+        workflow = workflowResult.valueOrNull!;
       }
-      final workflow = workflowResult.valueOrNull!;
 
       if (_workflowValidator != null) {
         final validation = _workflowValidator.validate(workflow);
@@ -254,25 +271,21 @@ final class RunService implements WorkflowRunsDeleter {
         }
       }
 
-      final overrides = request.nodeOverrides;
-      var effectiveWorkflow = workflow;
-      if (overrides != null && overrides.isNotEmpty) {
-        final issues = NodeOverrideValidation.validate(overrides, workflow);
-        if (issues.isNotEmpty) {
-          final joined = issues.map((i) => i.message).join('; ');
-          return FailureResult(
-            ValidationFailure(
-              'Invalid node overrides: $joined',
-              details: {for (final i in issues) i.field: i.message},
-            ),
-          );
-        }
-        effectiveWorkflow = NodeOverrideApplier.apply(workflow, overrides);
+      final overridesResult = _applyOverrides(workflow, request.nodeOverrides);
+      if (overridesResult case FailureResult<Workflow>(:final failure)) {
+        return FailureResult(failure);
       }
+      final effectiveWorkflow = overridesResult.valueOrNull!;
 
       final runId = _generateId();
       final PreparedWorkspace prepared;
-      switch (target) {
+      if (lend) {
+        prepared = PreparedWorkspace(
+          effectiveWorkspacePath: workspacePath,
+          isolationMode: WorkspaceIsolationMode.direct,
+        );
+      } else {
+        switch (target) {
         case RunTargetPrimary():
           final conflict = await claim(workspacePath);
           if (conflict != null) return FailureResult(conflict);
@@ -354,6 +367,7 @@ final class RunService implements WorkflowRunsDeleter {
             worktreePath: worktree.path,
             worktreeBranch: worktree.branch,
           );
+        }
       }
 
       if (ignorePatterns != null && ignorePatterns.isNotEmpty) {
@@ -373,6 +387,10 @@ final class RunService implements WorkflowRunsDeleter {
         worktreePath: prepared.worktreePath,
         worktreeBranch: prepared.worktreeBranch,
         input: runInput,
+        parentRunId: child?.parentRunId,
+        parentNodeId: child?.parentNodeId,
+        childIndex: child?.index,
+        childName: child?.name,
       );
 
       if (_deletingFailureFor(workflowId, workspace.id)
@@ -516,7 +534,7 @@ final class RunService implements WorkflowRunsDeleter {
         reservedDirect = true;
         final conflict = await _checkFolderConflict(
           normalizedWorkspace,
-          excludeRunId: id,
+          excludeRunIds: _resumeConflictExclusions(run),
         );
         if (conflict != null) return FailureResult(conflict);
       }
@@ -598,7 +616,7 @@ final class RunService implements WorkflowRunsDeleter {
         reservedDirect = true;
         final conflict = await _checkFolderConflict(
           normalizedWorkspace,
-          excludeRunId: id,
+          excludeRunIds: _resumeConflictExclusions(run),
         );
         if (conflict != null) return FailureResult(conflict);
       }
@@ -726,9 +744,153 @@ final class RunService implements WorkflowRunsDeleter {
   /// The folder a run executes in: its worktree, or the workspace root.
   static String _runFolder(Run run) => run.worktreePath ?? run.workspacePath;
 
+  Set<String> _resumeConflictExclusions(Run run) {
+    final isLentChild =
+        run.parentRunId != null &&
+        run.isolationMode == WorkspaceIsolationMode.direct;
+    return {run.id, if (isLentChild) run.parentRunId!};
+  }
+
+  Result<Workflow> _applyOverrides(
+    Workflow workflow,
+    Map<String, NodeOverride>? overrides,
+  ) {
+    if (overrides == null || overrides.isEmpty) {
+      return Success(workflow);
+    }
+    final issues = NodeOverrideValidation.validate(overrides, workflow);
+    if (issues.isNotEmpty) {
+      final joined = issues.map((i) => i.message).join('; ');
+      return FailureResult(
+        ValidationFailure(
+          'Invalid node overrides: $joined',
+          details: {for (final i in issues) i.field: i.message},
+        ),
+      );
+    }
+    return Success(NodeOverrideApplier.apply(workflow, overrides));
+  }
+
+  @override
+  Future<Result<Workflow>> pinWorkflow({
+    required String workflowId,
+    required String workspaceId,
+  }) async {
+    final workflows = _workflows;
+    if (workflows == null) {
+      return const FailureResult(
+        UnexpectedFailure('Workflow repository is not configured.'),
+      );
+    }
+    final workspaces = _workspaces;
+    if (workspaces == null) {
+      return const FailureResult(
+        UnexpectedFailure('Workspace service is not configured.'),
+      );
+    }
+    final wsResult = await workspaces.get(workspaceId);
+    if (wsResult case FailureResult<Workspace>(:final failure)) {
+      return FailureResult(failure);
+    }
+    return _resolveWorkflow(workflows, workflowId, wsResult.valueOrNull!.rootPath);
+  }
+
+  @override
+  Future<Result<ParentWorkspaceInfo>> inspectParentWorkspace({
+    required String runId,
+  }) async {
+    final runResult = await _runs.getById(runId);
+    if (runResult case FailureResult<Run>(:final failure)) {
+      return FailureResult(failure);
+    }
+    final run = runResult.valueOrNull!;
+    final workspaceId = run.workspaceId;
+    if (workspaceId == null) {
+      return const FailureResult(
+        ValidationFailure('Parent run has no registered workspace.'),
+      );
+    }
+    final workspaces = _workspaces;
+    if (workspaces == null) {
+      return const FailureResult(
+        UnexpectedFailure('Workspace service is not configured.'),
+      );
+    }
+    final wsResult = await workspaces.get(workspaceId);
+    if (wsResult case FailureResult<Workspace>(:final failure)) {
+      return FailureResult(failure);
+    }
+    final workspace = wsResult.valueOrNull!;
+    if (!workspace.isGit) {
+      return const Success(ParentWorkspaceInfo(isGit: false));
+    }
+    final worktrees = _worktrees;
+    if (worktrees == null) {
+      return const FailureResult(
+        UnexpectedFailure('Worktree service is not configured.'),
+      );
+    }
+    final headResult = await worktrees.inspectHead(
+      run.worktreePath ?? run.workspacePath,
+    );
+    if (headResult case FailureResult<FolderHead>(:final failure)) {
+      return FailureResult(failure);
+    }
+    final head = headResult.valueOrNull!;
+    return Success(
+      ParentWorkspaceInfo(
+        isGit: true,
+        headCommit: head.commit,
+        hasUncommittedChanges: head.hasUncommittedChanges,
+      ),
+    );
+  }
+
+  @override
+  Future<Result<Run>> startChildRun(ChildRunRequest request) => _startRun(
+    StartRunRequest(
+      workflowId: request.workflow.id,
+      workspaceId: request.workspaceId,
+      input: request.input,
+      nodeOverrides: request.nodeOverrides,
+    ),
+    child: request,
+  );
+
+  @override
+  Future<Result<Map<String, Object?>?>> finalOutputOf(String runId) async {
+    final cpResult = await _checkpoints.getLatestForRun(runId);
+    if (cpResult case FailureResult<Checkpoint?>(:final failure)) {
+      return FailureResult(failure);
+    }
+    final cp = cpResult.valueOrNull;
+    final completedNodeId = cp?.completedNodeId;
+    if (cp == null || completedNodeId == null) {
+      return const Success(null);
+    }
+    final raw = cp.nodeOutputs[completedNodeId];
+    return Success(raw == null ? null : Map<String, Object?>.from(raw));
+  }
+
+  @override
+  Future<void> recordWarning({
+    required String runId,
+    required String nodeId,
+    required String message,
+  }) async {
+    await _events.append(
+      id: _generateId(),
+      runId: runId,
+      type: RunEventType.snapshotWarning,
+      nodeId: nodeId,
+      payload: {'message': message, 'source': 'fan_out'},
+      createdAt: _now().toUtc(),
+    );
+  }
+
   Future<ConflictFailure?> _checkFolderConflict(
     String normalizedFolder, {
-    String? excludeRunId,
+    Set<String> excludeRunIds = const {},
   }) async {
     for (final status in const [
       RunStatus.running,
@@ -738,7 +900,7 @@ final class RunService implements WorkflowRunsDeleter {
       final listResult = await _runs.listByStatus(status);
       if (listResult case FailureResult<List<Run>>()) continue;
       for (final active in listResult.valueOrNull!) {
-        if (active.id == excludeRunId) continue;
+        if (excludeRunIds.contains(active.id)) continue;
         if (canonicalFolder(_runFolder(active), _pathContext) ==
             normalizedFolder) {
           return ConflictFailure(
