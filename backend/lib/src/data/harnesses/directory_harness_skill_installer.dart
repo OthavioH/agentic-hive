@@ -499,6 +499,9 @@ abstract base class DirectoryHarnessSkillInstaller
     try {
       final sidecarType = _fileOps.entityType(sidecarPath);
       if (sidecarType == FileSystemEntityType.notFound) {
+        // An unreadable folder also reports its sidecar as not found; listing
+        // it throws, which makes the status unknown instead of conflict.
+        _fileOps.listDirectory(skillDir);
         return const FailureResult(ConflictFailure(_conflictMessage));
       }
       if (sidecarType != FileSystemEntityType.file) {
