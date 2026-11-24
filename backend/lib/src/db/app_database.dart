@@ -129,6 +129,18 @@ class Runs extends Table {
   /// Optional free-text run input passed to the entry node.
   TextColumn get input => text().nullable()();
 
+  /// Optional identifier of the parent run when this run is a child run.
+  TextColumn get parentRunId => text().nullable()();
+
+  /// Optional identifier of the fan-out node in the parent run.
+  TextColumn get parentNodeId => text().nullable()();
+
+  /// Optional 0-based index of this child within the fan-out execution.
+  IntColumn get childIndex => integer().nullable()();
+
+  /// Optional display name of this child within the fan-out execution.
+  TextColumn get childName => text().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
@@ -371,7 +383,7 @@ class AppDatabase extends _$AppDatabase {
   static const installedAtKey = 'installed_at';
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -432,6 +444,14 @@ class AppDatabase extends _$AppDatabase {
           await m.addColumn(pauses, pauses.proposalSchema);
           await m.addColumn(pauses, pauses.proposalSource);
           await m.addColumn(pauses, pauses.editedProposalJson);
+        }
+      }
+      if (from < 10) {
+        if (from >= 3) {
+          await m.addColumn(runs, runs.parentRunId);
+          await m.addColumn(runs, runs.parentNodeId);
+          await m.addColumn(runs, runs.childIndex);
+          await m.addColumn(runs, runs.childName);
         }
       }
     },

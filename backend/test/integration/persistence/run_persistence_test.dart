@@ -121,7 +121,7 @@ void main() {
         await db.close();
       }
 
-      expect(await readUserVersion(dbFile), 9);
+      expect(await readUserVersion(dbFile), 10);
       final metadata = await readMetadataRows(dbFile);
       expect(metadata['installed_at'], '2026-11-20T00:00:00.000Z');
       final indexes = await selectFromFile(
@@ -562,7 +562,7 @@ void main() {
     final db = AppDatabase.open(dbFile);
     addTearDown(db.close);
 
-    expect(db.schemaVersion, 9);
+    expect(db.schemaVersion, 10);
     final runsRepo = DriftRunRepository(db);
     final legacy = (await runsRepo.getById('legacy-r1')).valueOrNull!;
     expect(legacy.input, isNull);

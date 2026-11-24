@@ -37,6 +37,10 @@ final class DriftRunRepository implements RunRepository {
               worktreePath: Value(run.worktreePath),
               worktreeBranch: Value(run.worktreeBranch),
               input: Value(run.input),
+              parentRunId: Value(run.parentRunId),
+              parentNodeId: Value(run.parentNodeId),
+              childIndex: Value(run.childIndex),
+              childName: Value(run.childName),
             ),
           );
       return Success(run);
@@ -131,6 +135,8 @@ final class DriftRunRepository implements RunRepository {
               isolationMode: WorkspaceIsolationMode.fromName(row.isolationMode),
               worktreePath: row.worktreePath,
               worktreeBranch: row.worktreeBranch,
+              parentRunId: row.parentRunId,
+              parentNodeId: row.parentNodeId,
             ),
           )
           .toList();
@@ -454,6 +460,10 @@ final class DriftRunRepository implements RunRepository {
       worktreePath: row.worktreePath,
       worktreeBranch: row.worktreeBranch,
       input: row.input,
+      parentRunId: row.parentRunId,
+      parentNodeId: row.parentNodeId,
+      childIndex: row.childIndex,
+      childName: row.childName,
     );
   }
 }
