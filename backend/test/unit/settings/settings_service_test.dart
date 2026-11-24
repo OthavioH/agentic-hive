@@ -442,6 +442,10 @@ final class _FakeDetector implements HarnessDetector {
   }
 
   @override
+  Future<String?> locateExecutable() async =>
+      lastOverride ?? '/usr/bin/${id.wireName}';
+
+  @override
   Future<HarnessInfo> detect() async {
     detectCalls++;
     return HarnessInfo(

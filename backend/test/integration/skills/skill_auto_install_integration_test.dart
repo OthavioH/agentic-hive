@@ -19,11 +19,11 @@ import 'package:agentic_hive_backend/src/domain/harnesses/harness_service.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_skill_installer.dart';
 import 'package:agentic_hive_backend/src/domain/settings/executable_validator.dart';
 import 'package:agentic_hive_backend/src/domain/settings/settings_service.dart';
+import 'package:agentic_hive_backend/src/domain/skills/bundled_skill.dart';
+import 'package:agentic_hive_backend/src/domain/skills/bundled_skill_loader.dart';
 import 'package:agentic_hive_backend/src/domain/skills/skill_auto_install_service.dart';
 import 'package:agentic_hive_backend/src/mcp/hive_mcp_locator.dart';
 import 'package:agentic_hive_backend/src/runtime/runtime_mode.dart';
-import 'package:agentic_hive_backend/src/skills/bundled_skill.dart';
-import 'package:agentic_hive_backend/src/skills/bundled_skill_loader.dart';
 import 'package:agentic_hive_backend/src/ws/connection_registry.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:drift/native.dart';
@@ -136,6 +136,7 @@ void main() {
       settingsService: settings,
       markStore: markStore,
       skillInstallers: skillInstallers,
+      mcpInstallers: mcpInstallers,
     );
     return (
       harness: harness,
@@ -188,7 +189,31 @@ void main() {
       for (final path in r.skill.paths) {
         expect(path, startsWith(tempHome.path));
       }
+      expect(r.mcp.paths, ['/fake/${r.harnessId.wireName}/mcp.json']);
     }
+
+    // Dismissing with a stale notice id must keep the pending notice.
+    await handler.dismissNotice(
+      Request(
+        'DELETE',
+        Uri.parse(
+          'http://localhost/api/v1/skills/auto-install/notice?id=stale-id',
+        ),
+      ),
+    );
+    expect(g1.autoInstall.pendingNotice, isNotNull);
+
+    // Dismissing with the matching id clears it.
+    await handler.dismissNotice(
+      Request(
+        'DELETE',
+        Uri.parse(
+          'http://localhost/api/v1/skills/auto-install/notice'
+          '?id=${decoded.notice!.id}',
+        ),
+      ),
+    );
+    expect(g1.autoInstall.pendingNotice, isNull);
 
     await g1.autoInstall.dispose();
     await g1.settings.dispose();
@@ -309,6 +334,10 @@ final class _FakeDetector implements HarnessDetector {
   void setExecutableOverride(String? path) {}
 
   @override
+  Future<String?> locateExecutable() async =>
+      present ? '/fake/${id.wireName}' : null;
+
+  @override
   Future<HarnessInfo> detect() async => HarnessInfo(
     id: id,
     displayName: id.displayName,
@@ -329,6 +358,9 @@ final class _PerHarnessMcp implements HarnessMcpInstaller {
   @override
   final HarnessId id;
   final _FakeMcpInstaller state;
+
+  @override
+  String? get configPath => '/fake/${id.wireName}/mcp.json';
 
   @override
   Future<HarnessMcpDetectionResult> detect({

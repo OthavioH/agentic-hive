@@ -48,6 +48,7 @@ import 'package:agentic_hive_backend/src/data/runs/process_tree_killer_factory.d
 import 'package:agentic_hive_backend/src/data/settings/drift_settings_repository.dart';
 import 'package:agentic_hive_backend/src/data/settings/file_workspace_settings_store.dart';
 import 'package:agentic_hive_backend/src/data/settings/os_executable_validator.dart';
+import 'package:agentic_hive_backend/src/data/skills/located_bundled_skill_loader.dart';
 import 'package:agentic_hive_backend/src/data/skills/metadata_skill_auto_install_mark_store.dart';
 import 'package:agentic_hive_backend/src/data/workflows/drift_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/data/workflows/file_workspace_workflow_repository.dart';
@@ -107,6 +108,7 @@ import 'package:agentic_hive_backend/src/domain/settings/execution_settings_serv
 import 'package:agentic_hive_backend/src/domain/settings/settings_repository.dart';
 import 'package:agentic_hive_backend/src/domain/settings/settings_service.dart';
 import 'package:agentic_hive_backend/src/domain/settings/workspace_settings_store.dart';
+import 'package:agentic_hive_backend/src/domain/skills/bundled_skill_loader.dart';
 import 'package:agentic_hive_backend/src/domain/skills/skill_auto_install_mark_store.dart';
 import 'package:agentic_hive_backend/src/domain/skills/skill_auto_install_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_events.dart';
@@ -136,8 +138,6 @@ import 'package:agentic_hive_backend/src/mcp/hive_mcp_locator.dart';
 import 'package:agentic_hive_backend/src/server/backend_server.dart';
 import 'package:agentic_hive_backend/src/server/local_socket.dart';
 import 'package:agentic_hive_backend/src/server/server_info_file.dart';
-import 'package:agentic_hive_backend/src/skills/bundled_skill_loader.dart';
-import 'package:agentic_hive_backend/src/skills/located_bundled_skill_loader.dart';
 import 'package:agentic_hive_backend/src/version.dart';
 import 'package:agentic_hive_backend/src/ws/connection_registry.dart';
 import 'package:agentic_hive_backend/src/ws/ws_gateway.dart';
@@ -777,6 +777,7 @@ Future<void> registerDependencies(
         settingsService: di<SettingsService>(),
         markStore: di<SkillAutoInstallMarkStore>(),
         skillInstallers: di<HarnessSkillInstallerRegistry>(),
+        mcpInstallers: di<HarnessMcpInstallerRegistry>(),
       ),
       dependsOn: [SettingsService, SkillAutoInstallMarkStore],
       dispose: (service) => service.dispose(),

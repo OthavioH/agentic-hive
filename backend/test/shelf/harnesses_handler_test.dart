@@ -12,13 +12,13 @@ import 'package:agentic_hive_backend/src/domain/harnesses/harness_mcp_installer.
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_service.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_skill_installer.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
+import 'package:agentic_hive_backend/src/domain/skills/bundled_skill.dart';
+import 'package:agentic_hive_backend/src/domain/skills/bundled_skill_loader.dart';
 import 'package:agentic_hive_backend/src/http/api_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/shutdown_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
 import 'package:agentic_hive_backend/src/http/request_context.dart';
 import 'package:agentic_hive_backend/src/mcp/hive_mcp_locator.dart';
-import 'package:agentic_hive_backend/src/skills/bundled_skill.dart';
-import 'package:agentic_hive_backend/src/skills/bundled_skill_loader.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart';
@@ -662,6 +662,9 @@ final class _UnsupportedStubInstaller implements HarnessMcpInstaller {
   final HarnessId id;
 
   @override
+  String? get configPath => null;
+
+  @override
   Future<HarnessMcpDetectionResult> detect({
     required String executablePath,
     required HiveMcpLaunchCommand expectedCommand,
@@ -709,6 +712,9 @@ final class _FakeSkillDetector implements HarnessDetector {
 
   @override
   void setExecutableOverride(String? path) {}
+
+  @override
+  Future<String?> locateExecutable() async => info.executablePath;
 
   @override
   Future<HarnessInfo> detect() async => info;

@@ -517,6 +517,30 @@ void main() {
       ]);
     });
   });
+  test('dismissNotice ignores mismatched id and clears matching id', () async {
+    final service = buildService();
+    addTearDown(service.dispose);
+
+    harnessService.setInfo(
+      _info(
+        HarnessId.claudeCode,
+        skillStatus: HarnessSkillStatus.notInstalled,
+        mcpStatus: HarnessMcpStatus.notInstalled,
+      ),
+    );
+
+    service.start();
+    await service.idle();
+
+    final pending = service.pendingNotice;
+    expect(pending, isNotNull);
+
+    service.dismissNotice(noticeId: 'stale-notice-id');
+    expect(service.pendingNotice, equals(pending));
+
+    service.dismissNotice(noticeId: pending!.id);
+    expect(service.pendingNotice, isNull);
+  });
 }
 
 HarnessInfo _info(

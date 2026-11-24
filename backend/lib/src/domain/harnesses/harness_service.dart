@@ -217,7 +217,22 @@ final class DefaultHarnessService implements HarnessService {
       );
     }
 
-    final current = _cache[id] ?? await detector.detect();
+    final HarnessInfo current;
+    final cached = _cache[id];
+    if (cached != null) {
+      current = cached;
+    } else {
+      final executablePath = await detector.locateExecutable();
+      current = HarnessInfo(
+        id: id,
+        displayName: id.displayName,
+        status: executablePath == null
+            ? HarnessStatus.notInstalled
+            : HarnessStatus.ready,
+        executablePath: executablePath,
+        checkedAt: _now(),
+      );
+    }
     if (current.status == HarnessStatus.notInstalled ||
         current.executablePath == null) {
       return FailureResult(
@@ -235,10 +250,7 @@ final class DefaultHarnessService implements HarnessService {
       if (previous == null) continue;
       final updated = _enrichSkillStatus(previous);
       _cache[targetId] = updated;
-      if (_hasMeaningfulChange(
-        _cache[targetId] == updated ? previous : null,
-        updated,
-      )) {
+      if (_hasMeaningfulChange(previous, updated)) {
         _emit(updated);
       }
     }

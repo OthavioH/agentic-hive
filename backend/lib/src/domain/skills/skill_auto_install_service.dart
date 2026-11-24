@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/domain/harnesses/harness_mcp_installer.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_service.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_skill_installer.dart';
 import 'package:agentic_hive_backend/src/domain/settings/settings_service.dart';
@@ -27,7 +28,11 @@ abstract interface class SkillAutoInstallService {
   void start();
 
   /// Clears the pending notice (the user dismissed it).
-  void dismissNotice();
+  ///
+  /// When [noticeId] is provided, only clears if it matches the currently
+  /// pending notice's id so dismissing a stale notice does not drop newer
+  /// results.
+  void dismissNotice({String? noticeId});
 
   /// Waits until every queued detection was processed.
   Future<void> idle();
@@ -44,6 +49,7 @@ final class DefaultSkillAutoInstallService implements SkillAutoInstallService {
     required this._settingsService,
     required this._markStore,
     required this._skillInstallers,
+    this._mcpInstallers,
     DateTime Function()? now,
     String Function()? generateId,
   }) : _now = now ?? (() => DateTime.now().toUtc()),
@@ -55,6 +61,7 @@ final class DefaultSkillAutoInstallService implements SkillAutoInstallService {
   final SettingsService _settingsService;
   final SkillAutoInstallMarkStore _markStore;
   final HarnessSkillInstallerRegistry _skillInstallers;
+  final HarnessMcpInstallerRegistry? _mcpInstallers;
   final DateTime Function() _now;
   final String Function() _generateId;
 
@@ -96,7 +103,8 @@ final class DefaultSkillAutoInstallService implements SkillAutoInstallService {
         _log.warning(
           LogEvent(
             'skills.auto_install.start_failed',
-            fields: {'message': failure.message},
+            fields: {'failure': '${failure.runtimeType}'},
+            userContent: failure.message,
           ),
         );
         return;
@@ -106,8 +114,7 @@ final class DefaultSkillAutoInstallService implements SkillAutoInstallService {
       _lastAutoInstallEnabled = enabled;
       if (!enabled) return;
 
-      final list = await _harnessService.listHarnesses();
-      (list.valueOrNull ?? const <HarnessInfo>[]).forEach(_enqueue);
+      await _evaluateAllCached();
     } on Object catch (error, stackTrace) {
       _log.warning(
         const LogEvent('skills.auto_install.start_failed'),
@@ -161,7 +168,8 @@ final class DefaultSkillAutoInstallService implements SkillAutoInstallService {
       _log.warning(
         LogEvent(
           'skills.auto_install.settings_failed',
-          fields: {'message': failure.message},
+          fields: {'failure': '${failure.runtimeType}'},
+          userContent: failure.message,
         ),
       );
       return;
@@ -318,8 +326,12 @@ final class DefaultSkillAutoInstallService implements SkillAutoInstallService {
               message: failure.message,
             );
           case Success():
-            return const SkillAutoInstallStep(
+            final configPath = _mcpInstallers?[id]?.configPath;
+            return SkillAutoInstallStep(
               outcome: SkillAutoInstallOutcome.installed,
+              paths: configPath == null
+                  ? const <String>[]
+                  : <String>[configPath],
             );
         }
       case HarnessMcpStatus.outdated:
@@ -359,8 +371,10 @@ final class DefaultSkillAutoInstallService implements SkillAutoInstallService {
   }
 
   @override
-  void dismissNotice() {
-    _pending = null;
+  void dismissNotice({String? noticeId}) {
+    if (noticeId == null || _pending?.id == noticeId) {
+      _pending = null;
+    }
   }
 
   @override

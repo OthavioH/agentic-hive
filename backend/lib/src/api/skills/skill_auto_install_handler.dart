@@ -19,7 +19,7 @@ final class SkillAutoInstallHandler {
 
   /// `DELETE /api/v1/skills/auto-install/notice` → 204, idempotent.
   Future<Response> dismissNotice(Request request) async {
-    _service.dismissNotice();
+    _service.dismissNotice(noticeId: request.url.queryParameters['id']);
     return Response(204);
   }
 }

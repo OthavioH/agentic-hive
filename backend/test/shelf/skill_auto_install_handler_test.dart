@@ -132,8 +132,10 @@ final class _FakeSkillAutoInstallService implements SkillAutoInstallService {
   void start() {}
 
   @override
-  void dismissNotice() {
-    pendingNotice = null;
+  void dismissNotice({String? noticeId}) {
+    if (noticeId == null || pendingNotice?.id == noticeId) {
+      pendingNotice = null;
+    }
   }
 
   @override
