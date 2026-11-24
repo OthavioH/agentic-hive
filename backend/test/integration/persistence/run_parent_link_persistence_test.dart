@@ -114,7 +114,8 @@ void main() {
       final fetched = (await repo.getById('child-1')).valueOrNull!;
       expect(fetched, child);
 
-      final byStatus = (await repo.listByStatus(RunStatus.running)).valueOrNull!;
+      final byStatus = (await repo.listByStatus(RunStatus.running))
+          .valueOrNull!;
       expect(byStatus.single, child);
     },
   );

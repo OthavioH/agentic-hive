@@ -37,8 +37,8 @@ final class FanOutNode extends Node {
     RunStatus.cancellationUncertain,
   };
 
-  static final RegExp _invalidWorktreeChars = RegExp(r'[^A-Za-z0-9._-]+');
-  static final RegExp _leadingNonAlnum = RegExp(r'^[^A-Za-z0-9]+');
+  static final RegExp _invalidWorktreeChars = RegExp('[^A-Za-z0-9._-]+');
+  static final RegExp _leadingNonAlnum = RegExp('^[^A-Za-z0-9]+');
 
   @override
   String get typeId => NodeTypeId.fanOut;
@@ -58,10 +58,7 @@ final class FanOutNode extends Node {
     final items = itemsResult.valueOrNull!;
 
     if (items.isEmpty) {
-      await _warn(
-        context,
-        'The item list is empty; no child run was started.',
-      );
+      await _warn(context, 'The item list is empty; no child run was started.');
       return const Success(
         NodeOutcome(
           outputLabel: NodeOutput.onSuccess,

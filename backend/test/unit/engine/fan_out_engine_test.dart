@@ -49,37 +49,35 @@ final class _SingleWorkflowRepository implements WorkflowRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-Workflow _parentWorkflow({
-  int maxItems = 20,
-  bool withOnFailureEdge = false,
-}) => Workflow(
-  id: 'parent-wf',
-  name: 'Parent Flow',
-  entryNodeId: 'seed',
-  createdAt: DateTime.utc(2026),
-  updatedAt: DateTime.utc(2026),
-  nodes: [
-    fakeNode('seed'),
-    WorkflowNode(
-      id: 'fan',
-      type: NodeTypeId.fanOut,
-      label: 'Fan',
-      position: const WorkflowPosition(x: 200, y: 0),
-      config: {
-        'workflowId': 'child-wf',
-        'itemsNodeId': 'seed',
-        'itemsPath': 'items',
-        'concurrency': 2,
-        'maxItems': maxItems,
-      },
-    ),
-    if (withOnFailureEdge) fakeNode('recover'),
-  ],
-  edges: [
-    edge('seed', NodeOutput.onSuccess, 'fan'),
-    if (withOnFailureEdge) edge('fan', NodeOutput.onFailure, 'recover'),
-  ],
-);
+Workflow _parentWorkflow({int maxItems = 20, bool withOnFailureEdge = false}) =>
+    Workflow(
+      id: 'parent-wf',
+      name: 'Parent Flow',
+      entryNodeId: 'seed',
+      createdAt: DateTime.utc(2026),
+      updatedAt: DateTime.utc(2026),
+      nodes: [
+        fakeNode('seed'),
+        WorkflowNode(
+          id: 'fan',
+          type: NodeTypeId.fanOut,
+          label: 'Fan',
+          position: const WorkflowPosition(x: 200, y: 0),
+          config: {
+            'workflowId': 'child-wf',
+            'itemsNodeId': 'seed',
+            'itemsPath': 'items',
+            'concurrency': 2,
+            'maxItems': maxItems,
+          },
+        ),
+        if (withOnFailureEdge) fakeNode('recover'),
+      ],
+      edges: [
+        edge('seed', NodeOutput.onSuccess, 'fan'),
+        if (withOnFailureEdge) edge('fan', NodeOutput.onFailure, 'recover'),
+      ],
+    );
 
 void main() {
   late EngineHarness h;
@@ -120,131 +118,36 @@ void main() {
     await service.waitForActiveExecutions();
   });
 
-  test(
-    'parent succeeds when all children succeed and its fan-out output lists them',
-    () async {
-      h.script.on('seed', [
-        (_) async => const Success(
-          NodeOutcome(
-            outputLabel: NodeOutput.onSuccess,
-            data: {
-              'items': ['a', 'b', 'c'],
-            },
-          ),
-        ),
-      ]);
-      h.script.on('work', [
-        (ctx) async => Success(
-          NodeOutcome(
-            outputLabel: NodeOutput.onSuccess,
-            data: {'got': ctx.runInput},
-          ),
-        ),
-        (ctx) async => Success(
-          NodeOutcome(
-            outputLabel: NodeOutput.onSuccess,
-            data: {'got': ctx.runInput},
-          ),
-        ),
-        (ctx) async => Success(
-          NodeOutcome(
-            outputLabel: NodeOutput.onSuccess,
-            data: {'got': ctx.runInput},
-          ),
-        ),
-      ]);
-
-    await h.runs.create(
-      Run(
-        id: 'run-1',
-        workflowId: 'parent-wf',
-        workflowName: 'Parent Flow',
-        workflowDefinition: _parentWorkflow(),
-        workspacePath: '.',
-        workspaceId: 'ws-1',
-        status: RunStatus.running,
-        startedAt: DateTime.utc(2026),
-      ),
-    );
-      await h.engine.start('run-1');
-      await service.waitForActiveExecutions();
-
-      expect(h.run.status, RunStatus.succeeded);
-      final cp = (await h.checkpoints.getLatestForRun('run-1')).valueOrNull!;
-      final fanOut = cp.nodeOutputs['fan']! as Map<String, Object?>;
-      final data = fanOut['data']! as Map<String, Object?>;
-      expect(data['succeeded'], 3);
-
-      final children = h.runs.runs.values
-          .where((r) => r.parentRunId == 'run-1')
-          .toList()
-        ..sort((a, b) => a.childIndex!.compareTo(b.childIndex!));
-      expect(children, hasLength(3));
-      expect(children.map((c) => c.parentNodeId), ['fan', 'fan', 'fan']);
-      expect(children.map((c) => c.childIndex), [0, 1, 2]);
-    },
-  );
-
-  test(
-    'a failing child makes the fan-out node emit onFailure; with an onFailure edge the run continues',
-    () async {
-      h.script.on('seed', [
-        (_) async => const Success(
-          NodeOutcome(
-            outputLabel: NodeOutput.onSuccess,
-            data: {
-              'items': ['a', 'b'],
-            },
-          ),
-        ),
-      ]);
-      h.script.on('work', [
-        (_) async =>
-            const Success(NodeOutcome(outputLabel: NodeOutput.onSuccess)),
-        (_) async =>
-            const Success(NodeOutcome(outputLabel: NodeOutput.onFailure)),
-      ]);
-      h.script.on('recover', [
-        (_) async =>
-            const Success(NodeOutcome(outputLabel: NodeOutput.onSuccess)),
-      ]);
-
-    await h.runs.create(
-      Run(
-        id: 'run-1',
-        workflowId: 'parent-wf',
-        workflowName: 'Parent Flow',
-        workflowDefinition: _parentWorkflow(withOnFailureEdge: true),
-        workspacePath: '.',
-        workspaceId: 'ws-1',
-        status: RunStatus.running,
-        startedAt: DateTime.utc(2026),
-      ),
-    );
-      await h.engine.start('run-1');
-      await service.waitForActiveExecutions();
-
-      expect(h.run.status, RunStatus.succeeded);
-      final cp = (await h.checkpoints.getLatestForRun('run-1')).valueOrNull!;
-      final fanOut = cp.nodeOutputs['fan']! as Map<String, Object?>;
-      expect(fanOut['outputLabel'], NodeOutput.onFailure);
-    },
-  );
-
-  test('with no onFailure edge a failing child ends the parent as failed', () async {
+  test('parent succeeds when all children succeed and lists them', () async {
     h.script.on('seed', [
       (_) async => const Success(
         NodeOutcome(
           outputLabel: NodeOutput.onSuccess,
           data: {
-            'items': ['a'],
+            'items': ['a', 'b', 'c'],
           },
         ),
       ),
     ]);
     h.script.on('work', [
-      (_) async =>
-          const Success(NodeOutcome(outputLabel: NodeOutput.onFailure)),
+      (ctx) async => Success(
+        NodeOutcome(
+          outputLabel: NodeOutput.onSuccess,
+          data: {'got': ctx.runInput},
+        ),
+      ),
+      (ctx) async => Success(
+        NodeOutcome(
+          outputLabel: NodeOutput.onSuccess,
+          data: {'got': ctx.runInput},
+        ),
+      ),
+      (ctx) async => Success(
+        NodeOutcome(
+          outputLabel: NodeOutput.onSuccess,
+          data: {'got': ctx.runInput},
+        ),
+      ),
     ]);
 
     await h.runs.create(
@@ -262,17 +165,40 @@ void main() {
     await h.engine.start('run-1');
     await service.waitForActiveExecutions();
 
-    expect(h.run.status, RunStatus.failed);
+    expect(h.run.status, RunStatus.succeeded);
+    final cp = (await h.checkpoints.getLatestForRun('run-1')).valueOrNull!;
+    final fanOut = cp.nodeOutputs['fan']!;
+    final data = fanOut['data']! as Map<String, Object?>;
+    expect(data['succeeded'], 3);
+
+    final children =
+        h.runs.runs.values.where((r) => r.parentRunId == 'run-1').toList()
+          ..sort((a, b) => a.childIndex!.compareTo(b.childIndex!));
+    expect(children, hasLength(3));
+    expect(children.map((c) => c.parentNodeId), ['fan', 'fan', 'fan']);
+    expect(children.map((c) => c.childIndex), [0, 1, 2]);
   });
 
-  test('empty list: parent succeeds and has a snapshot.warning event', () async {
+  test('failing child emits onFailure and continues on edge', () async {
     h.script.on('seed', [
       (_) async => const Success(
         NodeOutcome(
           outputLabel: NodeOutput.onSuccess,
-          data: {'items': <Object?>[]},
+          data: {
+            'items': ['a', 'b'],
+          },
         ),
       ),
+    ]);
+    h.script.on('work', [
+      (_) async =>
+          const Success(NodeOutcome(outputLabel: NodeOutput.onSuccess)),
+      (_) async =>
+          const Success(NodeOutcome(outputLabel: NodeOutput.onFailure)),
+    ]);
+    h.script.on('recover', [
+      (_) async =>
+          const Success(NodeOutcome(outputLabel: NodeOutput.onSuccess)),
     ]);
 
     await h.runs.create(
@@ -280,7 +206,7 @@ void main() {
         id: 'run-1',
         workflowId: 'parent-wf',
         workflowName: 'Parent Flow',
-        workflowDefinition: _parentWorkflow(),
+        workflowDefinition: _parentWorkflow(withOnFailureEdge: true),
         workspacePath: '.',
         workspaceId: 'ws-1',
         status: RunStatus.running,
@@ -288,10 +214,84 @@ void main() {
       ),
     );
     await h.engine.start('run-1');
+    await service.waitForActiveExecutions();
 
     expect(h.run.status, RunStatus.succeeded);
-    expect(h.events.ofType('run-1', RunEventType.snapshotWarning), hasLength(1));
+    final cp = (await h.checkpoints.getLatestForRun('run-1')).valueOrNull!;
+    final fanOut = cp.nodeOutputs['fan']!;
+    expect(fanOut['outputLabel'], NodeOutput.onFailure);
   });
+
+  test(
+    'with no onFailure edge a failing child ends the parent as failed',
+    () async {
+      h.script.on('seed', [
+        (_) async => const Success(
+          NodeOutcome(
+            outputLabel: NodeOutput.onSuccess,
+            data: {
+              'items': ['a'],
+            },
+          ),
+        ),
+      ]);
+      h.script.on('work', [
+        (_) async =>
+            const Success(NodeOutcome(outputLabel: NodeOutput.onFailure)),
+      ]);
+
+      await h.runs.create(
+        Run(
+          id: 'run-1',
+          workflowId: 'parent-wf',
+          workflowName: 'Parent Flow',
+          workflowDefinition: _parentWorkflow(),
+          workspacePath: '.',
+          workspaceId: 'ws-1',
+          status: RunStatus.running,
+          startedAt: DateTime.utc(2026),
+        ),
+      );
+      await h.engine.start('run-1');
+      await service.waitForActiveExecutions();
+
+      expect(h.run.status, RunStatus.failed);
+    },
+  );
+
+  test(
+    'empty list: parent succeeds and has a snapshot.warning event',
+    () async {
+      h.script.on('seed', [
+        (_) async => const Success(
+          NodeOutcome(
+            outputLabel: NodeOutput.onSuccess,
+            data: {'items': <Object?>[]},
+          ),
+        ),
+      ]);
+
+      await h.runs.create(
+        Run(
+          id: 'run-1',
+          workflowId: 'parent-wf',
+          workflowName: 'Parent Flow',
+          workflowDefinition: _parentWorkflow(),
+          workspacePath: '.',
+          workspaceId: 'ws-1',
+          status: RunStatus.running,
+          startedAt: DateTime.utc(2026),
+        ),
+      );
+      await h.engine.start('run-1');
+
+      expect(h.run.status, RunStatus.succeeded);
+      expect(
+        h.events.ofType('run-1', RunEventType.snapshotWarning),
+        hasLength(1),
+      );
+    },
+  );
 
   test('over the cap: parent fails and no child run exists', () async {
     h.script.on('seed', [
@@ -320,9 +320,6 @@ void main() {
     await h.engine.start('run-1');
 
     expect(h.run.status, RunStatus.failed);
-    expect(
-      h.runs.runs.values.where((r) => r.parentRunId == 'run-1'),
-      isEmpty,
-    );
+    expect(h.runs.runs.values.where((r) => r.parentRunId == 'run-1'), isEmpty);
   });
 }

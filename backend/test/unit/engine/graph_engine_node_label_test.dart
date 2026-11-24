@@ -9,13 +9,14 @@ void main() {
   test('passes the workflow node label to the node context', () async {
     final h = EngineHarness();
     h.script.on('a', [
-      (_) async => const Success(NodeOutcome(outputLabel: NodeOutput.onSuccess)),
+      (_) async =>
+          const Success(NodeOutcome(outputLabel: NodeOutput.onSuccess)),
     ]);
     final base = buildWorkflow(nodeIds: const ['a'], edges: const []);
     final workflow = base.copyWith(
       nodes: [base.nodes.single.copyWith(label: 'My label')],
     );
-    await h.createRun(workflow, status: RunStatus.running);
+    await h.createRun(workflow);
 
     await h.engine.start('run-1');
 

@@ -127,7 +127,7 @@ final class _FakeChildRunPort implements ChildRunPort {
   Future<Result<Run>> getRun(String runId) async {
     final script = getRunScripts[runId];
     final result = script == null || script.isEmpty
-        ? Success(_run(runId, status: RunStatus.succeeded))
+        ? Success(_run(runId))
         : script.length == 1
         ? script.first
         : script.removeAt(0);
@@ -202,7 +202,7 @@ void main() {
           'nodeOutputs': {
             'planner': {
               'outputLabel': 'onSuccess',
-              'data': {'other': []},
+              'data': {'other': <Object?>[]},
             },
           },
         },
@@ -232,7 +232,7 @@ void main() {
   });
 
   test(
-    'empty list ends with onSuccess, empty children, a warning, no pin, no child',
+    'empty list ends with onSuccess, empty children, warning, no pin/child',
     () async {
       final res = await node.execute(
         _context(
@@ -351,41 +351,44 @@ void main() {
     },
   );
 
-  test('inputField selects part of the item and missing fails only that child', () async {
-    final res = await node.execute(
-      _context(
-        config: const {
-          'workflowId': 'child-wf',
-          'itemsNodeId': 'planner',
-          'itemsPath': 'issues',
-          'inputField': 'prompt',
-        },
-        inputs: const {
-          'nodeOutputs': {
-            'planner': {
-              'outputLabel': 'onSuccess',
-              'data': {
-                'issues': [
-                  {'prompt': 'ok'},
-                  {'other': 1},
-                ],
+  test(
+    'inputField selects part of the item and missing fails only that child',
+    () async {
+      final res = await node.execute(
+        _context(
+          config: const {
+            'workflowId': 'child-wf',
+            'itemsNodeId': 'planner',
+            'itemsPath': 'issues',
+            'inputField': 'prompt',
+          },
+          inputs: const {
+            'nodeOutputs': {
+              'planner': {
+                'outputLabel': 'onSuccess',
+                'data': {
+                  'issues': [
+                    {'prompt': 'ok'},
+                    {'other': 1},
+                  ],
+                },
               },
             },
           },
-        },
-      ),
-    );
+        ),
+      );
 
-    final outcome = res.valueOrNull!;
-    expect(outcome.outputLabel, NodeOutput.onFailure);
-    expect(port.started, hasLength(1));
-    expect(port.started.single.input, 'ok');
-    final children = outcome.data['children']! as List<Object?>;
-    final second = children[1]! as Map<String, Object?>;
-    expect(second['status'], 'failed');
-    expect(second['runId'], isNull);
-    expect(second['error'], contains('prompt'));
-  });
+      final outcome = res.valueOrNull!;
+      expect(outcome.outputLabel, NodeOutput.onFailure);
+      expect(port.started, hasLength(1));
+      expect(port.started.single.input, 'ok');
+      final children = outcome.data['children']! as List<Object?>;
+      final second = children[1]! as Map<String, Object?>;
+      expect(second['status'], 'failed');
+      expect(second['runId'], isNull);
+      expect(second['error'], contains('prompt'));
+    },
+  );
 
   test('overridesField builds node overrides and rejects non-map', () async {
     final res = await node.execute(
@@ -420,54 +423,50 @@ void main() {
     final outcome = res.valueOrNull!;
     expect(outcome.outputLabel, NodeOutput.onFailure);
     expect(port.started, hasLength(2));
-    expect(
-      port.started[0].nodeOverrides,
-      const {'h': NodeOverride(model: 'm1')},
-    );
+    expect(port.started[0].nodeOverrides, const {
+      'h': NodeOverride(model: 'm1'),
+    });
     expect(port.started[1].nodeOverrides, isNull);
   });
 
-  test(
-    'child names: nameField, default <label>-<n>, sanitized unique worktree names',
-    () async {
-      final res = await node.execute(
-        _context(
-          config: const {
-            'workflowId': 'child-wf',
-            'itemsNodeId': 'planner',
-            'itemsPath': 'issues',
-            'nameField': 'title',
-          },
-          inputs: const {
-            'nodeOutputs': {
-              'planner': {
-                'outputLabel': 'onSuccess',
-                'data': {
-                  'issues': [
-                    {'title': 'Fix bug #1'},
-                    {'title': 'Fix bug #1'},
-                    <String, Object?>{},
-                  ],
-                },
+  test('child names: nameField, default, unique worktree names', () async {
+    final res = await node.execute(
+      _context(
+        config: const {
+          'workflowId': 'child-wf',
+          'itemsNodeId': 'planner',
+          'itemsPath': 'issues',
+          'nameField': 'title',
+        },
+        inputs: const {
+          'nodeOutputs': {
+            'planner': {
+              'outputLabel': 'onSuccess',
+              'data': {
+                'issues': [
+                  {'title': 'Fix bug #1'},
+                  {'title': 'Fix bug #1'},
+                  <String, Object?>{},
+                ],
               },
             },
           },
-        ),
-      );
+        },
+      ),
+    );
 
-      expect(res.isSuccess, isTrue);
-      expect(port.started.map((r) => r.name), [
-        'Fix bug #1',
-        'Fix bug #1',
-        'Fan-3',
-      ]);
-      expect(port.started.map((r) => r.worktreeName), [
-        'Fix-bug-1',
-        'Fix-bug-1-2',
-        'Fan-3',
-      ]);
-    },
-  );
+    expect(res.isSuccess, isTrue);
+    expect(port.started.map((r) => r.name), [
+      'Fix bug #1',
+      'Fix bug #1',
+      'Fan-3',
+    ]);
+    expect(port.started.map((r) => r.worktreeName), [
+      'Fix-bug-1',
+      'Fix-bug-1-2',
+      'Fan-3',
+    ]);
+  });
 
   test('git workspace: worktree placement from the HEAD commit', () async {
     port.infoResult = const Success(
@@ -499,46 +498,49 @@ void main() {
     expect(port.warnings, hasLength(1));
   });
 
-  test('non-git workspace: lent folder placement and one child at a time', () async {
-    port.infoResult = const Success(ParentWorkspaceInfo(isGit: false));
+  test(
+    'non-git workspace: lent folder placement and one child at a time',
+    () async {
+      port.infoResult = const Success(ParentWorkspaceInfo(isGit: false));
 
-    final res = await node.execute(
-      _context(
-        config: const {
-          'workflowId': 'child-wf',
-          'itemsNodeId': 'planner',
-          'itemsPath': 'issues',
-          'concurrency': 3,
-        },
-        inputs: const {
-          'nodeOutputs': {
-            'planner': {
-              'outputLabel': 'onSuccess',
-              'data': {
-                'issues': ['a', 'b', 'c'],
+      final res = await node.execute(
+        _context(
+          config: const {
+            'workflowId': 'child-wf',
+            'itemsNodeId': 'planner',
+            'itemsPath': 'issues',
+            'concurrency': 3,
+          },
+          inputs: const {
+            'nodeOutputs': {
+              'planner': {
+                'outputLabel': 'onSuccess',
+                'data': {
+                  'issues': ['a', 'b', 'c'],
+                },
               },
             },
           },
-        },
-      ),
-    );
+        ),
+      );
 
-    expect(res.isSuccess, isTrue);
-    expect(port.maxInFlight, 1);
-    for (final req in port.started) {
-      expect(req.placement, ChildRunPlacement.lentFolder);
-      expect(req.worktreeName, isNull);
-    }
-  });
+      expect(res.isSuccess, isTrue);
+      expect(port.maxInFlight, 1);
+      for (final req in port.started) {
+        expect(req.placement, ChildRunPlacement.lentFolder);
+        expect(req.worktreeName, isNull);
+      }
+    },
+  );
 
   test('respects concurrency', () async {
     port.getRunScripts['child-1'] = [
       Success(_run('child-1', status: RunStatus.running)),
-      Success(_run('child-1', status: RunStatus.succeeded)),
+      Success(_run('child-1')),
     ];
     port.getRunScripts['child-2'] = [
       Success(_run('child-2', status: RunStatus.running)),
-      Success(_run('child-2', status: RunStatus.succeeded)),
+      Success(_run('child-2')),
     ];
 
     final res = await node.execute(
@@ -567,39 +569,36 @@ void main() {
     expect(port.started, hasLength(5));
   });
 
-  test(
-    'all children succeed: onSuccess with each child status, run id and final output',
-    () async {
-      port.finalOutputs['child-1'] = const Success({
+  test('all children succeed: onSuccess with status, id and output', () async {
+    port.finalOutputs['child-1'] = const Success({
+      'outputLabel': 'onSuccess',
+      'data': {'x': 1},
+    });
+    port.finalOutputs['child-2'] = const Success({
+      'outputLabel': 'onSuccess',
+      'data': {'x': 2},
+    });
+
+    final res = await node.execute(_context());
+    final outcome = res.valueOrNull!;
+
+    expect(outcome.outputLabel, NodeOutput.onSuccess);
+    expect(outcome.data['total'], 2);
+    expect(outcome.data['succeeded'], 2);
+    expect(outcome.data['failed'], 0);
+    final children = outcome.data['children']! as List<Object?>;
+    expect(children[0], {
+      'index': 0,
+      'name': 'Fan-1',
+      'status': 'succeeded',
+      'runId': 'child-1',
+      'output': {
         'outputLabel': 'onSuccess',
         'data': {'x': 1},
-      });
-      port.finalOutputs['child-2'] = const Success({
-        'outputLabel': 'onSuccess',
-        'data': {'x': 2},
-      });
-
-      final res = await node.execute(_context());
-      final outcome = res.valueOrNull!;
-
-      expect(outcome.outputLabel, NodeOutput.onSuccess);
-      expect(outcome.data['total'], 2);
-      expect(outcome.data['succeeded'], 2);
-      expect(outcome.data['failed'], 0);
-      final children = outcome.data['children']! as List<Object?>;
-      expect(children[0], {
-        'index': 0,
-        'name': 'Fan-1',
-        'status': 'succeeded',
-        'runId': 'child-1',
-        'output': {
-          'outputLabel': 'onSuccess',
-          'data': {'x': 1},
-        },
-        'error': null,
-      });
-    },
-  );
+      },
+      'error': null,
+    });
+  });
 
   test(
     'a failing child does not stop the others and the node ends with onFailure',
@@ -620,29 +619,32 @@ void main() {
     },
   );
 
-  test('a child that cannot start is a failed entry without a run id', () async {
-    var count = 0;
-    port.startBehavior = (req) {
-      count++;
-      if (count == 1) {
-        return const FailureResult(
-          ValidationFailure('Invalid node overrides: x'),
-        );
-      }
-      return Success(_run('child-$count', status: RunStatus.running));
-    };
+  test(
+    'a child that cannot start is a failed entry without a run id',
+    () async {
+      var count = 0;
+      port.startBehavior = (req) {
+        count++;
+        if (count == 1) {
+          return const FailureResult(
+            ValidationFailure('Invalid node overrides: x'),
+          );
+        }
+        return Success(_run('child-$count', status: RunStatus.running));
+      };
 
-    final res = await node.execute(_context());
-    final outcome = res.valueOrNull!;
+      final res = await node.execute(_context());
+      final outcome = res.valueOrNull!;
 
-    expect(outcome.outputLabel, NodeOutput.onFailure);
-    final children = outcome.data['children']! as List<Object?>;
-    final first = children[0]! as Map<String, Object?>;
-    expect(first['status'], 'failed');
-    expect(first['runId'], isNull);
-    expect(first['error'], contains('Invalid node overrides: x'));
-    expect((children[1]! as Map<String, Object?>)['status'], 'succeeded');
-  });
+      expect(outcome.outputLabel, NodeOutput.onFailure);
+      final children = outcome.data['children']! as List<Object?>;
+      final first = children[0]! as Map<String, Object?>;
+      expect(first['status'], 'failed');
+      expect(first['runId'], isNull);
+      expect(first['error'], contains('Invalid node overrides: x'));
+      expect((children[1]! as Map<String, Object?>)['status'], 'succeeded');
+    },
+  );
 
   test('waits through paused and interrupted until a final status', () async {
     port.getRunScripts['child-1'] = [
@@ -650,7 +652,7 @@ void main() {
       Success(_run('child-1', status: RunStatus.paused)),
       Success(_run('child-1', status: RunStatus.interrupted)),
       Success(_run('child-1', status: RunStatus.running)),
-      Success(_run('child-1', status: RunStatus.succeeded)),
+      Success(_run('child-1')),
     ];
 
     final res = await node.execute(_context());

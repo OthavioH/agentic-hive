@@ -286,87 +286,87 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
         );
       } else {
         switch (target) {
-        case RunTargetPrimary():
-          final conflict = await claim(workspacePath);
-          if (conflict != null) return FailureResult(conflict);
-          prepared = PreparedWorkspace(
-            effectiveWorkspacePath: workspacePath,
-            isolationMode: WorkspaceIsolationMode.direct,
-          );
-        case RunTargetWorktree(:final worktreeId):
-          final worktrees = _worktrees;
-          if (worktrees == null) {
-            return const FailureResult(
-              UnexpectedFailure('Worktree service is not configured.'),
+          case RunTargetPrimary():
+            final conflict = await claim(workspacePath);
+            if (conflict != null) return FailureResult(conflict);
+            prepared = PreparedWorkspace(
+              effectiveWorkspacePath: workspacePath,
+              isolationMode: WorkspaceIsolationMode.direct,
             );
-          }
-          final listed = await worktrees.list(workspace);
-          if (listed case FailureResult<List<Worktree>>(:final failure)) {
-            return FailureResult(failure);
-          }
-          final existing = listed.valueOrNull!
-              .where((w) => w.id == worktreeId)
-              .firstOrNull;
-          if (existing == null) {
-            return FailureResult(
-              NotFoundFailure('Worktree "$worktreeId" was not found.'),
+          case RunTargetWorktree(:final worktreeId):
+            final worktrees = _worktrees;
+            if (worktrees == null) {
+              return const FailureResult(
+                UnexpectedFailure('Worktree service is not configured.'),
+              );
+            }
+            final listed = await worktrees.list(workspace);
+            if (listed case FailureResult<List<Worktree>>(:final failure)) {
+              return FailureResult(failure);
+            }
+            final existing = listed.valueOrNull!
+                .where((w) => w.id == worktreeId)
+                .firstOrNull;
+            if (existing == null) {
+              return FailureResult(
+                NotFoundFailure('Worktree "$worktreeId" was not found.'),
+              );
+            }
+            final conflict = await claim(
+              existing.isPrimary ? workspacePath : existing.path,
             );
-          }
-          final conflict = await claim(
-            existing.isPrimary ? workspacePath : existing.path,
-          );
-          if (conflict != null) return FailureResult(conflict);
-          prepared = existing.isPrimary
-              ? PreparedWorkspace(
-                  effectiveWorkspacePath: workspacePath,
-                  isolationMode: WorkspaceIsolationMode.direct,
-                )
-              : PreparedWorkspace(
-                  effectiveWorkspacePath: existing.path,
-                  isolationMode: WorkspaceIsolationMode.worktree,
-                  worktreePath: existing.path,
-                  worktreeBranch: existing.branch,
-                );
-        case RunTargetNewWorktree(
-          :final name,
-          :final branch,
-          :final baseBranch,
-        ):
-          final worktrees = _worktrees;
-          if (worktrees == null) {
-            return const FailureResult(
-              UnexpectedFailure('Worktree service is not configured.'),
+            if (conflict != null) return FailureResult(conflict);
+            prepared = existing.isPrimary
+                ? PreparedWorkspace(
+                    effectiveWorkspacePath: workspacePath,
+                    isolationMode: WorkspaceIsolationMode.direct,
+                  )
+                : PreparedWorkspace(
+                    effectiveWorkspacePath: existing.path,
+                    isolationMode: WorkspaceIsolationMode.worktree,
+                    worktreePath: existing.path,
+                    worktreeBranch: existing.branch,
+                  );
+          case RunTargetNewWorktree(
+            :final name,
+            :final branch,
+            :final baseBranch,
+          ):
+            final worktrees = _worktrees;
+            if (worktrees == null) {
+              return const FailureResult(
+                UnexpectedFailure('Worktree service is not configured.'),
+              );
+            }
+            final created = await worktrees.create(
+              workspace,
+              CreateWorktreeRequest(
+                name: _nonBlank(name) ?? runId,
+                branch: _nonBlank(branch) ?? 'hive/$runId',
+                baseBranch: baseBranch,
+              ),
             );
-          }
-          final created = await worktrees.create(
-            workspace,
-            CreateWorktreeRequest(
-              name: _nonBlank(name) ?? runId,
-              branch: _nonBlank(branch) ?? 'hive/$runId',
-              baseBranch: baseBranch,
-            ),
-          );
-          if (created case FailureResult<Worktree>(:final failure)) {
-            return FailureResult(failure);
-          }
-          final worktree = created.valueOrNull!;
-          createdWorktreePath = worktree.path;
-          createdWorktreeBranch = worktree.branch;
-          final conflict = await claim(worktree.path);
-          if (conflict != null) {
-            await workspacePreparation.cleanupWorktree(
-              workspacePath: workspacePath,
+            if (created case FailureResult<Worktree>(:final failure)) {
+              return FailureResult(failure);
+            }
+            final worktree = created.valueOrNull!;
+            createdWorktreePath = worktree.path;
+            createdWorktreeBranch = worktree.branch;
+            final conflict = await claim(worktree.path);
+            if (conflict != null) {
+              await workspacePreparation.cleanupWorktree(
+                workspacePath: workspacePath,
+                worktreePath: worktree.path,
+                branchName: worktree.branch,
+              );
+              return FailureResult(conflict);
+            }
+            prepared = PreparedWorkspace(
+              effectiveWorkspacePath: worktree.path,
+              isolationMode: WorkspaceIsolationMode.worktree,
               worktreePath: worktree.path,
-              branchName: worktree.branch,
+              worktreeBranch: worktree.branch,
             );
-            return FailureResult(conflict);
-          }
-          prepared = PreparedWorkspace(
-            effectiveWorkspacePath: worktree.path,
-            isolationMode: WorkspaceIsolationMode.worktree,
-            worktreePath: worktree.path,
-            worktreeBranch: worktree.branch,
-          );
         }
       }
 
@@ -792,7 +792,11 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     if (wsResult case FailureResult<Workspace>(:final failure)) {
       return FailureResult(failure);
     }
-    return _resolveWorkflow(workflows, workflowId, wsResult.valueOrNull!.rootPath);
+    return await _resolveWorkflow(
+      workflows,
+      workflowId,
+      wsResult.valueOrNull!.rootPath,
+    );
   }
 
   @override
@@ -943,6 +947,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
   }
 
   /// Fetches a single run by [id].
+  @override
   Future<Result<Run>> getRun(String id) => _runs.getById(id);
 
   /// Lists events for [runId] ordered by `sequence ASC`.

@@ -23,17 +23,13 @@ final class _FakeProcessRunner implements ProcessRunner {
 }
 
 final class _FakeWorkspaceRepository implements WorkspaceRepository {
-  new({this.isGit = false});
-
-  final bool isGit;
-
   @override
   Future<Result<Workspace>> getById(String id) async => Success(
     Workspace(
       id: id,
       name: 'Workspace',
       rootPath: '.',
-      isGit: isGit,
+      isGit: false,
       createdAt: DateTime.utc(2026, 11, 23, 10),
       updatedAt: DateTime.utc(2026, 11, 23, 10),
     ),
@@ -224,108 +220,99 @@ void main() {
     expect(res.valueOrNull!.isGit, isFalse);
   });
 
-  test(
-    'finalOutputOf returns the output of the last completed node, or null without checkpoints',
-    () async {
-      expect((await service.finalOutputOf('r-none')).valueOrNull, isNull);
+  test('finalOutputOf returns last node output, or null if none', () async {
+    expect((await service.finalOutputOf('r-none')).valueOrNull, isNull);
 
-      await harness.checkpoints.append(
-        id: 'cp-1',
-        runId: 'r-1',
-        completedNodeId: 'n1',
-        pendingNodeIds: const [],
-        attemptsByEdge: const {},
-        circuitBreakerCount: 0,
-        nodeOutputs: const {
-          'n1': {
-            'outputLabel': 'onSuccess',
-            'data': {'ok': true},
-          },
+    await harness.checkpoints.append(
+      id: 'cp-1',
+      runId: 'r-1',
+      completedNodeId: 'n1',
+      pendingNodeIds: const [],
+      attemptsByEdge: const {},
+      circuitBreakerCount: 0,
+      nodeOutputs: const {
+        'n1': {
+          'outputLabel': 'onSuccess',
+          'data': {'ok': true},
         },
-        createdAt: DateTime.utc(2026),
-      );
+      },
+      createdAt: DateTime.utc(2026),
+    );
 
-      final res = await service.finalOutputOf('r-1');
-      expect(res.valueOrNull, {
-        'outputLabel': 'onSuccess',
-        'data': {'ok': true},
-      });
-    },
-  );
+    final res = await service.finalOutputOf('r-1');
+    expect(res.valueOrNull, {
+      'outputLabel': 'onSuccess',
+      'data': {'ok': true},
+    });
+  });
 
-  test(
-    'recordWarning appends a snapshot.warning event with the node id and source fan_out',
-    () async {
-      await service.recordWarning(
-        runId: 'parent-1',
-        nodeId: 'fan-1',
-        message: 'Empty list',
-      );
+  test('recordWarning appends snapshot.warning with source fan_out', () async {
+    await service.recordWarning(
+      runId: 'parent-1',
+      nodeId: 'fan-1',
+      message: 'Empty list',
+    );
 
-      final events = harness.events.events
-          .where((e) => e.runId == 'parent-1')
-          .toList();
-      expect(events, hasLength(1));
-      expect(events.single.type, RunEventType.snapshotWarning);
-      expect(events.single.nodeId, 'fan-1');
-      expect(events.single.payload, {
-        'message': 'Empty list',
-        'source': 'fan_out',
-      });
-    },
-  );
+    final events = harness.events.events
+        .where((e) => e.runId == 'parent-1')
+        .toList();
+    expect(events, hasLength(1));
+    expect(events.single.type, RunEventType.snapshotWarning);
+    expect(events.single.nodeId, 'fan-1');
+    expect(events.single.payload, {
+      'message': 'Empty list',
+      'source': 'fan_out',
+    });
+  });
 
-  test(
-    'a paused lent child can be resumed while its parent is running in the same folder',
-    () async {
-      await harness.runs.create(
-        Run(
-          id: 'parent-1',
-          workflowId: 'wf-1',
-          workflowName: 'Parent',
-          workflowDefinition: savedWorkflow,
-          workspacePath: '.',
-          workspaceId: 'ws-1',
-          status: RunStatus.running,
-          startedAt: DateTime.utc(2026),
-        ),
-      );
-      await harness.runs.create(
-        Run(
-          id: 'child-1',
-          workflowId: 'wf-1',
-          workflowName: 'Child',
-          workflowDefinition: pinnedWorkflow,
-          workspacePath: '.',
-          workspaceId: 'ws-1',
-          status: RunStatus.interrupted,
-          startedAt: DateTime.utc(2026),
-          parentRunId: 'parent-1',
-          parentNodeId: 'fan-1',
-          childIndex: 0,
-          childName: 'Item 1',
-        ),
-      );
+  test('paused lent child resumes while parent runs in same folder', () async {
+    await harness.runs.create(
+      Run(
+        id: 'parent-1',
+        workflowId: 'wf-1',
+        workflowName: 'Parent',
+        workflowDefinition: savedWorkflow,
+        workspacePath: '.',
+        workspaceId: 'ws-1',
+        status: RunStatus.running,
+        startedAt: DateTime.utc(2026),
+      ),
+    );
+    await harness.runs.create(
+      Run(
+        id: 'child-1',
+        workflowId: 'wf-1',
+        workflowName: 'Child',
+        workflowDefinition: pinnedWorkflow,
+        workspacePath: '.',
+        workspaceId: 'ws-1',
+        status: RunStatus.interrupted,
+        startedAt: DateTime.utc(2026),
+        parentRunId: 'parent-1',
+        parentNodeId: 'fan-1',
+        childIndex: 0,
+        childName: 'Item 1',
+      ),
+    );
 
-      final res = await service.resumeRun('child-1');
-      expect(res.failureOrNull, isNot(isA<ConflictFailure>()));
+    final res = await service.resumeRun('child-1');
+    expect(res.failureOrNull, isNot(isA<ConflictFailure>()));
 
-      await harness.runs.create(
-        Run(
-          id: 'other-1',
-          workflowId: 'wf-1',
-          workflowName: 'Other',
-          workflowDefinition: savedWorkflow,
-          workspacePath: '.',
-          workspaceId: 'ws-1',
-          status: RunStatus.interrupted,
-          startedAt: DateTime.utc(2026),
-        ),
-      );
-      final otherRes = await service.resumeRun('other-1');
-      expect(otherRes.failureOrNull, isA<ConflictFailure>());
-    },
-  );
+    await harness.runs.create(
+      Run(
+        id: 'other-1',
+        workflowId: 'wf-1',
+        workflowName: 'Other',
+        workflowDefinition: savedWorkflow,
+        workspacePath: '.',
+        workspaceId: 'ws-1',
+        status: RunStatus.interrupted,
+        startedAt: DateTime.utc(2026),
+      ),
+    );
+    final otherRes = await service.resumeRun('other-1');
+    expect(otherRes.failureOrNull, isA<ConflictFailure>());
+  });
 
   test(
     'pinWorkflow resolves the workspace workflow before the global one',

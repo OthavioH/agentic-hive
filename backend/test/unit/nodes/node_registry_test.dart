@@ -1,9 +1,9 @@
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
-import 'package:agentic_hive_backend/src/domain/nodes/child_run_port.dart';
-import 'package:agentic_hive_backend/src/domain/nodes/fan_out_node.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_shell_provider.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/child_run_port.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/command_node.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/fan_out_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/headless_harness_nodes.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/human_approval_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_execution_context.dart';
@@ -111,10 +111,7 @@ void main() {
         registry.create(NodeTypeId.claudeCode).valueOrNull,
         isA<ClaudeCodeNode>(),
       );
-      expect(
-        registry.create(NodeTypeId.fanOut).valueOrNull,
-        isA<FanOutNode>(),
-      );
+      expect(registry.create(NodeTypeId.fanOut).valueOrNull, isA<FanOutNode>());
       expect(registry.create(NodeTypeId.codex).valueOrNull, isA<CodexNode>());
       expect(
         registry.create(NodeTypeId.geminiCli).valueOrNull,

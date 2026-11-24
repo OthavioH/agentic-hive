@@ -90,7 +90,12 @@ void main() {
     await File(p.join(repo.path, 'README.md')).writeAsString('init\n');
     await _git(repo.path, ['add', '.']);
     await _git(repo.path, ['commit', '-m', 'init']);
-    final rev = await Process.run('git', ['-C', repo.path, 'rev-parse', 'HEAD']);
+    final rev = await Process.run('git', [
+      '-C',
+      repo.path,
+      'rev-parse',
+      'HEAD',
+    ]);
     baseCommit = (rev.stdout as String).trim();
 
     const git = GitClient(IoProcessRunner());
@@ -142,98 +147,93 @@ void main() {
     await service.waitForActiveExecutions();
   });
 
-  test(
-    'worktree child gets a new worktree from the given commit with branch hive/<id>',
-    () async {
-      final res = await service.startChildRun(
-        ChildRunRequest(
-          parentRunId: 'parent-1',
-          parentNodeId: 'fan-1',
-          index: 0,
-          name: 'Item 1',
-          workflow: workflow,
-          workspaceId: 'ws-1',
-          placement: ChildRunPlacement.worktree,
-          worktreeName: 'Item-1',
-          baseCommit: baseCommit,
-        ),
-      );
-
-      final run = res.valueOrNull!;
-      expect(run.isolationMode, WorkspaceIsolationMode.worktree);
-      expect(run.worktreeBranch, 'hive/${run.id}');
-      expect(Directory(run.worktreePath!).existsSync(), isTrue);
-
-      final head = await Process.run('git', [
-        '-C',
-        run.worktreePath!,
-        'rev-parse',
-        'HEAD',
-      ]);
-      expect((head.stdout as String).trim(), baseCommit);
-    },
-  );
-
-  test(
-    'a second child with the same worktree name fails alone with ConflictFailure',
-    () async {
-      final first = await service.startChildRun(
-        ChildRunRequest(
-          parentRunId: 'parent-1',
-          parentNodeId: 'fan-1',
-          index: 0,
-          name: 'Item 1',
-          workflow: workflow,
-          workspaceId: 'ws-1',
-          placement: ChildRunPlacement.worktree,
-          worktreeName: 'dup-wt',
-          baseCommit: baseCommit,
-        ),
-      );
-      expect(first.isSuccess, isTrue);
-
-      final second = await service.startChildRun(
-        ChildRunRequest(
-          parentRunId: 'parent-1',
-          parentNodeId: 'fan-1',
-          index: 1,
-          name: 'Item 2',
-          workflow: workflow,
-          workspaceId: 'ws-1',
-          placement: ChildRunPlacement.worktree,
-          worktreeName: 'dup-wt',
-          baseCommit: baseCommit,
-        ),
-      );
-      expect(second.failureOrNull, isA<ConflictFailure>());
-    },
-  );
-
-  test('inspectParentWorkspace returns the HEAD commit and dirty state', () async {
-    await harness.runs.create(
-      Run(
-        id: 'parent-1',
-        workflowId: 'wf-1',
-        workflowName: 'Parent',
-        workflowDefinition: workflow,
-        workspacePath: repo.path,
+  test('worktree child gets worktree from commit with hive/<id>', () async {
+    final res = await service.startChildRun(
+      ChildRunRequest(
+        parentRunId: 'parent-1',
+        parentNodeId: 'fan-1',
+        index: 0,
+        name: 'Item 1',
+        workflow: workflow,
         workspaceId: 'ws-1',
-        status: RunStatus.running,
-        startedAt: DateTime.utc(2026),
+        placement: ChildRunPlacement.worktree,
+        worktreeName: 'Item-1',
+        baseCommit: baseCommit,
       ),
     );
 
-    final clean = (await service.inspectParentWorkspace(
-      runId: 'parent-1',
-    )).valueOrNull!;
-    expect(clean.isGit, isTrue);
-    expect(clean.headCommit, baseCommit);
-    expect(clean.hasUncommittedChanges, isFalse);
+    final run = res.valueOrNull!;
+    expect(run.isolationMode, WorkspaceIsolationMode.worktree);
+    expect(run.worktreeBranch, 'hive/${run.id}');
+    expect(Directory(run.worktreePath!).existsSync(), isTrue);
 
-    await File(p.join(repo.path, 'dirty.txt')).writeAsString('dirty');
-    final dirty = (await service.inspectParentWorkspace(
-      runId: 'parent-1',
-    )).valueOrNull!;
-    expect(dirty.hasUncommittedChanges, isTrue);
+    final head = await Process.run('git', [
+      '-C',
+      run.worktreePath!,
+      'rev-parse',
+      'HEAD',
+    ]);
+    expect((head.stdout as String).trim(), baseCommit);
   });
+
+  test('second child with same worktree name fails', () async {
+    final first = await service.startChildRun(
+      ChildRunRequest(
+        parentRunId: 'parent-1',
+        parentNodeId: 'fan-1',
+        index: 0,
+        name: 'Item 1',
+        workflow: workflow,
+        workspaceId: 'ws-1',
+        placement: ChildRunPlacement.worktree,
+        worktreeName: 'dup-wt',
+        baseCommit: baseCommit,
+      ),
+    );
+    expect(first.isSuccess, isTrue);
+
+    final second = await service.startChildRun(
+      ChildRunRequest(
+        parentRunId: 'parent-1',
+        parentNodeId: 'fan-1',
+        index: 1,
+        name: 'Item 2',
+        workflow: workflow,
+        workspaceId: 'ws-1',
+        placement: ChildRunPlacement.worktree,
+        worktreeName: 'dup-wt',
+        baseCommit: baseCommit,
+      ),
+    );
+    expect(second.failureOrNull, isA<ConflictFailure>());
+  });
+
+  test(
+    'inspectParentWorkspace returns the HEAD commit and dirty state',
+    () async {
+      await harness.runs.create(
+        Run(
+          id: 'parent-1',
+          workflowId: 'wf-1',
+          workflowName: 'Parent',
+          workflowDefinition: workflow,
+          workspacePath: repo.path,
+          workspaceId: 'ws-1',
+          status: RunStatus.running,
+          startedAt: DateTime.utc(2026),
+        ),
+      );
+
+      final clean = (await service.inspectParentWorkspace(runId: 'parent-1'))
+          .valueOrNull!;
+      expect(clean.isGit, isTrue);
+      expect(clean.headCommit, baseCommit);
+      expect(clean.hasUncommittedChanges, isFalse);
+
+      await File(p.join(repo.path, 'dirty.txt')).writeAsString('dirty');
+      final dirty = (await service.inspectParentWorkspace(runId: 'parent-1'))
+          .valueOrNull!;
+      expect(dirty.hasUncommittedChanges, isTrue);
+    },
+  );
 }
