@@ -201,7 +201,7 @@ void main() {
     final workflow = (await DriftWorkflowRepository(db).getById('wf-1'))
         .valueOrNull!;
     expect(workflow.name, 'Release Flow');
-    expect(await readUserVersionOf(db), 10);
+    expect(await readUserVersionOf(db), 11);
   });
 
   test('migrating 6 to 8 with no runs creates no workspaces', () async {
@@ -258,7 +258,7 @@ void main() {
         db,
       ).list()).valueOrNull!;
       expect(workspaces.single.name, 'project-c');
-      expect(await readUserVersionOf(db), 10);
+      expect(await readUserVersionOf(db), 11);
     },
   );
 }

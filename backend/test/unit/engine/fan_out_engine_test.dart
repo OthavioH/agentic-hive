@@ -748,7 +748,7 @@ void main() {
         },
         (_) async {
           workRuns++;
-          return const FailureResult(NodeExecutionFailure('boom'));
+          return const FailureResult(UnexpectedFailure('boom'));
         },
         (_) async {
           workRuns++;

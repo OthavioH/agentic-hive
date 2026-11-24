@@ -52,7 +52,7 @@ void main() {
       await db.customSelect('SELECT 1').get();
       await db.close();
 
-      expect(expectedVersion, 10);
+      expect(expectedVersion, 11);
       expect(await readUserVersion(dbFile), expectedVersion);
     });
 
