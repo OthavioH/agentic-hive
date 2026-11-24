@@ -1050,4 +1050,373 @@ void main() {
       );
     },
   );
+
+  group('HarnessConfigForm model and effort', () {
+    Future<void> pumpHarness(
+      WidgetTester tester,
+      WorkflowNode node, {
+      ValueChanged<JsonMap>? onConfig,
+      Key? panelKey,
+    }) {
+      tester.view.physicalSize = const Size(900, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      return _pumpWithHost(
+        tester,
+        WorkflowInspectorPanel(
+          key: panelKey,
+          state: _stateWith(
+            nodes: <WorkflowNode>[node],
+            selectedNodeId: node.id,
+          ),
+          onUpdateMetadata: ({name, description}) {},
+          onUpdateNodeLabel: (_, _) {},
+          onUpdateNodeConfig: (_, c) => onConfig?.call(c),
+          onToggleEntryNode: (_, {required isEntry}) {},
+          onDeleteNode: (_) {},
+          onUpdateEdge: (
+            _, {
+            sourceOutput,
+            maxRetries,
+            clearMaxRetries = false,
+          }) {},
+          onDeleteEdge: (_) {},
+          onFocusIssue: (_) {},
+        ),
+      );
+    }
+
+    WorkflowNode nodeOf(
+      String type, [
+      JsonMap extra = const <String, dynamic>{},
+    ]) {
+      return WorkflowNode(
+        id: 'n1',
+        type: type,
+        label: 'N',
+        config: <String, dynamic>{
+          ...NodeDescriptors.of(type)!.defaultConfig(),
+          ...extra,
+        },
+        position: const WorkflowPosition(x: 0, y: 0),
+      );
+    }
+
+    const modelKey = Key('config_harness_model');
+    const effortKey = Key('config_harness_effort');
+
+    testWidgets('supported node shows both fields empty with hint', (
+      tester,
+    ) async {
+      await pumpHarness(tester, nodeOf(NodeTypeId.claudeCode));
+      await tester.pumpAndSettle();
+
+      final modelFinder = find.byKey(modelKey);
+      final effortFinder = find.byKey(effortKey);
+      expect(modelFinder, findsOneWidget);
+      expect(effortFinder, findsOneWidget);
+      expect(
+        tester.widget<HiveTextField>(modelFinder).controller!.text,
+        isEmpty,
+      );
+      expect(find.text('Harness default'), findsWidgets);
+      expect(find.text('Model'), findsWidgets);
+      expect(find.text('Effort'), findsWidgets);
+    });
+
+    testWidgets('per-descriptor source of truth drives field visibility', (
+      tester,
+    ) async {
+      for (final descriptor in NodeDescriptors.all.where(
+        (d) => d.category == NodeCategory.harnesses,
+      )) {
+        await pumpHarness(
+          tester,
+          nodeOf(descriptor.typeId),
+          panelKey: ValueKey<String>('panel_${descriptor.typeId}'),
+        );
+        await tester.pumpAndSettle();
+
+        final hasModel = descriptor.configFields.any((f) => f.name == 'model');
+        final hasEffort = descriptor.configFields.any(
+          (f) => f.name == 'effort',
+        );
+        expect(
+          find.byKey(modelKey),
+          hasModel ? findsOneWidget : findsNothing,
+          reason: '${descriptor.typeId} model visibility',
+        );
+        expect(
+          find.byKey(effortKey),
+          hasEffort ? findsOneWidget : findsNothing,
+          reason: '${descriptor.typeId} effort visibility',
+        );
+      }
+    });
+
+    testWidgets('gemini cli hides effort', (tester) async {
+      await pumpHarness(tester, nodeOf(NodeTypeId.geminiCli));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(modelKey), findsOneWidget);
+      expect(find.byKey(effortKey), findsNothing);
+    });
+
+    testWidgets('terminal hides both', (tester) async {
+      await pumpHarness(tester, nodeOf(NodeTypeId.terminal));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(modelKey), findsNothing);
+      expect(find.byKey(effortKey), findsNothing);
+    });
+
+    testWidgets('model emits trimmed value and null when blank', (
+      tester,
+    ) async {
+      JsonMap? latest;
+      await pumpHarness(
+        tester,
+        nodeOf(NodeTypeId.claudeCode),
+        onConfig: (c) => latest = c,
+      );
+      await tester.pumpAndSettle();
+
+      final modelFinder = find.byKey(modelKey);
+      await tester.ensureVisible(modelFinder);
+      await tester.enterText(modelFinder, '  opus  ');
+      await tester.pumpAndSettle();
+
+      expect(HarnessNodeConfig.fromJson(latest!).model, 'opus');
+
+      await tester.enterText(modelFinder, '   ');
+      await tester.pumpAndSettle();
+
+      expect(HarnessNodeConfig.fromJson(latest!).model, isNull);
+    });
+
+    testWidgets('effort select lists options and emits picked value or null', (
+      tester,
+    ) async {
+      JsonMap? latest;
+      await pumpHarness(
+        tester,
+        nodeOf(NodeTypeId.claudeCode),
+        onConfig: (c) => latest = c,
+      );
+      await tester.pumpAndSettle();
+
+      final effortFinder = find.byKey(effortKey);
+      await tester.ensureVisible(effortFinder);
+      await tester.tap(effortFinder);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Low'), findsWidgets);
+      expect(find.text('Medium'), findsWidgets);
+      expect(find.text('High'), findsWidgets);
+      expect(find.text('Max'), findsWidgets);
+      expect(find.text('Harness default'), findsWidgets);
+
+      await tester.tap(find.text('High').last);
+      await tester.pumpAndSettle();
+
+      expect(HarnessNodeConfig.fromJson(latest!).effort, 'high');
+
+      await tester.ensureVisible(effortFinder);
+      await tester.tap(effortFinder);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Harness default').last);
+      await tester.pumpAndSettle();
+
+      expect(HarnessNodeConfig.fromJson(latest!).effort, isNull);
+    });
+
+    testWidgets('stored values render in model and effort controls', (
+      tester,
+    ) async {
+      await pumpHarness(
+        tester,
+        nodeOf(NodeTypeId.claudeCode, const <String, dynamic>{
+          'model': 'opus',
+          'effort': 'max',
+        }),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<HiveTextField>(find.byKey(modelKey)).controller!.text,
+        'opus',
+      );
+      expect(
+        tester.widget<HiveSelect<String>>(find.byKey(effortKey)).value,
+        'max',
+      );
+    });
+
+    testWidgets('invalid effort on gemini renders error and keeps editable', (
+      tester,
+    ) async {
+      await pumpHarness(
+        tester,
+        nodeOf(NodeTypeId.geminiCli, const <String, dynamic>{'effort': 'high'}),
+      );
+      await tester.pumpAndSettle();
+
+      final effortSelect = tester.widget<HiveSelect<String>>(
+        find.byKey(effortKey),
+      );
+      expect(
+        effortSelect.errorText,
+        'Gemini CLI does not support choosing an effort.',
+      );
+      expect(
+        tester.widget<HiveTextField>(find.byKey(modelKey)).errorText,
+        isNull,
+      );
+    });
+
+    testWidgets('invalid model on terminal renders error and hides effort', (
+      tester,
+    ) async {
+      await pumpHarness(
+        tester,
+        nodeOf(NodeTypeId.terminal, const <String, dynamic>{'model': 'opus'}),
+      );
+      await tester.pumpAndSettle();
+
+      final modelField = tester.widget<HiveTextField>(find.byKey(modelKey));
+      expect(
+        modelField.errorText,
+        'Terminal Harness does not support choosing a model.',
+      );
+      expect(find.byKey(effortKey), findsNothing);
+    });
+
+    testWidgets('clearing an unsupported value hides the field', (
+      tester,
+    ) async {
+      JsonMap? latest;
+      await pumpHarness(
+        tester,
+        nodeOf(NodeTypeId.geminiCli, const <String, dynamic>{'effort': 'high'}),
+        onConfig: (c) => latest = c,
+        panelKey: const ValueKey<String>('clear_gemini'),
+      );
+      await tester.pumpAndSettle();
+
+      final effortFinder = find.byKey(effortKey);
+      await tester.ensureVisible(effortFinder);
+      await tester.tap(effortFinder);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Harness default').last);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(effortKey), findsNothing);
+      expect(HarnessNodeConfig.fromJson(latest!).effort, isNull);
+
+      latest = null;
+      await pumpHarness(
+        tester,
+        nodeOf(NodeTypeId.terminal, const <String, dynamic>{'model': 'opus'}),
+        onConfig: (c) => latest = c,
+        panelKey: const ValueKey<String>('clear_terminal'),
+      );
+      await tester.pumpAndSettle();
+
+      final modelFinder = find.byKey(modelKey);
+      await tester.ensureVisible(modelFinder);
+      await tester.enterText(modelFinder, '');
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(modelKey), findsNothing);
+      expect(latest!['model'], isNull);
+    });
+
+    testWidgets('terminal keeps stray values on unrelated edit', (
+      tester,
+    ) async {
+      JsonMap? latest;
+      await pumpHarness(
+        tester,
+        nodeOf(NodeTypeId.terminal, const <String, dynamic>{'model': 'opus'}),
+        onConfig: (c) => latest = c,
+      );
+      await tester.pumpAndSettle();
+
+      final instructionsFinder = find.byKey(
+        const Key('config_harness_additional_instructions'),
+      );
+      await tester.ensureVisible(instructionsFinder);
+      await tester.enterText(instructionsFinder, 'Run carefully.');
+      await tester.pumpAndSettle();
+
+      expect(latest!['model'], 'opus');
+      expect(
+        TerminalHarnessNodeConfig.fromJson(latest!).additionalInstructions,
+        'Run carefully.',
+      );
+    });
+
+    testWidgets('unknown effort string shows extra option and error', (
+      tester,
+    ) async {
+      JsonMap? latest;
+      await pumpHarness(
+        tester,
+        nodeOf(NodeTypeId.claudeCode, const <String, dynamic>{
+          'effort': 'ultra',
+        }),
+        onConfig: (c) => latest = c,
+      );
+      await tester.pumpAndSettle();
+
+      final effortFinder = find.byKey(effortKey);
+      expect(
+        tester.widget<HiveSelect<String>>(effortFinder).errorText,
+        '"ultra" is not a valid effort.',
+      );
+
+      await tester.ensureVisible(effortFinder);
+      await tester.tap(effortFinder);
+      await tester.pumpAndSettle();
+
+      expect(find.text('ultra'), findsWidgets);
+
+      await tester.tap(find.text('Low').last);
+      await tester.pumpAndSettle();
+
+      expect(HarnessNodeConfig.fromJson(latest!).effort, 'low');
+    });
+
+    testWidgets('fields render in descriptor order before extra args', (
+      tester,
+    ) async {
+      await pumpHarness(tester, nodeOf(NodeTypeId.claudeCode));
+      await tester.pumpAndSettle();
+
+      final timeoutTop = tester
+          .getTopLeft(find.byKey(const Key('config_harness_timeout_seconds')))
+          .dy;
+      final modelTop = tester.getTopLeft(find.byKey(modelKey)).dy;
+      final effortTop = tester.getTopLeft(find.byKey(effortKey)).dy;
+      final extraArgsTop = tester
+          .getTopLeft(find.byKey(const Key('config_harness_extra_args')))
+          .dy;
+
+      expect(timeoutTop, lessThan(modelTop));
+      expect(modelTop, lessThan(effortTop));
+      expect(effortTop, lessThan(extraArgsTop));
+    });
+
+    test('l10n sanity for unsupported model and effort messages', () async {
+      final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+      expect(
+        l10n.nodeConfigEffortUnsupportedError('X'),
+        'X does not support choosing an effort.',
+      );
+      expect(
+        l10n.nodeConfigModelUnsupportedError('X'),
+        'X does not support choosing a model.',
+      );
+    });
+  });
 }
