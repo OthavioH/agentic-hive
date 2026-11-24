@@ -158,6 +158,28 @@
         "effort": "low",
         "timeoutSeconds": 3600
       }
+    },
+    {
+      "id": "pr_ready",
+      "type": "command",
+      "label": "PR ready for review",
+      "position": {
+        "x": 1820.0,
+        "y": 0.0
+      },
+      "config": {
+        "command": "gh",
+        "args": [
+          "pr",
+          "view",
+          "--json",
+          "number,url,title",
+          "--jq",
+          "\"CI green: #\\(.number) \\(.title) \\(.url)\""
+        ],
+        "env": {},
+        "timeoutSeconds": 120
+      }
     }
   ],
   "edges": [
@@ -229,10 +251,16 @@
       "sourceOutput": "onSuccess",
       "targetNodeId": "wait_ci",
       "maxRetries": 3
+    },
+    {
+      "id": "edge_12",
+      "sourceNodeId": "wait_ci",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "pr_ready"
     }
   ],
   "createdAt": "2026-11-24T19:52:45.005146Z",
-  "updatedAt": "2026-11-24T19:59:10.147392Z",
+  "updatedAt": "2026-11-24T22:19:14.040808Z",
   "description": "Implements one GitHub issue end to end: plan (Opus) → codegen → implement (Hydrogen, ponytail) → quality gate → review (Sonnet, code-review + ponytail-review) → PR → wait for CI, with an investigate/fix loop on CI failure. Run input: \"Implement issue #<n>. Base branch: <branch>.\" (the Spec Implementation fan-out sends this per ticket, with base spec/<n>). Never merges: the PR is left for the parent workflow or a human. Start it in a new worktree.",
   "entryNodeId": "plan",
   "schemaVersion": 1
