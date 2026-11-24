@@ -273,10 +273,8 @@ void main() {
     expect(failure.activeRuns.keys, ['c1']);
   });
 
-  test(
-    'forced deleteRunsOfWorkflow cancels the active parent and its active '
-    'child',
-    () async {
+  test('forced deleteRunsOfWorkflow cancels the active parent and its active '
+      'child', () async {
     final t0 = DateTime.utc(2026, 11, 20, 10);
     await runs.create(
       makeRun(
