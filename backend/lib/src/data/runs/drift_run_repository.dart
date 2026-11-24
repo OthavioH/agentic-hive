@@ -168,6 +168,32 @@ final class DriftRunRepository implements RunRepository {
   }
 
   @override
+  Future<Result<List<Run>>> listChildren(
+    String parentRunId, {
+    String? parentNodeId,
+  }) async {
+    try {
+      final query = _db.select(_db.runs)
+        ..where((row) {
+          final byParent = row.parentRunId.equals(parentRunId);
+          return parentNodeId == null
+              ? byParent
+              : byParent & row.parentNodeId.equals(parentNodeId);
+        })
+        ..orderBy([(row) => OrderingTerm.asc(row.startedAt)]);
+      final rows = await query.get();
+      return Success(rows.map(_fromRow).toList());
+    } on Object catch (error) {
+      return FailureResult(
+        PersistenceFailure(
+          'Failed to list child runs of "$parentRunId".',
+          cause: error,
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Result<int>> countByStatusFinishedSince(
     RunStatus status, {
     required DateTime finishedSince,

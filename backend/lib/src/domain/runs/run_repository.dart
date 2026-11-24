@@ -21,6 +21,13 @@ abstract interface class RunRepository {
   /// Lists all runs currently in [status], ordered by `startedAt ASC`.
   Future<Result<List<Run>>> listByStatus(RunStatus status);
 
+  /// Lists the child runs of [parentRunId] ordered by `startedAt ASC`;
+  /// with [parentNodeId] only those started by that fan-out node.
+  Future<Result<List<Run>>> listChildren(
+    String parentRunId, {
+    String? parentNodeId,
+  });
+
   /// Counts runs currently in [status] whose `finishedAt` timestamp is non-null
   /// and at or after [finishedSince] (inclusive).
   Future<Result<int>> countByStatusFinishedSince(

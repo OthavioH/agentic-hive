@@ -48,6 +48,23 @@ final class InMemoryRunRepository implements RunRepository {
   );
 
   @override
+  Future<Result<List<Run>>> listChildren(
+    String parentRunId, {
+    String? parentNodeId,
+  }) async {
+    final matches =
+        runs.values
+            .where(
+              (r) =>
+                  r.parentRunId == parentRunId &&
+                  (parentNodeId == null || r.parentNodeId == parentNodeId),
+            )
+            .toList()
+          ..sort((a, b) => a.startedAt.compareTo(b.startedAt));
+    return Success(matches);
+  }
+
+  @override
   Future<Result<int>> countByStatusFinishedSince(
     RunStatus status, {
     required DateTime finishedSince,
