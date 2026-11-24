@@ -77,6 +77,7 @@ final class DriftPauseRepository implements PauseRepository {
               ),
               createdAt: utcCreatedAt.toIso8601String(),
               answeredAt: Value(normalized.answeredAt?.toIso8601String()),
+              parentRunId: Value(normalized.parentRunId),
             ),
           );
       if (normalized.status == PauseStatus.pending &&
@@ -378,6 +379,7 @@ final class DriftPauseRepository implements PauseRepository {
       answeredAt: row.answeredAt == null
           ? null
           : DateTime.parse(row.answeredAt!).toUtc(),
+      parentRunId: row.parentRunId,
     );
   }
 }

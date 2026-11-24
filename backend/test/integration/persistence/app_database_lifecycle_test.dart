@@ -85,7 +85,7 @@ void main() {
       final secondRows = await readMetadataRows(dbFile);
       expect(secondRows, firstRows);
       expect(secondRows, hasLength(1));
-      expect(await readUserVersion(dbFile), 10);
+      expect(await readUserVersion(dbFile), 11);
     });
   });
 

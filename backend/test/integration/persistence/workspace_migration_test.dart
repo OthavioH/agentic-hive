@@ -151,7 +151,7 @@ void main() {
     final db = AppDatabase.open(dbFile);
     addTearDown(db.close);
 
-    expect(db.schemaVersion, 10);
+    expect(db.schemaVersion, 11);
   });
 
   test('migrating 6 to 8 attaches every run to a workspace named after its '

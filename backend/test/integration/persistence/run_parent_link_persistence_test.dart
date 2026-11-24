@@ -67,7 +67,7 @@ void main() {
 
       final repo = DriftRunRepository(db);
       final oldRun = (await repo.getById('r-old')).valueOrNull!;
-      expect(await readUserVersion(dbFile), 10);
+      expect(await readUserVersion(dbFile), 11);
       expect(oldRun.parentRunId, isNull);
       expect(oldRun.parentNodeId, isNull);
       expect(oldRun.childIndex, isNull);
