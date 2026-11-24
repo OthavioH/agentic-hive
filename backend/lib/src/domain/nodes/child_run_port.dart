@@ -109,4 +109,16 @@ abstract interface class ChildRunPort {
     required String nodeId,
     required String message,
   });
+
+  /// Child runs of [parentRunId] started by [parentNodeId], oldest first.
+  Future<Result<List<Run>>> listChildRuns({
+    required String parentRunId,
+    required String parentNodeId,
+  });
+
+  /// Resumes the `interrupted` child run [runId] from its latest checkpoint.
+  Future<Result<Run>> resumeChildRun(String runId);
+
+  /// Cancels the child run [runId] and completes once the cancel settled.
+  Future<Result<Run>> cancelChildRun(String runId);
 }

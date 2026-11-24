@@ -892,6 +892,18 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     );
   }
 
+  @override
+  Future<Result<List<Run>>> listChildRuns({
+    required String parentRunId,
+    required String parentNodeId,
+  }) => _runs.listChildren(parentRunId, parentNodeId: parentNodeId);
+
+  @override
+  Future<Result<Run>> resumeChildRun(String runId) => resumeRun(runId);
+
+  @override
+  Future<Result<Run>> cancelChildRun(String runId) => cancelRun(runId);
+
   Future<ConflictFailure?> _checkFolderConflict(
     String normalizedFolder, {
     Set<String> excludeRunIds = const {},
