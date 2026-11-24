@@ -3,16 +3,12 @@ import 'dart:typed_data';
 
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
-import 'package:agentic_hive_backend/src/skills/bundled_skill.dart';
+import 'package:agentic_hive_backend/src/data/harnesses/hive_skill_sidecar.dart';
+import 'package:agentic_hive_backend/src/domain/skills/bundled_skill.dart';
+import 'package:agentic_hive_backend/src/domain/skills/bundled_skill_loader.dart';
 import 'package:path/path.dart' as p;
 
 const _textExtensions = <String>{'.md', '.json', '.txt', '.yaml', '.yml'};
-
-/// Reads a skill by name. One implementation per source (disk for now).
-abstract interface class BundledSkillLoader {
-  /// Loads the skill [name]. Never throws; returns a failure Result instead.
-  Result<BundledSkill> load(String name);
-}
 
 /// Reads skills from `<skillsRoot>/<name>/`.
 final class DirectoryBundledSkillLoader implements BundledSkillLoader {
@@ -40,7 +36,7 @@ final class DirectoryBundledSkillLoader implements BundledSkillLoader {
         if (entity is! File) continue;
         final relative = p.relative(entity.path, from: skillDir.path);
         final posixPath = p.posix.joinAll(p.split(relative));
-        if (posixPath == 'hive-skill.json') continue;
+        if (posixPath == HiveSkillSidecar.fileName) continue;
 
         final rawBytes = entity.readAsBytesSync();
         files[posixPath] = _isTextFile(posixPath)
@@ -86,48 +82,4 @@ List<int> _normalizeLineEndings(List<int> bytes) {
     builder.addByte(bytes[i]);
   }
   return builder.takeBytes();
-}
-
-/// Finds the folder that holds the bundled skills.
-final class BundledSkillsLocator {
-  /// Creates a locator; hooks exist for tests.
-  new({
-    String? resolvedExecutable,
-    bool Function(String path)? directoryExists,
-    p.Context? pathContext,
-  }) : _resolvedExecutable = resolvedExecutable ?? Platform.resolvedExecutable,
-       _directoryExists =
-           directoryExists ?? ((path) => Directory(path).existsSync()),
-       _ctx = pathContext ?? p.context;
-
-  final String _resolvedExecutable;
-  final bool Function(String path) _directoryExists;
-  final p.Context _ctx;
-
-  /// Returns the existing skills root or a `NotFoundFailure`.
-  Result<String> resolveRoot() {
-    final candidates = <String>[
-      _ctx.normalize(
-        _ctx.join(_ctx.dirname(_resolvedExecutable), '..', 'skills'),
-      ),
-      _ctx.join(Directory.current.path, 'skills'),
-      _ctx.join(Directory.current.path, 'backend', 'skills'),
-      if (Platform.script.scheme == 'file' &&
-          Platform.script.toFilePath().endsWith('.dart'))
-        _ctx.join(
-          _ctx.dirname(_ctx.dirname(Platform.script.toFilePath())),
-          'skills',
-        ),
-    ];
-
-    for (final candidate in candidates) {
-      if (_directoryExists(candidate)) {
-        return Success(candidate);
-      }
-    }
-
-    return const FailureResult(
-      NotFoundFailure('Could not find the bundled skills folder.'),
-    );
-  }
 }

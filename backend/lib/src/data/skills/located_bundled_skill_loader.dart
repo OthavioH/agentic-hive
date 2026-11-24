@@ -1,6 +1,8 @@
 import 'package:agentic_hive_backend/src/core/result.dart';
-import 'package:agentic_hive_backend/src/skills/bundled_skill.dart';
-import 'package:agentic_hive_backend/src/skills/bundled_skill_loader.dart';
+import 'package:agentic_hive_backend/src/data/skills/bundled_skills_locator.dart';
+import 'package:agentic_hive_backend/src/data/skills/directory_bundled_skill_loader.dart';
+import 'package:agentic_hive_backend/src/domain/skills/bundled_skill.dart';
+import 'package:agentic_hive_backend/src/domain/skills/bundled_skill_loader.dart';
 
 /// [BundledSkillLoader] that resolves the bundled skills root lazily on each
 /// [load] call so a missing skills folder returns a failure [Result].

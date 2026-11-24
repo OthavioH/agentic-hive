@@ -1,11 +1,12 @@
 import 'dart:convert';
 
 import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/data/skills/directory_bundled_skill_loader.dart';
+import 'package:agentic_hive_backend/src/domain/skills/bundled_skill.dart';
 import 'package:agentic_hive_backend/src/mcp/hive_mcp_tool_catalog.dart';
-import 'package:agentic_hive_backend/src/skills/bundled_skill.dart';
-import 'package:agentic_hive_backend/src/skills/bundled_skill_loader.dart';
-import 'package:agentic_hive_backend/src/skills/skill_tool_names.dart';
 import 'package:test/test.dart';
+
+import 'skill_tool_names.dart';
 
 void main() {
   late String skillText;

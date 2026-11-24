@@ -3,8 +3,10 @@ import 'dart:io';
 
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
-import 'package:agentic_hive_backend/src/skills/bundled_skill.dart';
-import 'package:agentic_hive_backend/src/skills/bundled_skill_loader.dart';
+import 'package:agentic_hive_backend/src/data/skills/bundled_skills_locator.dart';
+import 'package:agentic_hive_backend/src/data/skills/directory_bundled_skill_loader.dart';
+import 'package:agentic_hive_backend/src/domain/skills/bundled_skill.dart';
+import 'package:agentic_hive_backend/src/runtime/runtime_mode.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -141,6 +143,44 @@ void main() {
           isA<NotFoundFailure>(),
         ),
       );
+    });
+
+    test('in production mode ignores working directory candidates', () {
+      final tmp = createTempDir();
+      final cwdSkills = p.join(tmp.path, 'skills');
+      final locator = BundledSkillsLocator(
+        resolvedExecutable: p.join(tmp.path, 'opt', 'bin', 'server'),
+        currentWorkingDirectory: tmp.path,
+        directoryExists: (path) => path == cwdSkills,
+        pathContext: p.context,
+        runtimeMode: RuntimeMode.production,
+      );
+
+      final result = locator.resolveRoot();
+      expect(
+        result,
+        isA<FailureResult<String>>().having(
+          (e) => e.failure,
+          'failure',
+          isA<NotFoundFailure>(),
+        ),
+      );
+    });
+
+    test('in development mode falls back to working directory skills', () {
+      final tmp = createTempDir();
+      final cwdSkills = p.join(tmp.path, 'skills');
+      final locator = BundledSkillsLocator(
+        resolvedExecutable: p.join(tmp.path, 'opt', 'bin', 'server'),
+        currentWorkingDirectory: tmp.path,
+        directoryExists: (path) => path == cwdSkills,
+        pathContext: p.context,
+        runtimeMode: RuntimeMode.development,
+      );
+
+      final result = locator.resolveRoot();
+      expect(result, isA<Success<String>>());
+      expect((result as Success<String>).value, equals(cwdSkills));
     });
   });
 }

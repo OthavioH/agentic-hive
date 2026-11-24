@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:agentic_hive_backend/src/skills/bundled_skill.dart';
+import 'package:agentic_hive_backend/src/domain/skills/bundled_skill.dart';
 import 'package:test/test.dart';
 
 void main() {
