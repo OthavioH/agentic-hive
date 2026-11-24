@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/fan_out_reference_finder.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_events.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_operation.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_registry.dart';
@@ -213,6 +214,14 @@ final class WorkflowService {
         );
       }
     }
+    final referencesResult = await _referenceFinder.find(
+      id,
+      workspaceId: workspaceId,
+    );
+    if (referencesResult
+        case FailureResult<List<WorkflowReference>>(:final failure)) {
+      return FailureResult(failure);
+    }
     final phase = force && activeRuns.isNotEmpty
         ? WorkflowDeletionPhase.stoppingRuns
         : WorkflowDeletionPhase.deletingRuns;
@@ -229,9 +238,32 @@ final class WorkflowService {
     _deletionEvents?.progress(operation);
     unawaited(_runDeletion(operation.id, force: force));
     return Success(
-      WorkflowDeletionAccepted(operationId: operation.id, workflowId: id),
+      WorkflowDeletionAccepted(
+        operationId: operation.id,
+        workflowId: id,
+        references: referencesResult.valueOrNull!,
+      ),
     );
   });
+
+  /// Lists the workflows whose fan-out nodes reference workflow [id] (R16).
+  Future<Result<WorkflowReferencesResponse>> getReferences(
+    String id, {
+    String? workspaceId,
+  }) async {
+    final existing = await _load(id, workspaceId);
+    if (existing case FailureResult<Workflow>(:final failure)) {
+      return FailureResult(failure);
+    }
+    final found = await _referenceFinder.find(id, workspaceId: workspaceId);
+    return found.map((refs) => WorkflowReferencesResponse(references: refs));
+  }
+
+  FanOutReferenceFinder get _referenceFinder => FanOutReferenceFinder(
+    repository: _repository,
+    workspaceWorkflows: _workspaceWorkflows,
+    workspaces: _workspaces,
+  );
 
   /// Returns the operation status or a not-found failure.
   Result<WorkflowDeletionOperation> getDeletion(String operationId) {
