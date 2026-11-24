@@ -183,6 +183,88 @@ void main() {
         );
       });
 
+      testWidgets('HiveInsetPanel', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_inset_panel',
+          SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: 16,
+              children: <Widget>[
+                HiveInsetPanel(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: <Widget>[
+                      const HiveBadge(
+                        label: 'Not installed',
+                        tone: HiveBadgeTone.neutral,
+                      ),
+                      HiveButton(
+                        label: 'Install',
+                        size: HiveButtonSize.small,
+                        variant: HiveButtonVariant.secondary,
+                        onPressed: () {},
+                      ),
+                    ],
+                  ),
+                ),
+                const HiveInsetPanel(
+                  padding: HiveInsetPadding.comfortable,
+                  child: Text(
+                    'Run claude login in a terminal before using this harness.',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          size: const Size(480, 260),
+        );
+      });
+
+      testWidgets('HiveBanner compact', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_banner_compact',
+          SizedBox(
+            width: 400,
+            child: HiveBanner(
+              tone: HiveFeedbackTone.danger,
+              density: HiveBannerDensity.compact,
+              title: 'Could not install skill',
+              message: 'Permission denied writing to ~/.claude/skills.',
+              actions: <Widget>[
+                HiveButton(
+                  label: 'Retry',
+                  size: HiveButtonSize.small,
+                  variant: HiveButtonVariant.secondary,
+                  onPressed: () {},
+                ),
+              ],
+            ),
+          ),
+          size: const Size(480, 220),
+        );
+      });
+
+      testWidgets('HiveSwitch with helper', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_switch_helper',
+          SizedBox(
+            width: 400,
+            child: HiveSwitch(
+              label: 'Install the skill automatically',
+              helperText: 'Installs the agentic-hive skill when a new harness is found.',
+              value: true,
+              onChanged: (_) {},
+            ),
+          ),
+        );
+      });
+
       testWidgets('HiveStatusDot', (tester) async {
         await pumpAndMatch(
           tester,

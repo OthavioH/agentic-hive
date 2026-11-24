@@ -24,7 +24,7 @@ void main() {
           });
         }
 
-        test('covers the inverse pair and feedback tones on every surface', () {
+        test('covers the inverse pair, feedback tones and borderStrong on every surface', () {
           final pairs = entry.value.contrastPairs;
           expect(
             pairs.any(
@@ -35,17 +35,23 @@ void main() {
             ),
             isTrue,
           );
-          for (final tone in <String>['success', 'warning', 'danger', 'info']) {
+          for (final role in <String>[
+            'success',
+            'warning',
+            'danger',
+            'info',
+            'borderStrong',
+          ]) {
             for (final surface in entry.value.surfaces.keys) {
               expect(
                 pairs.any(
                   (p) =>
-                      p.foregroundRole == tone &&
+                      p.foregroundRole == role &&
                       p.backgroundRole == surface &&
                       p.level == HiveContrastLevel.ui,
                 ),
                 isTrue,
-                reason: '$tone on $surface is not tested',
+                reason: '$role on $surface is not tested',
               );
             }
           }
