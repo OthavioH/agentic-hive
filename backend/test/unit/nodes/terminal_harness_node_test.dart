@@ -13,6 +13,7 @@ import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_
 import 'package:agentic_hive_backend/src/domain/runs/process_tree_killer.dart';
 import 'package:agentic_hive_backend/src/domain/settings/execution_settings_service.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 final class _FakePtyRunner implements PtyRunner {
@@ -599,6 +600,93 @@ void main() {
         },
       );
       expect(resolved, shim.path);
+    });
+
+    test('prefers PATHEXT match over extensionless file', () async {
+      final binDir = Directory(
+        '${workspaceDir.path}${Platform.pathSeparator}bin',
+      );
+      await binDir.create();
+      final shim = File('${binDir.path}${Platform.pathSeparator}tool');
+      await shim.writeAsString('#!/bin/sh\n');
+      final bat = File('${binDir.path}${Platform.pathSeparator}tool.bat');
+      await bat.writeAsString('@echo off\r\n');
+
+      final resolved = resolveWindowsExecutable(
+        'tool',
+        workingDirectory: workspaceDir.path,
+        env: <String, String>{
+          'PATH': binDir.path,
+          'PATHEXT': '.COM;.EXE;.BAT;.CMD',
+        },
+      );
+      expect(resolved, bat.path);
+    });
+
+    test('returns null when only an extensionless file exists', () async {
+      final binDir = Directory(
+        '${workspaceDir.path}${Platform.pathSeparator}bin',
+      );
+      await binDir.create();
+      final shim = File('${binDir.path}${Platform.pathSeparator}tool');
+      await shim.writeAsString('#!/bin/sh\n');
+
+      final resolved = resolveWindowsExecutable(
+        'tool',
+        workingDirectory: workspaceDir.path,
+        env: <String, String>{
+          'PATH': binDir.path,
+          'PATHEXT': '.COM;.EXE;.BAT;.CMD',
+        },
+      );
+      expect(resolved, isNull);
+    });
+
+    test('keeps explicit extensions and paths', () async {
+      final binDir = Directory(
+        '${workspaceDir.path}${Platform.pathSeparator}bin',
+      );
+      await binDir.create();
+      final exe = File('${binDir.path}${Platform.pathSeparator}tool.exe');
+      await exe.writeAsString('MZ');
+
+      final env = <String, String>{
+        'PATH': binDir.path,
+        'PATHEXT': '.COM;.EXE;.BAT;.CMD',
+      };
+
+      expect(
+        resolveWindowsExecutable(
+          'tool.exe',
+          workingDirectory: workspaceDir.path,
+          env: env,
+        ),
+        exe.path,
+      );
+      expect(
+        resolveWindowsExecutable(
+          exe.path,
+          workingDirectory: workspaceDir.path,
+          env: env,
+        ),
+        exe.path,
+      );
+      expect(
+        resolveWindowsExecutable(
+          p.join('bin', 'tool.exe'),
+          workingDirectory: workspaceDir.path,
+          env: env,
+        ),
+        p.join(workspaceDir.path, 'bin', 'tool.exe'),
+      );
+      expect(
+        resolveWindowsExecutable(
+          p.join('bin', 'tool'),
+          workingDirectory: workspaceDir.path,
+          env: env,
+        ),
+        exe.path,
+      );
     });
   });
 

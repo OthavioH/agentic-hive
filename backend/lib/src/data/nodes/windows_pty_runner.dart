@@ -1061,6 +1061,9 @@ String _resolveWindowsCommandLine(
 
 /// Resolves [executable] on Windows using `PATHEXT` and `PATH`
 /// (case-insensitively), returning `null` if no matching file exists.
+///
+/// An extensionless name only matches through `PATHEXT`; an extensionless
+/// file is never returned because Windows cannot execute it.
 String? resolveWindowsExecutable(
   String executable, {
   required String workingDirectory,
@@ -1074,12 +1077,12 @@ String? resolveWindowsExecutable(
       .toList();
 
   String? tryCandidate(String basePath) {
-    if (File(basePath).existsSync()) return basePath;
-    if (p.extension(basePath).isEmpty) {
-      for (final ext in extensions) {
-        final withExt = '$basePath$ext';
-        if (File(withExt).existsSync()) return withExt;
-      }
+    if (p.extension(basePath).isNotEmpty) {
+      return File(basePath).existsSync() ? basePath : null;
+    }
+    for (final ext in extensions) {
+      final withExt = '$basePath$ext';
+      if (File(withExt).existsSync()) return withExt;
     }
     return null;
   }
