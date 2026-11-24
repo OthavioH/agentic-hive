@@ -4,6 +4,7 @@ import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_detector.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_mcp_installer.dart';
+import 'package:agentic_hive_backend/src/domain/harnesses/harness_skill_installer.dart';
 import 'package:agentic_hive_backend/src/mcp/hive_mcp_locator.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
@@ -24,6 +25,17 @@ abstract interface class HarnessService {
   /// Installs or updates the `hive` MCP server in [id]'s user configuration
   /// and returns the refreshed [HarnessInfo].
   Future<Result<HarnessInfo>> installMcp(HarnessId id);
+
+  /// Installs or updates the Agentic Hive skill for [id]'s location and
+  /// returns the refreshed [HarnessInfo].
+  Future<Result<HarnessInfo>> installSkill(
+    HarnessId id, {
+    bool overwriteModified = false,
+  });
+
+  /// Removes the Agentic Hive skill for [id]'s location (only when it has
+  /// our sidecar) and returns the refreshed [HarnessInfo].
+  Future<Result<HarnessInfo>> removeSkill(HarnessId id);
 
   /// Applies custom executable path overrides for all harnesses.
   ///
@@ -51,6 +63,7 @@ final class DefaultHarnessService implements HarnessService {
     required List<HarnessDetector> detectors,
     this._mcpInstallers,
     this._mcpLocator,
+    this._skillInstallers,
     DateTime Function()? now,
   }) : _detectors = {for (final detector in detectors) detector.id: detector},
        _now = now ?? DateTime.now;
@@ -58,6 +71,7 @@ final class DefaultHarnessService implements HarnessService {
   final Map<HarnessId, HarnessDetector> _detectors;
   final HarnessMcpInstallerRegistry? _mcpInstallers;
   final HiveMcpLocator? _mcpLocator;
+  final HarnessSkillInstallerRegistry? _skillInstallers;
   final DateTime Function() _now;
   final Map<HarnessId, HarnessInfo> _cache = {};
   final Map<HarnessId, String?> _overrides = {};
@@ -101,7 +115,7 @@ final class DefaultHarnessService implements HarnessService {
       );
     }
     final detected = await detector.detect();
-    final updated = await _enrichMcpStatus(detected);
+    final updated = await _enrich(detected);
     _cache[id] = updated;
     _emit(updated);
     return Success(updated);
@@ -152,6 +166,67 @@ final class DefaultHarnessService implements HarnessService {
     }
 
     return await refreshOne(id);
+  }
+
+  @override
+  Future<Result<HarnessInfo>> installSkill(
+    HarnessId id, {
+    bool overwriteModified = false,
+  }) => _runSkillAction(
+    id,
+    (installer) => installer.install(overwriteModified: overwriteModified),
+  );
+
+  @override
+  Future<Result<HarnessInfo>> removeSkill(HarnessId id) =>
+      _runSkillAction(id, (installer) => installer.remove());
+
+  Future<Result<HarnessInfo>> _runSkillAction(
+    HarnessId id,
+    Result<void> Function(HarnessSkillInstaller installer) action,
+  ) async {
+    final detector = _detectors[id];
+    if (detector == null) {
+      return FailureResult(
+        NotFoundFailure('Unknown harness "${id.wireName}".'),
+      );
+    }
+
+    final installer = _skillInstallers?[id];
+    if (installer == null) {
+      return FailureResult(
+        ConflictFailure(
+          'Skill installation is not supported for ${id.displayName}.',
+        ),
+      );
+    }
+
+    final current = _cache[id] ?? await detector.detect();
+    if (current.status == HarnessStatus.notInstalled ||
+        current.executablePath == null) {
+      return FailureResult(
+        ConflictFailure('${id.displayName} CLI is not installed.'),
+      );
+    }
+
+    final actionResult = action(installer);
+    if (actionResult case FailureResult<void>(:final failure)) {
+      return FailureResult(failure);
+    }
+
+    for (final targetId in installer.harnessIds) {
+      final previous = _cache[targetId] ?? (targetId == id ? current : null);
+      if (previous == null) continue;
+      final updated = _enrichSkillStatus(previous);
+      _cache[targetId] = updated;
+      if (_hasMeaningfulChange(
+        _cache[targetId] == updated ? previous : null,
+        updated,
+      )) {
+        _emit(updated);
+      }
+    }
+    return Success(_cache[id]!);
   }
 
   @override
@@ -209,7 +284,7 @@ final class DefaultHarnessService implements HarnessService {
       for (final detector in detectors) detector.detect(),
     ]);
     final results = await Future.wait([
-      for (final info in detected) _enrichMcpStatus(info),
+      for (final info in detected) _enrich(info),
     ]);
 
     for (final updated in results) {
@@ -221,6 +296,23 @@ final class DefaultHarnessService implements HarnessService {
     }
     _scanned = true;
     return _orderedCache();
+  }
+
+  Future<HarnessInfo> _enrich(HarnessInfo info) async =>
+      _enrichSkillStatus(await _enrichMcpStatus(info));
+
+  HarnessInfo _enrichSkillStatus(HarnessInfo info) {
+    final installer = _skillInstallers?[info.id];
+    if (installer == null ||
+        info.status == HarnessStatus.notInstalled ||
+        info.executablePath == null) {
+      return info.copyWith(skillStatus: null, skillMessage: null);
+    }
+    final detection = installer.detect();
+    return info.copyWith(
+      skillStatus: detection.status,
+      skillMessage: detection.message,
+    );
   }
 
   Future<HarnessInfo> _enrichMcpStatus(HarnessInfo info) async {
@@ -303,6 +395,8 @@ final class DefaultHarnessService implements HarnessService {
         previous.executablePath != next.executablePath ||
         previous.errorMessage != next.errorMessage ||
         previous.mcpStatus != next.mcpStatus ||
-        previous.mcpMessage != next.mcpMessage;
+        previous.mcpMessage != next.mcpMessage ||
+        previous.skillStatus != next.skillStatus ||
+        previous.skillMessage != next.skillMessage;
   }
 }

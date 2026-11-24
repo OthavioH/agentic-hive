@@ -10,6 +10,10 @@ final class HarnessesHandler {
   /// Creates a harnesses HTTP handler.
   const new({required this._harnessService});
 
+  /// Query parameter controlling whether hand-edited skill files are
+  /// overwritten during `POST /api/v1/harnesses/<id>/skill/install`.
+  static const overwriteModifiedQueryParameter = 'overwriteModified';
+
   final HarnessService _harnessService;
 
   /// `GET /api/v1/harnesses`: returns the cached list of all harnesses.
@@ -59,6 +63,64 @@ final class HarnessesHandler {
       );
     }
     final result = await _harnessService.installMcp(id);
+    return result.fold<Response>(
+      onSuccess: (harness) => jsonResponse(200, harness),
+      onFailure: (failure) => failureResponse(request, failure),
+    );
+  }
+
+  /// `POST /api/v1/harnesses/<id>/skill/install`: installs or updates the
+  /// Agentic Hive skill for one harness and returns refreshed info.
+  Future<Response> installSkill(Request request, String rawId) async {
+    final id = HarnessId.tryParse(rawId);
+    if (id == null) {
+      return failureResponse(
+        request,
+        NotFoundFailure('Unknown harness "$rawId".'),
+      );
+    }
+
+    final rawFlag =
+        request.url.queryParameters[overwriteModifiedQueryParameter];
+    final bool overwriteModified;
+    switch (rawFlag) {
+      case null:
+        overwriteModified = false;
+      case 'true':
+        overwriteModified = true;
+      case 'false':
+        overwriteModified = false;
+      default:
+        return failureResponse(
+          request,
+          const ValidationFailure(
+            'overwriteModified must be true or false.',
+            details: {'overwriteModified': 'Expected true or false.'},
+          ),
+        );
+    }
+
+    final result = await _harnessService.installSkill(
+      id,
+      overwriteModified: overwriteModified,
+    );
+    return result.fold<Response>(
+      onSuccess: (harness) => jsonResponse(200, harness),
+      onFailure: (failure) => failureResponse(request, failure),
+    );
+  }
+
+  /// `DELETE /api/v1/harnesses/<id>/skill`: removes the Agentic Hive skill
+  /// for one harness (only when owned by Agentic Hive).
+  Future<Response> removeSkill(Request request, String rawId) async {
+    final id = HarnessId.tryParse(rawId);
+    if (id == null) {
+      return failureResponse(
+        request,
+        NotFoundFailure('Unknown harness "$rawId".'),
+      );
+    }
+    final result = await _harnessService.removeSkill(id);
     return result.fold<Response>(
       onSuccess: (harness) => jsonResponse(200, harness),
       onFailure: (failure) => failureResponse(request, failure),

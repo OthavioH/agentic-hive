@@ -1,18 +1,24 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
+import 'package:agentic_hive_backend/src/config/platform_paths.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/claude_code_mcp_installer.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/os_executable_locator.dart';
+import 'package:agentic_hive_backend/src/data/harnesses/shared_agents_skill_installer.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_detector.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_mcp_installer.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_service.dart';
+import 'package:agentic_hive_backend/src/domain/harnesses/harness_skill_installer.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
 import 'package:agentic_hive_backend/src/http/api_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/shutdown_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
 import 'package:agentic_hive_backend/src/http/request_context.dart';
 import 'package:agentic_hive_backend/src/mcp/hive_mcp_locator.dart';
+import 'package:agentic_hive_backend/src/skills/bundled_skill.dart';
+import 'package:agentic_hive_backend/src/skills/bundled_skill_loader.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart';
@@ -383,6 +389,274 @@ void main() {
       );
     });
   });
+
+  // Contract:
+  //   POST /api/v1/harnesses/<id>/skill/install?overwriteModified=true|false
+  //   Success (200): JSON HarnessInfo with updated skillStatus/skillMessage.
+  //   400: invalid overwriteModified query param (details.overwriteModified).
+  //   404: unknown harness <id>.
+  //   409: modified without overwriteModified=true, conflict/unknown, or CLI
+  //        not installed.
+  group('POST /api/v1/harnesses/<id>/skill/install', () {
+    late Directory tempDir;
+    late DefaultHarnessService skillService;
+    late Handler skillHandler;
+
+    setUp(() {
+      tempDir = Directory.systemTemp.createTempSync('hive_skill_handler_');
+      final paths = platformPathsFor(
+        Platform.operatingSystem,
+        environment: {
+          'HOME': tempDir.path,
+          'USERPROFILE': tempDir.path,
+          'LOCALAPPDATA': tempDir.path,
+        },
+      );
+      final files = <String, List<int>>{'SKILL.md': utf8.encode('# Skill\n')};
+      final loader = _FakeBundledSkillLoader(
+        Success(
+          BundledSkill(
+            name: agenticHiveSkillName,
+            files: files,
+            contentHash: computeSkillContentHash(files),
+          ),
+        ),
+      );
+      final registry = HarnessSkillInstallerRegistry([
+        SharedAgentsSkillInstaller(
+          platformPaths: paths,
+          bundledSkillLoader: loader,
+          appVersion: '1.0.0',
+        ),
+      ]);
+      final codexBin = p.join(tempDir.path, 'codex');
+      File(codexBin).writeAsStringSync('stub');
+
+      skillService = DefaultHarnessService(
+        detectors: [
+          _FakeSkillDetector(
+            HarnessId.codex,
+            HarnessInfo(
+              id: HarnessId.codex,
+              displayName: 'Codex',
+              status: HarnessStatus.ready,
+              executablePath: codexBin,
+              checkedAt: startedAt,
+            ),
+          ),
+        ],
+        skillInstallers: registry,
+      );
+
+      skillHandler = buildApiHandler(
+        statusHandler: StatusHandler(
+          databaseHealthCheck: FakeDatabaseHealthCheck(
+            const DatabaseStatus(ok: true, schemaVersion: 1),
+          ),
+          version: '0.1.0',
+          dataDir: '/data',
+          startedAt: startedAt,
+        ),
+        webSocketHandler: (_) => Response(418),
+        shutdownHandler: ShutdownHandler(onShutdown: () async {}),
+        harnessesHandler: HarnessesHandler(harnessService: skillService),
+      );
+    });
+
+    tearDown(() async {
+      await skillService.dispose();
+      if (tempDir.existsSync()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    test(
+      'installs skill and returns 200 HarnessInfo, and GET includes '
+      'skillStatus',
+      () async {
+      final response = await skillHandler(
+        buildRequest('/api/v1/harnesses/codex/skill/install', method: 'POST'),
+      );
+      expect(response.statusCode, 200);
+      final decoded = HarnessInfo.fromJson(await readJson(response));
+      expect(decoded.skillStatus, HarnessSkillStatus.installed);
+
+      final listResp = await skillHandler(buildRequest('/api/v1/harnesses'));
+      expect(listResp.statusCode, 200);
+      final listJson = await readJson(listResp);
+      final items = (listJson['harnesses']! as List<Object?>)
+          .cast<Map<String, Object?>>();
+      expect(items.first['skillStatus'], 'installed');
+    });
+
+    test(
+      'returns 409 on modified without flag and 200 with '
+      'overwriteModified=true',
+      () async {
+      await skillHandler(
+        buildRequest('/api/v1/harnesses/codex/skill/install', method: 'POST'),
+      );
+      File(
+        p.join(
+          tempDir.path,
+          '.agents',
+          'skills',
+          agenticHiveSkillName,
+          'SKILL.md',
+        ),
+      ).writeAsStringSync('edited\n');
+
+      final conflictResp = await skillHandler(
+        buildRequest('/api/v1/harnesses/codex/skill/install', method: 'POST'),
+      );
+      expect(conflictResp.statusCode, 409);
+
+      final forcedResp = await skillHandler(
+        buildRequest(
+          '/api/v1/harnesses/codex/skill/install?overwriteModified=true',
+          method: 'POST',
+        ),
+      );
+      expect(forcedResp.statusCode, 200);
+      final decoded = HarnessInfo.fromJson(await readJson(forcedResp));
+      expect(decoded.skillStatus, HarnessSkillStatus.installed);
+    });
+
+    test('returns 400 when overwriteModified is not true or false', () async {
+      final response = await skillHandler(
+        buildRequest(
+          '/api/v1/harnesses/codex/skill/install?overwriteModified=maybe',
+          method: 'POST',
+        ),
+      );
+      expect(response.statusCode, 400);
+      final body = await readJson(response);
+      final error = body['error']! as Map<String, Object?>;
+      expect(
+        (error['details']! as Map<String, Object?>).containsKey(
+          'overwriteModified',
+        ),
+        isTrue,
+      );
+    });
+
+    test('returns 404 for unknown harness id', () async {
+      final response = await skillHandler(
+        buildRequest('/api/v1/harnesses/nope/skill/install', method: 'POST'),
+      );
+      expect(response.statusCode, 404);
+    });
+  });
+
+  // Contract:
+  //   DELETE /api/v1/harnesses/<id>/skill
+  //   Success (200): JSON HarnessInfo with skillStatus == not_installed.
+  //   404: unknown harness <id>.
+  //   409: foreign folder/symlink (conflict/unknown), or CLI not installed.
+  group('DELETE /api/v1/harnesses/<id>/skill', () {
+    late Directory tempDir;
+    late DefaultHarnessService skillService;
+    late Handler skillHandler;
+
+    setUp(() {
+      tempDir = Directory.systemTemp.createTempSync('hive_skill_del_handler_');
+      final paths = platformPathsFor(
+        Platform.operatingSystem,
+        environment: {
+          'HOME': tempDir.path,
+          'USERPROFILE': tempDir.path,
+          'LOCALAPPDATA': tempDir.path,
+        },
+      );
+      final files = <String, List<int>>{'SKILL.md': utf8.encode('# Skill\n')};
+      final loader = _FakeBundledSkillLoader(
+        Success(
+          BundledSkill(
+            name: agenticHiveSkillName,
+            files: files,
+            contentHash: computeSkillContentHash(files),
+          ),
+        ),
+      );
+      final registry = HarnessSkillInstallerRegistry([
+        SharedAgentsSkillInstaller(
+          platformPaths: paths,
+          bundledSkillLoader: loader,
+          appVersion: '1.0.0',
+        ),
+      ]);
+      final codexBin = p.join(tempDir.path, 'codex');
+      File(codexBin).writeAsStringSync('stub');
+
+      skillService = DefaultHarnessService(
+        detectors: [
+          _FakeSkillDetector(
+            HarnessId.codex,
+            HarnessInfo(
+              id: HarnessId.codex,
+              displayName: 'Codex',
+              status: HarnessStatus.ready,
+              executablePath: codexBin,
+              checkedAt: startedAt,
+            ),
+          ),
+        ],
+        skillInstallers: registry,
+      );
+
+      skillHandler = buildApiHandler(
+        statusHandler: StatusHandler(
+          databaseHealthCheck: FakeDatabaseHealthCheck(
+            const DatabaseStatus(ok: true, schemaVersion: 1),
+          ),
+          version: '0.1.0',
+          dataDir: '/data',
+          startedAt: startedAt,
+        ),
+        webSocketHandler: (_) => Response(418),
+        shutdownHandler: ShutdownHandler(onShutdown: () async {}),
+        harnessesHandler: HarnessesHandler(harnessService: skillService),
+      );
+    });
+
+    tearDown(() async {
+      await skillService.dispose();
+      if (tempDir.existsSync()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    test('removes installed skill and returns 200 not_installed', () async {
+      await skillHandler(
+        buildRequest('/api/v1/harnesses/codex/skill/install', method: 'POST'),
+      );
+      final response = await skillHandler(
+        buildRequest('/api/v1/harnesses/codex/skill', method: 'DELETE'),
+      );
+      expect(response.statusCode, 200);
+      final decoded = HarnessInfo.fromJson(await readJson(response));
+      expect(decoded.skillStatus, HarnessSkillStatus.notInstalled);
+    });
+
+    test('returns 409 on foreign folder', () async {
+      final foreignDir = Directory(
+        p.join(tempDir.path, '.agents', 'skills', agenticHiveSkillName),
+      )..createSync(recursive: true);
+      File(p.join(foreignDir.path, 'SKILL.md')).writeAsStringSync('foreign\n');
+
+      final response = await skillHandler(
+        buildRequest('/api/v1/harnesses/codex/skill', method: 'DELETE'),
+      );
+      expect(response.statusCode, 409);
+    });
+
+    test('returns 404 for unknown harness id', () async {
+      final response = await skillHandler(
+        buildRequest('/api/v1/harnesses/nope/skill', method: 'DELETE'),
+      );
+      expect(response.statusCode, 404);
+    });
+  });
 }
 
 final class _UnsupportedStubInstaller implements HarnessMcpInstaller {
@@ -420,4 +694,26 @@ final class _ScriptedProcessRunner implements ProcessRunner {
     calls++;
     return onRun(executable, arguments);
   }
+}
+
+final class _FakeBundledSkillLoader implements BundledSkillLoader {
+  new(this.result);
+  final Result<BundledSkill> result;
+
+  @override
+  Result<BundledSkill> load(String name) => result;
+}
+
+final class _FakeSkillDetector implements HarnessDetector {
+  new(this.id, this.info);
+
+  @override
+  final HarnessId id;
+  final HarnessInfo info;
+
+  @override
+  void setExecutableOverride(String? path) {}
+
+  @override
+  Future<HarnessInfo> detect() async => info;
 }

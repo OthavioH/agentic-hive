@@ -24,11 +24,14 @@ import 'package:agentic_hive_backend/src/data/agents/local_workspace_agent_repos
 import 'package:agentic_hive_backend/src/data/agents/repository_agent_prompt_resolver.dart';
 import 'package:agentic_hive_backend/src/data/agents/workspace_agent_watchers.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/antigravity_mcp_installer.dart';
+import 'package:agentic_hive_backend/src/data/harnesses/antigravity_skill_installer.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/claude_code_mcp_installer.dart';
+import 'package:agentic_hive_backend/src/data/harnesses/claude_code_skill_installer.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/codex_mcp_installer.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/gemini_cli_mcp_installer.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/io_process_runner.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/os_executable_locator.dart';
+import 'package:agentic_hive_backend/src/data/harnesses/shared_agents_skill_installer.dart';
 import 'package:agentic_hive_backend/src/data/nodes/dart_process_runner.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_process_platform.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_shell_provider.dart';
@@ -63,6 +66,7 @@ import 'package:agentic_hive_backend/src/domain/harnesses/executable_locator.dar
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_detector.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_mcp_installer.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_service.dart';
+import 'package:agentic_hive_backend/src/domain/harnesses/harness_skill_installer.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/building_blocks_text_formatter.dart';
 import 'package:agentic_hive_backend/src/domain/mcp_tools/mcp_scope_resolver.dart';
@@ -128,6 +132,8 @@ import 'package:agentic_hive_backend/src/mcp/hive_mcp_locator.dart';
 import 'package:agentic_hive_backend/src/server/backend_server.dart';
 import 'package:agentic_hive_backend/src/server/local_socket.dart';
 import 'package:agentic_hive_backend/src/server/server_info_file.dart';
+import 'package:agentic_hive_backend/src/skills/bundled_skill_loader.dart';
+import 'package:agentic_hive_backend/src/skills/located_bundled_skill_loader.dart';
 import 'package:agentic_hive_backend/src/version.dart';
 import 'package:agentic_hive_backend/src/ws/connection_registry.dart';
 import 'package:agentic_hive_backend/src/ws/ws_gateway.dart';
@@ -230,11 +236,32 @@ Future<void> registerDependencies(
         AntigravityMcpInstaller(processRunner: di<ProcessRunner>()),
       ]),
     )
+    ..registerSingleton<BundledSkillLoader>(LocatedBundledSkillLoader())
+    ..registerSingleton<HarnessSkillInstallerRegistry>(
+      HarnessSkillInstallerRegistry([
+        ClaudeCodeSkillInstaller(
+          platformPaths: platformPaths,
+          bundledSkillLoader: di<BundledSkillLoader>(),
+          appVersion: backendVersion,
+        ),
+        SharedAgentsSkillInstaller(
+          platformPaths: platformPaths,
+          bundledSkillLoader: di<BundledSkillLoader>(),
+          appVersion: backendVersion,
+        ),
+        AntigravitySkillInstaller(
+          platformPaths: platformPaths,
+          bundledSkillLoader: di<BundledSkillLoader>(),
+          appVersion: backendVersion,
+        ),
+      ]),
+    )
     ..registerSingleton<HarnessService>(
       DefaultHarnessService(
         detectors: di<List<HarnessDetector>>(),
         mcpInstallers: di<HarnessMcpInstallerRegistry>(),
         mcpLocator: di<HiveMcpLocator>(),
+        skillInstallers: di<HarnessSkillInstallerRegistry>(),
       ),
       dispose: (service) => service.dispose(),
     )

@@ -118,7 +118,12 @@ Handler buildApiHandler({
       ..get('/api/v1/harnesses', harnessesHandler.list)
       ..post('/api/v1/harnesses/refresh', harnessesHandler.refreshAll)
       ..post('/api/v1/harnesses/<id>/refresh', harnessesHandler.refreshOne)
-      ..post('/api/v1/harnesses/<id>/mcp/install', harnessesHandler.installMcp);
+      ..post('/api/v1/harnesses/<id>/mcp/install', harnessesHandler.installMcp)
+      ..post(
+        '/api/v1/harnesses/<id>/skill/install',
+        harnessesHandler.installSkill,
+      )
+      ..delete('/api/v1/harnesses/<id>/skill', harnessesHandler.removeSkill);
   }
 
   if (agentsMigrationHandler != null) {

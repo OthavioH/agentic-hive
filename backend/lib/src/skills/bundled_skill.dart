@@ -3,6 +3,9 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 
+/// Canonical folder name of the bundled Agentic Hive skill.
+const agenticHiveSkillName = 'agentic-hive';
+
 /// A skill folder read from disk: files plus a stable content hash.
 final class BundledSkill {
   /// Creates a skill. [files] maps POSIX relative path to LF-normalized bytes.

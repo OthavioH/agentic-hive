@@ -11,6 +11,7 @@ export 'src/agents/update_agent_request.dart';
 export 'src/harnesses/harness_id.dart';
 export 'src/harnesses/harness_info.dart';
 export 'src/harnesses/harness_mcp_status.dart';
+export 'src/harnesses/harness_skill_status.dart';
 export 'src/harnesses/harness_status.dart';
 export 'src/http/api_error.dart';
 export 'src/http/harness_list_response.dart';
