@@ -67,4 +67,15 @@ void main() {
       expect(planWave([closed], []).allDone, isTrue);
     });
   });
+
+  test('openTicketPullRequests keeps open PRs that close a spec ticket', () {
+    const tickets = [Ticket(number: 1, title: 'a', isOpen: true)];
+    final prs = [
+      _pr('OPEN', 'Closes #1'),
+      _pr('MERGED', 'Closes #1'),
+      _pr('OPEN', 'Closes #2'),
+      _pr('OPEN', 'Part of #1'),
+    ];
+    expect(openTicketPullRequests(tickets, prs), [prs.first]);
+  });
 }
