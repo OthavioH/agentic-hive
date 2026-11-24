@@ -12,6 +12,24 @@ final class BuildingBlocksTextFormatter {
     ':int :bool :[string] :{string} :[{...}] types (default string).',
   ].join(' ');
 
+  /// Notes printed when the fan-out node type is listed (ADR 0029).
+  static const List<String> fanOutNotes = [
+    'Fan-out (fan_out): starts one child run of the saved workflow workflowId '
+        'for each item of the list at itemsPath in the output of the earlier '
+        'node itemsNodeId, and waits for all of them.',
+    '  The child workflow is resolved in the workspace first, then global; it '
+        'must not contain a fan_out node.',
+    '  Without inputField the whole item is the child input; inputField, '
+        'nameField and overridesField are dot paths inside each item '
+        '(nameField names the worktree).',
+    '  overridesField points to an object {"<child node id>": {agentId?, model?, '
+        'effort?}} that overrides those settings of the child workflow nodes for '
+        'that child only; the node type (harness) stays fixed.',
+    '  concurrency (default 2) children run at once; more than maxItems '
+        '(default 20) items fails the node. onSuccess only if every child '
+        'succeeded, else onFailure.',
+  ];
+
   /// Formats node types, listed agents and the count of omitted broken agents.
   String format({
     required List<NodeDescriptor> nodeTypes,
@@ -21,6 +39,8 @@ final class BuildingBlocksTextFormatter {
     final lines = <String>[
       'Node types (${nodeTypes.length}). $_legendTail',
       for (final node in nodeTypes) ..._nodeLines(node),
+      if (nodeTypes.any((node) => node.typeId == NodeTypeId.fanOut))
+        ...fanOutNotes,
       if (agents.isEmpty)
         'Agents: none in this scope.'
       else ...[
