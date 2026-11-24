@@ -391,6 +391,23 @@ abstract base class HeadlessHarnessNode extends HarnessNode {
     String? runId,
   });
 
+  /// CLI flags that select [model]; empty when this harness cannot choose one.
+  List<String> buildModelArgs(String model) => const <String>[];
+
+  /// CLI flags that set [effort]; empty when this harness cannot set one.
+  List<String> buildEffortArgs(HarnessEffort effort) => const <String>[];
+
+  /// Flags for the config's model and effort; each unset or blank value adds
+  /// nothing.
+  List<String> buildModelAndEffortArgs(HarnessNodeConfig config) {
+    final model = config.model?.trim();
+    final effort = HarnessEffort.tryParse(config.effort);
+    return <String>[
+      if (model != null && model.isNotEmpty) ...buildModelArgs(model),
+      if (effort != null) ...buildEffortArgs(effort),
+    ];
+  }
+
   /// Builds the CLI [ProcessInvocation] for this harness.
   ///
   /// Subclasses must deliver [prompt] via `stdinContent` (or a file), never

@@ -122,6 +122,50 @@ void main() {
       );
     });
 
+    test('HarnessNodeConfig model and effort round-trip and validate', () {
+      const config = HarnessNodeConfig(
+        additionalInstructions: 'x',
+        model: 'opus',
+        effort: 'high',
+      );
+      final json = config.toJson();
+      final decoded = HarnessNodeConfig.fromJson(_overTheWire(json));
+      expect(decoded, config);
+      expect(decoded.validate(), isEmpty);
+
+      final defaultJson = const HarnessNodeConfig(additionalInstructions: 'x')
+          .toJson();
+      expect(defaultJson.containsKey('model'), isFalse);
+      expect(defaultJson.containsKey('effort'), isFalse);
+
+      expect(
+        const HarnessNodeConfig(
+          additionalInstructions: 'x',
+          effort: 'turbo',
+        ).validate().map((i) => i.field),
+        contains('effort'),
+      );
+      expect(
+        const HarnessNodeConfig(
+          additionalInstructions: 'x',
+          model: '  ',
+          effort: '',
+        ).validate(),
+        isEmpty,
+      );
+      expect(
+        const HarnessNodeConfig(
+          additionalInstructions: 'x',
+          model: '--dangerously-skip-permissions',
+        ).validate().map((i) => i.field),
+        contains('model'),
+      );
+    });
+
+    test('T-S6 harnessEffortIds mirrors HarnessEffort', () {
+      expect(harnessEffortIds, HarnessEffort.values.map((e) => e.name).toSet());
+    });
+
     test('TerminalHarnessNodeConfig round-trips and validates', () {
       const config = TerminalHarnessNodeConfig(
         command: 'claude',
@@ -419,6 +463,84 @@ void main() {
       expect(NodeDescriptors.testsValidator.requiredOneOf, isEmpty);
       expect(NodeDescriptors.checklistValidator.requiredOneOf, isEmpty);
       expect(NodeDescriptors.humanApproval.requiredOneOf, isEmpty);
+    });
+
+    test('T-S7 harness descriptors declare model and effort per support', () {
+      for (final descriptor in [
+        NodeDescriptors.claudeCode,
+        NodeDescriptors.codex,
+        NodeDescriptors.antigravity,
+      ]) {
+        expect(_field(descriptor, 'model').values, isEmpty);
+        expect(_field(descriptor, 'effort').values, harnessEffortIds);
+        expect(descriptor.configFields.map((f) => f.name).toList(), [
+          'agentId',
+          'additionalInstructions',
+          'workingDirectory',
+          'timeoutSeconds',
+          'model',
+          'effort',
+          'extraArgs',
+        ]);
+      }
+
+      expect(
+        NodeDescriptors.geminiCli.configFields.map((f) => f.name).toList(),
+        [
+          'agentId',
+          'additionalInstructions',
+          'workingDirectory',
+          'timeoutSeconds',
+          'model',
+          'extraArgs',
+        ],
+      );
+
+      final terminalFieldNames = NodeDescriptors.terminal.configFields
+          .map((f) => f.name)
+          .toSet();
+      expect(terminalFieldNames.contains('model'), isFalse);
+      expect(terminalFieldNames.contains('effort'), isFalse);
+    });
+
+    test('T-S8 unsupported fields are refused', () {
+      final geminiIssues = NodeDescriptors.geminiCli.validateConfig(const {
+        'additionalInstructions': 'x',
+        'effort': 'high',
+      });
+      expect(geminiIssues, hasLength(1));
+      expect(geminiIssues.first.field, 'effort');
+      expect(
+        geminiIssues.first.message,
+        'harness.gemini_cli does not support choosing an effort.',
+      );
+
+      final terminalIssues = NodeDescriptors.terminal.validateConfig(const {
+        'command': 'x',
+        'model': 'opus',
+      });
+      expect(terminalIssues, hasLength(1));
+      expect(terminalIssues.first.field, 'model');
+      expect(
+        terminalIssues.first.message,
+        'harness.terminal does not support choosing a model.',
+      );
+
+      expect(
+        NodeDescriptors.geminiCli.validateConfig(const {
+          'additionalInstructions': 'x',
+          'effort': '',
+        }),
+        isEmpty,
+      );
+      expect(
+        NodeDescriptors.claudeCode.validateConfig(const {
+          'additionalInstructions': 'x',
+          'model': 'opus',
+          'effort': 'max',
+        }),
+        isEmpty,
+      );
     });
   });
 }

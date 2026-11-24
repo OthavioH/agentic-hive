@@ -144,6 +144,11 @@ void main() {
       );
     });
 
+    test('T-T6 list_building_blocks describes model and effort', () async {
+      final text = await body(workspace: 'global');
+      expect(text, contains('model, effort=low|medium|high|max'));
+    });
+
     test('T-T3 a node type registered after the tool was built appears '
         'without changing the tool', () async {
       final before = await body(workspace: 'global');

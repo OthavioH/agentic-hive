@@ -100,6 +100,38 @@ void validatePositiveInt(
   }
 }
 
+/// Names of config fields a harness descriptor may leave undeclared, with the
+/// noun used in the refusal message.
+const Map<String, String> guardedHarnessFields = {
+  'model': 'a model',
+  'effort': 'an effort',
+};
+
+/// Adds an issue for each guarded field set to a non-blank value in [raw] that
+/// is not among [declaredFieldNames].
+void validateUndeclaredHarnessFields(
+  JsonMap raw, {
+  required String typeId,
+  required Set<String> declaredFieldNames,
+  required List<NodeConfigIssue> issues,
+}) {
+  for (final entry in guardedHarnessFields.entries) {
+    if (declaredFieldNames.contains(entry.key)) {
+      continue;
+    }
+    final value = raw[entry.key];
+    if (value == null || (value is String && isBlank(value))) {
+      continue;
+    }
+    issues.add(
+      NodeConfigIssue(
+        field: entry.key,
+        message: '$typeId does not support choosing ${entry.value}.',
+      ),
+    );
+  }
+}
+
 /// Decodes [raw] using [fromJson] and runs [validate], returning any
 /// [FormatException] as a [NodeConfigIssue] on `config`.
 List<NodeConfigIssue> validateTypedConfig<T>(

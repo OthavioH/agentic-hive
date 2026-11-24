@@ -10,7 +10,8 @@ final _canonicalBlocks = <String>[
   [
     '- harness.claude_code -> onSuccess|onFailure\n',
     '  config: agentId, additionalInstructions, ',
-    'workingDirectory, timeoutSeconds:int, ',
+    'workingDirectory, timeoutSeconds:int, model, ',
+    'effort=low|medium|high|max, ',
     'extraArgs:[string]; set at least one of ',
     'agentId|additionalInstructions',
   ].join(),
@@ -81,6 +82,39 @@ void main() {
       for (final block in _canonicalBlocks) {
         expect(out, contains(block));
       }
+    });
+
+    test('T-F4 harness blocks list model and effort only where supported', () {
+      final out = formatter.format(
+        nodeTypes: NodeDescriptors.all,
+        agents: const [],
+        brokenAgents: 0,
+      );
+      String blockFor(String typeId) {
+        final start = out.indexOf('- $typeId ->');
+        final next = out.indexOf('\n- ', start + 1);
+        return next == -1 ? out.substring(start) : out.substring(start, next);
+      }
+
+      expect(
+        blockFor(NodeTypeId.geminiCli),
+        allOf(
+          contains(', model, extraArgs:[string]'),
+          isNot(contains('effort')),
+        ),
+      );
+      expect(
+        blockFor(NodeTypeId.codex),
+        contains('effort=low|medium|high|max'),
+      );
+      expect(
+        blockFor(NodeTypeId.antigravity),
+        contains('effort=low|medium|high|max'),
+      );
+      expect(
+        blockFor(NodeTypeId.terminal),
+        allOf(isNot(contains('model')), isNot(contains('effort'))),
+      );
     });
 
     test('T-F2 field without config shows none', () {
