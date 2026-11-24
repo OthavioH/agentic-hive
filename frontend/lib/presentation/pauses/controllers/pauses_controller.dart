@@ -159,6 +159,36 @@ class PausesController extends _$PausesController {
     );
   }
 
+  /// Starts editing the proposal for [pauseId], seeded with [initialText].
+  ///
+  /// Does nothing when [pauseId] is already in editing mode.
+  void startProposalEdit(String pauseId, String initialText) {
+    if (state.isEditingProposal(pauseId)) return;
+    state = state.copyWith(
+      proposalDrafts: <String, String>{
+        ...state.proposalDrafts,
+        pauseId: initialText,
+      },
+    );
+  }
+
+  /// Updates the saved proposal JSON draft for [pauseId] while editing.
+  void updateProposalDraft(String pauseId, String text) {
+    if (!state.isEditingProposal(pauseId)) return;
+    if (state.proposalDraftFor(pauseId) == text) return;
+    state = state.copyWith(
+      proposalDrafts: <String, String>{...state.proposalDrafts, pauseId: text},
+    );
+  }
+
+  /// Discards any edited proposal draft for [pauseId] and exits edit mode.
+  void discardProposalEdit(String pauseId) {
+    if (!state.isEditingProposal(pauseId)) return;
+    final next = Map<String, String>.from(state.proposalDrafts)
+      ..remove(pauseId);
+    state = state.copyWith(proposalDrafts: next);
+  }
+
   /// Clears the live-region announcement after it has been rendered so that
   /// identical consecutive announcements fire again.
   void clearAnnouncement() {
@@ -175,11 +205,13 @@ class PausesController extends _$PausesController {
     );
   }
 
-  /// Approves or rejects a `humanApproval` pause with optional [feedback].
+  /// Approves or rejects a `humanApproval` pause with optional [feedback] and
+  /// edited [proposal] when [approved] is `true`.
   Future<bool> submitApproval({
     required String pauseId,
     required bool approved,
     String? feedback,
+    Object? proposal,
   }) {
     final trimmedFeedback = feedback?.trim();
     return _submit(
@@ -192,6 +224,7 @@ class PausesController extends _$PausesController {
         feedback: (trimmedFeedback != null && trimmedFeedback.isNotEmpty)
             ? trimmedFeedback
             : null,
+        proposal: approved ? proposal : null,
       ),
     );
   }
@@ -237,6 +270,9 @@ class PausesController extends _$PausesController {
         )..remove(pauseId);
         final nextAnswerDrafts = Map<String, String>.from(state.answerDrafts)
           ..remove(pauseId);
+        final nextProposalDrafts = Map<String, String>.from(
+          state.proposalDrafts,
+        )..remove(pauseId);
         state = state.copyWith(
           pauses: AsyncData<List<Pause>>(updatedList),
           selectedPauseId: () =>
@@ -244,6 +280,7 @@ class PausesController extends _$PausesController {
           submittingAction: () => null,
           feedbackDrafts: nextFeedbackDrafts,
           answerDrafts: nextAnswerDrafts,
+          proposalDrafts: nextProposalDrafts,
         );
         return true;
       case FailureResult<Pause>(:final failure):
@@ -309,11 +346,15 @@ class PausesController extends _$PausesController {
         )..remove(pause.id);
         final nextAnswerDrafts = Map<String, String>.from(state.answerDrafts)
           ..remove(pause.id);
+        final nextProposalDrafts = Map<String, String>.from(
+          state.proposalDrafts,
+        )..remove(pause.id);
         state = state.copyWith(
           pauses: AsyncData<List<Pause>>(next),
           selectedPauseId: () => _resolveSelection(next, state.selectedPauseId),
           feedbackDrafts: nextFeedbackDrafts,
           answerDrafts: nextAnswerDrafts,
+          proposalDrafts: nextProposalDrafts,
           remoteResolvedNodeLabel: () => (!wasLocalSubmit && wasSelected)
               ? pause.nodeLabel
               : state.remoteResolvedNodeLabel,
