@@ -9,6 +9,18 @@ import 'package:agentic_hive_backend/src/util/canonical_folder.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:path/path.dart' as p;
 
+/// The HEAD commit and cleanliness of a git folder.
+final class FolderHead {
+  /// Creates a [FolderHead].
+  const new({required this.commit, required this.hasUncommittedChanges});
+
+  /// Full SHA-1 commit hash of `HEAD`.
+  final String commit;
+
+  /// Whether `git status --porcelain` reported any changes.
+  final bool hasUncommittedChanges;
+}
+
 /// Creates, lists and removes the worktrees of a git [Workspace] (ADR 0025).
 ///
 /// Git is the source of truth: the list comes from `git worktree list`, so
@@ -299,6 +311,29 @@ final class WorktreeService {
       '--porcelain',
     ], failureContext: 'Reading the status of "$folder"');
     return status.map((out) => out.trim().isNotEmpty);
+  }
+
+  /// The HEAD commit and cleanliness of git folder [folder].
+  Future<Result<FolderHead>> inspectHead(String folder) async {
+    final head = await _git.runChecked([
+      '-C',
+      folder,
+      'rev-parse',
+      'HEAD',
+    ], failureContext: 'Reading HEAD of "$folder"');
+    if (head case FailureResult(:final failure)) {
+      return FailureResult(failure);
+    }
+    final dirty = await _hasUncommittedChanges(folder);
+    if (dirty case FailureResult(:final failure)) {
+      return FailureResult(failure);
+    }
+    return Success(
+      FolderHead(
+        commit: head.valueOrNull!.trim(),
+        hasUncommittedChanges: dirty.valueOrNull!,
+      ),
+    );
   }
 
   Future<Result<List<_Entry>>> _gitEntries(Workspace workspace) async {

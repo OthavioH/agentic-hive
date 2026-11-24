@@ -97,7 +97,7 @@ void main() {
     final db = AppDatabase.open(dbFile);
     addTearDown(db.close);
 
-    expect(db.schemaVersion, 9);
+    expect(db.schemaVersion, 10);
     final tables = await db
         .customSelect(
           "SELECT name FROM sqlite_master WHERE type='table' AND name='pauses'",

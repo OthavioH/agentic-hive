@@ -1237,6 +1237,7 @@ final class GraphEngine implements RunCanceller {
         NodeExecutionContext(
           runId: x.run.id,
           nodeId: id,
+          nodeLabel: workflowNode.label,
           workspacePath: _workspaceOf(x.run),
           workspaceRoot: x.run.workspacePath,
           workspaceId: x.run.workspaceId,
