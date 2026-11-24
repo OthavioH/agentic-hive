@@ -109,6 +109,18 @@ class PauseListPane extends StatelessWidget {
                       color: colors.onSurfaceMuted,
                     ),
                   ),
+                  if (pause.parentRunId != null) ...<Widget>[
+                    SizedBox(height: spacing.spaceHalf),
+                    Text(
+                      l10n.pausesChildOfRun(_shortId(pause.parentRunId!)),
+                      key: ValueKey<String>('pause_parent_link_${pause.id}'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: typography.label.copyWith(
+                        color: colors.onSurfaceMuted,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -118,3 +130,5 @@ class PauseListPane extends StatelessWidget {
     );
   }
 }
+
+String _shortId(String id) => id.length <= 8 ? id : id.substring(0, 8);
