@@ -42,6 +42,10 @@ sealed class Pause with _$Pause {
     /// [proposal].
     Object? editedProposal,
     DateTime? answeredAt,
+
+    /// Id of the parent run when this pause belongs to a child run started by
+    /// a fan-out node; null for ordinary runs.
+    String? parentRunId,
   }) = _Pause;
 
   /// Decodes a pause; throws a [FormatException] on a bad shape.
