@@ -64,7 +64,7 @@ SemanticsNode#
            │   label: "Skill not installed"
            │
            └─SemanticsNode#
-               flags: isButton, hasEnabledState
+               flags: isButton, hasEnabledState, isEnabled
                label: "Installing…"
 
 --- texts ---

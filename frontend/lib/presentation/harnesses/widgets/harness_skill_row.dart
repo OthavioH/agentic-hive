@@ -90,31 +90,28 @@ class HarnessSkillRow extends StatelessWidget {
             container: true,
             liveRegion: true,
             explicitChildNodes: true,
-            child: Row(
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: spacing.space1,
+              runSpacing: spacing.space1,
               children: <Widget>[
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: HiveBadge(
-                      label: spec.label,
-                      tone: spec.tone,
-                      icon: spec.icon,
-                    ),
-                  ),
-                ),
-                if (actionSpec != null) ...<Widget>[
-                  SizedBox(width: spacing.space1),
+                HiveBadge(label: spec.label, tone: spec.tone, icon: spec.icon),
+                if (actionSpec != null)
                   HiveButton(
                     key: ValueKey<String>(actionSpec.key),
                     label: isBusy
                         ? _busyLabel(busyAction!, l10n)
                         : actionSpec.label,
-                    variant: HiveButtonVariant.secondary,
+                    variant: actionSpec.variant,
                     size: HiveButtonSize.small,
                     loading: isBusy,
-                    onPressed: controlsDisabled ? null : actionSpec.onPressed,
+                    // Keep onPressed non-null while busy so HiveInteraction
+                    // retains focus on the acting button while ignoring taps.
+                    onPressed: isDisabled
+                        ? null
+                        : (isBusy ? _noop : actionSpec.onPressed),
                   ),
-                ],
               ],
             ),
           ),
@@ -122,14 +119,14 @@ class HarnessSkillRow extends StatelessWidget {
             SizedBox(height: spacing.space1),
             Text(
               l10n.harnessesSkillConflictExplanation,
-              style: typography.bodySmall.copyWith(
-                color: colors.onSurfaceMuted,
-              ),
+              softWrap: true,
+              style: typography.bodySmall.copyWith(color: colors.onSurface),
             ),
           ] else if (showUnknownMessage) ...<Widget>[
             SizedBox(height: spacing.space1),
             Text(
               skillMessage,
+              softWrap: true,
               style: typography.bodySmall.copyWith(
                 color: colors.onSurfaceMuted,
               ),
@@ -206,33 +203,40 @@ class HarnessSkillRow extends StatelessWidget {
     ),
   };
 
-  ({String key, String label, VoidCallback onPressed})? _actionSpec(
-    HarnessSkillStatus status,
-    String wire,
-    AppLocalizations l10n,
-  ) => switch (status) {
-    HarnessSkillStatus.installed => (
-      key: 'harness_skill_remove_$wire',
-      label: l10n.harnessesSkillRemove,
-      onPressed: onRemove,
-    ),
-    HarnessSkillStatus.notInstalled => (
-      key: 'harness_skill_install_$wire',
-      label: l10n.harnessesSkillInstall,
-      onPressed: onInstall,
-    ),
-    HarnessSkillStatus.outdated || HarnessSkillStatus.modified => (
-      key: 'harness_skill_update_$wire',
-      label: l10n.harnessesSkillUpdate,
-      onPressed: onUpdate,
-    ),
-    HarnessSkillStatus.conflict => null,
-    HarnessSkillStatus.unknown => (
-      key: 'harness_skill_retry_$wire',
-      label: l10n.harnessesSkillRetry,
-      onPressed: onRecheck,
-    ),
-  };
+  ({
+    String key,
+    String label,
+    HiveButtonVariant variant,
+    VoidCallback onPressed,
+  })?
+  _actionSpec(HarnessSkillStatus status, String wire, AppLocalizations l10n) =>
+      switch (status) {
+        HarnessSkillStatus.installed => (
+          key: 'harness_skill_remove_$wire',
+          label: l10n.harnessesSkillRemove,
+          variant: HiveButtonVariant.ghost,
+          onPressed: onRemove,
+        ),
+        HarnessSkillStatus.notInstalled => (
+          key: 'harness_skill_install_$wire',
+          label: l10n.harnessesSkillInstall,
+          variant: HiveButtonVariant.secondary,
+          onPressed: onInstall,
+        ),
+        HarnessSkillStatus.outdated || HarnessSkillStatus.modified => (
+          key: 'harness_skill_update_$wire',
+          label: l10n.harnessesSkillUpdate,
+          variant: HiveButtonVariant.secondary,
+          onPressed: onUpdate,
+        ),
+        HarnessSkillStatus.conflict => null,
+        HarnessSkillStatus.unknown => (
+          key: 'harness_skill_retry_$wire',
+          label: l10n.harnessesSkillRetry,
+          variant: HiveButtonVariant.secondary,
+          onPressed: onRecheck,
+        ),
+      };
 
   String _busyLabel(SkillRowAction action, AppLocalizations l10n) =>
       switch (action) {
@@ -240,4 +244,6 @@ class HarnessSkillRow extends StatelessWidget {
         SkillRowAction.update => l10n.harnessesSkillUpdating,
         SkillRowAction.remove => l10n.harnessesSkillRemoving,
       };
+
+  static void _noop() {}
 }

@@ -72,6 +72,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
 
       final banner = tester.widget<HiveBanner>(find.byType(HiveBanner));
       expect(banner.tone, HiveFeedbackTone.success);
@@ -111,6 +112,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
 
       final banner = tester.widget<HiveBanner>(find.byType(HiveBanner));
       expect(banner.tone, HiveFeedbackTone.warning);

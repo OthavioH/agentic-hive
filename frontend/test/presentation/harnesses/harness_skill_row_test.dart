@@ -62,7 +62,7 @@ void main() {
       expect(button.onPressed, isNull);
     });
 
-    testWidgets('Skill installed: success badge and Remove secondary button', (
+    testWidgets('Skill installed: success badge and Remove ghost button', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -88,7 +88,7 @@ void main() {
         find.byKey(const ValueKey<String>('harness_skill_remove_claude_code')),
       );
       expect(button.label, 'Remove');
-      expect(button.variant, HiveButtonVariant.secondary);
+      expect(button.variant, HiveButtonVariant.ghost);
       expect(button.size, HiveButtonSize.small);
       expect(button.onPressed, isNotNull);
     });
@@ -244,15 +244,17 @@ void main() {
     );
 
     testWidgets(
-      'Busy: shows loading button with progressive label and disables',
+      'Busy: shows loading button with progressive label, keeps focusable '
+      'no-op callback, and ignores activation',
       (tester) async {
+        var installs = 0;
         await tester.pumpWidget(
           _wrap(
             HarnessSkillRow(
               harness: harnessWith(skill: HarnessSkillStatus.notInstalled),
               isDisabled: false,
               busyAction: SkillRowAction.install,
-              onInstall: () {},
+              onInstall: () => installs++,
               onUpdate: () {},
               onRemove: () {},
               onRecheck: () {},
@@ -261,14 +263,17 @@ void main() {
           ),
         );
 
-        final button = tester.widget<HiveButton>(
-          find.byKey(
-            const ValueKey<String>('harness_skill_install_claude_code'),
-          ),
+        final buttonFinder = find.byKey(
+          const ValueKey<String>('harness_skill_install_claude_code'),
         );
+        final button = tester.widget<HiveButton>(buttonFinder);
         expect(button.loading, isTrue);
         expect(button.label, 'Installing…');
-        expect(button.onPressed, isNull);
+        expect(button.onPressed, isNotNull);
+
+        await tester.tap(buttonFinder);
+        await tester.pump();
+        expect(installs, 0);
       },
     );
 

@@ -25,31 +25,35 @@ class OutdatedToolsBanner extends ConsumerWidget {
         .map((harness) => harness.displayName)
         .join(l10n.skillNoticeNamesSeparator);
 
-    return HiveBanner(
-      key: const ValueKey<String>('outdated_tools_banner'),
-      tone: HiveFeedbackTone.warning,
-      liveRegion: true,
-      title: l10n.outdatedBannerTitle(names),
-      actions: <Widget>[
-        HiveButton(
-          key: const ValueKey<String>('outdated_tools_open'),
-          label: l10n.outdatedBannerOpen,
-          variant: HiveButtonVariant.secondary,
-          size: HiveButtonSize.small,
-          onPressed: () {
-            unawaited(
-              ref
-                  .read(outdatedBannerAcknowledgementProvider.notifier)
-                  .acknowledge(),
-            );
-            const HarnessesRoute().go(context);
-          },
+    return HiveSlideIn(
+      child: HiveBanner(
+        key: const ValueKey<String>('outdated_tools_banner'),
+        tone: HiveFeedbackTone.warning,
+        liveRegion: true,
+        title: l10n.outdatedBannerTitle(names),
+        actions: <Widget>[
+          HiveButton(
+            key: const ValueKey<String>('outdated_tools_open'),
+            label: l10n.outdatedBannerOpen,
+            variant: HiveButtonVariant.secondary,
+            size: HiveButtonSize.small,
+            onPressed: () {
+              unawaited(
+                ref
+                    .read(outdatedBannerAcknowledgementProvider.notifier)
+                    .acknowledge(),
+              );
+              const HarnessesRoute().go(context);
+            },
+          ),
+        ],
+        onDismiss: () => unawaited(
+          ref
+              .read(outdatedBannerAcknowledgementProvider.notifier)
+              .acknowledge(),
         ),
-      ],
-      onDismiss: () => unawaited(
-        ref.read(outdatedBannerAcknowledgementProvider.notifier).acknowledge(),
+        dismissSemanticLabel: l10n.outdatedBannerDismiss,
       ),
-      dismissSemanticLabel: l10n.outdatedBannerDismiss,
     );
   }
 }
