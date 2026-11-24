@@ -389,7 +389,7 @@ final class FanOutNode extends Node {
   }) async {
     final last = plan.previous.lastOrNull;
     if (last != null && last.status == RunStatus.succeeded) {
-      return _reuse(plan, last);
+      return await _reuse(plan, last);
     }
     if (plan.error != null) {
       return _entry(
@@ -405,7 +405,7 @@ final class FanOutNode extends Node {
     if (last != null) {
       switch (last.status) {
         case RunStatus.running || RunStatus.paused || RunStatus.cancelling:
-          return _collect(plan, last.id);
+          return await _collect(plan, last.id);
         case RunStatus.interrupted:
           final resumed = await childRuns.resumeChildRun(last.id);
           if (resumed case FailureResult(:final failure)
@@ -418,7 +418,7 @@ final class FanOutNode extends Node {
               error: failure.message,
             );
           }
-          return _collect(plan, last.id);
+          return await _collect(plan, last.id);
         case RunStatus.succeeded ||
             RunStatus.failed ||
             RunStatus.cancelled ||
@@ -454,7 +454,7 @@ final class FanOutNode extends Node {
       if (await _parentStopped(context)) {
         await childRuns.cancelChildRun(runId);
       }
-      return _collect(plan, runId);
+      return await _collect(plan, runId);
     } on Object catch (error) {
       return _entry(
         index: plan.index,

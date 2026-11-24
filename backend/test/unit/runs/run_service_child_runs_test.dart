@@ -370,7 +370,7 @@ void main() {
         workspacePath: '.',
         workspaceId: 'ws-1',
         status: RunStatus.succeeded,
-        startedAt: DateTime.utc(2026, 1, 1),
+        startedAt: DateTime.utc(2026),
         parentRunId: 'parent-1',
         parentNodeId: 'fan',
         childIndex: 0,
@@ -384,25 +384,28 @@ void main() {
     expect(res.valueOrNull!.map((r) => r.id), ['c1', 'c2']);
   });
 
-  test('resumeChildRun returns ConflictFailure for non-interrupted child', () async {
-    await harness.runs.create(
-      Run(
-        id: 'c-run',
-        workflowId: 'wf-1',
-        workflowName: 'Child',
-        workflowDefinition: pinnedWorkflow,
-        workspacePath: '.',
-        workspaceId: 'ws-1',
-        status: RunStatus.succeeded,
-        startedAt: DateTime.utc(2026),
-        parentRunId: 'parent-1',
-        parentNodeId: 'fan',
-      ),
-    );
+  test(
+    'resumeChildRun returns ConflictFailure for non-interrupted child',
+    () async {
+      await harness.runs.create(
+        Run(
+          id: 'c-run',
+          workflowId: 'wf-1',
+          workflowName: 'Child',
+          workflowDefinition: pinnedWorkflow,
+          workspacePath: '.',
+          workspaceId: 'ws-1',
+          status: RunStatus.succeeded,
+          startedAt: DateTime.utc(2026),
+          parentRunId: 'parent-1',
+          parentNodeId: 'fan',
+        ),
+      );
 
-    final res = await service.resumeChildRun('c-run');
-    expect(res.failureOrNull, isA<ConflictFailure>());
-  });
+      final res = await service.resumeChildRun('c-run');
+      expect(res.failureOrNull, isA<ConflictFailure>());
+    },
+  );
 
   test('cancelChildRun cancels through the canceller', () async {
     final cancelled = <String>[];
@@ -431,7 +434,7 @@ void main() {
 }
 
 final class _RecordingCanceller implements RunCanceller {
-  _RecordingCanceller(this.cancelled);
+  new(this.cancelled);
 
   final List<String> cancelled;
 

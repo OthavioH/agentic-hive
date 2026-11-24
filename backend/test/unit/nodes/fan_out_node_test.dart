@@ -780,7 +780,7 @@ void main() {
         'c-fail',
         0,
         RunStatus.failed,
-      ).copyWith(startedAt: DateTime.utc(2026, 1, 1)),
+      ).copyWith(startedAt: DateTime.utc(2026)),
       childRun(
         'c-ok',
         0,
@@ -828,36 +828,37 @@ void main() {
     expect(children[0]['runId'], 'c-x');
   });
 
-  test('falls back to index when nameField is set but an item has no name', () async {
-    port.previousRuns = Success([
-      childRun('c-0', 0, RunStatus.succeeded),
-    ]);
+  test(
+    'falls back to index when nameField is set but an item has no name',
+    () async {
+      port.previousRuns = Success([childRun('c-0', 0, RunStatus.succeeded)]);
 
-    await node.execute(
-      _context(
-        config: const {
-          'workflowId': 'child-wf',
-          'itemsNodeId': 'planner',
-          'itemsPath': 'issues',
-          'nameField': 'title',
-        },
-        inputs: const {
-          'nodeOutputs': {
-            'planner': {
-              'outputLabel': 'onSuccess',
-              'data': {
-                'issues': [
-                  <String, Object?>{},
-                  {'title': 'y'},
-                ],
+      await node.execute(
+        _context(
+          config: const {
+            'workflowId': 'child-wf',
+            'itemsNodeId': 'planner',
+            'itemsPath': 'issues',
+            'nameField': 'title',
+          },
+          inputs: const {
+            'nodeOutputs': {
+              'planner': {
+                'outputLabel': 'onSuccess',
+                'data': {
+                  'issues': [
+                    <String, Object?>{},
+                    {'title': 'y'},
+                  ],
+                },
               },
             },
           },
-        },
-      ),
-    );
-    expect(port.started.map((r) => r.index), [1]);
-  });
+        ),
+      );
+      expect(port.started.map((r) => r.index), [1]);
+    },
+  );
 
   test(
     'cancelled and cancellationUncertain previous children are retried',
@@ -873,41 +874,40 @@ void main() {
   );
 
   test('retried worktree gets an -r<n> suffix', () async {
-    port.previousRuns = Success([
-      childRun('c0', 0, RunStatus.failed),
-    ]);
+    port.previousRuns = Success([childRun('c0', 0, RunStatus.failed)]);
 
     await node.execute(_context());
     expect(port.started[0].worktreeName, 'Fan-1-r1');
     expect(port.started[1].worktreeName, 'Fan-2');
   });
 
-  test('waits for a running previous child instead of starting a new one', () async {
-    port.previousRuns = Success([
-      childRun('c-run', 0, RunStatus.running),
-      childRun('c-ok', 1, RunStatus.succeeded),
-    ]);
-    port.getRunScripts['c-run'] = [
-      Success(_run('c-run', status: RunStatus.running)),
-      Success(_run('c-run', status: RunStatus.succeeded)),
-    ];
+  test(
+    'waits for a running previous child instead of starting a new one',
+    () async {
+      port.previousRuns = Success([
+        childRun('c-run', 0, RunStatus.running),
+        childRun('c-ok', 1, RunStatus.succeeded),
+      ]);
+      port.getRunScripts['c-run'] = [
+        Success(_run('c-run', status: RunStatus.running)),
+        Success(_run('c-run')),
+      ];
 
-    final res = await node.execute(_context());
-    expect(port.started, isEmpty);
-    expect(port.resumed, isEmpty);
-    final children = (res.valueOrNull!.data['children']! as List<Object?>)
-        .cast<Map<String, Object?>>();
-    expect(children[0]['status'], 'succeeded');
-  });
+      final res = await node.execute(_context());
+      expect(port.started, isEmpty);
+      expect(port.resumed, isEmpty);
+      final children = (res.valueOrNull!.data['children']! as List<Object?>)
+          .cast<Map<String, Object?>>();
+      expect(children[0]['status'], 'succeeded');
+    },
+  );
 
   test('resumes an interrupted previous child and waits', () async {
     port.previousRuns = Success([
       childRun('c-int', 0, RunStatus.interrupted),
       childRun('c-ok', 1, RunStatus.succeeded),
     ]);
-    port.getRunScripts['c-int'] = [
-      Success(_run('c-int', status: RunStatus.succeeded)),
-    ];
+    port.getRunScripts['c-int'] = [Success(_run('c-int'))];
 
     final res = await node.execute(_context());
     expect(port.resumed, ['c-int']);
@@ -918,15 +918,14 @@ void main() {
   });
 
   test('a conflict while resuming is not an error', () async {
-    port.previousRuns = Success([
-      childRun('c-int', 0, RunStatus.interrupted),
-      childRun('c-ok', 1, RunStatus.succeeded),
-    ]);
-    port.resumeBehavior = (_) =>
-        const FailureResult(ConflictFailure('already'));
-    port.getRunScripts['c-int'] = [
-      Success(_run('c-int', status: RunStatus.succeeded)),
-    ];
+    port
+      ..previousRuns = Success([
+        childRun('c-int', 0, RunStatus.interrupted),
+        childRun('c-ok', 1, RunStatus.succeeded),
+      ])
+      ..resumeBehavior = ((_) =>
+          const FailureResult(ConflictFailure('already')))
+      ..getRunScripts['c-int'] = [Success(_run('c-int'))];
 
     final res = await node.execute(_context());
     final children = (res.valueOrNull!.data['children']! as List<Object?>)
@@ -935,12 +934,12 @@ void main() {
   });
 
   test('a resume failure fails only that item', () async {
-    port.previousRuns = Success([
-      childRun('c-int', 0, RunStatus.interrupted),
-      childRun('c-ok', 1, RunStatus.succeeded),
-    ]);
-    port.resumeBehavior = (_) =>
-        const FailureResult(UnexpectedFailure('boom'));
+    port
+      ..previousRuns = Success([
+        childRun('c-int', 0, RunStatus.interrupted),
+        childRun('c-ok', 1, RunStatus.succeeded),
+      ])
+      ..resumeBehavior = (_) => const FailureResult(UnexpectedFailure('boom'));
 
     final res = await node.execute(_context());
     final children = (res.valueOrNull!.data['children']! as List<Object?>)

@@ -582,6 +582,21 @@ final class GraphEngine implements RunCanceller {
       final run = runResult.valueOrNull!;
       switch (run.status) {
         case RunStatus.paused || RunStatus.interrupted:
+          final childrenStopped = await _cancelChildRuns(runId);
+          if (childrenStopped case FailureResult<void>(:final failure)) {
+            return await _finishTerminal(
+              runId,
+              status: RunStatus.cancellationUncertain,
+              eventType: RunEventType.runCancellationUncertain,
+              payload: <String, Object?>{
+                'from': run.status.name,
+                'error': failure.message,
+              },
+              errorMessage:
+                  'Could not confirm that all processes exited: '
+                  '${failure.message}',
+            );
+          }
           _pauseGateway.cancelRun(runId);
           await _pauses?.cancelPendingForRun(runId, cancelledAt: _now());
           return await _finishTerminal(
@@ -1700,6 +1715,7 @@ final class GraphEngine implements RunCanceller {
             ? (x.graph.node(node.proposalNodeId!)?.label ?? node.proposalNodeId)
             : null,
         createdAt: _now(),
+        parentRunId: x.run.parentRunId,
       );
       final created = await pausesRepo.create(pause);
       if (created case FailureResult<Pause>(:final failure)) {
@@ -1746,7 +1762,9 @@ final class GraphEngine implements RunCanceller {
   Future<Result<Run>> _finishFailed(_RunExecution x) async {
     var reason = x.failReason ?? 'The run failed.';
     var killError = '';
-    final stopped = await _stopRunningNodes(x);
+    final childrenStopped = await _cancelChildRuns(x.run.id);
+    final nodesStopped = await _stopRunningNodes(x);
+    final stopped = childrenStopped.isFailure ? childrenStopped : nodesStopped;
     if (stopped case FailureResult<void>(:final failure)) {
       killError = failure.message;
       reason = '$reason (process exit unconfirmed: $killError)';
@@ -1787,7 +1805,9 @@ final class GraphEngine implements RunCanceller {
       payload: <String, Object?>{'from': fromStatus},
     );
 
-    final stopped = await _stopRunningNodes(x);
+    final childrenStopped = await _cancelChildRuns(x.run.id);
+    final nodesStopped = await _stopRunningNodes(x);
+    final stopped = childrenStopped.isFailure ? childrenStopped : nodesStopped;
     if (stopped case FailureResult<void>(:final failure)) {
       _log.warning(
         LogEvent(
@@ -1837,6 +1857,28 @@ final class GraphEngine implements RunCanceller {
       },
     );
 
+    final childrenStopped = await _cancelChildRuns(runId);
+    if (childrenStopped case FailureResult<void>(:final failure)) {
+      _log.warning(
+        LogEvent(
+          'graph_engine.retry_cancel_unconfirmed',
+          fields: {'runId': runId, 'error': failure.message},
+        ),
+      );
+      return await _finishTerminal(
+        runId,
+        status: RunStatus.cancellationUncertain,
+        eventType: RunEventType.runCancellationUncertain,
+        payload: <String, Object?>{
+          'from': 'cancellationUncertain',
+          'retry': true,
+          'error': failure.message,
+        },
+        errorMessage:
+            'Could not confirm that all processes exited: ${failure.message}',
+      );
+    }
+
     final killed = await _processTreeKiller.killTree(runId: runId);
     if (killed case FailureResult<void>(:final failure)) {
       _log.warning(
@@ -1870,6 +1912,56 @@ final class GraphEngine implements RunCanceller {
         'retry': true,
       },
     );
+  }
+
+  /// Cancels every child run of [parentRunId] that is not final, through this
+  /// engine (a [RunCanceller]), and waits until each cancel settled.
+  /// Fails when a child could not be confirmed stopped (ADR 0029).
+  Future<Result<void>> _cancelChildRuns(String parentRunId) async {
+    const terminal = {
+      RunStatus.succeeded,
+      RunStatus.failed,
+      RunStatus.cancelled,
+    };
+    final attempted = <String>{};
+    final unconfirmed = <String>[];
+    for (var pass = 0; pass < 5; pass++) {
+      final listed = await _runs.listChildren(parentRunId);
+      if (listed case FailureResult<List<Run>>(:final failure)) {
+        return FailureResult(failure);
+      }
+      final todo = listed.valueOrNull!
+          .where((r) => !terminal.contains(r.status) && attempted.add(r.id))
+          .toList();
+      if (todo.isEmpty) break;
+      final results = await Future.wait(todo.map((r) => _cancelOneChild(r.id)));
+      for (final id in results) {
+        if (id != null) unconfirmed.add(id);
+      }
+    }
+    if (unconfirmed.isEmpty) return const Success(null);
+    return FailureResult(
+      NodeExecutionFailure(
+        'Could not confirm that child run(s) '
+        '${unconfirmed.join(', ')} stopped.',
+      ),
+    );
+  }
+
+  Future<String?> _cancelOneChild(String id) async {
+    try {
+      await cancel(id);
+    } on Object {
+      // Checked below.
+    }
+    final current = await _runs.getById(id);
+    if (current case Success<Run>(:final value)) {
+      if (value.status == RunStatus.cancellationUncertain ||
+          value.status.isActive) {
+        return id;
+      }
+    }
+    return null;
   }
 
   /// Kills the process trees of every running node, waits for the kill to be

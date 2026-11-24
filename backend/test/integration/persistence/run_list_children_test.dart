@@ -25,10 +25,10 @@ void main() {
 
   Run makeRun(
     String id, {
+    required DateTime startedAt,
     String? parentRunId,
     String? parentNodeId,
     int? childIndex,
-    required DateTime startedAt,
   }) => Run(
     id: id,
     workflowId: sampleWorkflow.id,
@@ -50,9 +50,7 @@ void main() {
       addTearDown(db.close);
 
       final repo = DriftRunRepository(db);
-      await repo.create(
-        makeRun('p', startedAt: DateTime.utc(2026, 11, 21, 9)),
-      );
+      await repo.create(makeRun('p', startedAt: DateTime.utc(2026, 11, 21, 9)));
       await repo.create(
         makeRun('unrelated', startedAt: DateTime.utc(2026, 11, 21, 9, 1)),
       );
