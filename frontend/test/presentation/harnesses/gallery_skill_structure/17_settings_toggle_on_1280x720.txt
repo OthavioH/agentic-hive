@@ -28,7 +28,7 @@ SemanticsNode#
          │ actions: scrollDown, scrollToOffset
          │ flags: hasImplicitScrolling
          │ scrollExtentMin: 0.0
-         │ scrollPosition: 358.0
+         │ scrollPosition: 354.0
          │
          ├─SemanticsNode#
          │   flags: isHidden
@@ -109,8 +109,6 @@ SemanticsNode#
          │     label: "Reset to default"
          │
          ├─SemanticsNode#
-         │   flags: isHidden
-         │   HIDDEN
          │   label: "Default: /home/user/.agents/agents"
          │
          ├─SemanticsNode#

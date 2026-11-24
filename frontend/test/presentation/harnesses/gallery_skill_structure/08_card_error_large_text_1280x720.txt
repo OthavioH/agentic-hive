@@ -80,8 +80,7 @@ SemanticsNode#
            │
            └─SemanticsNode#
                actions: tap
-               flags: isButton, hasEnabledState, isEnabled, isHidden
-               HIDDEN
+               flags: isButton, hasEnabledState, isEnabled
                label: "Retry"
 
 --- texts ---

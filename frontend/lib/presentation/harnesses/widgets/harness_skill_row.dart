@@ -1,6 +1,5 @@
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/harnesses/controllers/skill_row_models.dart';
-import 'package:agentic_hive_frontend/presentation/harnesses/widgets/harness_section_panel.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
 import 'package:material_ui/material_ui.dart';
@@ -80,7 +79,7 @@ class HarnessSkillRow extends StatelessWidget {
 
     final currentError = error;
 
-    return HarnessSectionPanel(
+    return HiveInsetPanel(
       key: ValueKey<String>('harness_skill_row_$wire'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -137,6 +136,7 @@ class HarnessSkillRow extends StatelessWidget {
             HiveBanner(
               key: ValueKey<String>('harness_skill_error_$wire'),
               tone: HiveFeedbackTone.danger,
+              density: HiveBannerDensity.compact,
               liveRegion: true,
               title: l10n.harnessesSkillErrorTitle,
               message: currentError.failure.message.trim().isNotEmpty
@@ -158,6 +158,7 @@ class HarnessSkillRow extends StatelessWidget {
             HiveBanner(
               key: ValueKey<String>('harness_skill_mcp_missing_$wire'),
               tone: HiveFeedbackTone.warning,
+              density: HiveBannerDensity.compact,
               liveRegion: true,
               title: l10n.harnessesSkillMcpMissing,
             ),

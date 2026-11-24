@@ -310,7 +310,12 @@ void main() {
           isNull,
         );
 
-        await tester.tap(switchFinder);
+        await tester.tap(
+          find.descendant(
+            of: switchFinder,
+            matching: find.byType(HiveInteraction),
+          ),
+        );
         await tester.pumpAndSettle();
 
         expect(tester.widget<HiveSwitch>(switchFinder).value, isFalse);

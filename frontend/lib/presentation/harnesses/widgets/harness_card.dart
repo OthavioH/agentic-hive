@@ -1,6 +1,5 @@
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/harnesses/controllers/skill_row_models.dart';
-import 'package:agentic_hive_frontend/presentation/harnesses/widgets/harness_section_panel.dart';
 import 'package:agentic_hive_frontend/presentation/harnesses/widgets/harness_skill_row.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
@@ -88,22 +87,12 @@ class HarnessCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: colors.surface2,
-                  borderRadius: context.hiveRadii.card,
-                  border: Border.all(
-                    color: colors.borderSubtle,
-                    width: context.hiveElevation.hairline,
-                  ),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(spacing.space1),
-                  child: HiveIcon(
-                    _harnessLogo(harness.id),
-                    size: spacing.space3,
-                    color: colors.onSurface,
-                  ),
+              HiveInsetPanel(
+                padding: HiveInsetPadding.tight,
+                child: HiveIcon(
+                  _harnessLogo(harness.id),
+                  size: spacing.space3,
+                  color: colors.onSurface,
                 ),
               ),
               SizedBox(width: spacing.space2),
@@ -168,59 +157,45 @@ class HarnessCard extends StatelessWidget {
           ),
           if (executablePath != null && executablePath.isNotEmpty) ...<Widget>[
             SizedBox(height: spacing.space2),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: colors.surface2,
-                borderRadius: context.hiveRadii.card,
-                border: Border.all(
-                  color: colors.borderSubtle,
-                  width: context.hiveElevation.hairline,
-                ),
-              ),
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: spacing.space2,
-                  vertical: spacing.space1,
-                ),
-                child: Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          Text(
-                            l10n.harnessesExecutablePathLabel,
-                            style: typography.label.copyWith(
-                              color: colors.onSurfaceMuted,
-                            ),
+            HiveInsetPanel(
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Text(
+                          l10n.harnessesExecutablePathLabel,
+                          style: typography.label.copyWith(
+                            color: colors.onSurfaceMuted,
                           ),
-                          SizedBox(height: spacing.spaceHalf),
-                          Text(
-                            executablePath,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: typography.mono.copyWith(
-                              color: colors.onSurface,
-                            ),
+                        ),
+                        SizedBox(height: spacing.spaceHalf),
+                        Text(
+                          executablePath,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: typography.mono.copyWith(
+                            color: colors.onSurface,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    SizedBox(width: spacing.space1),
-                    HiveIconButton(
-                      key: ValueKey<String>(
-                        'harness_copy_${harness.id.wireName}',
-                      ),
-                      icon: HiveIcons.copy,
-                      semanticLabel: l10n.harnessesCopyPathTooltip(
-                        harness.displayName,
-                      ),
-                      size: HiveButtonSize.small,
-                      onPressed: () => onCopyPath(executablePath),
+                  ),
+                  SizedBox(width: spacing.space1),
+                  HiveIconButton(
+                    key: ValueKey<String>(
+                      'harness_copy_${harness.id.wireName}',
                     ),
-                  ],
-                ),
+                    icon: HiveIcons.copy,
+                    semanticLabel: l10n.harnessesCopyPathTooltip(
+                      harness.displayName,
+                    ),
+                    size: HiveButtonSize.small,
+                    onPressed: () => onCopyPath(executablePath),
+                  ),
+                ],
               ),
             ),
           ],
@@ -247,36 +222,26 @@ class HarnessCard extends StatelessWidget {
           ],
           if (guidance != null) ...<Widget>[
             SizedBox(height: spacing.space2),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: colors.surface2,
-                borderRadius: context.hiveRadii.card,
-                border: Border.all(
-                  color: colors.borderSubtle,
-                  width: context.hiveElevation.hairline,
-                ),
-              ),
-              child: Padding(
-                padding: EdgeInsets.all(spacing.space2),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    HiveIcon(
-                      statusSpec.icon,
-                      size: spacing.space2,
-                      color: _guidanceIconColor(harness.status, colors),
-                    ),
-                    SizedBox(width: spacing.space1),
-                    Expanded(
-                      child: Text(
-                        guidance,
-                        style: typography.bodySmall.copyWith(
-                          color: colors.onSurface,
-                        ),
+            HiveInsetPanel(
+              padding: HiveInsetPadding.comfortable,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  HiveIcon(
+                    statusSpec.icon,
+                    size: spacing.space2,
+                    color: _guidanceIconColor(harness.status, colors),
+                  ),
+                  SizedBox(width: spacing.space1),
+                  Expanded(
+                    child: Text(
+                      guidance,
+                      style: typography.bodySmall.copyWith(
+                        color: colors.onSurface,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -382,7 +347,7 @@ class _McpStatusSection extends StatelessWidget {
             harness.mcpStatus == HarnessMcpStatus.unknown);
     final mcpMessage = harness.mcpMessage;
 
-    return HarnessSectionPanel(
+    return HiveInsetPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,

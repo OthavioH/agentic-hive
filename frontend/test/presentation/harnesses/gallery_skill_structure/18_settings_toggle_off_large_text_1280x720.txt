@@ -28,7 +28,7 @@ SemanticsNode#
          │ actions: scrollDown, scrollToOffset
          │ flags: hasImplicitScrolling
          │ scrollExtentMin: 0.0
-         │ scrollPosition: 882.0
+         │ scrollPosition: 878.0
          │
          ├─SemanticsNode#
          │   flags: isHidden
