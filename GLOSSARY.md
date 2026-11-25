@@ -59,7 +59,11 @@ The copy of a workflow that a run takes when it starts and executes until it end
 _Avoid_: snapshot (which is about files), version, run workflow
 
 **Run input**:
-Optional free-text task input provided when starting a run and passed to the entry node.
+Optional free-text task input provided when starting a run and passed to every node of the run. It may come with run attachments.
+
+**Run attachment**:
+An image provided with the run input when starting a run, available to the run's nodes until the run ends.
+_Avoid_: upload, file input, asset
 
 **Orphaned run**:
 A run kept after its workflow was deleted because a forced delete could not confirm that its processes stopped. Its workflow id is cleared and its workflow name is kept; the user can retry its cancel and delete it.
