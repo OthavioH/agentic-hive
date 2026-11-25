@@ -1,6 +1,6 @@
 name: agentic_hive_backend
 description: Local Agentic Hive backend server.
-version: 0.1.0
+version: 0.2.0
 publish_to: none
 resolution: workspace
 
