@@ -41,6 +41,7 @@ export 'src/pauses/proposal_schema.dart';
 export 'src/runs/checkpoint.dart';
 export 'src/runs/node_override.dart';
 export 'src/runs/run.dart';
+export 'src/runs/run_attachment.dart';
 export 'src/runs/run_dtos.dart';
 export 'src/runs/run_event.dart';
 export 'src/runs/run_event_type.dart';
