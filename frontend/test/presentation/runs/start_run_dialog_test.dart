@@ -16,6 +16,7 @@ import 'package:agentic_hive_frontend/presentation/runs/pages/runs_page.dart';
 import 'package:agentic_hive_frontend/presentation/runs/widgets/start_run_dialog.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -909,6 +910,47 @@ void main() {
       await pasteShortcut(tester);
       expect(find.text('Pasted image 2.png · 0.5 KB'), findsOneWidget);
     });
+
+    testWidgets(
+      'long attachment chip name shows full label in a tooltip on hover',
+      (tester) async {
+        final ctx = await openAttachmentDialog(tester);
+        const longName =
+            'very-long-attachment-file-name-for-desktop-builds-final-v2.png';
+        ctx.inputSource.emit(
+          AttachmentFilesDropped(<RunAttachmentCandidate>[
+            RunAttachmentCandidate(
+              fileName: longName,
+              bytes: pngBytes(512),
+              sizeBytes: 512,
+            ),
+          ]),
+        );
+        await tester.pumpAndSettle();
+
+        final chipFinder = find.byKey(const Key('start_run_attachment_chip_0'));
+        expect(chipFinder, findsOneWidget);
+        final tooltipFinder = find.descendant(
+          of: chipFinder,
+          matching: find.byType(Tooltip),
+        );
+        expect(tooltipFinder, findsOneWidget);
+        const expectedLabel = '$longName · 0.5 KB';
+        expect(tester.widget<Tooltip>(tooltipFinder).message, expectedLabel);
+
+        final gesture = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+        );
+        addTearDown(gesture.removePointer);
+        await gesture.addPointer(location: Offset.zero);
+        await tester.pump();
+        await gesture.moveTo(tester.getCenter(chipFinder));
+        await tester.pump(tester.element(chipFinder).hiveMotion.long);
+        await tester.pump();
+
+        expect(find.text(expectedLabel), findsWidgets);
+      },
+    );
 
     testWidgets('drag enter, exit, and drop update drop caption and chips', (
       tester,

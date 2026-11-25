@@ -442,6 +442,53 @@ void main() {
         expect(find.bySemanticsLabel(longLabel), findsOneWidget);
       },
     );
+
+    testWidgets('removable chip shows its full label in a tooltip on hover', (
+      tester,
+    ) async {
+      const longLabel = 'release-checklist-for-desktop-builds-final-v2.png';
+      await tester.pumpWidget(
+        hiveTestApp(
+          child: Center(
+            child: SizedBox(
+              width: 140,
+              child: HiveChip.removable(
+                label: longLabel,
+                removeSemanticLabel: 'Remove',
+                onRemoved: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(tester.widget<Tooltip>(find.byType(Tooltip)).message, longLabel);
+      expect(find.bySemanticsLabel(longLabel), findsOneWidget);
+
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(gesture.removePointer);
+      await gesture.addPointer(location: Offset.zero);
+      await tester.pump();
+      await gesture.moveTo(tester.getCenter(find.byType(HiveRemovableChip)));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+
+      expect(find.text(longLabel), findsWidgets);
+    });
+
+    test('chip foregrounds meet WCAG AA', () {
+      for (final colors in <HiveColors>[HiveColors.dark, HiveColors.light]) {
+        expect(
+          HiveContrast.ratio(colors.onSurfaceMuted, colors.surface3),
+          greaterThanOrEqualTo(HiveContrastLevel.text.minimumRatio),
+        );
+        expect(
+          HiveContrast.ratio(colors.onSurface, colors.surface3),
+          greaterThanOrEqualTo(HiveContrastLevel.text.minimumRatio),
+        );
+      }
+    });
   });
 
   group('HiveSegmentedControl', () {
