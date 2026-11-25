@@ -142,6 +142,9 @@ class Runs extends Table {
   /// Optional display name of this child within the fan-out execution.
   TextColumn get childName => text().nullable()();
 
+  /// Optional JSON list of Run attachment metadata (no bytes, ADR 0030).
+  TextColumn get attachmentsJson => text().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
@@ -387,7 +390,7 @@ class AppDatabase extends _$AppDatabase {
   static const installedAtKey = 'installed_at';
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -462,6 +465,11 @@ class AppDatabase extends _$AppDatabase {
       if (from < 11) {
         if (from >= 6) {
           await m.addColumn(pauses, pauses.parentRunId);
+        }
+      }
+      if (from < 12) {
+        if (from >= 3) {
+          await m.addColumn(runs, runs.attachmentsJson);
         }
       }
     },

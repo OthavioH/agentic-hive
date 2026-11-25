@@ -377,5 +377,56 @@ void main() {
         expect(nextCtx.runInput, isNull);
       },
     );
+
+    test('passes runAttachments to every node (entry and non-entry) and empty '
+        'when none', () async {
+      final workflow = buildWorkflow(
+        nodeIds: ['a', 'b'],
+        entry: 'a',
+        edges: [edge('a', NodeOutput.onSuccess, 'b')],
+      );
+      await h.createRun(
+        workflow,
+        attachments: const [
+          RunAttachment(
+            fileName: 'shot.png',
+            mimeType: 'image/png',
+            sizeBytes: 10,
+          ),
+          RunAttachment(
+            fileName: 'photo.jpg',
+            mimeType: 'image/jpeg',
+            sizeBytes: 20,
+          ),
+        ],
+      );
+
+      final result = await h.engine.start(runId);
+
+      expect(result.valueOrNull?.status, RunStatus.succeeded);
+      final entryCtx = h.script.executions.firstWhere((c) => c.nodeId == 'a');
+      final nextCtx = h.script.executions.firstWhere((c) => c.nodeId == 'b');
+      for (final ctx in [entryCtx, nextCtx]) {
+        expect(ctx.runAttachments, hasLength(2));
+        expect(ctx.runAttachments[0].path, '/runs/$runId/attachments/1.png');
+        expect(ctx.runAttachments[0].fileName, 'shot.png');
+        expect(ctx.runAttachments[1].path, '/runs/$runId/attachments/2.jpg');
+        expect(ctx.runAttachments[1].fileName, 'photo.jpg');
+      }
+    });
+
+    test('passes empty runAttachments when run has none', () async {
+      final workflow = buildWorkflow(
+        nodeIds: ['a'],
+        entry: 'a',
+        edges: const [],
+      );
+      await h.createRun(workflow);
+
+      final result = await h.engine.start(runId);
+
+      expect(result.valueOrNull?.status, RunStatus.succeeded);
+      expect(h.script.executions.single.runAttachments, isEmpty);
+    });
   });
 }

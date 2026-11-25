@@ -1,12 +1,16 @@
 import 'dart:async';
 
+import 'package:agentic_hive_frontend/core/attachments/attachment_input_source.dart';
 import 'package:agentic_hive_frontend/core/di/use_case_providers.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
+import 'package:agentic_hive_frontend/domain/runs/run_attachment_drafts.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/runs/utils/run_l10n.dart';
 import 'package:agentic_hive_frontend/presentation/workspace/controllers/workspace_registry_controller.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -59,9 +63,14 @@ class StartRunDialog extends ConsumerStatefulWidget {
 
 enum _RunTargetKind { primary, existingWorktree, newWorktree }
 
+class _PasteIntent extends Intent {
+  const new();
+}
+
 class _StartRunDialogState extends ConsumerState<StartRunDialog> {
   final TextEditingController _branchController = TextEditingController();
   final TextEditingController _inputController = TextEditingController();
+  final FocusNode _inputFocusNode = FocusNode();
 
   List<WorkflowSummary> _workflows = const <WorkflowSummary>[];
   List<Workspace> _workspaces = const <Workspace>[];
@@ -79,6 +88,12 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
 
   String? _workflowError;
   String? _submitError;
+
+  List<RunAttachmentDraft> _attachments = const <RunAttachmentDraft>[];
+  int _pastedCount = 0;
+  bool _dragOver = false;
+  List<String> _attachmentErrors = const <String>[];
+  StreamSubscription<AttachmentDropEvent>? _dropSub;
 
   int _capabilitiesToken = 0;
 
@@ -98,14 +113,108 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
   void initState() {
     super.initState();
     _selectedWorkflowId = widget.initialWorkflowId;
+    _dropSub = ref
+        .read(attachmentInputSourceProvider)
+        .drops
+        .listen(_onDropEvent);
     unawaited(_loadInitial());
   }
 
   @override
   void dispose() {
+    unawaited(_dropSub?.cancel());
     _branchController.dispose();
     _inputController.dispose();
+    _inputFocusNode.dispose();
     super.dispose();
+  }
+
+  void _onDropEvent(AttachmentDropEvent event) {
+    if (!mounted || _isSubmitting) return;
+    switch (event) {
+      case AttachmentDragEntered():
+        if (!_dragOver) setState(() => _dragOver = true);
+      case AttachmentDragExited():
+        if (_dragOver) setState(() => _dragOver = false);
+      case AttachmentFilesDropped(:final files):
+        setState(() => _dragOver = false);
+        _addCandidates(files);
+    }
+  }
+
+  Future<void> _paste() async {
+    if (_isSubmitting) return;
+    final bytes = await ref
+        .read(attachmentInputSourceProvider)
+        .readClipboardImage();
+    if (!mounted) return;
+    if (bytes == null) {
+      final focusContext = _inputFocusNode.context;
+      if (focusContext != null && focusContext.mounted) {
+        Actions.maybeInvoke<PasteTextIntent>(
+          focusContext,
+          const PasteTextIntent(SelectionChangedCause.keyboard),
+        );
+      }
+      return;
+    }
+
+    final l10n = AppLocalizations.of(context)!;
+    final mime = sniffImageMimeType(bytes);
+    final ext = mime == null ? 'png' : extensionForMime(mime);
+    final fileName = l10n.startRunPastedImageName(_pastedCount + 1, ext);
+    final accepted = _addCandidates(<RunAttachmentCandidate>[
+      RunAttachmentCandidate(
+        fileName: fileName,
+        sizeBytes: bytes.length,
+        bytes: bytes,
+      ),
+    ]);
+    if (accepted > 0) {
+      _pastedCount += 1;
+    }
+  }
+
+  int _addCandidates(List<RunAttachmentCandidate> candidates) {
+    final l10n = AppLocalizations.of(context)!;
+    final result = addRunAttachments(_attachments, candidates);
+    final errors = <String>[];
+    var addedLimitError = false;
+    for (final (name, reason) in result.rejected) {
+      switch (reason) {
+        case RunAttachmentRejection.type:
+          errors.add(l10n.startRunAttachmentTypeError(name));
+        case RunAttachmentRejection.limits:
+          if (!addedLimitError) {
+            addedLimitError = true;
+            errors.add(
+              l10n.startRunAttachmentLimitError(
+                RunAttachmentLimits.maxCount,
+                RunAttachmentLimits.maxBytesEach ~/ 1048576,
+                RunAttachmentLimits.maxTotalBytes ~/ 1048576,
+              ),
+            );
+          }
+      }
+    }
+
+    setState(() {
+      _attachments = <RunAttachmentDraft>[..._attachments, ...result.accepted];
+      _attachmentErrors = errors;
+      _submitError = null;
+    });
+
+    final view = View.of(context);
+    for (final draft in result.accepted) {
+      unawaited(
+        SemanticsService.sendAnnouncement(
+          view,
+          l10n.startRunAttachmentAdded(draft.fileName),
+          TextDirection.ltr,
+        ),
+      );
+    }
+    return result.accepted.length;
   }
 
   Future<void> _loadInitial() async {
@@ -320,6 +429,12 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
             workspaceId: workspaceId,
             target: _buildTarget(),
             input: input,
+            attachments: _attachments.isEmpty
+                ? null
+                : <RunAttachmentPayload>[
+                    for (final attachment in _attachments)
+                      attachment.toPayload(),
+                  ],
           ),
         );
     if (!mounted) return;
@@ -391,6 +506,8 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
     return HiveDialog(
       title: l10n.startRunDialogTitle,
       icon: HiveIcons.runs,
+      dropActive: _dragOver,
+      dropCaption: l10n.startRunAttachmentDropCaption,
       content: _isLoadingInitial
           ? Center(
               child: Padding(
@@ -553,16 +670,76 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
                   ],
                 ],
                 SizedBox(height: spacing.space3),
-                HiveTextArea(
-                  key: const Key('start_run_input_field'),
-                  label: l10n.startRunInputLabel,
-                  hintText: l10n.startRunInputHint,
-                  helperText: l10n.startRunInputHelper,
-                  controller: _inputController,
-                  minLines: 3,
-                  maxLines: 5,
-                  enabled: !_isSubmitting,
+                Shortcuts(
+                  shortcuts: const <ShortcutActivator, Intent>{
+                    SingleActivator(LogicalKeyboardKey.keyV, control: true):
+                        _PasteIntent(),
+                    SingleActivator(LogicalKeyboardKey.keyV, meta: true):
+                        _PasteIntent(),
+                  },
+                  child: Actions(
+                    actions: <Type, Action<Intent>>{
+                      _PasteIntent: CallbackAction<_PasteIntent>(
+                        onInvoke: (_) {
+                          unawaited(_paste());
+                          return null;
+                        },
+                      ),
+                    },
+                    child: HiveTextArea(
+                      key: const Key('start_run_input_field'),
+                      label: l10n.startRunInputLabel,
+                      hintText: l10n.startRunInputHint,
+                      helperText: l10n.startRunInputHelper,
+                      controller: _inputController,
+                      focusNode: _inputFocusNode,
+                      minLines: 3,
+                      maxLines: 5,
+                      enabled: !_isSubmitting,
+                    ),
+                  ),
                 ),
+                if (_attachments.isNotEmpty) ...<Widget>[
+                  SizedBox(height: spacing.space2),
+                  Wrap(
+                    spacing: spacing.space2,
+                    runSpacing: spacing.space1,
+                    children: <Widget>[
+                      for (var i = 0; i < _attachments.length; i++)
+                        HiveRemovableChip(
+                          key: Key('start_run_attachment_chip_$i'),
+                          label: l10n.startRunAttachmentChipLabel(
+                            _attachments[i].fileName,
+                            RunL10n.formatAttachmentSize(
+                              l10n,
+                              _attachments[i].sizeBytes,
+                            ),
+                          ),
+                          removeSemanticLabel: l10n.startRunAttachmentRemove(
+                            _attachments[i].fileName,
+                          ),
+                          onRemoved: _isSubmitting
+                              ? null
+                              : () => setState(() {
+                                  _attachments = <RunAttachmentDraft>[
+                                    ..._attachments.take(i),
+                                    ..._attachments.skip(i + 1),
+                                  ];
+                                  _attachmentErrors = const <String>[];
+                                }),
+                        ),
+                    ],
+                  ),
+                ],
+                if (_attachmentErrors.isNotEmpty) ...<Widget>[
+                  SizedBox(height: spacing.space2),
+                  HiveBanner(
+                    key: const Key('start_run_attachment_error_banner'),
+                    tone: HiveFeedbackTone.danger,
+                    title: _attachmentErrors.join('\n'),
+                    liveRegion: true,
+                  ),
+                ],
                 if (_submitError != null) ...<Widget>[
                   SizedBox(height: spacing.space3),
                   HiveBanner(

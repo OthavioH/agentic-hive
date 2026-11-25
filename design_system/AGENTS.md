@@ -91,6 +91,11 @@ F15 addition (#22): `HiveMetricTile` (`focal` value in `number` inside `space3`,
 - `HiveSwitch.helperText`: optional muted `bodySmall` text (`onSurfaceMuted`) below the label (requires `label != null`), aligned to the label's start edge (`space6 + space1`), as a non-toggling sibling that keeps its own semantics node and dims when disabled.
 - `HiveBadgeTone.neutral` foreground outline: draws a 1px `borderStrong` outline with `radiusPill` in the foreground so the neutral badge boundary reaches 3:1 against `surface2` without changing badge layout size.
 
+#175 addition: `HiveChip.readOnly` (`HiveReadOnlyChip`): no remove button, no selection, no tap target; `removed: true` mutes label and icon to `onSurfaceMuted` on `surface3` with a `borderSubtle` hairline (AA via the existing `onSurfaceMuted` text pairs); the full label is in a tooltip and the semantics node (`semanticLabel` overrides, consumers include `"removed"`).
+
+#177 addition:
+- `HiveDropZone`: visual-only drop-target highlight toggled by `active`; draws a `background` scrim at `scrimOpacity`, `focusRing` border at `focusRingWidth`, `radiusPanel` by default, and centered `titleSmall` `onSurface` caption. Fades over `short`/`standardCurve` (through `motion.resolve`); while active, exposes one live-region semantics node labelled with the caption; never takes pointer events (`IgnorePointer`). `HiveDialog.dropActive`/`dropCaption` wraps only the dialog panel in `HiveDropZone`.
+
 **Desktop platform profile:** Windows, Linux, and macOS; mouse + keyboard first. Every interactive component must have a hover state, a visible keyboard focus indicator, and a semantics label. Support desktop density (sidebar, multi-column, master-detail).
 
 ## Do and Don't

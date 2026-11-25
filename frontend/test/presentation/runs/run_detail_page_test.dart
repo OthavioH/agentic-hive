@@ -9,6 +9,7 @@ import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/runs/pages/run_detail_page.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -399,17 +400,167 @@ void main() {
     await tester.tap(toggle);
     await tester.pumpAndSettle();
   });
+
+  testWidgets('RunDetailPage copies full untrimmed input even when collapsed', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    String? copiedText;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copiedText =
+              (call.arguments as Map<Object?, Object?>)['text'] as String?;
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+
+    final lines = List<String>.generate(
+      8,
+      (i) => 'Line ${i + 1}: verify module ${i + 1}',
+    );
+    final longUntrimmed = '  ${lines.join('\n')}  ';
+    final repo = _InputRunRepository(longUntrimmed);
+    final ws = _FakeWsSession();
+    addTearDown(ws.close);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          runRepositoryProvider.overrideWithValue(repo),
+          backendWebSocketSessionProvider.overrideWithValue(ws),
+          backendWsMessagesProvider.overrideWith((ref) => ws.messages),
+        ],
+        child: _buildRouterHost(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('run_detail_input_copy')));
+    await tester.pump();
+
+    expect(copiedText, longUntrimmed);
+    expect(find.text('Copied'), findsOneWidget);
+  });
+
+  testWidgets('RunDetailPage shows attachment-only input card without copy', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final repo = _InputRunRepository(
+      null,
+      attachments: const <RunAttachment>[
+        RunAttachment(
+          fileName: 'x.png',
+          mimeType: 'image/png',
+          sizeBytes: 1229,
+        ),
+      ],
+      status: RunStatus.running,
+    );
+    final ws = _FakeWsSession();
+    addTearDown(ws.close);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          runRepositoryProvider.overrideWithValue(repo),
+          backendWebSocketSessionProvider.overrideWithValue(ws),
+          backendWsMessagesProvider.overrideWith((ref) => ws.messages),
+        ],
+        child: _buildRouterHost(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('run_detail_input_card')), findsOneWidget);
+    expect(find.byKey(const Key('run_detail_input_copy')), findsNothing);
+    expect(find.text('x.png · 1.2 KB'), findsOneWidget);
+    final chip = tester.widget<HiveReadOnlyChip>(
+      find.byKey(const Key('run_detail_attachment_0')),
+    );
+    expect(chip.removed, isFalse);
+  });
+
+  for (final endedStatus in const <RunStatus>[
+    RunStatus.succeeded,
+    RunStatus.failed,
+    RunStatus.cancelled,
+  ]) {
+    testWidgets(
+      'RunDetailPage marks attachment chips removed for ${endedStatus.name}',
+      (tester) async {
+        tester.view.physicalSize = const Size(1440, 900);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+
+        final repo = _InputRunRepository(
+          'See image',
+          attachments: const <RunAttachment>[
+            RunAttachment(
+              fileName: 'x.png',
+              mimeType: 'image/png',
+              sizeBytes: 1229,
+            ),
+          ],
+          status: endedStatus,
+        );
+        final ws = _FakeWsSession();
+        addTearDown(ws.close);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              runRepositoryProvider.overrideWithValue(repo),
+              backendWebSocketSessionProvider.overrideWithValue(ws),
+              backendWsMessagesProvider.overrideWith((ref) => ws.messages),
+            ],
+            child: _buildRouterHost(),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('x.png · 1.2 KB · removed'), findsOneWidget);
+        final chip = tester.widget<HiveReadOnlyChip>(
+          find.byKey(const Key('run_detail_attachment_0')),
+        );
+        expect(chip.removed, isTrue);
+      },
+    );
+  }
 }
 
 final class _InputRunRepository extends _FakeRunRepository {
-  new(this._input);
+  new(this._input, {this.attachments, this.status});
 
   final String? _input;
+  final List<RunAttachment>? attachments;
+  final RunStatus? status;
 
   @override
   Future<Result<Run>> getRun(String id) async {
     final base = (await super.getRun(id)).valueOrNull!;
-    return Success(base.copyWith(input: _input));
+    return Success(
+      base.copyWith(
+        input: _input,
+        attachments: attachments,
+        status: status ?? base.status,
+      ),
+    );
   }
 }
 

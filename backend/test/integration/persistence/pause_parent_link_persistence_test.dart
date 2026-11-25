@@ -103,7 +103,7 @@ void main() {
     addTearDown(db.close);
 
     final tableInfo = await db.customSelect('PRAGMA table_info(pauses)').get();
-    expect(await readUserVersion(dbFile), 11);
+    expect(await readUserVersion(dbFile), 12);
     final columnNames = tableInfo
         .map((row) => row.read<String>('name'))
         .toSet();

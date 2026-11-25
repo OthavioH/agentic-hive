@@ -6,8 +6,11 @@ import 'package:agentic_hive_backend/src/domain/nodes/node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_execution_context.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_outcome.dart';
 import 'package:agentic_hive_backend/src/domain/runs/process_tree_killer.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_attachment_store.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_attachment_validator.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/snapshot_service.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+import 'package:path/path.dart' as p;
 
 /// Scripted behavior of a fake node execution.
 typedef NodeBehavior = Future<Result<NodeOutcome>> Function(
@@ -199,5 +202,59 @@ final class FakeProcessTreeKiller implements ProcessTreeKiller {
     if (failure case final f?) return FailureResult(f);
     confirmed = true;
     return const Success(null);
+  }
+}
+
+/// In-memory [RunAttachmentStore] for engine and recovery unit tests.
+final class FakeRunAttachmentStore implements RunAttachmentStore {
+  /// Creates a fake attachment store.
+  new();
+
+  /// Run ids that currently have an attachments folder.
+  final Set<String> folders = <String>{};
+
+  /// Run ids passed to [deleteRun], in call order.
+  final List<String> deleteCalls = <String>[];
+
+  /// When `true`, [deleteRun] returns a [PersistenceFailure] without removing.
+  bool failDeletes = false;
+
+  /// When `true`, [listRunIds] returns a [PersistenceFailure].
+  bool failListRunIds = false;
+
+  @override
+  String attachmentsDir(String runId) => '/runs/$runId/attachments';
+
+  @override
+  String filePath(String runId, int index, RunAttachment attachment) {
+    final extension = runAttachmentExtensions[attachment.mimeType] ?? 'bin';
+    return p.posix.join(attachmentsDir(runId), '${index + 1}.$extension');
+  }
+
+  @override
+  Future<Result<void>> write(
+    String runId,
+    List<DecodedRunAttachment> files,
+  ) async {
+    folders.add(runId);
+    return const Success(null);
+  }
+
+  @override
+  Future<Result<void>> deleteRun(String runId) async {
+    deleteCalls.add(runId);
+    if (failDeletes) {
+      return const FailureResult(PersistenceFailure('disk error'));
+    }
+    folders.remove(runId);
+    return const Success(null);
+  }
+
+  @override
+  Future<Result<List<String>>> listRunIds() async {
+    if (failListRunIds) {
+      return const FailureResult(PersistenceFailure('list error'));
+    }
+    return Success(folders.toList());
   }
 }

@@ -198,6 +198,7 @@ NodeExecutionContext _context({
   JsonMap config = const {'additionalInstructions': 'Implement feature X'},
   String? humanAnswer,
   String? runInput,
+  List<RunAttachmentFile> runAttachments = const <RunAttachmentFile>[],
   WorkspaceIsolationMode isolationMode = WorkspaceIsolationMode.direct,
   String? resultJsonPath,
 }) => NodeExecutionContext(
@@ -207,6 +208,7 @@ NodeExecutionContext _context({
   config: config,
   humanAnswer: humanAnswer,
   runInput: runInput,
+  runAttachments: runAttachments,
   isolationMode: isolationMode,
   resultJsonPath: resultJsonPath,
 );
@@ -1130,6 +1132,194 @@ void main() {
         );
       }
     });
+
+    test('includes ## Run attachments after ## Run input with absolute paths '
+        'and names', () async {
+      final node = ClaudeCodeNode(
+        processRunner: processRunner,
+        resultContract: resultContract,
+        agentPromptResolver: agentResolver,
+      );
+
+      final result = await node.execute(
+        _context(
+          runInput: 'Fix the layout',
+          runAttachments: const [
+            RunAttachmentFile(
+              path: '/runs/r1/attachments/1.png',
+              fileName: 'bug.png',
+            ),
+            RunAttachmentFile(
+              path: '/runs/r1/attachments/2.jpg',
+              fileName: 'expected.jpg',
+            ),
+          ],
+        ),
+      );
+
+      expect(result.isSuccess, isTrue);
+      final invocation = processRunner.lastInvocation!;
+      final prompt = invocation.stdinContent!;
+      expect(prompt, contains('## Run attachments'));
+      expect(prompt, contains('Open them with your file-reading tool:'));
+      expect(prompt, contains('- /runs/r1/attachments/1.png (bug.png)'));
+      expect(prompt, contains('- /runs/r1/attachments/2.jpg (expected.jpg)'));
+
+      final inputIndex = prompt.indexOf('## Run input');
+      final attachmentsIndex = prompt.indexOf('## Run attachments');
+      final contextIndex = prompt.indexOf('## Execution Context');
+      expect(inputIndex, greaterThanOrEqualTo(0));
+      expect(attachmentsIndex, greaterThan(inputIndex));
+      expect(contextIndex, greaterThan(attachmentsIndex));
+
+      expect(
+        invocation.arguments,
+        isNot(contains('/runs/r1/attachments/1.png')),
+      );
+      expect(
+        invocation.arguments,
+        isNot(contains('/runs/r1/attachments/2.jpg')),
+      );
+    });
+
+    test('adds ## Run attachments without a Run input', () async {
+      final node = ClaudeCodeNode(
+        processRunner: processRunner,
+        resultContract: resultContract,
+        agentPromptResolver: agentResolver,
+      );
+
+      final result = await node.execute(
+        _context(
+          runAttachments: const [
+            RunAttachmentFile(
+              path: '/runs/r1/attachments/1.png',
+              fileName: 'shot.png',
+            ),
+          ],
+        ),
+      );
+
+      expect(result.isSuccess, isTrue);
+      final prompt = processRunner.lastInvocation!.stdinContent!;
+      expect(prompt, isNot(contains('## Run input')));
+      expect(prompt, contains('## Run attachments'));
+      expect(prompt, contains('- /runs/r1/attachments/1.png (shot.png)'));
+      expect(
+        prompt.indexOf('## Run attachments'),
+        lessThan(prompt.indexOf('## Execution Context')),
+      );
+    });
+
+    test('omits ## Run attachments when the run has none', () async {
+      final node = ClaudeCodeNode(
+        processRunner: processRunner,
+        resultContract: resultContract,
+        agentPromptResolver: agentResolver,
+      );
+
+      final result = await node.execute(_context());
+      expect(result.isSuccess, isTrue);
+      expect(
+        processRunner.lastInvocation!.stdinContent,
+        isNot(contains('## Run attachments')),
+      );
+    });
+  });
+
+  group('Headless harness attachments permission policy', () {
+    const attachments = [
+      RunAttachmentFile(
+        path: '/runs/r1/attachments/1.png',
+        fileName: 'shot.png',
+      ),
+    ];
+    const attachmentsDir = '/runs/r1/attachments';
+
+    test('ClaudeCodeNode adds --add-dir for attachmentsDir in direct and '
+        'worktree modes', () async {
+      final node = ClaudeCodeNode(
+        processRunner: processRunner,
+        resultContract: resultContract,
+        agentPromptResolver: agentResolver,
+      );
+
+      for (final mode in WorkspaceIsolationMode.values) {
+        await node.execute(
+          _context(isolationMode: mode, runAttachments: attachments),
+        );
+        final args = processRunner.lastInvocation!.arguments;
+        expect(args, containsAllInOrder(['--add-dir', attachmentsDir]));
+        expect(args, isNot(contains('/runs/r1')));
+      }
+
+      await node.execute(_context());
+      expect(
+        processRunner.lastInvocation!.arguments,
+        isNot(contains(attachmentsDir)),
+      );
+    });
+
+    test(
+      'CodexNode adds --add-dir for attachmentsDir only when present',
+      () async {
+        final node = CodexNode(
+          processRunner: processRunner,
+          resultContract: resultContract,
+          agentPromptResolver: agentResolver,
+        );
+
+        await node.execute(_context(runAttachments: attachments));
+        var args = processRunner.lastInvocation!.arguments;
+        expect(args, containsAllInOrder(['--add-dir', attachmentsDir]));
+        expect(args, isNot(contains('/runs/r1')));
+
+        await node.execute(_context());
+        args = processRunner.lastInvocation!.arguments;
+        expect(args, isNot(contains(attachmentsDir)));
+      },
+    );
+
+    test('GeminiCliNode adds --include-directories for attachmentsDir '
+        'only when present', () async {
+      final node = GeminiCliNode(
+        processRunner: processRunner,
+        resultContract: resultContract,
+        agentPromptResolver: agentResolver,
+      );
+
+      await node.execute(_context(runAttachments: attachments));
+      var args = processRunner.lastInvocation!.arguments;
+      expect(
+        args,
+        containsAllInOrder(['--include-directories', attachmentsDir]),
+      );
+      expect(args, isNot(contains('/runs/r1')));
+
+      await node.execute(_context());
+      args = processRunner.lastInvocation!.arguments;
+      expect(args, isNot(contains(attachmentsDir)));
+    });
+
+    test(
+      'AntigravityNode adds --add-dir for attachmentsDir only when present',
+      () async {
+        final node = AntigravityNode(
+          processRunner: processRunner,
+          resultContract: resultContract,
+          agentPromptResolver: agentResolver,
+        );
+
+        await node.execute(_context(runAttachments: attachments));
+        var args = processRunner.lastInvocation!.arguments;
+        expect(args, containsAllInOrder(['--add-dir', attachmentsDir]));
+        expect(args, isNot(contains('/runs/r1')));
+
+        await node.execute(_context());
+        args = processRunner.lastInvocation!.arguments;
+        expect(args, isNot(contains(attachmentsDir)));
+      },
+    );
   });
 }
 

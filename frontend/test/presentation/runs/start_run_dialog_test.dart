@@ -1,8 +1,13 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:agentic_hive_frontend/core/attachments/attachment_input_source.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/data/runs/run_providers.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_settings_providers.dart';
+import 'package:agentic_hive_frontend/domain/runs/run_attachment_drafts.dart';
 import 'package:agentic_hive_frontend/domain/runs/run_repository.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_deletion_update.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_repository.dart';
@@ -11,11 +16,14 @@ import 'package:agentic_hive_frontend/presentation/runs/pages/runs_page.dart';
 import 'package:agentic_hive_frontend/presentation/runs/widgets/start_run_dialog.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../support/fake_attachment_input_source.dart';
 import '../workspace/fake_workspace_repository.dart';
 import '../workspace/fake_workspace_settings_repository.dart';
 
@@ -226,6 +234,9 @@ void main() {
               _FakeWorkflowRepository(),
             ),
             workspaceRepositoryProvider.overrideWithValue(workspaceRepo),
+            attachmentInputSourceProvider.overrideWithValue(
+              FakeAttachmentInputSource(),
+            ),
           ],
           child: MaterialApp.router(
             theme: HiveTheme.light(),
@@ -321,6 +332,9 @@ void main() {
               _FakeWorkflowRepository(),
             ),
             workspaceRepositoryProvider.overrideWithValue(workspaceRepo),
+            attachmentInputSourceProvider.overrideWithValue(
+              FakeAttachmentInputSource(),
+            ),
           ],
           child: MaterialApp(
             theme: HiveTheme.light(),
@@ -388,6 +402,9 @@ void main() {
               _FakeWorkflowRepository(),
             ),
             workspaceRepositoryProvider.overrideWithValue(workspaceRepo),
+            attachmentInputSourceProvider.overrideWithValue(
+              FakeAttachmentInputSource(),
+            ),
           ],
           child: MaterialApp(
             theme: HiveTheme.light(),
@@ -455,6 +472,9 @@ void main() {
             _FakeWorkflowRepository(),
           ),
           workspaceRepositoryProvider.overrideWithValue(workspaceRepo),
+          attachmentInputSourceProvider.overrideWithValue(
+            FakeAttachmentInputSource(),
+          ),
         ],
         child: MaterialApp(
           theme: HiveTheme.light(),
@@ -506,6 +526,9 @@ void main() {
           runRepositoryProvider.overrideWithValue(runsRepo),
           workflowRepositoryProvider.overrideWithValue(workflowRepo),
           workspaceRepositoryProvider.overrideWithValue(workspaceRepo),
+          attachmentInputSourceProvider.overrideWithValue(
+            FakeAttachmentInputSource(),
+          ),
         ],
         child: MaterialApp(
           theme: HiveTheme.light(),
@@ -555,6 +578,9 @@ void main() {
           ),
           workspaceRepositoryProvider.overrideWithValue(
             FakeWorkspaceRepository(),
+          ),
+          attachmentInputSourceProvider.overrideWithValue(
+            FakeAttachmentInputSource(),
           ),
         ],
         child: MaterialApp(
@@ -606,6 +632,9 @@ void main() {
               _FakeWorkflowRepository(),
             ),
             workspaceRepositoryProvider.overrideWithValue(workspaceRepo),
+            attachmentInputSourceProvider.overrideWithValue(
+              FakeAttachmentInputSource(),
+            ),
           ],
           child: MaterialApp(
             theme: HiveTheme.light(),
@@ -676,6 +705,9 @@ void main() {
             ),
             workspaceRepositoryProvider.overrideWithValue(workspaceRepo),
             workspaceSettingsRepositoryProvider.overrideWithValue(settings),
+            attachmentInputSourceProvider.overrideWithValue(
+              FakeAttachmentInputSource(),
+            ),
           ],
           child: MaterialApp(
             theme: HiveTheme.light(),
@@ -797,4 +829,454 @@ void main() {
       expect(runsRepo.lastStartRequest?.target, const RunTarget.primary());
     });
   });
+
+  group('attachments', () {
+    Uint8List pngBytes([int totalLength = 128]) => Uint8List(totalLength)
+      ..setAll(0, const <int>[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+
+    Uint8List pdfBytes() => Uint8List.fromList(utf8.encode('%PDF-1.7\n'));
+
+    Future<
+      ({_FakeRunRepository runsRepo, FakeAttachmentInputSource inputSource})
+    >
+    openAttachmentDialog(
+      WidgetTester tester, {
+      _FakeRunRepository? runsRepo,
+    }) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final repo = runsRepo ?? _FakeRunRepository();
+      final inputSource = FakeAttachmentInputSource();
+      addTearDown(inputSource.dispose);
+
+      final workspaceRepo = FakeWorkspaceRepository(
+        workspaces: <Workspace>[makeWorkspace(rootPath: '/projects/hive')],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            runRepositoryProvider.overrideWithValue(repo),
+            workflowRepositoryProvider.overrideWithValue(
+              _FakeWorkflowRepository(),
+            ),
+            workspaceRepositoryProvider.overrideWithValue(workspaceRepo),
+            workspaceSettingsRepositoryProvider.overrideWithValue(
+              FakeWorkspaceSettingsRepository(),
+            ),
+            attachmentInputSourceProvider.overrideWithValue(inputSource),
+          ],
+          child: MaterialApp(
+            theme: HiveTheme.light(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: HiveButton(
+                  label: 'Open',
+                  onPressed: () => StartRunDialog.show(context),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      return (runsRepo: repo, inputSource: inputSource);
+    }
+
+    Future<void> pasteShortcut(WidgetTester tester) async {
+      await tester.tap(find.byKey(const Key('start_run_input_field')));
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('Ctrl+V pastes clipboard image and increments pasted index', (
+      tester,
+    ) async {
+      final ctx = await openAttachmentDialog(tester);
+      ctx.inputSource.clipboardImage = pngBytes(512);
+
+      await pasteShortcut(tester);
+      expect(find.text('Pasted image 1.png · 0.5 KB'), findsOneWidget);
+
+      await pasteShortcut(tester);
+      expect(find.text('Pasted image 2.png · 0.5 KB'), findsOneWidget);
+    });
+
+    testWidgets(
+      'long attachment chip name shows full label in a tooltip on hover',
+      (tester) async {
+        final ctx = await openAttachmentDialog(tester);
+        const longName =
+            'very-long-attachment-file-name-for-desktop-builds-final-v2.png';
+        ctx.inputSource.emit(
+          AttachmentFilesDropped(<RunAttachmentCandidate>[
+            RunAttachmentCandidate(
+              fileName: longName,
+              bytes: pngBytes(512),
+              sizeBytes: 512,
+            ),
+          ]),
+        );
+        await tester.pumpAndSettle();
+
+        final chipFinder = find.byKey(const Key('start_run_attachment_chip_0'));
+        expect(chipFinder, findsOneWidget);
+        final tooltipFinder = find.descendant(
+          of: chipFinder,
+          matching: find.byType(Tooltip),
+        );
+        expect(tooltipFinder, findsOneWidget);
+        const expectedLabel = '$longName · 0.5 KB';
+        expect(tester.widget<Tooltip>(tooltipFinder).message, expectedLabel);
+
+        final gesture = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+        );
+        addTearDown(gesture.removePointer);
+        await gesture.addPointer(location: Offset.zero);
+        await tester.pump();
+        await gesture.moveTo(tester.getCenter(chipFinder));
+        await tester.pump(tester.element(chipFinder).hiveMotion.long);
+        await tester.pump();
+
+        expect(find.text(expectedLabel), findsWidgets);
+      },
+    );
+
+    testWidgets('drag enter, exit, and drop update drop caption and chips', (
+      tester,
+    ) async {
+      final ctx = await openAttachmentDialog(tester);
+
+      ctx.inputSource.emit(AttachmentDragEntered());
+      await tester.pumpAndSettle();
+      expect(find.text('Drop images to attach'), findsOneWidget);
+      expect(
+        tester.widget<HiveDropZone>(find.byType(HiveDropZone)).active,
+        isTrue,
+      );
+
+      ctx.inputSource.emit(AttachmentDragExited());
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<HiveDropZone>(find.byType(HiveDropZone)).active,
+        isFalse,
+      );
+
+      ctx.inputSource.emit(AttachmentDragEntered());
+      await tester.pump();
+      ctx.inputSource.emit(
+        AttachmentFilesDropped(<RunAttachmentCandidate>[
+          RunAttachmentCandidate(
+            fileName: 'a.png',
+            sizeBytes: 1024,
+            bytes: pngBytes(1024),
+          ),
+          RunAttachmentCandidate(
+            fileName: 'b.png',
+            sizeBytes: 2048,
+            bytes: pngBytes(2048),
+          ),
+        ]),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<HiveDropZone>(find.byType(HiveDropZone)).active,
+        isFalse,
+      );
+      expect(find.text('a.png · 1.0 KB'), findsOneWidget);
+      expect(find.text('b.png · 2.0 KB'), findsOneWidget);
+    });
+
+    testWidgets('tapping remove button removes attachment chip', (
+      tester,
+    ) async {
+      final ctx = await openAttachmentDialog(tester);
+
+      ctx.inputSource.emit(
+        AttachmentFilesDropped(<RunAttachmentCandidate>[
+          RunAttachmentCandidate(
+            fileName: 'a.png',
+            sizeBytes: 1024,
+            bytes: pngBytes(1024),
+          ),
+        ]),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('a.png · 1.0 KB'), findsOneWidget);
+
+      final removeFinder = find.bySemanticsLabel('Remove a.png');
+      await tester.ensureVisible(removeFinder);
+      await tester.tap(removeFinder);
+      await tester.pumpAndSettle();
+      expect(find.text('a.png · 1.0 KB'), findsNothing);
+    });
+
+    testWidgets('non-image drop shows type error banner and adds no chip', (
+      tester,
+    ) async {
+      final ctx = await openAttachmentDialog(tester);
+
+      ctx.inputSource.emit(
+        AttachmentFilesDropped(<RunAttachmentCandidate>[
+          RunAttachmentCandidate(
+            fileName: 'notes.pdf',
+            sizeBytes: pdfBytes().length,
+            bytes: pdfBytes(),
+          ),
+        ]),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('start_run_attachment_error_banner')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('notes.pdf is not a PNG, JPEG, WebP or GIF image.'),
+        findsOneWidget,
+      );
+      expect(find.byType(HiveRemovableChip), findsNothing);
+    });
+
+    testWidgets('enforces count, per-file, and total size limits', (
+      tester,
+    ) async {
+      final ctx = await openAttachmentDialog(tester);
+
+      // 11 files -> 10 chips + limit banner
+      ctx.inputSource.emit(
+        AttachmentFilesDropped(<RunAttachmentCandidate>[
+          for (var i = 0; i < 11; i++)
+            RunAttachmentCandidate(
+              fileName: 'img_$i.png',
+              sizeBytes: 128,
+              bytes: pngBytes(),
+            ),
+        ]),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HiveRemovableChip), findsNWidgets(10));
+      expect(
+        find.text(
+          'You can attach up to 10 images, 10 MB each and 25 MB in total.',
+        ),
+        findsOneWidget,
+      );
+
+      // Clear all 10 chips and test oversize single file (null bytes)
+      for (var i = 0; i < 10; i++) {
+        final removeFinder = find.bySemanticsLabel('Remove img_$i.png');
+        await tester.ensureVisible(removeFinder);
+        await tester.tap(removeFinder);
+        await tester.pumpAndSettle();
+      }
+      ctx.inputSource.emit(
+        AttachmentFilesDropped(<RunAttachmentCandidate>[
+          const RunAttachmentCandidate(
+            fileName: 'huge.png',
+            sizeBytes: RunAttachmentLimits.maxBytesEach + 1,
+            bytes: null,
+          ),
+        ]),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(HiveRemovableChip), findsNothing);
+      expect(
+        find.byKey(const Key('start_run_attachment_error_banner')),
+        findsOneWidget,
+      );
+
+      // Total > 25 MiB rejects overflow
+      final nineMb = pngBytes(9 * 1024 * 1024);
+      ctx.inputSource.emit(
+        AttachmentFilesDropped(<RunAttachmentCandidate>[
+          RunAttachmentCandidate(
+            fileName: 'one.png',
+            sizeBytes: nineMb.length,
+            bytes: nineMb,
+          ),
+          RunAttachmentCandidate(
+            fileName: 'two.png',
+            sizeBytes: nineMb.length,
+            bytes: nineMb,
+          ),
+          RunAttachmentCandidate(
+            fileName: 'three.png',
+            sizeBytes: nineMb.length,
+            bytes: nineMb,
+          ),
+        ]),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(HiveRemovableChip), findsNWidgets(2));
+      expect(
+        find.byKey(const Key('start_run_attachment_error_banner')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('partial drop accepts valid files and shows error banner', (
+      tester,
+    ) async {
+      final ctx = await openAttachmentDialog(tester);
+
+      ctx.inputSource.emit(
+        AttachmentFilesDropped(<RunAttachmentCandidate>[
+          RunAttachmentCandidate(
+            fileName: 'good.png',
+            sizeBytes: 1024,
+            bytes: pngBytes(1024),
+          ),
+          RunAttachmentCandidate(
+            fileName: 'bad.pdf',
+            sizeBytes: pdfBytes().length,
+            bytes: pdfBytes(),
+          ),
+        ]),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('good.png · 1.0 KB'), findsOneWidget);
+      expect(
+        find.text('bad.pdf is not a PNG, JPEG, WebP or GIF image.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('submitting sends StartRunRequest with attachment payload', (
+      tester,
+    ) async {
+      final ctx = await openAttachmentDialog(tester);
+      final bytes = pngBytes(512);
+
+      ctx.inputSource.emit(
+        AttachmentFilesDropped(<RunAttachmentCandidate>[
+          RunAttachmentCandidate(
+            fileName: 'shot.png',
+            sizeBytes: bytes.length,
+            bytes: bytes,
+          ),
+        ]),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const Key('start_run_input_field')),
+        'Check this screenshot',
+      );
+      await tester.tap(find.byKey(const Key('start_run_confirm_button')));
+      await tester.pumpAndSettle();
+
+      final req = ctx.runsRepo.lastStartRequest;
+      expect(req, isNotNull);
+      expect(req!.input, 'Check this screenshot');
+      expect(req.attachments, hasLength(1));
+      expect(req.attachments!.first.fileName, 'shot.png');
+      expect(req.attachments!.first.mimeType, 'image/png');
+      expect(req.attachments!.first.data, base64Encode(bytes));
+    });
+
+    testWidgets('allows starting with attachments and empty text', (
+      tester,
+    ) async {
+      final ctx = await openAttachmentDialog(tester);
+      ctx.inputSource.clipboardImage = pngBytes(256);
+
+      await pasteShortcut(tester);
+      await tester.tap(find.byKey(const Key('start_run_confirm_button')));
+      await tester.pumpAndSettle();
+
+      final req = ctx.runsRepo.lastStartRequest;
+      expect(req, isNotNull);
+      expect(req!.input, isNull);
+      expect(req.attachments, hasLength(1));
+    });
+
+    testWidgets('Ctrl+V falls back to text paste when clipboard has no image', (
+      tester,
+    ) async {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.getData') {
+            return <String, Object?>{'text': 'hello from clipboard'};
+          }
+          return null;
+        },
+      );
+      addTearDown(() {
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        );
+      });
+
+      await openAttachmentDialog(tester);
+      await pasteShortcut(tester);
+
+      expect(find.byType(HiveRemovableChip), findsNothing);
+      final field = tester.widget<HiveTextArea>(
+        find.byKey(const Key('start_run_input_field')),
+      );
+      expect(field.controller?.text, 'hello from clipboard');
+    });
+
+    testWidgets(
+      'hides chip remove button while submitting and keeps chips on failure',
+      (tester) async {
+        final completer = Completer<Result<Run>>();
+        final slowRepo = _PendingStartRunRepository(completer.future);
+        final ctx = await openAttachmentDialog(tester, runsRepo: slowRepo);
+
+        ctx.inputSource.emit(
+          AttachmentFilesDropped(<RunAttachmentCandidate>[
+            RunAttachmentCandidate(
+              fileName: 'keep.png',
+              sizeBytes: 1024,
+              bytes: pngBytes(1024),
+            ),
+          ]),
+        );
+        await tester.pumpAndSettle();
+        expect(find.bySemanticsLabel('Remove keep.png'), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('start_run_confirm_button')));
+        await tester.pump();
+
+        expect(find.text('keep.png · 1.0 KB'), findsOneWidget);
+        expect(find.bySemanticsLabel('Remove keep.png'), findsNothing);
+
+        completer.complete(const FailureResult(BackendFailure('Server error')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('keep.png · 1.0 KB'), findsOneWidget);
+        expect(find.bySemanticsLabel('Remove keep.png'), findsOneWidget);
+        expect(find.byKey(const Key('start_run_error_banner')), findsOneWidget);
+      },
+    );
+  });
+}
+
+final class _PendingStartRunRepository extends _FakeRunRepository {
+  new(this._future);
+
+  final Future<Result<Run>> _future;
+
+  @override
+  Future<Result<Run>> startRun(StartRunRequest request) {
+    lastStartRequest = request;
+    return _future;
+  }
 }

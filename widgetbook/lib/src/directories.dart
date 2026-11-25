@@ -97,6 +97,7 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
               ...forms.dialogComponent().useCases,
             ],
           ),
+          dropZoneComponent(),
         ],
       ),
       WidgetbookFolder(

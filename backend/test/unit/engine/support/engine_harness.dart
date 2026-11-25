@@ -119,6 +119,7 @@ final class EngineHarness {
     recovery = RunRecoveryService(
       runs: runs,
       checkpoints: checkpoints,
+      attachments: attachments,
       generateId: nextId,
       now: tick,
     );
@@ -132,6 +133,7 @@ final class EngineHarness {
       pauseGateway: gateway,
       processTreeKiller: killer,
       pauses: pauses,
+      attachments: attachments,
       maxConcurrency: maxConcurrency,
       circuitBreakerThreshold: circuitBreakerThreshold,
       cancelGracePeriod: cancelGracePeriod,
@@ -142,6 +144,9 @@ final class EngineHarness {
 
   /// Script for the fake nodes.
   final NodeScript script = NodeScript();
+
+  /// Fake attachment store.
+  final FakeRunAttachmentStore attachments = FakeRunAttachmentStore();
 
   /// In-memory run repository.
   final InMemoryRunRepository runs = InMemoryRunRepository();
@@ -188,6 +193,7 @@ final class EngineHarness {
     Workflow workflow, {
     RunStatus status = RunStatus.running,
     String? input,
+    List<RunAttachment>? attachments,
   }) async {
     final run = Run(
       id: runId,
@@ -197,6 +203,7 @@ final class EngineHarness {
       status: status,
       startedAt: DateTime.utc(2026),
       input: input,
+      attachments: attachments,
     );
     await runs.create(run);
     return run;

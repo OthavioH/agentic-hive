@@ -264,6 +264,7 @@ final class ReviewValidatorNode extends ValidatorNode {
     ).toJson();
 
     final executionResult = await harnessNode.execute(
+      // Validators get no Run attachments (ADR 0030).
       NodeExecutionContext(
         runId: context.runId,
         nodeId: context.nodeId,

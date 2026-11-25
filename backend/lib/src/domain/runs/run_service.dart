@@ -8,6 +8,8 @@ import 'package:agentic_hive_backend/src/domain/engine/resume_input.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/child_run_port.dart';
 import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/node_override_applier.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_attachment_store.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_attachment_validator.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_canceller.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_log_store.dart';
@@ -48,6 +50,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     this._engine,
     this._canceller,
     this._logStore,
+    this._attachments,
     this._deletions,
     p.Context? pathContext,
     String Function()? generateId,
@@ -87,6 +90,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
 
   RunCanceller? get _effectiveCanceller => _canceller ?? _engine;
   final RunLogStore? _logStore;
+  final RunAttachmentStore? _attachments;
   final WorkflowDeletionRegistry? _deletions;
   final p.Context _pathContext;
   final String Function() _generateId;
@@ -215,6 +219,17 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
         ValidationFailure(
           'Field "input" must not exceed $maxInputBytes bytes.',
         ),
+      );
+    }
+
+    final decodedAttachments = decodeRunAttachments(request.attachments);
+    if (decodedAttachments case FailureResult(:final failure)) {
+      return FailureResult(failure);
+    }
+    final attachmentFiles = decodedAttachments.valueOrNull!;
+    if (attachmentFiles.isNotEmpty && _attachments == null) {
+      return const FailureResult(
+        UnexpectedFailure('Run attachment store is not configured.'),
       );
     }
 
@@ -420,14 +435,17 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
         worktreePath: prepared.worktreePath,
         worktreeBranch: prepared.worktreeBranch,
         input: runInput,
+        attachments: attachmentFiles.isEmpty
+            ? null
+            : [for (final f in attachmentFiles) f.toMetadata()],
         parentRunId: child?.parentRunId,
         parentNodeId: child?.parentNodeId,
         childIndex: child?.index,
         childName: child?.name,
       );
 
-      if (_deletingFailureFor(workflowId, workspace.id)
-          case final deletingFailure?) {
+      var attachmentsWritten = false;
+      Future<void> undo() async {
         _snapshots?.configureRunExclusions(runId, const []);
         if (createdWorktreePath != null) {
           await workspacePreparation.cleanupWorktree(
@@ -436,19 +454,29 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
             branchName: createdWorktreeBranch,
           );
         }
+        if (attachmentsWritten) {
+          await _attachments?.deleteRun(runId);
+        }
+      }
+
+      if (_deletingFailureFor(workflowId, workspace.id)
+          case final deletingFailure?) {
+        await undo();
         return FailureResult(deletingFailure);
+      }
+
+      if (attachmentFiles.isNotEmpty) {
+        final written = await _attachments!.write(runId, attachmentFiles);
+        if (written case FailureResult(:final failure)) {
+          await undo();
+          return FailureResult(failure);
+        }
+        attachmentsWritten = true;
       }
 
       final createResult = await _runs.create(run);
       if (createResult case FailureResult<Run>(:final failure)) {
-        _snapshots?.configureRunExclusions(runId, const []);
-        if (createdWorktreePath != null) {
-          await workspacePreparation.cleanupWorktree(
-            workspacePath: workspacePath,
-            worktreePath: createdWorktreePath,
-            branchName: createdWorktreeBranch,
-          );
-        }
+        await undo();
         return FailureResult(failure);
       }
 
@@ -777,12 +805,15 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
             value.status == RunStatus.paused ||
             value.status == RunStatus.interrupted) {
       final now = _now().toUtc();
-      await _runs.updateStatus(
+      final updated = await _runs.updateStatus(
         runId,
         status: RunStatus.failed,
         finishedAt: now,
         errorMessage: message,
       );
+      if (updated is Success<Run>) {
+        await _attachments?.deleteRunBestEffort(runId);
+      }
       await _events.append(
         id: _generateId(),
         runId: runId,
@@ -1316,5 +1347,6 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     if (_logStore != null) {
       await _logStore.deleteRunLogs(id);
     }
+    await _attachments?.deleteRunBestEffort(id);
   }
 }

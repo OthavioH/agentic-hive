@@ -12,6 +12,7 @@ import 'package:agentic_hive_backend/src/domain/pauses/pause_repository.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/human_pause_gateway.dart';
 import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/process_tree_killer.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_attachment_store.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_canceller.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_log_store.dart';
@@ -213,6 +214,7 @@ final class GraphEngine implements RunCanceller {
     required this._processTreeKiller,
     this._pauses,
     this._logStore,
+    this._attachments,
     this.maxConcurrency = defaultMaxConcurrency,
     this.circuitBreakerThreshold = defaultCircuitBreakerThreshold,
     this.cancelGracePeriod = const Duration(seconds: 10),
@@ -247,6 +249,7 @@ final class GraphEngine implements RunCanceller {
   final ProcessTreeKiller _processTreeKiller;
   final PauseRepository? _pauses;
   final RunLogStore? _logStore;
+  final RunAttachmentStore? _attachments;
   final String Function() _generateId;
   final DateTime Function() _now;
 
@@ -1291,6 +1294,7 @@ final class GraphEngine implements RunCanceller {
           runInput: id == x.run.workflowDefinition.entryNodeId
               ? x.run.input
               : null,
+          runAttachments: _attachmentFilesOf(x.run),
           onOutput: _logStore == null
               ? null
               : (stream, line) => _recordNodeOutput(
@@ -1303,6 +1307,19 @@ final class GraphEngine implements RunCanceller {
         ),
       );
     }
+  }
+
+  List<RunAttachmentFile> _attachmentFilesOf(Run run) {
+    final store = _attachments;
+    final list = run.attachments;
+    if (store == null || list == null || list.isEmpty) return const [];
+    return [
+      for (final (i, a) in list.indexed)
+        RunAttachmentFile(
+          path: store.filePath(run.id, i, a),
+          fileName: a.fileName,
+        ),
+    ];
   }
 
   void _recordNodeOutput({
@@ -1650,6 +1667,9 @@ final class GraphEngine implements RunCanceller {
         ),
       );
       return updated;
+    }
+    if (attachmentDeletingStatuses.contains(status)) {
+      await _attachments?.deleteRunBestEffort(runId);
     }
     await _emit(runId, eventType, payload: payload);
     return updated;
