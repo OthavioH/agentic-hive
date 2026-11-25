@@ -631,5 +631,28 @@ void main() {
         ApiErrorCode.badRequest,
       );
     });
+
+    test(
+      'rejects body exceeding maxStartRunBodyBytes with 400 bad_request',
+      () async {
+        final hugeData = 'A' * (RunsHandler.maxStartRunBodyBytes + 1);
+        final resp = await handler(
+          buildRequest(
+            '/api/v1/runs',
+            method: 'POST',
+            body:
+                '{"workflowId":"wf-1","workspaceId":"ws-1",'
+                '"attachments":[{"fileName":"a.png","mimeType":"image/png",'
+                '"data":"$hugeData"}]}',
+          ),
+        );
+        expect(resp.statusCode, 400);
+        expect(
+          ApiError.fromJson(await readJson(resp)).code,
+          ApiErrorCode.badRequest,
+        );
+        expect(runsRepo.store, isEmpty);
+      },
+    );
   });
 }

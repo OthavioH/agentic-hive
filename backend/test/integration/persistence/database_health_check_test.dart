@@ -22,7 +22,7 @@ void main() {
     final status = await healthCheck.check();
 
     expect(status.ok, isTrue);
-    expect(status.schemaVersion, 11);
+    expect(status.schemaVersion, 12);
     expect(status.error, isNull);
     expect(await readUserVersion(dbFile), status.schemaVersion);
   });

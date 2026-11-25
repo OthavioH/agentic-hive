@@ -37,6 +37,13 @@ final class DriftRunRepository implements RunRepository {
               worktreePath: Value(run.worktreePath),
               worktreeBranch: Value(run.worktreeBranch),
               input: Value(run.input),
+              attachmentsJson: Value(
+                run.attachments == null
+                    ? null
+                    : jsonEncode([
+                        for (final a in run.attachments!) a.toJson(),
+                      ]),
+              ),
               parentRunId: Value(run.parentRunId),
               parentNodeId: Value(run.parentNodeId),
               childIndex: Value(run.childIndex),
@@ -548,6 +555,12 @@ final class DriftRunRepository implements RunRepository {
       worktreePath: row.worktreePath,
       worktreeBranch: row.worktreeBranch,
       input: row.input,
+      attachments: row.attachmentsJson == null
+          ? null
+          : [
+              for (final e in jsonDecode(row.attachmentsJson!) as List<Object?>)
+                RunAttachment.fromJson(e! as JsonMap),
+            ],
       parentRunId: row.parentRunId,
       parentNodeId: row.parentNodeId,
       childIndex: row.childIndex,

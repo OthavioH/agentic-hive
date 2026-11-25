@@ -85,7 +85,7 @@ void main() {
 
     final db = AppDatabase.open(dbFile);
     addTearDown(db.close);
-    expect(db.schemaVersion, 11);
+    expect(db.schemaVersion, 12);
 
     final repo = DriftPauseRepository(db);
     addTearDown(repo.close);

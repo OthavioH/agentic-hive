@@ -43,6 +43,7 @@ import 'package:agentic_hive_backend/src/data/result_contract/hive_result_contra
 import 'package:agentic_hive_backend/src/data/runs/drift_checkpoint_repository.dart';
 import 'package:agentic_hive_backend/src/data/runs/drift_run_event_repository.dart';
 import 'package:agentic_hive_backend/src/data/runs/drift_run_repository.dart';
+import 'package:agentic_hive_backend/src/data/runs/file_run_attachment_store.dart';
 import 'package:agentic_hive_backend/src/data/runs/file_run_log_store.dart';
 import 'package:agentic_hive_backend/src/data/runs/process_tree_killer_factory.dart';
 import 'package:agentic_hive_backend/src/data/settings/drift_settings_repository.dart';
@@ -99,6 +100,7 @@ import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_
 import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/pausing_human_approval_port.dart';
 import 'package:agentic_hive_backend/src/domain/runs/process_tree_killer.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_attachment_store.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_log_store.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_recovery_service.dart';
@@ -410,6 +412,12 @@ Future<void> registerDependencies(
       ),
       dispose: (store) => store.close(),
     )
+    ..registerSingleton<RunAttachmentStore>(
+      FileRunAttachmentStore(
+        runsDir: config.runsDir,
+        pathContext: platformPaths.context,
+      ),
+    )
     ..registerSingleton<GitClient>(GitClient(di<ProcessRunner>()))
     ..registerSingleton<WorkspaceCapabilitiesService>(
       WorkspaceCapabilitiesService(di<GitClient>()),
@@ -553,6 +561,7 @@ Future<void> registerDependencies(
         executionSettings: di<ExecutionSettingsService>(),
         engine: di<GraphEngine>(),
         logStore: di<RunLogStore>(),
+        attachments: di<RunAttachmentStore>(),
         deletions: di<WorkflowDeletionRegistry>(),
         pathContext: platformPaths.context,
       ),
