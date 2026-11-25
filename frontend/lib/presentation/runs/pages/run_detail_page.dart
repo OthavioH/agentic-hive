@@ -891,6 +891,8 @@ class _RunInputCardState extends State<_RunInputCard> {
                   variant: HiveButtonVariant.ghost,
                   onPressed: () => setState(() => _expanded = !_expanded),
                 ),
+              if (_isLong && widget.input != null)
+                SizedBox(width: spacing.space1),
               if (widget.input != null)
                 HiveIconButton(
                   key: const Key('run_detail_input_copy'),
@@ -916,7 +918,9 @@ class _RunInputCardState extends State<_RunInputCard> {
               ),
           ],
           if (widget.attachments.isNotEmpty) ...<Widget>[
-            SizedBox(height: spacing.space1),
+            SizedBox(
+              height: widget.input != null ? spacing.space2 : spacing.space1,
+            ),
             Wrap(
               spacing: spacing.space2,
               runSpacing: spacing.space1,
