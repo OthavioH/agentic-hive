@@ -15,6 +15,8 @@ const Map<String, String> _useCases = <String, String>{
   'Mono prompt (filled)': 'Prompt',
   'Tag editor': 'design-system',
   'Tag filter row': 'backend',
+  'Read-only · Default': 'login-mockup.png · 248 KB',
+  'Read-only · Removed': 'login-mockup.png · 248 KB',
   'Text only': 'With errors',
   'Conflict · Changed on disk': 'Reload from disk',
   'Parse error detail': 'This agent could not be read',

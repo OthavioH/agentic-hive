@@ -6,14 +6,17 @@ import 'package:material_ui/material_ui.dart';
 
 /// A pill chip (height `space4`, `label` text).
 ///
-/// Two variants:
+/// Three variants:
 /// - [HiveChip.removable]: a value in a chip editor (tags, tool names) with a
 ///   trailing `×` that removes it.
 /// - [HiveChip.filter]: a toggle in a filter row (tag filters); selected
 ///   chips use the inverse `onSurface` fill and a check icon, so selection
 ///   is shown by shape and color.
+/// - [HiveChip.readOnly]: a non-interactive chip with no remove button and no
+///   selection; `removed: true` mutes it.
 abstract class HiveChip extends StatelessWidget {
-  /// Creates a chip. Use [HiveChip.removable] or [HiveChip.filter].
+  /// Creates a chip. Use [HiveChip.removable], [HiveChip.filter], or
+  /// [HiveChip.readOnly].
   const new({required this.label, super.key});
 
   /// A chip with a remove button. A null [onRemoved] hides the button.
@@ -36,6 +39,15 @@ abstract class HiveChip extends StatelessWidget {
     FocusNode? focusNode,
     Key? key,
   }) = HiveChipFilter;
+
+  /// A read-only chip: no remove button, no selection. [removed] mutes it.
+  const factory readOnly({
+    required String label,
+    bool removed,
+    HiveIconData? icon,
+    String? semanticLabel,
+    Key? key,
+  }) = HiveReadOnlyChip;
 
   /// Visible text.
   final String label;
@@ -176,6 +188,83 @@ class HiveChipFilter extends HiveChip {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The read-only variant of [HiveChip].
+class HiveReadOnlyChip extends HiveChip {
+  /// Creates a read-only chip.
+  ///
+  /// When [removed] is true, consumers should pass a descriptive
+  /// [semanticLabel] (for example `"shot.png, removed"`) so the removed state
+  /// is not conveyed by color alone.
+  const new({
+    required super.label,
+    this.removed = false,
+    this.icon,
+    this.semanticLabel,
+    super.key,
+  });
+
+  /// Whether the chip shows the muted removed appearance.
+  final bool removed;
+
+  /// Optional leading icon.
+  final HiveIconData? icon;
+
+  /// Accessibility label; defaults to [label].
+  final String? semanticLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.hiveColors;
+    final spacing = context.hiveSpacing;
+    final motion = context.hiveMotion;
+    final typography = context.hiveTypography;
+    final elevation = context.hiveElevation;
+    final foreground = removed ? colors.onSurfaceMuted : colors.onSurface;
+    final leading = icon;
+    return Tooltip(
+      message: label,
+      excludeFromSemantics: true,
+      waitDuration: motion.resolve(context, motion.long),
+      exitDuration: motion.resolve(context, motion.short),
+      padding: EdgeInsets.symmetric(
+        horizontal: spacing.space1,
+        vertical: spacing.spaceHalf,
+      ),
+      decoration: ShapeDecoration(
+        color: colors.surface3,
+        shape: StadiumBorder(
+          side: BorderSide(
+            color: colors.borderSubtle,
+            width: elevation.hairline,
+          ),
+        ),
+      ),
+      textStyle: typography.bodySmall.copyWith(color: colors.onSurface),
+      child: Semantics(
+        container: true,
+        explicitChildNodes: true,
+        label: semanticLabel ?? label,
+        child: _ChipFrame(
+          background: colors.surface3,
+          border: colors.borderSubtle,
+          padding: EdgeInsets.symmetric(horizontal: spacing.space2),
+          children: <Widget>[
+            if (leading != null) ...<Widget>[
+              HiveIcon(leading, size: spacing.space2, color: foreground),
+              SizedBox(width: spacing.spaceHalf),
+            ],
+            Flexible(
+              child: ExcludeSemantics(
+                child: _ChipLabel(label: label, color: foreground),
+              ),
+            ),
+          ],
         ),
       ),
     );

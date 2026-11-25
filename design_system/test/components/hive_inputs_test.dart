@@ -1,6 +1,7 @@
 import 'package:design_system/design_system.dart';
 import 'package:design_system/src/foundation/hive_text_input.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -331,6 +332,116 @@ void main() {
         ),
       );
     });
+
+    testWidgets('read-only chip has no tap target and one semantics label', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        hiveTestApp(
+          child: const Center(
+            child: HiveChip.readOnly(label: 'screenshot.png · 120 KB'),
+          ),
+        ),
+      );
+
+      expect(find.byType(HiveInteraction), findsNothing);
+      expect(find.byType(HiveIcon), findsNothing);
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('screenshot.png · 120 KB')),
+        matchesSemantics(label: 'screenshot.png · 120 KB'),
+      );
+    });
+
+    testWidgets('read-only chip uses semanticLabel when given', (tester) async {
+      await tester.pumpWidget(
+        hiveTestApp(
+          child: const Center(
+            child: HiveChip.readOnly(
+              label: 'screenshot.png · 120 KB',
+              removed: true,
+              semanticLabel: 'screenshot.png, removed',
+            ),
+          ),
+        ),
+      );
+
+      expect(find.bySemanticsLabel('screenshot.png, removed'), findsOneWidget);
+    });
+
+    testWidgets('removed read-only chip uses the muted foreground', (
+      tester,
+    ) async {
+      late HiveColors colors;
+      await tester.pumpWidget(
+        hiveTestApp(
+          child: Builder(
+            builder: (context) {
+              colors = context.hiveColors;
+              return const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    HiveChip.readOnly(
+                      label: 'active.png',
+                      icon: HiveIcons.check,
+                    ),
+                    HiveChip.readOnly(
+                      label: 'removed.png',
+                      removed: true,
+                      icon: HiveIcons.check,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      );
+
+      expect(
+        tester.widget<Text>(find.text('active.png')).style?.color,
+        colors.onSurface,
+      );
+      expect(
+        tester.widget<Text>(find.text('removed.png')).style?.color,
+        colors.onSurfaceMuted,
+      );
+      final icons = tester.widgetList<HiveIcon>(find.byType(HiveIcon)).toList();
+      expect(icons, hasLength(2));
+      expect(icons[0].color, colors.onSurface);
+      expect(icons[1].color, colors.onSurfaceMuted);
+    });
+
+    testWidgets(
+      'read-only chip truncates long labels and shows full text in a tooltip',
+      (tester) async {
+        const longLabel = 'release-checklist-for-desktop-builds-final-v2.png';
+        await tester.pumpWidget(
+          hiveTestApp(
+            child: const Center(
+              child: SizedBox(
+                width: 120,
+                child: HiveChip.readOnly(label: longLabel),
+              ),
+            ),
+          ),
+        );
+
+        expect(tester.takeException(), isNull);
+        expect(
+          tester.widget<Text>(find.text(longLabel)).overflow,
+          TextOverflow.ellipsis,
+        );
+        expect(
+          tester
+              .renderObject<RenderParagraph>(find.text(longLabel))
+              .didExceedMaxLines,
+          isTrue,
+        );
+        expect(tester.widget<Tooltip>(find.byType(Tooltip)).message, longLabel);
+        expect(find.bySemanticsLabel(longLabel), findsOneWidget);
+      },
+    );
   });
 
   group('HiveSegmentedControl', () {
