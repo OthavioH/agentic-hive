@@ -15,6 +15,7 @@ Manage workflows only through the `hive` MCP tools. Never edit workspace workflo
 4. **Read compact first.** Call `get_workflow` with the default compact detail. Ask for full detail only when the compact text lacks what you need.
 5. **Create in one call.** Call `create_workflow` with every node and edge, short unique node ids and the entry node. Problems in the graph are saved as a draft and returned as validation; fix them with an edit.
 6. **Edit with patch operations.** Call `edit_workflow` with only the operations that change something, not the whole workflow. The operations apply together or not at all.
+   - **Change a harness in place.** To switch a node between the headless harnesses (Claude Code, Codex, Gemini CLI, Antigravity), send `update_node` with the new `type`. The node keeps its id, label, position, edges and the config the new harness supports; the answer names the config fields it dropped. A change to or from any other node type is refused: use `remove_node` and `add_node`.
 7. **Copy instead of rebuilding.** Call `duplicate_workflow` to start from an existing workflow.
 
 ## Revision

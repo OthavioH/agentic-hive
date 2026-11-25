@@ -178,4 +178,97 @@ Future<void> main() async {
       expect(finishedB.status.isActive, isFalse);
     },
   );
+
+  test('a harness type change during an active run leaves the pinned workflow '
+      'unchanged', () async {
+    final waiting = File(p.join(workspaceDir.path, 'wait.dart'));
+    await waiting.writeAsString(
+      "import 'dart:async';\n"
+      'Future<void> main() => Future<void>.delayed(Duration(seconds: 30));\n',
+    );
+    final createReq = CreateWorkflowRequest(
+      name: 'Harness Pin Flow',
+      entryNodeId: 'n1',
+      nodes: <WorkflowNode>[
+        WorkflowNode(
+          id: 'n1',
+          type: NodeTypeId.command,
+          label: 'Wait',
+          position: const WorkflowPosition(x: 0, y: 0),
+          config: <String, Object?>{
+            'command': Platform.resolvedExecutable,
+            'args': <String>[waiting.path],
+          },
+        ),
+        const WorkflowNode(
+          id: 'n2',
+          type: NodeTypeId.claudeCode,
+          label: 'Agent',
+          position: WorkflowPosition(x: 200, y: 0),
+          config: <String, Object?>{
+            'additionalInstructions': 'x',
+            'effort': 'high',
+          },
+        ),
+      ],
+      edges: const <WorkflowEdge>[
+        WorkflowEdge(
+          id: 'e1',
+          sourceNodeId: 'n1',
+          sourceOutput: 'onSuccess',
+          targetNodeId: 'n2',
+        ),
+      ],
+    );
+    final createdRes = await http.post(
+      '/api/v1/workflows',
+      body: jsonEncode(createReq.toJson()),
+    );
+    expect(createdRes.statusCode, 201);
+    final workflow = WorkflowResponse.fromJson(createdRes.json).workflow;
+
+    final run = await startRun(workflow.id);
+    for (var i = 0; i < 100; i++) {
+      final res = await http.get('/api/v1/runs/${run.id}');
+      if (Run.fromJson(res.json).status == RunStatus.running) break;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+
+    final before = WorkflowResponse.fromJson(
+      (await http.get('/api/v1/workflows/${workflow.id}')).json,
+    );
+    final edit = await http.post(
+      '/api/v1/internal/mcp/tools/edit_workflow',
+      body: jsonEncode({
+        'arguments': {
+          'id': workflow.id,
+          'revision': before.revision,
+          'workspace': 'global',
+          'operations': [
+            {'op': 'update_node', 'id': 'n2', 'type': NodeTypeId.geminiCli},
+          ],
+        },
+      }),
+    );
+    expect(edit.statusCode, 200);
+
+    final active = Run.fromJson(
+      (await http.get('/api/v1/runs/${run.id}')).json,
+    );
+    final pinnedN2 = active.workflowDefinition.nodes.firstWhere(
+      (n) => n.id == 'n2',
+    );
+    expect(pinnedN2.type, NodeTypeId.claudeCode);
+    expect(pinnedN2.config['effort'], 'high');
+
+    final stored = WorkflowResponse.fromJson(
+      (await http.get('/api/v1/workflows/${workflow.id}')).json,
+    );
+    final storedN2 = stored.workflow.nodes.firstWhere((n) => n.id == 'n2');
+    expect(storedN2.type, NodeTypeId.geminiCli);
+    expect(storedN2.config.containsKey('effort'), isFalse);
+
+    await http.post('/api/v1/runs/${run.id}/cancel');
+    await waitUntilFinished(run.id);
+  });
 }

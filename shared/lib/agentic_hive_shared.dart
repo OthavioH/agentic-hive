@@ -27,6 +27,7 @@ export 'src/nodes/node_config_field.dart';
 export 'src/nodes/node_config_validation.dart' show NodeConfigIssue;
 export 'src/nodes/node_configs.dart';
 export 'src/nodes/node_descriptor.dart';
+export 'src/nodes/node_type_change.dart';
 export 'src/overview/active_node_status.dart';
 export 'src/overview/active_node_summary.dart';
 export 'src/overview/active_run_summary.dart';
