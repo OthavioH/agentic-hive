@@ -40,6 +40,27 @@
   "@railCollapseTooltip": {
     "description": "Tooltip for the button that collapses the side rail."
   },
+  "navWorkspaces": "Workspaces",
+  "@navWorkspaces": {
+    "description": "Navigation rail section label for Workspaces."
+  },
+  "navWorkspacesActiveSemantic": "Workspaces, {count, plural, =1{1 active run} other{{count} active runs}}",
+  "@navWorkspacesActiveSemantic": {
+    "description": "Accessibility label for the Workspaces side rail section when active runs exist.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "railPanelPin": "Pin panel",
+  "@railPanelPin": {
+    "description": "Tooltip for the button that pins the side rail panel."
+  },
+  "railPanelUnpin": "Unpin panel",
+  "@railPanelUnpin": {
+    "description": "Tooltip for the button that unpins the side rail panel."
+  },
   "overviewEmptyTitle": "No activity yet",
   "@overviewEmptyTitle": {
     "description": "Empty state title on the Overview placeholder page."

@@ -583,6 +583,7 @@ WidgetbookComponent sideRailComponent() {
     BuildContext context, {
     required bool expanded,
     List<HiveRailDestination> destinations = railDestinations,
+    HiveRailSection? section,
   }) {
     return Padding(
       padding: EdgeInsets.all(context.hiveSpacing.space2),
@@ -596,8 +597,54 @@ WidgetbookComponent sideRailComponent() {
           markLabel: 'Agentic Hive',
           expandLabel: 'Expand navigation',
           collapseLabel: 'Collapse navigation',
+          section: section,
         ),
       ),
+    );
+  }
+
+  HiveRailSection staticSection({
+    int? badgeCount,
+    bool pinned = false,
+    bool longContent = false,
+  }) {
+    return HiveRailSection(
+      icon: HiveIcons.folder,
+      label: 'Workspaces',
+      title: 'Workspaces',
+      badgeCount: badgeCount,
+      semanticLabel: badgeCount != null && badgeCount > 0
+          ? 'Workspaces, $badgeCount active runs'
+          : null,
+      pinned: pinned,
+      onPinnedChanged: pinned ? (_) {} : null,
+      trailing: pinned
+          ? const HiveIconButton(
+              icon: HiveIcons.refresh,
+              semanticLabel: 'Refresh workspaces',
+              size: HiveButtonSize.small,
+              onPressed: _noop,
+            )
+          : null,
+      child: longContent
+          ? Builder(
+              builder: (context) {
+                final spacing = context.hiveSpacing;
+                return ListView.builder(
+                  padding: EdgeInsets.all(spacing.space1),
+                  itemCount: 24,
+                  itemBuilder: (context, index) => Padding(
+                    padding: EdgeInsets.only(bottom: spacing.spaceHalf),
+                    child: HiveTreeItem(
+                      label: 'workspace-$index',
+                      leading: const HiveIcon(HiveIcons.folder),
+                      onPressed: _noop,
+                    ),
+                  ),
+                );
+              },
+            )
+          : const SizedBox.shrink(),
     );
   }
 
@@ -643,6 +690,54 @@ WidgetbookComponent sideRailComponent() {
       WidgetbookUseCase(
         name: 'Interactive shell',
         builder: (context) => const _RailShell(),
+      ),
+      WidgetbookUseCase(
+        name: 'With section · Collapsed',
+        builder: (context) => Align(
+          alignment: Alignment.centerLeft,
+          child: rail(context, expanded: false, section: staticSection()),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'With section · Collapsed · Badge',
+        builder: (context) => Align(
+          alignment: Alignment.centerLeft,
+          child: rail(
+            context,
+            expanded: false,
+            section: staticSection(badgeCount: 2),
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'With section · Expanded · Badge',
+        builder: (context) => Align(
+          alignment: Alignment.centerLeft,
+          child: rail(
+            context,
+            expanded: true,
+            section: staticSection(badgeCount: 2),
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'With section · Pinned · Long content',
+        builder: (context) => Align(
+          alignment: Alignment.centerLeft,
+          child: rail(
+            context,
+            expanded: false,
+            section: staticSection(
+              badgeCount: 2,
+              pinned: true,
+              longContent: true,
+            ),
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'With section · Interactive',
+        builder: (context) => const _RailSectionShowcase(),
       ),
     ],
   );
@@ -798,6 +893,91 @@ class _RailShellState extends State<_RailShell> {
                   ),
                 ),
               ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RailSectionShowcase extends StatefulWidget {
+  const new();
+
+  @override
+  State<_RailSectionShowcase> createState() => _RailSectionShowcaseState();
+}
+
+class _RailSectionShowcaseState extends State<_RailSectionShowcase> {
+  int _selected = 0;
+  bool _pinned = false;
+  final HiveRailSectionController _controller = HiveRailSectionController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = context.hiveSpacing;
+    final colors = context.hiveColors;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Padding(
+          padding: EdgeInsets.all(spacing.space2),
+          child: HiveSideRail(
+            destinations: const <HiveRailDestination>[
+              HiveRailDestination(icon: HiveIcons.overview, label: 'Overview'),
+              HiveRailDestination(
+                icon: HiveIcons.workflows,
+                label: 'Workflows',
+              ),
+              HiveRailDestination(icon: HiveIcons.runs, label: 'Runs'),
+            ],
+            selectedIndex: _selected,
+            onSelected: (i) => setState(() => _selected = i),
+            markLabel: 'Agentic Hive',
+            expandLabel: 'Expand navigation',
+            collapseLabel: 'Collapse navigation',
+            section: HiveRailSection(
+              icon: HiveIcons.folder,
+              label: 'Workspaces',
+              title: 'Workspaces',
+              badgeCount: 2,
+              semanticLabel: 'Workspaces, 2 active runs',
+              pinned: _pinned,
+              onPinnedChanged: (value) => setState(() => _pinned = value),
+              controller: _controller,
+              trailing: HiveIconButton(
+                icon: HiveIcons.refresh,
+                semanticLabel: 'Refresh workspaces',
+                onPressed: () {},
+              ),
+              child: ListView.builder(
+                padding: EdgeInsets.all(spacing.space1),
+                itemCount: 24,
+                itemBuilder: (context, index) => Padding(
+                  padding: EdgeInsets.only(bottom: spacing.spaceHalf),
+                  child: HiveTreeItem(
+                    label: 'workspace-$index',
+                    leading: const HiveIcon(HiveIcons.folder),
+                    onPressed: _controller.close,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: Center(
+            child: Text(
+              'Hover, click, or pin the Workspaces section.',
+              style: context.hiveTypography.body.copyWith(
+                color: colors.onSurfaceMuted,
+              ),
             ),
           ),
         ),

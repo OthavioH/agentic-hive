@@ -71,6 +71,138 @@ void main() {
         );
       });
 
+      testWidgets('HiveSideRail section collapsed', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_side_rail_section_collapsed',
+          SizedBox(
+            height: 440,
+            child: HiveSideRail(
+              destinations: const <HiveRailDestination>[
+                HiveRailDestination(
+                  icon: HiveIcons.overview,
+                  label: 'Overview',
+                ),
+                HiveRailDestination(
+                  icon: HiveIcons.workflows,
+                  label: 'Workflows',
+                ),
+              ],
+              selectedIndex: 0,
+              onSelected: (_) {},
+              markLabel: 'Agentic Hive',
+              expandLabel: 'Expand',
+              collapseLabel: 'Collapse',
+              section: const HiveRailSection(
+                icon: HiveIcons.folder,
+                label: 'Workspaces',
+                title: 'Workspaces',
+                badgeCount: 2,
+                semanticLabel: 'Workspaces, 2 active runs',
+                child: SizedBox.shrink(),
+              ),
+            ),
+          ),
+          size: const Size(320, 480),
+        );
+      });
+
+      testWidgets('HiveSideRail section expanded', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_side_rail_section_expanded',
+          SizedBox(
+            height: 440,
+            child: HiveSideRail(
+              destinations: const <HiveRailDestination>[
+                HiveRailDestination(
+                  icon: HiveIcons.overview,
+                  label: 'Overview',
+                ),
+                HiveRailDestination(
+                  icon: HiveIcons.workflows,
+                  label: 'Workflows',
+                ),
+              ],
+              selectedIndex: 0,
+              onSelected: (_) {},
+              initiallyExpanded: true,
+              markLabel: 'Agentic Hive',
+              expandLabel: 'Expand',
+              collapseLabel: 'Collapse',
+              section: const HiveRailSection(
+                icon: HiveIcons.folder,
+                label: 'Workspaces',
+                title: 'Workspaces',
+                badgeCount: 2,
+                semanticLabel: 'Workspaces, 2 active runs',
+                child: SizedBox.shrink(),
+              ),
+            ),
+          ),
+          size: const Size(360, 480),
+        );
+      });
+
+      testWidgets('HiveSideRail section pinned', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_side_rail_section_pinned',
+          SizedBox(
+            height: 440,
+            child: HiveSideRail(
+              destinations: const <HiveRailDestination>[
+                HiveRailDestination(
+                  icon: HiveIcons.overview,
+                  label: 'Overview',
+                ),
+                HiveRailDestination(
+                  icon: HiveIcons.workflows,
+                  label: 'Workflows',
+                ),
+              ],
+              selectedIndex: 0,
+              onSelected: (_) {},
+              markLabel: 'Agentic Hive',
+              expandLabel: 'Expand',
+              collapseLabel: 'Collapse',
+              section: HiveRailSection(
+                icon: HiveIcons.folder,
+                label: 'Workspaces',
+                title: 'Workspaces',
+                badgeCount: 2,
+                semanticLabel: 'Workspaces, 2 active runs',
+                pinned: true,
+                onPinnedChanged: (_) {},
+                trailing: HiveIconButton(
+                  icon: HiveIcons.refresh,
+                  semanticLabel: 'Refresh workspaces',
+                  size: HiveButtonSize.small,
+                  onPressed: () {},
+                ),
+                child: ListView(
+                  children: <Widget>[
+                    HiveTreeItem(
+                      label: 'agentic-hive',
+                      leading: const HiveIcon(HiveIcons.folder),
+                      expanded: true,
+                      onPressed: () {},
+                    ),
+                    HiveTreeItem(
+                      label: 'main',
+                      indentLevel: 1,
+                      leading: const HiveIcon(HiveIcons.branch),
+                      onPressed: () {},
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          size: const Size(520, 480),
+        );
+      });
+
       testWidgets('HiveRailItem', (tester) async {
         await pumpAndMatch(
           tester,
