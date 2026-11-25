@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_service.dart';
@@ -23,6 +24,12 @@ final class RunsHandler {
       ..get('/<id>/nodes/<nodeId>/logs', _logs)
       ..delete('/<id>', _delete);
   }
+
+  /// Maximum request body size for `POST /api/v1/runs`: base64 of 25 MiB plus
+  /// 1 MiB for the Run input (64 KiB, up to 6x JSON-escaped), names and
+  /// overrides.
+  static const int maxStartRunBodyBytes =
+      (RunAttachmentLimits.maxTotalBytes + 2) ~/ 3 * 4 + 1024 * 1024;
 
   final RunService _service;
   late final Router _router;
@@ -63,7 +70,11 @@ final class RunsHandler {
   }
 
   Future<Response> _start(Request request) async {
-    final parsed = await _readJsonBody(request, StartRunRequest.fromJson);
+    final parsed = await _readJsonBody(
+      request,
+      StartRunRequest.fromJson,
+      maxBytes: maxStartRunBodyBytes,
+    );
     if (parsed.error != null) return parsed.error!;
     final result = await _service.startRun(parsed.value!);
     return _mapResult(request, result, 201);
@@ -175,9 +186,39 @@ final class RunsHandler {
 
   Future<({T? value, Response? error})> _readJsonBody<T>(
     Request request,
-    T Function(JsonMap json) fromJson,
-  ) async {
-    final body = await request.readAsString();
+    T Function(JsonMap json) fromJson, {
+    int? maxBytes,
+  }) async {
+    final String body;
+    if (maxBytes == null) {
+      body = await request.readAsString();
+    } else {
+      final contentLength = request.contentLength;
+      if (contentLength != null && contentLength > maxBytes) {
+        return (
+          value: null,
+          error: _badRequest(request, 'Request body exceeds $maxBytes bytes.'),
+        );
+      }
+      final builder = BytesBuilder(copy: false);
+      await for (final chunk in request.read()) {
+        if (builder.length + chunk.length > maxBytes) {
+          return (
+            value: null,
+            error: _badRequest(
+              request,
+              'Request body exceeds $maxBytes bytes.',
+            ),
+          );
+        }
+        builder.add(chunk);
+      }
+      try {
+        body = utf8.decode(builder.takeBytes());
+      } on FormatException catch (e) {
+        return (value: null, error: _badRequest(request, e.message));
+      }
+    }
     if (body.trim().isEmpty) {
       return (
         value: null,
