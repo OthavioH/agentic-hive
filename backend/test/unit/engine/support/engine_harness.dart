@@ -114,6 +114,7 @@ final class EngineHarness {
     recovery = RunRecoveryService(
       runs: runs,
       checkpoints: checkpoints,
+      attachments: attachments,
       generateId: nextId,
       now: tick,
     );
@@ -127,6 +128,7 @@ final class EngineHarness {
       pauseGateway: gateway,
       processTreeKiller: killer,
       pauses: pauses,
+      attachments: attachments,
       maxConcurrency: maxConcurrency,
       circuitBreakerThreshold: circuitBreakerThreshold,
       cancelGracePeriod: cancelGracePeriod,
@@ -137,6 +139,9 @@ final class EngineHarness {
 
   /// Script for the fake nodes.
   final NodeScript script = NodeScript();
+
+  /// Fake attachment store.
+  final FakeRunAttachmentStore attachments = FakeRunAttachmentStore();
 
   /// In-memory run repository.
   final InMemoryRunRepository runs = InMemoryRunRepository();

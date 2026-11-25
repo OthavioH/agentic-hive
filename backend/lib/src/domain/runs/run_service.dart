@@ -805,12 +805,15 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
             value.status == RunStatus.paused ||
             value.status == RunStatus.interrupted) {
       final now = _now().toUtc();
-      await _runs.updateStatus(
+      final updated = await _runs.updateStatus(
         runId,
         status: RunStatus.failed,
         finishedAt: now,
         errorMessage: message,
       );
+      if (updated is Success<Run>) {
+        await _attachments?.deleteRunBestEffort(runId);
+      }
       await _events.append(
         id: _generateId(),
         runId: runId,
@@ -1344,5 +1347,6 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     if (_logStore != null) {
       await _logStore.deleteRunLogs(id);
     }
+    await _attachments?.deleteRunBestEffort(id);
   }
 }
