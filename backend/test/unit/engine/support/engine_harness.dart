@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/data/runs/file_run_attachment_store.dart';
 import 'package:agentic_hive_backend/src/domain/engine/graph_engine.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/child_run_port.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/fan_out_node.dart';
@@ -11,6 +12,7 @@ import 'package:agentic_hive_backend/src/domain/result_contract/human_pause_gate
 import 'package:agentic_hive_backend/src/domain/runs/pausing_human_approval_port.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_recovery_service.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+import 'package:path/path.dart' as p;
 
 import 'fake_ports.dart';
 import 'in_memory_repositories.dart';
@@ -127,6 +129,10 @@ final class EngineHarness {
       pauseGateway: gateway,
       processTreeKiller: killer,
       pauses: pauses,
+      attachments: FileRunAttachmentStore(
+        runsDir: '/runs',
+        pathContext: p.posix,
+      ),
       maxConcurrency: maxConcurrency,
       circuitBreakerThreshold: circuitBreakerThreshold,
       cancelGracePeriod: cancelGracePeriod,
@@ -183,6 +189,7 @@ final class EngineHarness {
     Workflow workflow, {
     RunStatus status = RunStatus.running,
     String? input,
+    List<RunAttachment>? attachments,
   }) async {
     final run = Run(
       id: runId,
@@ -192,6 +199,7 @@ final class EngineHarness {
       status: status,
       startedAt: DateTime.utc(2026),
       input: input,
+      attachments: attachments,
     );
     await runs.create(run);
     return run;

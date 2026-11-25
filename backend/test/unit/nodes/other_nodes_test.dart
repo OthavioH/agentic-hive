@@ -439,6 +439,49 @@ void main() {
       expect(changes.isSuccess, isTrue);
       expect(changes.valueOrNull!.outputLabel, NodeOutput.changesRequested);
     });
+
+    test('omits Run attachments when delegating to a harness', () async {
+      final processRunner = _FakeProcessRunner(
+        (_) => const ProcessExecutionResult(exitCode: 0),
+      );
+      final contract = _FakeResultContract(
+        const ResultContractReport(status: ResultContractStatus.approved),
+      );
+      final registry = NodeRegistry()
+        ..register(
+          NodeDescriptors.claudeCode,
+          () => ClaudeCodeNode(
+            processRunner: processRunner,
+            resultContract: contract,
+            agentPromptResolver: const _FakeAgentPromptResolver(),
+          ),
+        );
+
+      final reviewNode = ReviewValidatorNode(resolveNode: registry.create);
+      final result = await reviewNode.execute(
+        const NodeExecutionContext(
+          runId: 'run-1',
+          nodeId: 'review-1',
+          workspacePath: '/tmp/workspace',
+          config: {
+            'harnessType': NodeTypeId.claudeCode,
+            'reviewCriteria': 'Check tests.',
+          },
+          runAttachments: [
+            RunAttachmentFile(
+              path: '/runs/r1/attachments/1.png',
+              fileName: 'shot.png',
+            ),
+          ],
+        ),
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(
+        processRunner.lastInvocation!.stdinContent,
+        isNot(contains('## Run attachments')),
+      );
+    });
   });
 
   group('HumanApprovalNode', () {

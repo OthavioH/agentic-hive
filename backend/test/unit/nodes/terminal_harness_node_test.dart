@@ -749,5 +749,49 @@ void main() {
       await registry.unregisterSession(key);
       expect((await registry.writeInput(key, <int>[66])).isFailure, isTrue);
     });
+
+    test('includes ## Run attachments in prompt and passes no attachments dir '
+        'in args', () async {
+      final ptyRunner = _FakePtyRunner();
+      final node = TerminalHarnessNode(
+        ptyRunner: ptyRunner,
+        resultContract: _FakeResultContract(),
+        agentPromptResolver: _FakeAgentPromptResolver(),
+        executionSettings: _FakeExecutionSettings('bash'),
+        defaultShellProvider: const _FakeShellProvider('bash'),
+      );
+
+      final tempDir = await Directory.systemTemp.createTemp('term_attach_');
+      addTearDown(() => tempDir.delete(recursive: true));
+
+      final result = await node.execute(
+        NodeExecutionContext(
+          runId: 'run-1',
+          nodeId: 'term-1',
+          workspacePath: tempDir.path,
+          config: const {'command': 'echo ok'},
+          runAttachments: const [
+            RunAttachmentFile(
+              path: '/runs/r1/attachments/1.png',
+              fileName: 'ui.png',
+            ),
+          ],
+        ),
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(
+        ptyRunner.observedPromptFileContent,
+        contains('## Run attachments'),
+      );
+      expect(
+        ptyRunner.observedPromptFileContent,
+        contains('- /runs/r1/attachments/1.png (ui.png)'),
+      );
+      expect(
+        ptyRunner.lastInvocation!.arguments,
+        isNot(contains('/runs/r1/attachments')),
+      );
+    });
   });
 }

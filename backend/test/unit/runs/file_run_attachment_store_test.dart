@@ -132,4 +132,18 @@ void main() {
       );
     },
   );
+
+  test('filePath matches the file name written by write', () async {
+    final files = [
+      decoded('a.png', 'image/png', 'png', [1]),
+      decoded('b.jpg', 'image/jpeg', 'jpg', [2]),
+    ];
+    final res = await store.write('r1', files);
+    expect(res, isA<Success<void>>());
+
+    for (var i = 0; i < files.length; i++) {
+      final expectedPath = store.filePath('r1', i, files[i].toMetadata());
+      expect(File(expectedPath).existsSync(), isTrue);
+    }
+  });
 }

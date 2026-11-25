@@ -535,6 +535,7 @@ Future<void> registerDependencies(
         processTreeKiller: di<ProcessTreeKiller>(),
         pauses: di<PauseRepository>(),
         logStore: di<RunLogStore>(),
+        attachments: di<RunAttachmentStore>(),
       ),
       dependsOn: [
         RunRepository,
