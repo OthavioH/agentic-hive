@@ -151,6 +151,16 @@ abstract final class RunL10n {
     return '${duration.inMilliseconds}ms';
   }
 
+  /// Formats an attachment byte count in KB or MB.
+  static String formatAttachmentSize(AppLocalizations l10n, int bytes) {
+    // shortcut: toStringAsFixed is not locale-aware; use NumberFormat when a
+    // 2nd locale lands.
+    if (bytes < 1024 * 1024) {
+      return l10n.attachmentSizeKb((bytes / 1024).toStringAsFixed(1));
+    }
+    return l10n.attachmentSizeMb((bytes / 1048576).toStringAsFixed(1));
+  }
+
   /// Pretty-prints [value] as indented JSON, returning an empty string when
   /// [value] is an empty map.
   static String prettyJsonMap(JsonMap value) {

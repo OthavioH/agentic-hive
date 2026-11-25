@@ -2278,9 +2278,147 @@
   "@startRunInputHint": {
     "description": "Placeholder text for the run input field in the Start Run dialog."
   },
-  "startRunInputHelper": "Optional. Passed only to the workflow's entry node.",
+  "startRunInputHelper": "Optional. Passed only to the workflow's entry node. Paste or drop images to attach them.",
   "@startRunInputHelper": {
     "description": "Helper text below the run input field in the Start Run dialog."
+  },
+  "startRunAttachmentDropCaption": "Drop images to attach",
+  "@startRunAttachmentDropCaption": {
+    "description": "Drop overlay caption shown while dragging files over the Start Run dialog."
+  },
+  "startRunAttachmentChipLabel": "{name} · {size}",
+  "@startRunAttachmentChipLabel": {
+    "description": "Label on an attachment chip showing file name and formatted size.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "startRunAttachmentRemove": "Remove {name}",
+  "@startRunAttachmentRemove": {
+    "description": "Semantic label on the remove button of a staged attachment chip.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "startRunAttachmentAdded": "Attached {name}",
+  "@startRunAttachmentAdded": {
+    "description": "Screen reader announcement when an image attachment is staged.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "startRunAttachmentTypeError": "{name} is not a PNG, JPEG, WebP or GIF image.",
+  "@startRunAttachmentTypeError": {
+    "description": "Validation error shown when an attached file is not a supported image type.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "startRunAttachmentLimitError": "You can attach up to {maxCount} images, {maxEachMb} MB each and {maxTotalMb} MB in total.",
+  "@startRunAttachmentLimitError": {
+    "description": "Validation error shown when staged attachments exceed count or size limits.",
+    "placeholders": {
+      "maxCount": {
+        "type": "int"
+      },
+      "maxEachMb": {
+        "type": "int"
+      },
+      "maxTotalMb": {
+        "type": "int"
+      }
+    }
+  },
+  "startRunPastedImageName": "Pasted image {index}.{extension}",
+  "@startRunPastedImageName": {
+    "description": "Generated file name for an image pasted from the clipboard.",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "extension": {
+        "type": "String"
+      }
+    }
+  },
+  "attachmentSizeKb": "{size} KB",
+  "@attachmentSizeKb": {
+    "description": "Formatted attachment size in kilobytes.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "attachmentSizeMb": "{size} MB",
+  "@attachmentSizeMb": {
+    "description": "Formatted attachment size in megabytes.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "runDetailCopyInput": "Copy run input",
+  "@runDetailCopyInput": {
+    "description": "Semantic label for the copy button in the Run input card."
+  },
+  "runDetailInputCopied": "Copied",
+  "@runDetailInputCopied": {
+    "description": "Toast message shown after copying the run input."
+  },
+  "runDetailAttachmentRemovedLabel": "{name} · {size} · removed",
+  "@runDetailAttachmentRemovedLabel": {
+    "description": "Label on a read-only attachment chip after the run has ended and files were removed.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "runDetailAttachmentSemantics": "{name}, {type}, {size}",
+  "@runDetailAttachmentSemantics": {
+    "description": "Semantic label for an active attachment chip on the Run Detail page.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "type": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "runDetailAttachmentRemovedSemantics": "{name}, {type}, {size}, removed",
+  "@runDetailAttachmentRemovedSemantics": {
+    "description": "Semantic label for a removed attachment chip on the Run Detail page.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "type": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
   },
   "runDetailInputLabel": "Run input",
   "@runDetailInputLabel": {

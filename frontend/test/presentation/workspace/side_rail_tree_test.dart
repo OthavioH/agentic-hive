@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:agentic_hive_frontend/core/attachments/attachment_input_source.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/data/pauses/pause_providers.dart';
 import 'package:agentic_hive_frontend/data/runs/run_providers.dart';
@@ -30,6 +31,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../support/fake_attachment_input_source.dart';
 import 'fake_workspace_repository.dart';
 
 final class _FakeSelectionStore implements WorkspaceSelectionStore {
@@ -252,6 +254,9 @@ Widget _buildRouterApp({
       sideRailTreeClockProvider.overrideWithValue(clock ?? () => fixedNow),
       workspaceTreeChangesSourceProvider.overrideWithValue(changes),
       sideRailTreeDebounceProvider.overrideWithValue(Duration.zero),
+      attachmentInputSourceProvider.overrideWithValue(
+        FakeAttachmentInputSource(),
+      ),
     ],
   );
   final router = GoRouter(
