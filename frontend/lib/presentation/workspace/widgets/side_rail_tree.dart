@@ -40,6 +40,7 @@ class SideRailTree extends ConsumerWidget {
     );
     if (created != null && context.mounted) {
       RunDetailRoute(id: created.id).go(context);
+      onRunSelected?.call();
     }
   }
 

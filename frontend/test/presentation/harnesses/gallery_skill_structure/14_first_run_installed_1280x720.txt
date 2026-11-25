@@ -9,78 +9,65 @@ SemanticsNode#
        │ flags: scopesRoute
        │
        ├─SemanticsNode#
-       │ │
-       │ ├─SemanticsNode#
-       │ │   flags: isImage
-       │ │   label: "Agentic Hive"
-       │ │
-       │ ├─SemanticsNode#
-       │ │ │ flags: hasImplicitScrolling
-       │ │ │ scrollExtentMin: 0.0
-       │ │ │ scrollPosition: 0.0
-       │ │ │
-       │ │ ├─SemanticsNode#
-       │ │ │   actions: tap
-       │ │ │   flags: isSelected, isButton, hasEnabledState, isEnabled,
-       │ │ │     hasSelectedState
-       │ │ │   label: "Overview"
-       │ │ │
-       │ │ ├─SemanticsNode#
-       │ │ │   actions: tap
-       │ │ │   flags: isButton, hasEnabledState, isEnabled, hasSelectedState
-       │ │ │   label: "Workflows"
-       │ │ │
-       │ │ ├─SemanticsNode#
-       │ │ │   actions: tap
-       │ │ │   flags: isButton, hasEnabledState, isEnabled, hasSelectedState
-       │ │ │   label: "Runs"
-       │ │ │
-       │ │ ├─SemanticsNode#
-       │ │ │   actions: tap
-       │ │ │   flags: isButton, hasEnabledState, isEnabled, hasSelectedState
-       │ │ │   label: "Pauses"
-       │ │ │
-       │ │ ├─SemanticsNode#
-       │ │ │   actions: tap
-       │ │ │   flags: isButton, hasEnabledState, isEnabled, hasSelectedState
-       │ │ │   label: "Agents"
-       │ │ │
-       │ │ ├─SemanticsNode#
-       │ │ │   actions: tap
-       │ │ │   flags: isButton, hasEnabledState, isEnabled, hasSelectedState
-       │ │ │   label: "Harnesses"
-       │ │ │
-       │ │ └─SemanticsNode#
-       │ │     actions: tap
-       │ │     flags: isButton, hasEnabledState, isEnabled, hasSelectedState
-       │ │     label: "Settings"
+       │ │ traversalParentIdentifier: _OverlayPortalState#
        │ │
        │ └─SemanticsNode#
-       │     actions: tap
-       │     flags: isButton, hasEnabledState, isEnabled
-       │     label: "Expand navigation rail"
-       │
-       ├─SemanticsNode#
-       │ │
-       │ ├─SemanticsNode#
-       │ │   label: "Workspaces"
-       │ │
-       │ ├─SemanticsNode#
-       │ │   actions: tap
-       │ │   flags: isButton, hasEnabledState, isEnabled
-       │ │   label: "Refresh workspace tree"
-       │ │
-       │ ├─SemanticsNode#
-       │ │   actions: tap
-       │ │   flags: isButton, hasEnabledState, isEnabled, hasSelectedState
-       │ │   label: "Global"
-       │ │
-       │ ├─SemanticsNode#
-       │ │   flags: isHeader
-       │ │   label: "No workspaces yet"
-       │ │
-       │ └─SemanticsNode#
-       │     label: "Register a workspace to see its worktrees and runs."
+       │   │
+       │   ├─SemanticsNode#
+       │   │   flags: isImage
+       │   │   label: "Agentic Hive"
+       │   │
+       │   ├─SemanticsNode#
+       │   │ │ flags: hasImplicitScrolling
+       │   │ │ scrollExtentMin: 0.0
+       │   │ │ scrollPosition: 0.0
+       │   │ │
+       │   │ ├─SemanticsNode#
+       │   │ │   actions: tap
+       │   │ │   flags: isSelected, isButton, hasEnabledState, isEnabled,
+       │   │ │     hasSelectedState
+       │   │ │   label: "Overview"
+       │   │ │
+       │   │ ├─SemanticsNode#
+       │   │ │   actions: tap
+       │   │ │   flags: isButton, hasEnabledState, isEnabled, hasSelectedState
+       │   │ │   label: "Workflows"
+       │   │ │
+       │   │ ├─SemanticsNode#
+       │   │ │   actions: tap
+       │   │ │   flags: isButton, hasEnabledState, isEnabled, hasSelectedState
+       │   │ │   label: "Runs"
+       │   │ │
+       │   │ ├─SemanticsNode#
+       │   │ │   actions: tap
+       │   │ │   flags: isButton, hasEnabledState, isEnabled, hasSelectedState
+       │   │ │   label: "Pauses"
+       │   │ │
+       │   │ ├─SemanticsNode#
+       │   │ │   actions: tap
+       │   │ │   flags: isButton, hasEnabledState, isEnabled, hasSelectedState
+       │   │ │   label: "Agents"
+       │   │ │
+       │   │ ├─SemanticsNode#
+       │   │ │   actions: tap
+       │   │ │   flags: isButton, hasEnabledState, isEnabled, hasSelectedState
+       │   │ │   label: "Harnesses"
+       │   │ │
+       │   │ ├─SemanticsNode#
+       │   │ │   actions: tap
+       │   │ │   flags: isButton, hasEnabledState, isEnabled, hasSelectedState
+       │   │ │   label: "Settings"
+       │   │ │
+       │   │ └─SemanticsNode#
+       │   │     actions: focus, tap
+       │   │     flags: isButton, hasEnabledState, isEnabled, isFocusable,
+       │   │       hasSelectedState
+       │   │     label: "Workspaces"
+       │   │
+       │   └─SemanticsNode#
+       │       actions: tap
+       │       flags: isButton, hasEnabledState, isEnabled
+       │       label: "Expand navigation rail"
        │
        ├─SemanticsNode#
        │   label: "No workspace registered"
@@ -114,10 +101,6 @@ SemanticsNode#
            label: "Workspaces"
 
 --- texts ---
-Workspaces
-Global
-No workspaces yet
-Register a workspace to see its worktrees and runs.
 No workspace registered
 Workspaces
 Installed the Agentic Hive skill and MCP for Claude Code, Codex.

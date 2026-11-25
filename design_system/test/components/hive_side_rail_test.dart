@@ -148,6 +148,7 @@ void main() {
       ValueChanged<bool>? onPinnedChanged,
       HiveRailSectionController? controller,
       bool disableAnimations = false,
+      Widget? panelChild,
     }) {
       final rail = HiveSideRail(
         destinations: destinations,
@@ -166,11 +167,13 @@ void main() {
           pinned: pinned,
           onPinnedChanged: onPinnedChanged,
           controller: controller,
-          child: ListView(
-            children: <Widget>[
-              HiveButton(label: 'Panel Action', onPressed: () {}),
-            ],
-          ),
+          child:
+              panelChild ??
+              ListView(
+                children: <Widget>[
+                  HiveButton(label: 'Panel Action', onPressed: () {}),
+                ],
+              ),
         ),
       );
 
@@ -327,5 +330,168 @@ void main() {
       await tester.pump();
       expect(nextPinned, isFalse);
     });
+
+    testWidgets(
+      'expanded rail with section shows label, chevron, and excluded badge',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(1280, 800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          buildWithSection(
+            expanded: true,
+            badgeCount: 2,
+            semanticLabel: 'Workspaces, 2 active runs',
+          ),
+        );
+
+        expect(find.text('Workspaces'), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (w) => w is HiveIcon && w.icon == HiveIcons.chevronRight,
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('2'), findsOneWidget);
+        expect(find.bySemanticsLabel('2'), findsNothing);
+        expect(
+          find.bySemanticsLabel('Workspaces, 2 active runs'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'moving pointer from entry into panel keeps unpinned panel open',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(1280, 800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(buildWithSection());
+
+        final gesture = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+        );
+        await gesture.addPointer(location: Offset.zero);
+        addTearDown(gesture.removePointer);
+
+        await gesture.moveTo(
+          tester.getCenter(find.bySemanticsLabel('Workspaces')),
+        );
+        await tester.pump(const Duration(milliseconds: 150));
+        await tester.pumpAndSettle();
+        expect(find.text('Panel Action'), findsOneWidget);
+
+        await gesture.moveTo(tester.getCenter(find.text('Panel Action')));
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pumpAndSettle();
+        expect(find.text('Panel Action'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'ArrowRight opens and focuses panel; Escape closes and returns focus',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(1280, 800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(buildWithSection());
+
+        // Tab past the 3 destinations to focus the section entry.
+        for (var i = 0; i < 4; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        }
+        await tester.pump();
+        final entryFocus = FocusManager.instance.primaryFocus;
+        expect(entryFocus, isNotNull);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pumpAndSettle();
+        expect(find.text('Panel Action'), findsOneWidget);
+        expect(FocusManager.instance.primaryFocus, isNot(same(entryFocus)));
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.text('Panel Action'), findsNothing);
+        expect(FocusManager.instance.primaryFocus, same(entryFocus));
+      },
+    );
+
+    testWidgets('clicking outside closes unpinned panel', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1280, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(buildWithSection());
+
+      await tester.tap(find.bySemanticsLabel('Workspaces'));
+      await tester.pumpAndSettle();
+      expect(find.text('Panel Action'), findsOneWidget);
+
+      await tester.tapAt(const Offset(900, 400));
+      await tester.pumpAndSettle();
+      expect(find.text('Panel Action'), findsNothing);
+    });
+
+    testWidgets(
+      'modal dialog opened from inside panel keeps unpinned panel open',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(1280, 800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          buildWithSection(
+            panelChild: ListView(
+              children: <Widget>[
+                Builder(
+                  builder: (context) => HiveButton(
+                    label: 'Open Dialog',
+                    onPressed: () => showHiveDialog<void>(
+                      context: context,
+                      barrierLabel: 'Close',
+                      builder: (dialogContext) => HiveDialog(
+                        title: 'Confirm Action',
+                        message: 'Dialog body',
+                        actions: <Widget>[
+                          HiveButton(
+                            label: 'Dismiss',
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+
+        await tester.tap(find.bySemanticsLabel('Workspaces'));
+        await tester.pumpAndSettle();
+        expect(find.text('Open Dialog'), findsOneWidget);
+
+        await tester.tap(find.text('Open Dialog'));
+        await tester.pumpAndSettle();
+        expect(find.text('Confirm Action'), findsOneWidget);
+        expect(find.text('Open Dialog'), findsOneWidget);
+
+        // Move pointer outside and tap inside the dialog: panel stays open.
+        final gesture = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+        );
+        await gesture.addPointer(location: const Offset(1000, 400));
+        addTearDown(gesture.removePointer);
+        await tester.tap(find.text('Dialog body'));
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.text('Confirm Action'), findsOneWidget);
+        expect(find.text('Open Dialog'), findsOneWidget);
+
+        // Dismiss dialog: panel remains open until closed normally.
+        await tester.tap(find.text('Dismiss'));
+        await tester.pumpAndSettle();
+        expect(find.text('Confirm Action'), findsNothing);
+        expect(find.text('Open Dialog'), findsOneWidget);
+      },
+    );
   });
 }

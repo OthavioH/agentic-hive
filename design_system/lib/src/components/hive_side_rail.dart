@@ -221,7 +221,13 @@ class _HiveSideRailState extends State<HiveSideRail> {
       _cancelTimers();
       _isPanelOpen = false;
       if (_overlayController.isShowing) {
-        _overlayController.hide();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !_overlayController.isShowing) return;
+          final current = widget.section;
+          if (current == null || current.pinned) {
+            _overlayController.hide();
+          }
+        });
       }
     }
   }

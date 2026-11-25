@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:agentic_hive_frontend/core/result/result.dart';
+import 'package:agentic_hive_frontend/core/shell/side_rail_pin_store.dart';
 import 'package:agentic_hive_frontend/data/harnesses/harness_repository_impl.dart';
 import 'package:agentic_hive_frontend/data/pauses/pause_providers.dart';
 import 'package:agentic_hive_frontend/data/runs/run_providers.dart';
@@ -35,6 +36,20 @@ import '../harnesses/scripted_harness_repository.dart';
 import '../skills/memory_outdated_banner_store.dart';
 import '../skills/scripted_skill_notice_repository.dart';
 import 'fake_workspace_repository.dart';
+
+final class _FakeSideRailPinStore implements SideRailPinStore {
+  new({this.pinned = false});
+
+  bool pinned;
+
+  @override
+  Future<bool> load() async => pinned;
+
+  @override
+  Future<void> save(bool next) async {
+    pinned = next;
+  }
+}
 
 final class _FakeSelectionStore implements WorkspaceSelectionStore {
   String? savedId;
@@ -168,6 +183,7 @@ Future<void> _capture(
   double textScale = 1.0,
   bool settle = true,
   bool checkContrast = false,
+  bool pinned = false,
   Future<void> Function(WidgetTester tester)? beforeCapture,
   Future<void> Function()? afterCapture,
 }) async {
@@ -181,6 +197,9 @@ Future<void> _capture(
   addTearDown(noticeRepo.dispose);
   final container = ProviderContainer.test(
     overrides: [
+      sideRailPinStoreProvider.overrideWithValue(
+        _FakeSideRailPinStore(pinned: pinned),
+      ),
       workspaceRepositoryProvider.overrideWithValue(workspaceRepo),
       workspaceSelectionStoreProvider.overrideWithValue(selectionStore),
       runRepositoryProvider.overrideWithValue(runsRepo),
@@ -532,7 +551,11 @@ void main() {
         pauseRepo: populatedPauseRepo,
         fixedNow: fixedNow,
         settle: false,
-        beforeCapture: collapseWs3,
+        pinned: true,
+        beforeCapture: (t) async {
+          await t.pump();
+          await collapseWs3(t);
+        },
       );
     }
   });
