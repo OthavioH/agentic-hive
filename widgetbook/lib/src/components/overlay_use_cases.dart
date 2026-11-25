@@ -108,6 +108,90 @@ WidgetbookComponent dialogComponent() {
         name: 'Interactive (modal route)',
         builder: (context) => const UseCaseFrame(child: _DialogLauncher()),
       ),
+      WidgetbookUseCase(
+        name: 'Drop target · Idle',
+        builder: (context) => const HiveDialog(
+          title: 'Start run',
+          content: HiveTextArea(
+            label: 'Prompt',
+            helperText: 'Paste or drop images to attach them.',
+          ),
+          dropCaption: 'Drop images to attach',
+          actions: <Widget>[
+            HiveButton(
+              label: 'Cancel',
+              variant: HiveButtonVariant.ghost,
+              onPressed: _noop,
+            ),
+            HiveButton(label: 'Start', onPressed: _noop),
+          ],
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Drop target · Drag over',
+        builder: (context) => const HiveDialog(
+          title: 'Start run',
+          content: HiveTextArea(
+            label: 'Prompt',
+            helperText: 'Paste or drop images to attach them.',
+          ),
+          dropCaption: 'Drop images to attach',
+          dropActive: true,
+          actions: <Widget>[
+            HiveButton(
+              label: 'Cancel',
+              variant: HiveButtonVariant.ghost,
+              onPressed: _noop,
+            ),
+            HiveButton(label: 'Start', onPressed: _noop),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
+/// `HiveDropZone`: idle and drag-over highlight states.
+WidgetbookComponent dropZoneComponent() {
+  return WidgetbookComponent(
+    name: 'HiveDropZone',
+    useCases: <WidgetbookUseCase>[
+      WidgetbookUseCase(
+        name: 'Idle',
+        builder: (context) => UseCaseFrame(
+          child: SizedBox(
+            width: context.hiveSpacing.space8 * 7,
+            child: const HiveDropZone(
+              active: false,
+              caption: 'Drop images to attach',
+              child: HiveInsetPanel(
+                child: HiveTextArea(
+                  label: 'Prompt',
+                  helperText: 'Paste or drop images to attach them.',
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Drag over',
+        builder: (context) => UseCaseFrame(
+          child: SizedBox(
+            width: context.hiveSpacing.space8 * 7,
+            child: const HiveDropZone(
+              active: true,
+              caption: 'Drop images to attach',
+              child: HiveInsetPanel(
+                child: HiveTextArea(
+                  label: 'Prompt',
+                  helperText: 'Paste or drop images to attach them.',
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     ],
   );
 }

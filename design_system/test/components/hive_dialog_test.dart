@@ -477,5 +477,42 @@ void main() {
       expect(find.byType(SingleChildScrollView), findsOneWidget);
       expect(find.text('Cancel'), findsOneWidget);
     });
+
+    testWidgets(
+      'dropCaption wraps only the panel in HiveDropZone when provided',
+      (tester) async {
+        await tester.pumpWidget(
+          hiveTestApp(
+            child: HiveDialog(
+              title: _title,
+              actions: <Widget>[HiveButton(label: 'Cancel', onPressed: () {})],
+            ),
+          ),
+        );
+        expect(find.byType(HiveDropZone), findsNothing);
+
+        await tester.pumpWidget(
+          hiveTestApp(
+            child: HiveDialog(
+              title: _title,
+              dropCaption: 'Drop images to attach',
+              dropActive: true,
+              actions: <Widget>[HiveButton(label: 'Cancel', onPressed: () {})],
+            ),
+          ),
+        );
+
+        final panelSemantics = find.byWidgetPredicate(
+          (widget) =>
+              widget is Semantics && widget.properties.namesRoute == true,
+        );
+        final dropZoneFinder = find.descendant(
+          of: panelSemantics,
+          matching: find.byType(HiveDropZone),
+        );
+        expect(dropZoneFinder, findsOneWidget);
+        expect(tester.widget<HiveDropZone>(dropZoneFinder).active, isTrue);
+      },
+    );
   });
 }

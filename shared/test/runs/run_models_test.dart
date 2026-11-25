@@ -108,7 +108,47 @@ void main() {
       expect(json.containsKey('childIndex'), isFalse);
       expect(json.containsKey('childName'), isFalse);
       expect(json.containsKey('nodeOverrides'), isFalse);
+      expect(json.containsKey('attachments'), isFalse);
       expect(Run.fromJson(json), run);
+    });
+
+    test('round-trips attachment metadata', () {
+      final run = Run(
+        id: 'run-att',
+        workflowName: 'With Attachments',
+        workflowDefinition: sampleWorkflow,
+        workspacePath: '/tmp/ws',
+        status: RunStatus.running,
+        startedAt: DateTime.utc(2026, 11, 20, 12),
+        attachments: const [
+          RunAttachment(
+            fileName: 'shot.png',
+            mimeType: 'image/png',
+            sizeBytes: 1234,
+          ),
+        ],
+      );
+
+      final json = run.toJson();
+      expect(json['attachments'], [
+        {'fileName': 'shot.png', 'mimeType': 'image/png', 'sizeBytes': 1234},
+      ]);
+      final encoded = (json['attachments']! as List).single as Map;
+      expect(encoded.containsKey('data'), isFalse);
+      expect(Run.fromJson(json), run);
+    });
+
+    test('decodes an old payload without attachments', () {
+      final legacyJson = Run(
+        id: 'run-old',
+        workflowName: 'Old',
+        workflowDefinition: sampleWorkflow,
+        workspacePath: '/tmp/ws',
+        status: RunStatus.succeeded,
+        startedAt: DateTime.utc(2026, 11, 20, 12),
+      ).toJson();
+      expect(legacyJson.containsKey('attachments'), isFalse);
+      expect(Run.fromJson(legacyJson).attachments, isNull);
     });
 
     test('round-trips parent link and node overrides', () {
@@ -362,7 +402,49 @@ void main() {
       expect(minimalJson.containsKey('ignorePatterns'), isFalse);
       expect(minimalJson.containsKey('input'), isFalse);
       expect(minimalJson.containsKey('nodeOverrides'), isFalse);
+      expect(minimalJson.containsKey('attachments'), isFalse);
       expect(StartRunRequest.fromJson(minimalJson), minimal);
+    });
+
+    test('StartRunRequest round-trips attachments', () {
+      const dto = StartRunRequest(
+        workflowId: 'wf-1',
+        workspaceId: 'ws-1',
+        attachments: [
+          RunAttachmentPayload(
+            fileName: 'Pasted image 1.png',
+            mimeType: 'image/png',
+            data: 'iVBORw0KGgo=',
+          ),
+        ],
+      );
+      final json = dto.toJson();
+      expect(json['attachments'], [
+        {
+          'fileName': 'Pasted image 1.png',
+          'mimeType': 'image/png',
+          'data': 'iVBORw0KGgo=',
+        },
+      ]);
+      expect(StartRunRequest.fromJson(json), dto);
+    });
+
+    test('StartRunRequest decodes an old payload without attachments', () {
+      final decoded = StartRunRequest.fromJson({
+        'workflowId': 'wf',
+        'workspaceId': 'ws',
+      });
+      expect(decoded.attachments, isNull);
+    });
+
+    test('RunAttachmentPayload rejects a missing data field', () {
+      expect(
+        () => RunAttachmentPayload.fromJson({
+          'fileName': 'a',
+          'mimeType': 'image/png',
+        }),
+        throwsFormatException,
+      );
     });
 
     test('StartRunRequest carries node overrides', () {
@@ -457,6 +539,20 @@ void main() {
         offset: 2,
       );
       expect(RunNodeLogsResponse.fromJson(dto.toJson()), dto);
+    });
+  });
+
+  group('RunAttachmentLimits', () {
+    test('defines allowed MIME types and size/count limits', () {
+      expect(RunAttachmentLimits.allowedMimeTypes, {
+        'image/png',
+        'image/jpeg',
+        'image/webp',
+        'image/gif',
+      });
+      expect(RunAttachmentLimits.maxCount, 10);
+      expect(RunAttachmentLimits.maxBytesEach, 10485760);
+      expect(RunAttachmentLimits.maxTotalBytes, 26214400);
     });
   });
 }

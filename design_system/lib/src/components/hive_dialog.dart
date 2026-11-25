@@ -1,4 +1,5 @@
 import 'package:design_system/src/components/hive_button.dart';
+import 'package:design_system/src/components/hive_drop_zone.dart';
 import 'package:design_system/src/icons/hive_icons.dart';
 import 'package:design_system/src/tokens/hive_tokens_context.dart';
 import 'package:material_ui/material_ui.dart';
@@ -18,8 +19,13 @@ class HiveDialog extends StatelessWidget {
     this.message,
     this.content,
     this.icon,
+    this.dropActive = false,
+    this.dropCaption,
     super.key,
-  });
+  }) : assert(
+         !dropActive || dropCaption != null,
+         'dropCaption must be provided when dropActive is true.',
+       );
 
   /// Short headline; also names the dialog route for screen readers.
   final String title;
@@ -35,6 +41,13 @@ class HiveDialog extends StatelessWidget {
 
   /// The actions, laid out at the end of the panel in order.
   final List<Widget> actions;
+
+  /// Whether the dialog panel shows the drop-target highlight overlay.
+  final bool dropActive;
+
+  /// Caption for the drop-target overlay; when non-null, the panel is wrapped
+  /// in a [HiveDropZone].
+  final String? dropCaption;
 
   /// Shows the dialog built by [builder] over a `background` scrim.
   ///
@@ -135,6 +148,97 @@ class HiveDialog extends StatelessWidget {
     final glyph = icon;
     final body = message;
     final extra = content;
+    final caption = dropCaption;
+
+    final panel = DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surface2,
+        borderRadius: context.hiveRadii.panel,
+        border: Border.all(
+          color: colors.borderSubtle,
+          width: elevation.hairline,
+        ),
+        boxShadow: elevation.shadowMedium,
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(spacing.space4),
+        child: DefaultTextStyle(
+          style: typography.body.copyWith(color: colors.onSurface),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              if (glyph != null) ...<Widget>[
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colors.surface3,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: colors.borderSubtle,
+                        width: elevation.hairline,
+                      ),
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.all(spacing.space1),
+                      child: HiveIcon(
+                        glyph,
+                        size: spacing.space3,
+                        color: colors.onSurface,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: spacing.space2),
+              ],
+              Semantics(
+                header: true,
+                child: Text(
+                  title,
+                  style: typography.titleSmall.copyWith(
+                    color: colors.onSurface,
+                  ),
+                ),
+              ),
+              if (body != null || extra != null)
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        if (body != null) ...<Widget>[
+                          SizedBox(height: spacing.space1),
+                          Text(
+                            body,
+                            style: typography.body.copyWith(
+                              color: colors.onSurfaceMuted,
+                            ),
+                          ),
+                        ],
+                        if (extra != null) ...<Widget>[
+                          SizedBox(height: spacing.space2),
+                          extra,
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              if (actions.isNotEmpty) ...<Widget>[
+                SizedBox(height: spacing.space4),
+                OverflowBar(
+                  alignment: MainAxisAlignment.end,
+                  spacing: spacing.space1,
+                  overflowSpacing: spacing.space1,
+                  overflowAlignment: OverflowBarAlignment.end,
+                  children: actions,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
 
     return Center(
       child: Padding(
@@ -149,96 +253,14 @@ class HiveDialog extends StatelessWidget {
             child: Material(
               type: MaterialType.transparency,
               child: FocusTraversalGroup(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: colors.surface2,
-                    borderRadius: context.hiveRadii.panel,
-                    border: Border.all(
-                      color: colors.borderSubtle,
-                      width: elevation.hairline,
-                    ),
-                    boxShadow: elevation.shadowMedium,
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(spacing.space4),
-                    child: DefaultTextStyle(
-                      style: typography.body.copyWith(color: colors.onSurface),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: <Widget>[
-                          if (glyph != null) ...<Widget>[
-                            Align(
-                              alignment: AlignmentDirectional.centerStart,
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: colors.surface3,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: colors.borderSubtle,
-                                    width: elevation.hairline,
-                                  ),
-                                ),
-                                child: Padding(
-                                  padding: EdgeInsets.all(spacing.space1),
-                                  child: HiveIcon(
-                                    glyph,
-                                    size: spacing.space3,
-                                    color: colors.onSurface,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            SizedBox(height: spacing.space2),
-                          ],
-                          Semantics(
-                            header: true,
-                            child: Text(
-                              title,
-                              style: typography.titleSmall.copyWith(
-                                color: colors.onSurface,
-                              ),
-                            ),
-                          ),
-                          if (body != null || extra != null)
-                            Flexible(
-                              child: SingleChildScrollView(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: <Widget>[
-                                    if (body != null) ...<Widget>[
-                                      SizedBox(height: spacing.space1),
-                                      Text(
-                                        body,
-                                        style: typography.body.copyWith(
-                                          color: colors.onSurfaceMuted,
-                                        ),
-                                      ),
-                                    ],
-                                    if (extra != null) ...<Widget>[
-                                      SizedBox(height: spacing.space2),
-                                      extra,
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ),
-                          if (actions.isNotEmpty) ...<Widget>[
-                            SizedBox(height: spacing.space4),
-                            OverflowBar(
-                              alignment: MainAxisAlignment.end,
-                              spacing: spacing.space1,
-                              overflowSpacing: spacing.space1,
-                              overflowAlignment: OverflowBarAlignment.end,
-                              children: actions,
-                            ),
-                          ],
-                        ],
+                child: caption == null
+                    ? panel
+                    : HiveDropZone(
+                        active: dropActive,
+                        caption: caption,
+                        borderRadius: context.hiveRadii.panel,
+                        child: panel,
                       ),
-                    ),
-                  ),
-                ),
               ),
             ),
           ),
