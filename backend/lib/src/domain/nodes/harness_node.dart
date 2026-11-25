@@ -286,17 +286,18 @@ abstract base class HarnessNode extends Node {
           ),
         );
       }
-      if (analysis.isRateLimitError) {
-        return FailureResult(
-          HarnessRateLimitFailure(
-            analysis.errorMessage ??
-                'Rate limit or quota exhausted for "$typeId".',
-            harnessType: typeId,
-          ),
-        );
-      }
+      final rateLimit = analysis.isRateLimitError
+          ? HarnessRateLimitFailure(
+              analysis.errorMessage ??
+                  'Rate limit or quota exhausted for "$typeId".',
+              harnessType: typeId,
+            )
+          : null;
 
       if (processResult.timedOut) {
+        if (rateLimit != null) {
+          return FailureResult(rateLimit);
+        }
         await session.resolveOutcome(
           exitCode: processResult.exitCode,
           timedOut: true,
@@ -312,6 +313,13 @@ abstract base class HarnessNode extends Node {
         exitCode: processResult.exitCode,
         timedOut: processResult.timedOut,
       );
+      if (outcomeResult case Success<ResultContractReport>(:final value)) {
+        return Success(outcomeFromReport(value, extraData: analysis.metadata));
+      }
+      if (rateLimit != null &&
+          (await resultContract.readReport(context)).valueOrNull == null) {
+        return FailureResult(rateLimit);
+      }
       return switch (outcomeResult) {
         Success<ResultContractReport>(:final value) => Success(
           outcomeFromReport(value, extraData: analysis.metadata),
@@ -496,15 +504,27 @@ abstract base class HeadlessHarnessNode extends HarnessNode {
 
 /// Shared pattern-based auth/quota detector for CLI output.
 ///
-/// Only classifies authentication or rate-limit errors when the process failed
-/// (`exitCode != 0`), so normal agent output mentioning status codes or terms
-/// like `401` or `429` never overrides a successful run.
+/// Classifies authentication errors only when the process failed
+/// (`exitCode != 0` or `timedOut`), so normal agent output mentioning status
+/// codes or terms like `401` never overrides a successful run. When
+/// [rateLimitOnCleanExit] is `true`, rate-limit patterns are also reported on
+/// exit 0, and [HarnessNode] applies them only when no report was accepted.
 HarnessOutputAnalysis analyzeCliOutput(
   ProcessExecutionResult result, {
   required RegExp authPattern,
   required RegExp rateLimitPattern,
+  bool rateLimitOnCleanExit = false,
 }) {
   if (result.exitCode == 0 && !result.timedOut) {
+    if (rateLimitOnCleanExit) {
+      final combined = '${result.stderr}\n${result.stdout}'.trim();
+      if (rateLimitPattern.hasMatch(combined)) {
+        return HarnessOutputAnalysis(
+          isRateLimitError: true,
+          errorMessage: _firstMatchingLine(combined, rateLimitPattern),
+        );
+      }
+    }
     return const HarnessOutputAnalysis();
   }
 
