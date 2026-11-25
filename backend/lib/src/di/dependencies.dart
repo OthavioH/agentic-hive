@@ -520,6 +520,7 @@ Future<void> registerDependencies(
       () => RunRecoveryService(
         runs: di<RunRepository>(),
         checkpoints: di<CheckpointRepository>(),
+        attachments: di<RunAttachmentStore>(),
       ),
       dependsOn: [RunRepository, CheckpointRepository],
     )
@@ -535,6 +536,7 @@ Future<void> registerDependencies(
         processTreeKiller: di<ProcessTreeKiller>(),
         pauses: di<PauseRepository>(),
         logStore: di<RunLogStore>(),
+        attachments: di<RunAttachmentStore>(),
       ),
       dependsOn: [
         RunRepository,
