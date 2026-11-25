@@ -19,7 +19,8 @@ final class WorkflowHandler {
       ..get('/<id>', _getById)
       ..put('/<id>', _update)
       ..delete('/<id>', _delete)
-      ..post('/<id>/duplicate', _duplicate);
+      ..post('/<id>/duplicate', _duplicate)
+      ..get('/<id>/references', _references);
   }
 
   final WorkflowService _service;
@@ -29,7 +30,9 @@ final class WorkflowHandler {
   Future<Response> call(Request request) => _router.call(request);
 
   Future<Response> _list(Request request) async {
-    final result = await _service.listWorkflows();
+    final result = await _service.listWorkflows(
+      workspaceId: _workspaceId(request),
+    );
     return _mapResult(request, result, 200);
   }
 
@@ -51,23 +54,54 @@ final class WorkflowHandler {
   }
 
   Future<Response> _getById(Request request, String id) async {
-    final result = await _service.getWorkflow(id);
+    final result = await _service.getWorkflow(
+      id,
+      workspaceId: _workspaceId(request),
+    );
+    return _mapResult(request, result, 200);
+  }
+
+  Future<Response> _references(Request request, String id) async {
+    final result = await _service.getReferences(
+      id,
+      workspaceId: _workspaceId(request),
+    );
     return _mapResult(request, result, 200);
   }
 
   Future<Response> _update(Request request, String id) async {
     final parsed = await _readJsonBody(request, UpdateWorkflowRequest.fromJson);
     if (parsed.error != null) return parsed.error!;
-    final result = await _service.updateWorkflow(id, parsed.value!);
+    final result = await _service.updateWorkflow(
+      id,
+      parsed.value!,
+      workspaceId: _workspaceId(request),
+    );
     return _mapResult(request, result, 200);
   }
 
   Future<Response> _delete(Request request, String id) async {
-    final result = await _service.deleteWorkflow(id);
-    return switch (result) {
-      Success<void>() => jsonResponse(200, {'id': id, 'deleted': true}),
-      FailureResult<void>(:final failure) => failureResponse(request, failure),
-    };
+    final raw = request.url.queryParameters['force'];
+    final bool force;
+    if (raw == null || raw.isEmpty || raw == 'false') {
+      force = false;
+    } else if (raw == 'true') {
+      force = true;
+    } else {
+      return errorResponse(
+        request,
+        400,
+        code: ApiErrorCode.badRequest,
+        message: 'Query parameter "force" must be "true" or "false".',
+      );
+    }
+    final result = await _service.deleteWorkflow(
+      id,
+      workspaceId: _workspaceId(request),
+      expectedRevision: _revision(request),
+      force: force,
+    );
+    return _mapResult(request, result, 202);
   }
 
   Future<Response> _duplicate(Request request, String id) async {
@@ -82,8 +116,24 @@ final class WorkflowHandler {
       if (parsed.error != null) return parsed.error!;
       name = parsed.value!.name;
     }
-    final result = await _service.duplicateWorkflow(id, name: name);
+    final result = await _service.duplicateWorkflow(
+      id,
+      name: name,
+      workspaceId: _workspaceId(request),
+    );
     return _mapResult(request, result, 201);
+  }
+
+  /// The `workspaceId` query parameter; absent or blank means the global scope.
+  String? _workspaceId(Request request) {
+    final value = request.url.queryParameters['workspaceId']?.trim();
+    return value == null || value.isEmpty ? null : value;
+  }
+
+  /// The `revision` query parameter; absent or blank means no check.
+  String? _revision(Request request) {
+    final value = request.url.queryParameters['revision']?.trim();
+    return value == null || value.isEmpty ? null : value;
   }
 
   Response _mapResult<T>(Request request, Result<T> result, int okStatus) =>

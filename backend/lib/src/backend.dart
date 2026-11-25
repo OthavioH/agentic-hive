@@ -4,9 +4,11 @@ import 'dart:io';
 import 'package:agentic_hive_backend/src/config/app_config.dart';
 import 'package:agentic_hive_backend/src/config/platform_paths.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/data/agents/agents_directory_migration.dart';
 import 'package:agentic_hive_backend/src/di/dependencies.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_recovery_service.dart';
 import 'package:agentic_hive_backend/src/domain/settings/settings_service.dart';
+import 'package:agentic_hive_backend/src/domain/skills/skill_auto_install_service.dart';
 import 'package:agentic_hive_backend/src/server/backend_server.dart';
 import 'package:agentic_hive_backend/src/server/local_socket.dart';
 import 'package:get_it/get_it.dart';
@@ -33,11 +35,15 @@ final class Backend {
   /// Prepares the data folder, wires dependencies and starts serving.
   ///
   /// Pass a fresh `GetIt.asNewInstance()` as [di] in tests.
+  ///
+  /// [enableSkillAutoInstall] starts the automatic skill install. Off by
+  /// default so tests never write into the real home folder.
   static Future<Backend> start({
     required AppConfig config,
     PlatformPaths? platformPaths,
     GetIt? di,
     IOSink? consoleOut,
+    bool enableSkillAutoInstall = false,
   }) async {
     final paths = platformPaths ?? currentPlatformPaths();
     final container = di ?? GetIt.instance;
@@ -46,6 +52,10 @@ final class Backend {
     await Directory(config.dataDir).create(recursive: true);
     await paths.restrictToOwner(config.dataDir);
     await Directory(config.agentsDir).create(recursive: true);
+    final agentsMigration = await AgentsDirectoryMigration(
+      legacyDir: config.legacyAgentsDir,
+      targetDir: config.agentsDir,
+    ).run();
 
     // Fail fast, before opening the database or touching the log files, when
     // the path is too long or another backend already serves this folder.
@@ -63,6 +73,7 @@ final class Backend {
         startedAt: startedAt,
         onShutdown: backend.stop,
         consoleOut: consoleOut,
+        agentsMigrationConflicts: agentsMigration.conflicts,
       );
       await container<SettingsService>().applyPersistedSettings();
       final recovery = await container<RunRecoveryService>()
@@ -71,6 +82,9 @@ final class Backend {
         throw StateError('Orphaned run recovery failed: ${failure.message}');
       }
       await container<BackendServer>().start(startedAt: startedAt);
+      if (enableSkillAutoInstall) {
+        container<SkillAutoInstallService>().start();
+      }
     } on Object {
       await container.reset();
       rethrow;

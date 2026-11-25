@@ -1,10 +1,15 @@
 import 'dart:async';
 
+import 'package:agentic_hive_frontend/core/di/use_case_providers.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/runs/widgets/start_run_dialog.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflow_delete_controller.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflows_list_controller.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/utils/workflow_l10n.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/widgets/workflow_delete_notice_banner.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/widgets/workflow_deleting_badge.dart';
+import 'package:agentic_hive_frontend/presentation/workspace/controllers/workspace_registry_controller.dart';
 import 'package:agentic_hive_frontend/routes/app_routes.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
@@ -32,18 +37,36 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
 
   Future<void> _showCreateDialog(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
-    final created = await HiveDialog.show<Workflow>(
+    final workspace = ref
+        .read(workspaceRegistryControllerProvider)
+        .value
+        ?.currentWorkspace;
+    final created = await HiveDialog.show<_CreatedWorkflow>(
       context: context,
       barrierLabel: l10n.workflowsCancelAction,
       builder: (dialogContext) => _CreateWorkflowDialog(
-        onCreate: (name, description) => ref
-            .read(workflowsListControllerProvider.notifier)
-            .createWorkflow(name: name, description: description),
+        workspaceName: workspace?.name,
+        onCreate: (name, description, global) async {
+          final workspaceId = global ? null : workspace?.id;
+          final result = await ref
+              .read(workflowsListControllerProvider.notifier)
+              .createWorkflow(
+                name: name,
+                description: description,
+                workspaceId: workspaceId,
+              );
+          return result.map(
+            (workflow) => (workflow: workflow, workspaceId: workspaceId),
+          );
+        },
       ),
     );
 
     if (created != null && context.mounted) {
-      WorkflowEditorRoute(id: created.id).go(context);
+      WorkflowEditorRoute(
+        id: created.workflow.id,
+        workspaceId: created.workspaceId,
+      ).go(context);
     }
   }
 
@@ -64,19 +87,97 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
     BuildContext context,
     WorkflowSummary workflow,
   ) async {
+    final refs = await ref
+        .read(getWorkflowReferencesProvider)
+        .call(workflow.id, workspaceId: workflow.workspaceId);
+    if (!context.mounted) return;
     final l10n = AppLocalizations.of(context)!;
-    final confirmed = await HiveDialog.confirm(
-      context: context,
+    final names = switch (refs) {
+      Success(:final value) =>
+        value.map((r) => r.workflowName).toSet().toList(),
+      FailureResult() => const <String>[],
+    };
+    final baseMessage = l10n.workflowsDeleteMessage(workflow.name);
+    final message = names.isEmpty
+        ? baseMessage
+        : '$baseMessage\n\n'
+              '${l10n.workflowsDeleteReferencedMessage(names.join(', '))}';
+    final choice = await showHiveConfirmDialog(
+      context,
       title: l10n.workflowsDeleteTitle,
-      message: l10n.workflowsDeleteMessage(workflow.name),
+      message: message,
       confirmLabel: l10n.workflowsDeleteConfirm,
       cancelLabel: l10n.workflowsCancelAction,
-      destructive: true,
+      tone: HiveConfirmTone.destructive,
     );
-    if (!confirmed || !mounted) return;
-    await ref
-        .read(workflowsListControllerProvider.notifier)
-        .deleteWorkflow(workflow.id);
+    if (choice != HiveConfirmChoice.confirm || !context.mounted) return;
+    await _runDelete(context, workflow, force: false);
+  }
+
+  /// Sends the delete request and asks to stop active runs while the backend
+  /// refuses over them (BR4).
+  Future<void> _runDelete(
+    BuildContext context,
+    WorkflowSummary workflow, {
+    required bool force,
+  }) async {
+    final notifier = ref.read(workflowDeleteControllerProvider.notifier);
+    final deleteWorkflow = ref.read(deleteWorkflowProvider);
+    var outcome = await notifier.delete(deleteWorkflow, workflow, force: force);
+    while (outcome is WorkflowDeleteNeedsForce) {
+      if (!context.mounted) return;
+      final l10n = AppLocalizations.of(context)!;
+      final choice = await showHiveConfirmDialog(
+        context,
+        title: l10n.workflowsDeleteTitle,
+        message: l10n.workflowsDeleteActiveRunsMessage(
+          outcome.activeRunCount,
+          workflow.name,
+        ),
+        confirmLabel: l10n.workflowsDeleteStopRunsConfirm,
+        cancelLabel: l10n.workflowsCancelAction,
+        tone: HiveConfirmTone.destructive,
+      );
+      if (choice != HiveConfirmChoice.confirm || !context.mounted) return;
+      outcome = await notifier.delete(deleteWorkflow, workflow, force: true);
+    }
+  }
+
+  /// After a revision conflict: drops the notice, reloads the list and asks
+  /// again with the fresh revision (owner decision, plan section 8).
+  Future<void> _reloadAndConfirm(
+    BuildContext context,
+    WorkflowSummary workflow,
+  ) async {
+    ref.read(workflowDeleteControllerProvider.notifier).dismissNotice();
+    final listController = ref.read(workflowsListControllerProvider.notifier);
+    await listController.refresh();
+    if (!context.mounted) return;
+    final listed = ref
+        .read(workflowsListControllerProvider)
+        .asData
+        ?.value
+        .workflows;
+    final fresh = listed?.where(
+      (candidate) =>
+          candidate.id == workflow.id &&
+          candidate.workspaceId == workflow.workspaceId,
+    );
+    if (fresh == null || fresh.isEmpty) return;
+    await _confirmDelete(context, fresh.first);
+  }
+
+  /// Retry re-sends the failed request without the first confirmation.
+  void _retryDelete(BuildContext context, WorkflowDeleteNotice notice) {
+    if (notice case WorkflowDeleteFailedNotice(:final workflow, :final force)) {
+      unawaited(_runDelete(context, workflow, force: force));
+    }
+  }
+
+  void _reloadFailedDelete(BuildContext context, WorkflowDeleteNotice notice) {
+    if (notice case WorkflowDeleteFailedNotice(:final workflow)) {
+      unawaited(_reloadAndConfirm(context, workflow));
+    }
   }
 
   @override
@@ -86,6 +187,7 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
     final colors = context.hiveColors;
     final typography = context.hiveTypography;
     final stateAsync = ref.watch(workflowsListControllerProvider);
+    final deleteState = ref.watch(workflowDeleteControllerProvider);
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -113,6 +215,20 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
                 ),
               ],
             ),
+            if (deleteState.notice case final notice?) ...<Widget>[
+              HiveFadeIn(
+                key: ObjectKey(notice),
+                child: WorkflowDeleteNoticeBanner(
+                  notice: notice,
+                  onDismiss: ref
+                      .read(workflowDeleteControllerProvider.notifier)
+                      .dismissNotice,
+                  onRetry: () => _retryDelete(context, notice),
+                  onReload: () => _reloadFailedDelete(context, notice),
+                ),
+              ),
+              SizedBox(height: spacing.space2),
+            ],
             Expanded(
               child: stateAsync.when(
                 loading: () => Center(
@@ -206,12 +322,26 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
                                     workflowsListControllerProvider.notifier,
                                   );
                                   final summary = filtered[index];
+                                  final deletion = deleteState
+                                      .progress[workflowKeyOf(summary)];
+                                  final isDeleting =
+                                      summary.deleting || deletion != null;
+                                  // Disabled while duplicating or deleting.
                                   final isBusy =
-                                      listState.busyWorkflowId == summary.id;
+                                      listState.busyWorkflowId == summary.id ||
+                                      isDeleting;
+                                  final deletingReason = isDeleting
+                                      ? l10n.workflowsActionUnavailableDeleting
+                                      : null;
                                   final formattedDate = DateFormat.yMMMd()
                                       .add_Hm()
                                       .format(summary.updatedAt.toLocal());
                                   final hasErrors = summary.hasValidationErrors;
+                                  final isWorkspaceScope =
+                                      summary.scope == WorkflowScope.workspace;
+                                  final scopeLabel = isWorkspaceScope
+                                      ? l10n.workflowsScopeWorkspaceBadge
+                                      : l10n.workflowsScopeGlobalBadge;
                                   final statusLabel = hasErrors
                                       ? l10n.workflowsStatusInvalid
                                       : l10n.workflowsStatusValid;
@@ -222,6 +352,10 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
                                   return HiveCard(
                                     key: Key('workflow_card_${summary.id}'),
                                     surface: HiveCardSurface.surface2,
+                                    busy: isDeleting,
+                                    statusLabel: isDeleting
+                                        ? workflowDeletingLabel(l10n, deletion)
+                                        : null,
                                     semanticLabel: l10n.workflowsOpenAction(
                                       summary.name,
                                     ),
@@ -229,6 +363,7 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
                                         ? null
                                         : () => WorkflowEditorRoute(
                                             id: summary.id,
+                                            workspaceId: summary.workspaceId,
                                           ).go(context),
                                     child: Row(
                                       children: <Widget>[
@@ -260,8 +395,30 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
                                                     label: statusLabel,
                                                     tone: statusTone,
                                                   ),
+                                                  SizedBox(
+                                                    width: spacing.space1,
+                                                  ),
+                                                  HiveBadge(
+                                                    key: Key(
+                                                      'scope_${summary.id}',
+                                                    ),
+                                                    label: scopeLabel,
+                                                    tone: isWorkspaceScope
+                                                        ? HiveBadgeTone
+                                                              .accentMuted
+                                                        : HiveBadgeTone.neutral,
+                                                  ),
                                                 ],
                                               ),
+                                              if (isDeleting) ...<Widget>[
+                                                SizedBox(
+                                                  height: spacing.spaceHalf,
+                                                ),
+                                                WorkflowDeletingBadge(
+                                                  workflowId: summary.id,
+                                                  progress: deletion,
+                                                ),
+                                              ],
                                               if (summary.description != null &&
                                                   summary
                                                       .description!
@@ -329,6 +486,7 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
                                           icon: HiveIcons.play,
                                           semanticLabel:
                                               l10n.workflowsRunAction,
+                                          disabledReason: deletingReason,
                                           onPressed: isBusy
                                               ? null
                                               : () => unawaited(
@@ -346,11 +504,14 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
                                           icon: HiveIcons.copy,
                                           semanticLabel:
                                               l10n.workflowsDuplicateAction,
+                                          disabledReason: deletingReason,
                                           onPressed: isBusy
                                               ? null
                                               : () => unawaited(
                                                   controller.duplicateWorkflow(
                                                     summary.id,
+                                                    workspaceId:
+                                                        summary.workspaceId,
                                                   ),
                                                 ),
                                         ),
@@ -362,6 +523,7 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
                                           icon: HiveIcons.delete,
                                           semanticLabel:
                                               l10n.workflowsDeleteAction,
+                                          disabledReason: deletingReason,
                                           onPressed: isBusy
                                               ? null
                                               : () => unawaited(
@@ -389,10 +551,19 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
   }
 }
 
-class _CreateWorkflowDialog extends StatefulWidget {
-  const new({required this.onCreate});
+typedef _CreatedWorkflow = ({Workflow workflow, String? workspaceId});
 
-  final Future<Result<Workflow>> Function(String name, String description)
+class _CreateWorkflowDialog extends StatefulWidget {
+  const new({required this.onCreate, this.workspaceName});
+
+  /// Name of the current workspace; `null` offers only the Global scope.
+  final String? workspaceName;
+
+  final Future<Result<_CreatedWorkflow>> Function(
+    String name,
+    String description,
+    bool global,
+  )
   onCreate;
 
   @override
@@ -404,6 +575,7 @@ class _CreateWorkflowDialogState extends State<_CreateWorkflowDialog> {
   final TextEditingController _descriptionController = TextEditingController();
   String? _nameError;
   bool _isSubmitting = false;
+  bool _global = false;
 
   @override
   void dispose() {
@@ -425,10 +597,14 @@ class _CreateWorkflowDialogState extends State<_CreateWorkflowDialog> {
       _nameError = null;
       _isSubmitting = true;
     });
-    final result = await widget.onCreate(name, _descriptionController.text);
+    final result = await widget.onCreate(
+      name,
+      _descriptionController.text,
+      _global,
+    );
     if (!mounted) return;
     result.fold(
-      onSuccess: (workflow) => Navigator.of(context).pop(workflow),
+      onSuccess: (created) => Navigator.of(context).pop(created),
       onFailure: (failure) {
         setState(() {
           _nameError = WorkflowL10n.localizeFailure(l10n, failure);
@@ -457,6 +633,21 @@ class _CreateWorkflowDialogState extends State<_CreateWorkflowDialog> {
             autofocus: true,
             onSubmitted: (_) => unawaited(_submit()),
           ),
+          if (widget.workspaceName != null) ...<Widget>[
+            SizedBox(height: spacing.space2),
+            HiveSegmentedControl<bool>(
+              segments: <HiveSegment<bool>>[
+                HiveSegment<bool>(value: false, label: widget.workspaceName!),
+                HiveSegment<bool>(
+                  value: true,
+                  label: l10n.workflowsScopeGlobalBadge,
+                ),
+              ],
+              selected: _global,
+              onChanged: (global) => setState(() => _global = global),
+              semanticLabel: l10n.workflowsScopeControlLabel,
+            ),
+          ],
           SizedBox(height: spacing.space2),
           HiveTextField(
             key: const Key('create_workflow_description_field'),

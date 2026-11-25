@@ -23,7 +23,6 @@ void main() {
   late Directory tempDir;
   late Directory defaultAgentsDir;
   late Directory customAgentsDir;
-  late Directory workspaceDir;
   late AppDatabase db;
   late DriftSettingsRepository repository;
   late LocalAgentRepository agentRepository;
@@ -39,7 +38,6 @@ void main() {
     defaultAgentsDir = Directory(p.join(tempDir.path, 'agents'))..createSync();
     customAgentsDir = Directory(p.join(tempDir.path, 'custom-agents'))
       ..createSync();
-    workspaceDir = Directory(p.join(tempDir.path, 'workspace'))..createSync();
 
     db = AppDatabase(NativeDatabase.memory());
     await db.customSelect('SELECT 1').get();
@@ -87,7 +85,6 @@ void main() {
       expect(settings.agentsDir, isNull);
       expect(settings.effectiveAgentsDir, defaultAgentsDir.path);
       expect(settings.defaultAgentsDir, defaultAgentsDir.path);
-      expect(settings.defaultWorkspaceDir, isNull);
       expect(settings.harnessOverrides, isEmpty);
     });
   });
@@ -98,7 +95,6 @@ void main() {
       () async {
         final nonExecFile = File(p.join(tempDir.path, 'not-exec.txt'))
           ..writeAsStringSync('hello');
-        final missingDir = p.join(tempDir.path, 'does-not-exist');
 
         final emitted = <AppSettings>[];
         final sub = service.settingsUpdates.listen(emitted.add);
@@ -107,7 +103,6 @@ void main() {
         final result = await service.updateSettings(
           UpdateSettingsRequest(
             agentsDir: 'relative/agents',
-            defaultWorkspaceDir: missingDir,
             harnessOverrides: {
               HarnessId.claudeCode: 'relative/claude',
               HarnessId.codex: nonExecFile.path,
@@ -124,7 +119,6 @@ void main() {
           validation.details!.keys,
           unorderedEquals([
             'agentsDir',
-            'defaultWorkspaceDir',
             'harnessOverrides.claude_code',
             'harnessOverrides.codex',
           ]),
@@ -152,16 +146,12 @@ void main() {
         addTearDown(sub.cancel);
 
         final updateRes = await service.updateSettings(
-          UpdateSettingsRequest(
-            agentsDir: customAgentsDir.path,
-            defaultWorkspaceDir: workspaceDir.path,
-          ),
+          UpdateSettingsRequest(agentsDir: customAgentsDir.path),
         );
         expect(updateRes, isA<Success<AppSettings>>());
         final updated = (updateRes as Success<AppSettings>).value;
         expect(updated.agentsDir, customAgentsDir.path);
         expect(updated.effectiveAgentsDir, customAgentsDir.path);
-        expect(updated.defaultWorkspaceDir, workspaceDir.path);
 
         // F2 repository & watcher switched without moving files.
         await pumpEventQueue();
@@ -171,15 +161,14 @@ void main() {
         expect(customAgent.existsSync(), isTrue);
         expect(emitted, [updated]);
 
-        // Reset agentsDir & clear defaultWorkspaceDir.
+        // Reset agentsDir.
         final resetRes = await service.updateSettings(
-          const UpdateSettingsRequest(agentsDir: '', defaultWorkspaceDir: ''),
+          const UpdateSettingsRequest(agentsDir: ''),
         );
         expect(resetRes, isA<Success<AppSettings>>());
         final reset = (resetRes as Success<AppSettings>).value;
         expect(reset.agentsDir, isNull);
         expect(reset.effectiveAgentsDir, defaultAgentsDir.path);
-        expect(reset.defaultWorkspaceDir, isNull);
         expect(agentRepository.agentsDir, defaultAgentsDir.path);
         expect(agentWatcher.agentsDir, defaultAgentsDir.path);
       },
@@ -298,16 +287,13 @@ void main() {
         service.updateSettings(
           UpdateSettingsRequest(agentsDir: customAgentsDir.path),
         ),
-        service.updateSettings(
-          UpdateSettingsRequest(defaultWorkspaceDir: workspaceDir.path),
-        ),
+        service.updateSettings(const UpdateSettingsRequest()),
       ]);
 
       expect(results, everyElement(isA<Success<AppSettings>>()));
       final finalSettings =
           (await service.getSettings() as Success<AppSettings>).value;
       expect(finalSettings.agentsDir, isNull);
-      expect(finalSettings.defaultWorkspaceDir, workspaceDir.path);
     });
 
     test('updates harnessOverrides and triggers F3 re-detection only for '
@@ -370,6 +356,68 @@ void main() {
       },
     );
   });
+
+  group('autoInstallSkills', () {
+    test('defaults to true when settings table is empty', () async {
+      final result = await service.getSettings();
+      expect(result, isA<Success<AppSettings>>());
+      expect((result as Success<AppSettings>).value.autoInstallSkills, isTrue);
+    });
+
+    test(
+      'persists false, preserves on omitted update, and restores true',
+      () async {
+        final updates = <AppSettings>[];
+        final sub = service.settingsUpdates.listen(updates.add);
+        addTearDown(sub.cancel);
+
+        final offResult = await service.updateSettings(
+          const UpdateSettingsRequest(autoInstallSkills: false),
+        );
+        expect(
+          (offResult as Success<AppSettings>).value.autoInstallSkills,
+          isFalse,
+        );
+        final storedAfterOff =
+            (await repository.getAll() as Success<Map<String, String>>).value;
+        expect(
+          storedAfterOff[DefaultSettingsService.autoInstallSkillsKey],
+          'false',
+        );
+        expect(
+          (await service.getSettings() as Success<AppSettings>)
+              .value
+              .autoInstallSkills,
+          isFalse,
+        );
+
+        final omittedResult = await service.updateSettings(
+          const UpdateSettingsRequest(),
+        );
+        expect(
+          (omittedResult as Success<AppSettings>).value.autoInstallSkills,
+          isFalse,
+        );
+
+        final onResult = await service.updateSettings(
+          const UpdateSettingsRequest(autoInstallSkills: true),
+        );
+        expect(
+          (onResult as Success<AppSettings>).value.autoInstallSkills,
+          isTrue,
+        );
+        expect(updates.map((s) => s.autoInstallSkills), [false, false, true]);
+      },
+    );
+
+    test('treats non-false stored values as true', () async {
+      await repository.applyChanges(<String, String?>{
+        DefaultSettingsService.autoInstallSkillsKey: 'maybe',
+      });
+      final result = await service.getSettings();
+      expect((result as Success<AppSettings>).value.autoInstallSkills, isTrue);
+    });
+  });
 }
 
 final class _FakeExecutableValidator implements ExecutableValidator {
@@ -392,6 +440,10 @@ final class _FakeDetector implements HarnessDetector {
   void setExecutableOverride(String? path) {
     lastOverride = path;
   }
+
+  @override
+  Future<String?> locateExecutable() async =>
+      lastOverride ?? '/usr/bin/${id.wireName}';
 
   @override
   Future<HarnessInfo> detect() async {

@@ -1,0 +1,147 @@
+{
+  "id": "feature-intake",
+  "name": "Feature Intake",
+  "nodes": [
+    {
+      "id": "analyze",
+      "type": "harness.claude_code",
+      "label": "Analyze request (Sonnet 5.5)",
+      "position": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "config": {
+        "additionalInstructions": "The run input is a feature request or a bug report for this app. Classify it (feature or bug). Read AGENTS.md, GLOSSARY.md, the relevant ADRs in docs/adrs and the code it touches. For a bug, follow the diagnosing-bugs skill until you can state where and why it happens (reproduce it when it is cheap). Do not edit files. Report data.kind (feature|bug), data.analysis (Markdown: current behavior, affected modules and ADRs, risks, and the open questions a design interview must settle).",
+        "extraArgs": [],
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "timeoutSeconds": 2400
+      }
+    },
+    {
+      "id": "grill",
+      "type": "harness.claude_code",
+      "label": "Grill with docs (Opus 5.5)",
+      "position": {
+        "x": 280.0,
+        "y": 0.0
+      },
+      "config": {
+        "additionalInstructions": "Run the grill-with-docs process: read and follow ~/.agents/skills/grilling/SKILL.md and ~/.agents/skills/domain-modeling/SKILL.md (they cannot be invoked through the Skill tool here). Start from data.analysis of node analyze. Interview the human ONLY through the hive MCP tool ask_human: one round per call, a few questions per round, each with your recommended answer and why. Keep going until every branch of the decision tree is settled. As decisions settle, update GLOSSARY.md and write or supersede ADRs in docs/adrs following the domain-modeling skill and the root AGENTS.md; commit them on the current branch with Conventional Commit messages (docs: ...). Do not push and do not open a PR. If the human stops answering, says to stop, or leaves questions open, report failure with the open questions. On success report data.decisions (Markdown list of every decision), data.docs (files changed) and data.openQuestions (must be empty).",
+        "extraArgs": [],
+        "model": "claude-opus-5-5",
+        "effort": "medium",
+        "timeoutSeconds": 172800
+      }
+    },
+    {
+      "id": "write_spec",
+      "type": "harness.claude_code",
+      "label": "Write spec (Opus 5.5)",
+      "position": {
+        "x": 560.0,
+        "y": 0.0
+      },
+      "config": {
+        "additionalInstructions": "Write the spec from data.analysis (node analyze) and data.decisions (node grill), following ~/.agents/skills/to-spec/SKILL.md (its template; skip its 'check with the user' step, the grill already did it). If the request changes a user interface, also follow ~/.agents/skills/ui-spec/SKILL.md. Use GLOSSARY.md terms and link the ADRs the grill wrote. Publish it as a GitHub issue titled 'Spec: <summary>' with gh issue create (see docs/agents/issue-tracker.md). Report data.spec (issue number) and data.url.",
+        "extraArgs": [],
+        "model": "claude-opus-5-5",
+        "effort": "medium",
+        "timeoutSeconds": 2400
+      }
+    },
+    {
+      "id": "split",
+      "type": "harness.claude_code",
+      "label": "Propose tickets (Sonnet 5.5)",
+      "position": {
+        "x": 840.0,
+        "y": 0.0
+      },
+      "config": {
+        "additionalInstructions": "Break the spec (data.spec of node write_spec; read it with gh issue view) into tickets following steps 1-3 of ~/.agents/skills/to-tickets/SKILL.md: tracer-bullet vertical slices, prefactoring first, expand-contract for wide refactors, and real blocking edges only (tickets with no edge between them run in parallel, so they must not touch the same files). Do NOT publish anything. If node approve_split rejected an earlier proposal, apply its feedback. Report data.tickets: an array of {key (short id like t1), title, body (What to build, acceptance criteria as a checklist, tests to write), blockedBy (array of keys), labels (array; add hive:heavy for a ticket with a very wide blast radius)}.",
+        "extraArgs": [],
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "timeoutSeconds": 2400
+      }
+    },
+    {
+      "id": "approve_split",
+      "type": "human_approval",
+      "label": "Approve ticket split",
+      "position": {
+        "x": 1120.0,
+        "y": 0.0
+      },
+      "config": {
+        "instructions": "Review the proposed tickets: granularity, blocking edges (tickets without an edge run in parallel), titles and acceptance criteria. Edit the list directly and approve, or reject with feedback to get a new proposal.",
+        "allowFeedback": true,
+        "title": "Approve the ticket split",
+        "proposalNodeId": "split",
+        "proposalPath": "tickets",
+        "proposalSchema": "{\"type\":\"array\",\"minItems\":1,\"items\":{\"type\":\"object\",\"required\":[\"key\",\"title\",\"body\"],\"properties\":{\"key\":{\"type\":\"string\"},\"title\":{\"type\":\"string\"},\"body\":{\"type\":\"string\"},\"blockedBy\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"labels\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}}}}"
+      }
+    },
+    {
+      "id": "publish",
+      "type": "harness.claude_code",
+      "label": "Publish tickets (Haiku 5.5)",
+      "position": {
+        "x": 1400.0,
+        "y": 0.0
+      },
+      "config": {
+        "additionalInstructions": "Publish the approved tickets: data.proposal of node approve_split (the human may have edited them). Follow docs/agents/issue-tracker.md. Create them in dependency order (blockers first) with gh issue create --parent <spec> (data.spec of node write_spec), the ticket's labels plus ready-for-agent, and --blocked-by with the issue numbers of its blockedBy keys. Start each body with 'Part of #<spec>'. Do not edit or close the spec. Report data.issues: {key: issue number}.",
+        "extraArgs": [],
+        "model": "claude-haiku-5-5",
+        "effort": "medium",
+        "timeoutSeconds": 1200
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_1",
+      "sourceNodeId": "analyze",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "grill"
+    },
+    {
+      "id": "edge_2",
+      "sourceNodeId": "grill",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "write_spec"
+    },
+    {
+      "id": "edge_3",
+      "sourceNodeId": "write_spec",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "split"
+    },
+    {
+      "id": "edge_4",
+      "sourceNodeId": "split",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "approve_split"
+    },
+    {
+      "id": "edge_5",
+      "sourceNodeId": "approve_split",
+      "sourceOutput": "approved",
+      "targetNodeId": "publish"
+    },
+    {
+      "id": "edge_6",
+      "sourceNodeId": "approve_split",
+      "sourceOutput": "rejected",
+      "targetNodeId": "split",
+      "maxRetries": 3
+    }
+  ],
+  "createdAt": "2026-11-24T22:36:42.670275Z",
+  "updatedAt": "2026-11-24T22:36:42.670275Z",
+  "description": "From a feature request or bug report to a spec with tickets. Run input: the request in plain words. Start it in a NEW worktree based on development: ADRs and GLOSSARY.md changes from the grill are committed on that worktree's branch (no PR). Flow: analyze the app (Sonnet) → grill with docs through ask_human, one round at a time (Opus) → write and publish the spec issue (Opus) → propose tickets (Sonnet) → you approve or edit the ticket list → publish sub-issues with blocked-by links (Haiku). The run stops without a spec if the grill is not finished. Next: run Spec Implementation in this same worktree so the docs ship with the spec.",
+  "entryNodeId": "analyze",
+  "schemaVersion": 1
+}

@@ -17,12 +17,16 @@ final class _FakeAgentPromptResolver implements AgentPromptResolver {
   const new();
 
   @override
-  Future<Result<String>> resolvePrompt(String agentId) async =>
-      FailureResult(NotFoundFailure('Agent "$agentId" not found.'));
+  Future<Result<String>> resolvePrompt(
+    String agentId, {
+    String? workspaceRoot,
+  }) async => FailureResult(NotFoundFailure('Agent "$agentId" not found.'));
 
   @override
-  Future<Result<ResolvedAgent>> resolveAgent(String agentId) async =>
-      FailureResult(NotFoundFailure('Agent "$agentId" not found.'));
+  Future<Result<ResolvedAgent>> resolveAgent(
+    String agentId, {
+    String? workspaceRoot,
+  }) async => FailureResult(NotFoundFailure('Agent "$agentId" not found.'));
 }
 
 final class _FakeProcessRunner implements NodeProcessRunner {
@@ -182,6 +186,43 @@ void main() {
       expect(timedOut.valueOrNull!.outputLabel, NodeOutput.onFailure);
       expect(timedOut.valueOrNull!.data['timedOut'], isTrue);
     });
+
+    test(
+      'keeps stdout/stderr intact up to 16384 chars and tail-truncates above',
+      () async {
+        final exact = 'x' * 16384;
+        final exactNode = CommandNode(
+          processRunner: _FakeProcessRunner(
+            (_) => ProcessExecutionResult(
+              exitCode: 0,
+              stdout: exact,
+              stderr: exact,
+            ),
+          ),
+        );
+        final exactResult = await exactNode.execute(
+          ctx(const {'command': 'c'}),
+        );
+        expect(exactResult.valueOrNull!.data['stdout'], exact);
+        expect(exactResult.valueOrNull!.data['stderr'], exact);
+
+        final over = 'HEAD_${'a' * 16400}_TAIL';
+        final overNode = CommandNode(
+          processRunner: _FakeProcessRunner(
+            (_) =>
+                ProcessExecutionResult(exitCode: 1, stdout: over, stderr: over),
+          ),
+        );
+        final overResult = await overNode.execute(ctx(const {'command': 'c'}));
+        for (final key in ['stdout', 'stderr']) {
+          final value = overResult.valueOrNull!.data[key]! as String;
+          expect(value, contains('truncated'));
+          expect(value, contains('run logs'));
+          expect(value, endsWith('_TAIL'));
+          expect(value, isNot(contains('HEAD_')));
+        }
+      },
+    );
   });
 
   group('TestsValidatorNode', () {
@@ -203,6 +244,25 @@ void main() {
       final fail = await failNode.execute(ctx(const {'command': 'dart test'}));
       expect(fail.valueOrNull!.outputLabel, NodeOutput.onFailure);
       expect(fail.valueOrNull!.data['exitCode'], 1);
+    });
+
+    test('tail-truncates oversized stdout and stderr independently', () async {
+      final over = 'START_${'z' * 17000}_END_SUMMARY';
+      final node = TestsValidatorNode(
+        processRunner: _FakeProcessRunner(
+          (_) => ProcessExecutionResult(
+            exitCode: 1,
+            stdout: over,
+            stderr: 'short err',
+          ),
+        ),
+      );
+      final result = await node.execute(ctx(const {'command': 'dart test'}));
+      final stdout = result.valueOrNull!.data['stdout']! as String;
+      expect(stdout, contains('truncated'));
+      expect(stdout, endsWith('_END_SUMMARY'));
+      expect(stdout, isNot(contains('START_')));
+      expect(result.valueOrNull!.data['stderr'], 'short err');
     });
   });
 
@@ -435,6 +495,49 @@ void main() {
       expect(changes.isSuccess, isTrue);
       expect(changes.valueOrNull!.outputLabel, NodeOutput.changesRequested);
     });
+
+    test('omits Run attachments when delegating to a harness', () async {
+      final processRunner = _FakeProcessRunner(
+        (_) => const ProcessExecutionResult(exitCode: 0),
+      );
+      final contract = _FakeResultContract(
+        const ResultContractReport(status: ResultContractStatus.approved),
+      );
+      final registry = NodeRegistry()
+        ..register(
+          NodeDescriptors.claudeCode,
+          () => ClaudeCodeNode(
+            processRunner: processRunner,
+            resultContract: contract,
+            agentPromptResolver: const _FakeAgentPromptResolver(),
+          ),
+        );
+
+      final reviewNode = ReviewValidatorNode(resolveNode: registry.create);
+      final result = await reviewNode.execute(
+        const NodeExecutionContext(
+          runId: 'run-1',
+          nodeId: 'review-1',
+          workspacePath: '/tmp/workspace',
+          config: {
+            'harnessType': NodeTypeId.claudeCode,
+            'reviewCriteria': 'Check tests.',
+          },
+          runAttachments: [
+            RunAttachmentFile(
+              path: '/runs/r1/attachments/1.png',
+              fileName: 'shot.png',
+            ),
+          ],
+        ),
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(
+        processRunner.lastInvocation!.stdinContent,
+        isNot(contains('## Run attachments')),
+      );
+    });
   });
 
   group('HumanApprovalNode', () {
@@ -466,5 +569,86 @@ void main() {
       expect(rejected.valueOrNull!.outputLabel, NodeOutput.rejected);
       expect(rejected.valueOrNull!.data['feedback'], 'Needs fixes');
     });
+
+    test('reads proposal from nodeOutputs and forwards to port', () async {
+      final port = _FakeHumanApprovalPort(
+        const HumanApprovalResponse(
+          decision: HumanApprovalDecision.approved,
+          proposal: [1, 2],
+          edited: true,
+        ),
+      );
+      final node = HumanApprovalNode(approvalPort: port);
+
+      final result = await node.execute(
+        const NodeExecutionContext(
+          runId: 'run-1',
+          nodeId: 'n1',
+          workspacePath: '/tmp/ws',
+          config: {
+            'instructions': 'Review.',
+            'proposalNodeId': 'planner',
+            'proposalPath': 'issues',
+            'proposalSchema': '{"type":"array"}',
+          },
+          inputs: {
+            'nodeOutputs': {
+              'planner': {
+                'data': {
+                  'issues': [1],
+                },
+              },
+            },
+          },
+        ),
+      );
+      expect(port.lastRequest?.proposalNodeId, 'planner');
+      expect(port.lastRequest?.proposal, [1]);
+      expect(port.lastRequest?.proposalSchema, '{"type":"array"}');
+      expect(result.valueOrNull!.data['proposal'], [1, 2]);
+      expect(result.valueOrNull!.data['edited'], isTrue);
+    });
+
+    test(
+      'fails with ValidationFailure when proposal source or field missing',
+      () async {
+        final port = _FakeHumanApprovalPort(
+          const HumanApprovalResponse(decision: HumanApprovalDecision.approved),
+        );
+        final node = HumanApprovalNode(approvalPort: port);
+
+        final noSource = await node.execute(
+          ctx(const {
+            'instructions': 'Review.',
+            'proposalNodeId': 'planner',
+            'proposalPath': 'issues',
+          }),
+        );
+        expect(noSource.failureOrNull, isA<ValidationFailure>());
+        expect(noSource.failureOrNull!.message, contains('planner'));
+
+        final nullField = await node.execute(
+          const NodeExecutionContext(
+            runId: 'run-1',
+            nodeId: 'n1',
+            workspacePath: '/tmp/ws',
+            config: {
+              'instructions': 'Review.',
+              'proposalNodeId': 'planner',
+              'proposalPath': 'issues',
+            },
+            inputs: {
+              'nodeOutputs': {
+                'planner': {
+                  'data': {'issues': null},
+                },
+              },
+            },
+          ),
+        );
+        expect(nullField.failureOrNull, isA<ValidationFailure>());
+        expect(nullField.failureOrNull!.message, contains('issues'));
+      },
+    );
   });
 }

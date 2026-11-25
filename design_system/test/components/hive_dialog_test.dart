@@ -206,6 +206,67 @@ void main() {
       );
       expect(confirm.variant, HiveButtonVariant.primary);
     });
+
+    testWidgets('destructive confirm focuses Cancel so Enter cancels', (
+      tester,
+    ) async {
+      bool? result;
+      await tester.pumpWidget(
+        _launcher((context) async {
+          result = await HiveDialog.confirm(
+            context: context,
+            title: 'Delete "Release checklist"?',
+            confirmLabel: 'Delete',
+            cancelLabel: 'Cancel',
+            destructive: true,
+          );
+        }),
+      );
+      await tester.tap(find.text('Delete workflow'));
+      await tester.pumpAndSettle();
+
+      final cancel = tester.widget<HiveButton>(
+        find.widgetWithText(HiveButton, 'Cancel'),
+      );
+      final confirm = tester.widget<HiveButton>(
+        find.widgetWithText(HiveButton, 'Delete'),
+      );
+      expect(cancel.autofocus, isTrue);
+      expect(confirm.autofocus, isFalse);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(result, isFalse);
+      expect(find.text('Delete "Release checklist"?'), findsNothing);
+    });
+
+    testWidgets('destructive confirm: Tab reaches Confirm and Enter confirms', (
+      tester,
+    ) async {
+      bool? result;
+      await tester.pumpWidget(
+        _launcher((context) async {
+          result = await HiveDialog.confirm(
+            context: context,
+            title: 'Delete "Release checklist"?',
+            confirmLabel: 'Delete',
+            cancelLabel: 'Cancel',
+            destructive: true,
+          );
+        }),
+      );
+      await tester.tap(find.text('Delete workflow'));
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(result, isTrue);
+      expect(find.text('Delete "Release checklist"?'), findsNothing);
+    });
   });
 
   group('HiveDialog', () {
@@ -416,5 +477,42 @@ void main() {
       expect(find.byType(SingleChildScrollView), findsOneWidget);
       expect(find.text('Cancel'), findsOneWidget);
     });
+
+    testWidgets(
+      'dropCaption wraps only the panel in HiveDropZone when provided',
+      (tester) async {
+        await tester.pumpWidget(
+          hiveTestApp(
+            child: HiveDialog(
+              title: _title,
+              actions: <Widget>[HiveButton(label: 'Cancel', onPressed: () {})],
+            ),
+          ),
+        );
+        expect(find.byType(HiveDropZone), findsNothing);
+
+        await tester.pumpWidget(
+          hiveTestApp(
+            child: HiveDialog(
+              title: _title,
+              dropCaption: 'Drop images to attach',
+              dropActive: true,
+              actions: <Widget>[HiveButton(label: 'Cancel', onPressed: () {})],
+            ),
+          ),
+        );
+
+        final panelSemantics = find.byWidgetPredicate(
+          (widget) =>
+              widget is Semantics && widget.properties.namesRoute == true,
+        );
+        final dropZoneFinder = find.descendant(
+          of: panelSemantics,
+          matching: find.byType(HiveDropZone),
+        );
+        expect(dropZoneFinder, findsOneWidget);
+        expect(tester.widget<HiveDropZone>(dropZoneFinder).active, isTrue);
+      },
+    );
   });
 }

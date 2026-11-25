@@ -39,6 +39,7 @@ final class ClaudeCodeNode extends HeadlessHarnessNode {
   List<String> buildPermissionArgs({
     required WorkspaceIsolationMode isolationMode,
     String? resultsDir,
+    String? attachmentsDir,
     List<String> allowedTools = const <String>[],
     List<String> deniedTools = const <String>[],
     String? runId,
@@ -61,6 +62,10 @@ final class ClaudeCodeNode extends HeadlessHarnessNode {
         '--add-dir',
         resultsDir,
       ],
+      if (attachmentsDir != null && attachmentsDir.isNotEmpty) ...<String>[
+        '--add-dir',
+        attachmentsDir,
+      ],
       '--allowedTools',
       allowed.join(','),
       if (resolved.denied.isNotEmpty) ...<String>[
@@ -71,6 +76,15 @@ final class ClaudeCodeNode extends HeadlessHarnessNode {
   }
 
   @override
+  List<String> buildModelArgs(String model) => <String>['--model', model];
+
+  @override
+  List<String> buildEffortArgs(HarnessEffort effort) => <String>[
+    '--effort',
+    effort.name,
+  ];
+
+  @override
   ProcessInvocation buildInvocation({
     required HarnessNodeConfig config,
     required String workingDirectory,
@@ -79,6 +93,7 @@ final class ClaudeCodeNode extends HeadlessHarnessNode {
     Map<String, String> environment = const <String, String>{},
     WorkspaceIsolationMode isolationMode = WorkspaceIsolationMode.direct,
     String? resultsDir,
+    String? attachmentsDir,
     List<String> allowedTools = const <String>[],
     List<String> deniedTools = const <String>[],
     String? runId,
@@ -93,10 +108,12 @@ final class ClaudeCodeNode extends HeadlessHarnessNode {
       ...buildPermissionArgs(
         isolationMode: isolationMode,
         resultsDir: resultsDir,
+        attachmentsDir: attachmentsDir,
         allowedTools: allowedTools,
         deniedTools: deniedTools,
         runId: runId,
       ),
+      ...buildModelAndEffortArgs(config),
       ...config.extraArgs,
     ],
     workingDirectory: workingDirectory,
@@ -146,6 +163,7 @@ final class CodexNode extends HeadlessHarnessNode {
   List<String> buildPermissionArgs({
     required WorkspaceIsolationMode isolationMode,
     String? resultsDir,
+    String? attachmentsDir,
     List<String> allowedTools = const <String>[],
     List<String> deniedTools = const <String>[],
     String? runId,
@@ -181,8 +199,28 @@ final class CodexNode extends HeadlessHarnessNode {
         '--add-dir',
         resultsDir,
       ],
+      if (attachmentsDir != null && attachmentsDir.isNotEmpty) ...<String>[
+        '--add-dir',
+        attachmentsDir,
+      ],
     ];
   }
+
+  static const Map<HarnessEffort, String> _effortValue = {
+    HarnessEffort.low: 'low',
+    HarnessEffort.medium: 'medium',
+    HarnessEffort.high: 'high',
+    HarnessEffort.max: 'xhigh',
+  };
+
+  @override
+  List<String> buildModelArgs(String model) => <String>['--model', model];
+
+  @override
+  List<String> buildEffortArgs(HarnessEffort effort) => <String>[
+    '-c',
+    'model_reasoning_effort=${_effortValue[effort]}',
+  ];
 
   @override
   ProcessInvocation buildInvocation({
@@ -193,6 +231,7 @@ final class CodexNode extends HeadlessHarnessNode {
     Map<String, String> environment = const <String, String>{},
     WorkspaceIsolationMode isolationMode = WorkspaceIsolationMode.direct,
     String? resultsDir,
+    String? attachmentsDir,
     List<String> allowedTools = const <String>[],
     List<String> deniedTools = const <String>[],
     String? runId,
@@ -204,10 +243,12 @@ final class CodexNode extends HeadlessHarnessNode {
       ...buildPermissionArgs(
         isolationMode: isolationMode,
         resultsDir: resultsDir,
+        attachmentsDir: attachmentsDir,
         allowedTools: allowedTools,
         deniedTools: deniedTools,
         runId: runId,
       ),
+      ...buildModelAndEffortArgs(config),
       ...config.extraArgs,
     ],
     workingDirectory: workingDirectory,
@@ -258,6 +299,7 @@ final class GeminiCliNode extends HeadlessHarnessNode {
   List<String> buildPermissionArgs({
     required WorkspaceIsolationMode isolationMode,
     String? resultsDir,
+    String? attachmentsDir,
     List<String> allowedTools = const <String>[],
     List<String> deniedTools = const <String>[],
     String? runId,
@@ -289,12 +331,19 @@ final class GeminiCliNode extends HeadlessHarnessNode {
         '--include-directories',
         resultsDir,
       ],
+      if (attachmentsDir != null && attachmentsDir.isNotEmpty) ...<String>[
+        '--include-directories',
+        attachmentsDir,
+      ],
       if (resolved.allowed.isNotEmpty) ...<String>[
         '--allowed-tools',
         ...resolved.allowed,
       ],
     ];
   }
+
+  @override
+  List<String> buildModelArgs(String model) => <String>['--model', model];
 
   @override
   ProcessInvocation buildInvocation({
@@ -305,6 +354,7 @@ final class GeminiCliNode extends HeadlessHarnessNode {
     Map<String, String> environment = const <String, String>{},
     WorkspaceIsolationMode isolationMode = WorkspaceIsolationMode.direct,
     String? resultsDir,
+    String? attachmentsDir,
     List<String> allowedTools = const <String>[],
     List<String> deniedTools = const <String>[],
     String? runId,
@@ -318,10 +368,12 @@ final class GeminiCliNode extends HeadlessHarnessNode {
       ...buildPermissionArgs(
         isolationMode: isolationMode,
         resultsDir: resultsDir,
+        attachmentsDir: attachmentsDir,
         allowedTools: allowedTools,
         deniedTools: deniedTools,
         runId: runId,
       ),
+      ...buildModelAndEffortArgs(config),
       ...config.extraArgs,
     ],
     workingDirectory: workingDirectory,
@@ -372,6 +424,7 @@ final class AntigravityNode extends HeadlessHarnessNode {
   List<String> buildPermissionArgs({
     required WorkspaceIsolationMode isolationMode,
     String? resultsDir,
+    String? attachmentsDir,
     List<String> allowedTools = const <String>[],
     List<String> deniedTools = const <String>[],
     String? runId,
@@ -407,8 +460,21 @@ final class AntigravityNode extends HeadlessHarnessNode {
         '--add-dir',
         resultsDir,
       ],
+      if (attachmentsDir != null && attachmentsDir.isNotEmpty) ...<String>[
+        '--add-dir',
+        attachmentsDir,
+      ],
     ];
   }
+
+  @override
+  List<String> buildModelArgs(String model) => <String>['--model', model];
+
+  @override
+  List<String> buildEffortArgs(HarnessEffort effort) => <String>[
+    '--effort',
+    effort.name,
+  ];
 
   @override
   ProcessInvocation buildInvocation({
@@ -419,6 +485,7 @@ final class AntigravityNode extends HeadlessHarnessNode {
     Map<String, String> environment = const <String, String>{},
     WorkspaceIsolationMode isolationMode = WorkspaceIsolationMode.direct,
     String? resultsDir,
+    String? attachmentsDir,
     List<String> allowedTools = const <String>[],
     List<String> deniedTools = const <String>[],
     String? runId,
@@ -432,10 +499,12 @@ final class AntigravityNode extends HeadlessHarnessNode {
       ...buildPermissionArgs(
         isolationMode: isolationMode,
         resultsDir: resultsDir,
+        attachmentsDir: attachmentsDir,
         allowedTools: allowedTools,
         deniedTools: deniedTools,
         runId: runId,
       ),
+      ...buildModelAndEffortArgs(config),
       ...config.extraArgs,
     ],
     workingDirectory: workingDirectory,

@@ -63,8 +63,21 @@ final class DriftPauseRepository implements PauseRepository {
               decision: Value(normalized.decision),
               feedback: Value(normalized.feedback),
               answer: Value(normalized.answer),
+              proposalJson: Value(
+                normalized.proposal == null
+                    ? null
+                    : jsonEncode(normalized.proposal),
+              ),
+              proposalSchema: Value(normalized.proposalSchema),
+              proposalSource: Value(normalized.proposalSource),
+              editedProposalJson: Value(
+                normalized.editedProposal == null
+                    ? null
+                    : jsonEncode(normalized.editedProposal),
+              ),
               createdAt: utcCreatedAt.toIso8601String(),
               answeredAt: Value(normalized.answeredAt?.toIso8601String()),
+              parentRunId: Value(normalized.parentRunId),
             ),
           );
       if (normalized.status == PauseStatus.pending &&
@@ -174,6 +187,7 @@ final class DriftPauseRepository implements PauseRepository {
     String? decision,
     String? feedback,
     String? answer,
+    Object? editedProposal,
   }) async {
     try {
       final result = await _db.transaction(() async {
@@ -198,6 +212,9 @@ final class DriftPauseRepository implements PauseRepository {
             decision: Value(decision),
             feedback: Value(feedback),
             answer: Value(answer),
+            editedProposalJson: Value(
+              editedProposal == null ? null : jsonEncode(editedProposal),
+            ),
             answeredAt: Value(utcAnsweredAt.toIso8601String()),
           ),
         );
@@ -352,10 +369,17 @@ final class DriftPauseRepository implements PauseRepository {
       decision: row.decision,
       feedback: row.feedback,
       answer: row.answer,
+      proposal: row.proposalJson == null ? null : jsonDecode(row.proposalJson!),
+      proposalSchema: row.proposalSchema,
+      proposalSource: row.proposalSource,
+      editedProposal: row.editedProposalJson == null
+          ? null
+          : jsonDecode(row.editedProposalJson!),
       createdAt: DateTime.parse(row.createdAt).toUtc(),
       answeredAt: row.answeredAt == null
           ? null
           : DateTime.parse(row.answeredAt!).toUtc(),
+      parentRunId: row.parentRunId,
     );
   }
 }

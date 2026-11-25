@@ -20,8 +20,11 @@ sealed class RunSummary with _$RunSummary {
     WorkspaceIsolationMode isolationMode,
     String? worktreePath,
     String? worktreeBranch,
+    String? workspaceId,
     String? workflowId,
     DateTime? finishedAt,
+    String? parentRunId,
+    String? parentNodeId,
   }) = _RunSummary;
 
   /// Decodes a run summary; throws a [FormatException] on a bad shape.

@@ -49,10 +49,13 @@ final class _DeleteSelectedAction extends Action<_DeleteSelectedIntent> {
 /// Interactive 2D graph editor page for a single workflow (`/workflows/:id`).
 class WorkflowEditorPage extends ConsumerStatefulWidget {
   /// Creates a [WorkflowEditorPage] for [workflowId].
-  const new({required this.workflowId, super.key});
+  const new({required this.workflowId, this.workspaceId, super.key});
 
   /// ID of the workflow being edited.
   final String workflowId;
+
+  /// Workspace that owns the workflow; `null` for a global workflow.
+  final String? workspaceId;
 
   @override
   ConsumerState<WorkflowEditorPage> createState() => _WorkflowEditorPageState();
@@ -98,7 +101,8 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
   @override
   void didUpdateWidget(covariant WorkflowEditorPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.workflowId != widget.workflowId) {
+    if (oldWidget.workflowId != widget.workflowId ||
+        oldWidget.workspaceId != widget.workspaceId) {
       _bindEditorSubscription();
       _syncEdgeFlowAnimation();
     }
@@ -106,10 +110,13 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
 
   void _bindEditorSubscription() {
     _editorSubscription?.close();
-    final provider = workflowEditorControllerProvider(widget.workflowId);
+    final provider = workflowEditorControllerProvider(
+      widget.workflowId,
+      workspaceId: widget.workspaceId,
+    );
     _editorSubscription = ref.listenManual<AsyncValue<WorkflowEditorState>>(
       provider,
-      (_, next) {
+      (previous, next) {
         if (!mounted) return;
         _syncEdgeFlowAnimation();
         final focus = next.asData?.value.focusRequest;
@@ -119,13 +126,47 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
             if (mounted) _animateToCanvasPoint(focus.x, focus.y);
           });
         }
+        final wasConflict =
+            previous?.asData?.value.hasRevisionConflict ?? false;
+        final isConflict = next.asData?.value.hasRevisionConflict ?? false;
+        if (isConflict && !wasConflict) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) unawaited(_confirmReload());
+          });
+        }
       },
     );
   }
 
+  Future<void> _confirmReload() async {
+    final l10n = AppLocalizations.of(context)!;
+    final reload = await HiveDialog.confirm(
+      context: context,
+      title: l10n.editorRevisionConflictTitle,
+      message: l10n.editorRevisionConflictMessage,
+      confirmLabel: l10n.editorReloadAction,
+      cancelLabel: l10n.editorKeepEditingAction,
+      destructive: true,
+    );
+    if (!mounted || !reload) return;
+    ref
+        .read(
+          workflowEditorControllerProvider(
+            widget.workflowId,
+            workspaceId: widget.workspaceId,
+          ).notifier,
+        )
+        .reload();
+  }
+
   void _syncEdgeFlowAnimation() {
     final editorState = ref
-        .read(workflowEditorControllerProvider(widget.workflowId))
+        .read(
+          workflowEditorControllerProvider(
+            widget.workflowId,
+            workspaceId: widget.workspaceId,
+          ),
+        )
         .asData
         ?.value;
     final hasSelectedEdge = editorState?.selectedEdgeId != null;
@@ -221,7 +262,10 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
     final colors = context.hiveColors;
     final typography = context.hiveTypography;
     final elevation = context.hiveElevation;
-    final editorProvider = workflowEditorControllerProvider(widget.workflowId);
+    final editorProvider = workflowEditorControllerProvider(
+      widget.workflowId,
+      workspaceId: widget.workspaceId,
+    );
     final stateAsync = ref.watch(editorProvider);
 
     return stateAsync.when(
@@ -445,72 +489,83 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
                 style: typography.titleSmall.copyWith(color: colors.onSurface),
               ),
             ),
-            if (editorState.saveFailure != null) ...<Widget>[
-              HiveBadge(
-                label: WorkflowL10n.localizeFailure(
-                  l10n,
-                  editorState.saveFailure!,
+            Flexible(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                reverse: true,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    if (editorState.saveFailure != null) ...<Widget>[
+                      HiveBadge(
+                        label: WorkflowL10n.localizeFailure(
+                          l10n,
+                          editorState.saveFailure!,
+                        ),
+                        tone: HiveBadgeTone.danger,
+                        icon: HiveIcons.alert,
+                      ),
+                      SizedBox(width: spacing.space1),
+                    ],
+                    HiveBadge(
+                      key: const Key('editor_dirty_badge'),
+                      label: editorState.isDirty
+                          ? l10n.editorUnsavedBadge
+                          : l10n.editorSavedBadge,
+                      tone: editorState.isDirty
+                          ? HiveBadgeTone.warning
+                          : HiveBadgeTone.neutral,
+                    ),
+                    SizedBox(width: spacing.space1),
+                    HiveBadge(
+                      key: const Key('editor_validation_badge'),
+                      label: errorCount > 0
+                          ? l10n.editorValidationErrorsCount(errorCount)
+                          : warningCount > 0
+                          ? l10n.editorValidationWarningsCount(warningCount)
+                          : l10n.editorValidationValid,
+                      tone: errorCount > 0
+                          ? HiveBadgeTone.danger
+                          : warningCount > 0
+                          ? HiveBadgeTone.warning
+                          : HiveBadgeTone.success,
+                      icon: errorCount > 0 || warningCount > 0
+                          ? HiveIcons.alert
+                          : HiveIcons.check,
+                    ),
+                    SizedBox(width: spacing.space2),
+                    HiveButton(
+                      key: const Key('editor_run_button'),
+                      label: l10n.workflowsRunAction,
+                      icon: HiveIcons.play,
+                      variant: HiveButtonVariant.secondary,
+                      onPressed: editorState.isSaving
+                          ? null
+                          : () async {
+                              final created = await StartRunDialog.show(
+                                context,
+                                initialWorkflowId: editorState.workflow.id,
+                              );
+                              if (created != null && context.mounted) {
+                                RunDetailRoute(id: created.id).go(context);
+                              }
+                            },
+                    ),
+                    SizedBox(width: spacing.space2),
+                    HiveButton(
+                      key: const Key('editor_save_button'),
+                      label: editorState.isSaving
+                          ? l10n.editorSavingAction
+                          : l10n.editorSaveAction,
+                      icon: HiveIcons.check,
+                      loading: editorState.isSaving,
+                      onPressed: editorState.isSaving
+                          ? null
+                          : () => unawaited(controller.save()),
+                    ),
+                  ],
                 ),
-                tone: HiveBadgeTone.danger,
-                icon: HiveIcons.alert,
               ),
-              SizedBox(width: spacing.space1),
-            ],
-            HiveBadge(
-              key: const Key('editor_dirty_badge'),
-              label: editorState.isDirty
-                  ? l10n.editorUnsavedBadge
-                  : l10n.editorSavedBadge,
-              tone: editorState.isDirty
-                  ? HiveBadgeTone.warning
-                  : HiveBadgeTone.neutral,
-            ),
-            SizedBox(width: spacing.space1),
-            HiveBadge(
-              key: const Key('editor_validation_badge'),
-              label: errorCount > 0
-                  ? l10n.editorValidationErrorsCount(errorCount)
-                  : warningCount > 0
-                  ? l10n.editorValidationWarningsCount(warningCount)
-                  : l10n.editorValidationValid,
-              tone: errorCount > 0
-                  ? HiveBadgeTone.danger
-                  : warningCount > 0
-                  ? HiveBadgeTone.warning
-                  : HiveBadgeTone.success,
-              icon: errorCount > 0 || warningCount > 0
-                  ? HiveIcons.alert
-                  : HiveIcons.check,
-            ),
-            SizedBox(width: spacing.space2),
-            HiveButton(
-              key: const Key('editor_run_button'),
-              label: l10n.workflowsRunAction,
-              icon: HiveIcons.play,
-              variant: HiveButtonVariant.secondary,
-              onPressed: editorState.isSaving
-                  ? null
-                  : () async {
-                      final created = await StartRunDialog.show(
-                        context,
-                        initialWorkflowId: editorState.workflow.id,
-                      );
-                      if (created != null && context.mounted) {
-                        RunDetailRoute(id: created.id).go(context);
-                      }
-                    },
-            ),
-            SizedBox(width: spacing.space2),
-            HiveButton(
-              key: const Key('editor_save_button'),
-              label: editorState.isSaving
-                  ? l10n.editorSavingAction
-                  : l10n.editorSaveAction,
-              icon: HiveIcons.check,
-              loading: editorState.isSaving,
-              onPressed: editorState.isSaving
-                  ? null
-                  : () => unawaited(controller.save()),
             ),
           ],
         ),

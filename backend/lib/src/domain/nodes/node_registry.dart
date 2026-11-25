@@ -1,6 +1,8 @@
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/child_run_port.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/command_node.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/fan_out_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/headless_harness_nodes.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/human_approval_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node.dart';
@@ -8,6 +10,7 @@ import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/terminal_harness_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/validator_nodes.dart';
 import 'package:agentic_hive_backend/src/domain/runs/process_tree_killer.dart';
+import 'package:agentic_hive_backend/src/domain/settings/execution_settings_service.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 /// Factory function instantiating a [Node].
@@ -26,7 +29,10 @@ final class NodeRegistry {
   /// Creates an empty node registry.
   new();
 
-  /// Creates a registry populated with all 10 canonical node types.
+  /// Creates a registry populated with all 11 canonical node types.
+  ///
+  /// [executionSettings] and [childRuns] are resolved lazily, when a node is
+  /// created, so they can be registered after the registry.
   factory withDefaults({
     required NodeProcessRunner processRunner,
     required PtyRunner ptyRunner,
@@ -34,7 +40,9 @@ final class NodeRegistry {
     required ResultContract resultContract,
     required HumanApprovalPort approvalPort,
     required AgentPromptResolver agentPromptResolver,
+    required ChildRunPort Function() childRuns,
     ProcessTreeKiller? processTreeKiller,
+    ExecutionSettingsService Function()? executionSettings,
   }) {
     final registry = NodeRegistry();
     registry
@@ -75,6 +83,7 @@ final class NodeRegistry {
         () => TerminalHarnessNode(
           ptyRunner: ptyRunner,
           defaultShellProvider: defaultShellProvider,
+          executionSettings: executionSettings?.call(),
           resultContract: resultContract,
           agentPromptResolver: agentPromptResolver,
           processTreeKiller: processTreeKiller,
@@ -99,6 +108,10 @@ final class NodeRegistry {
       ..register(
         NodeDescriptors.humanApproval,
         () => HumanApprovalNode(approvalPort: approvalPort),
+      )
+      ..register(
+        NodeDescriptors.fanOut,
+        () => FanOutNode(childRuns: childRuns()),
       );
     return registry;
   }

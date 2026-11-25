@@ -14,11 +14,26 @@ abstract final class WsMessageType {
   /// Server → client, broadcast when an agent `.md` file changes on disk.
   static const agentsChanged = 'agents.changed';
 
+  /// Server → client, broadcast when a workspace workflow file changes on
+  /// disk.
+  static const workflowsChanged = 'workflows.changed';
+
+  /// Server → client, broadcast when a workspace is registered, updated or
+  /// unregistered.
+  static const workspacesChanged = 'workspaces.changed';
+
+  /// Server → client, broadcast when a worktree is created or removed.
+  static const worktreesChanged = 'worktrees.changed';
+
   /// Server → client, broadcast when a harness's detected status changes.
   static const harnessStatusUpdated = 'harness.status_updated';
 
   /// Server → client, broadcast when runtime settings are updated.
   static const settingsUpdated = 'settings.updated';
+
+  /// Server → client, broadcast when the automatic skill install records
+  /// results.
+  static const skillsAutoInstalled = 'skills.auto_installed';
 
   /// Client → server, subscribes the connection to `run.output` frames for a
   /// specific `runId`.
@@ -61,4 +76,13 @@ abstract final class WsMessageType {
   /// Server → client, broadcast globally when a pending pause is answered or
   /// cancelled.
   static const pauseResolved = 'pause.resolved';
+
+  /// Server → client, broadcast while a workflow deletion runs (ADR 0027).
+  static const workflowDeleteProgress = 'workflow.delete.progress';
+
+  /// Server → client, broadcast when a workflow deletion finished.
+  static const workflowDeleted = 'workflow.deleted';
+
+  /// Server → client, broadcast when a workflow deletion failed.
+  static const workflowDeleteFailed = 'workflow.delete.failed';
 }

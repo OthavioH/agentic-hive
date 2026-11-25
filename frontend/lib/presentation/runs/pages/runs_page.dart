@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/runs/controllers/runs_list_controller.dart';
 import 'package:agentic_hive_frontend/presentation/runs/utils/run_l10n.dart';
+import 'package:agentic_hive_frontend/presentation/runs/widgets/run_list_card.dart';
 import 'package:agentic_hive_frontend/presentation/runs/widgets/start_run_dialog.dart';
 import 'package:agentic_hive_frontend/routes/app_routes.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
@@ -40,12 +41,72 @@ class RunsPage extends ConsumerWidget {
     }
   }
 
+  Widget _buildRunsList(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+    HiveSpacing spacing,
+    RunsListState listState,
+  ) {
+    final rows = <_RunRow>[];
+    for (final run in listState.topLevelRuns) {
+      final kids = listState.childrenOf(run.id);
+      final isExpanded = listState.expandedRunIds.contains(run.id);
+      rows.add((run: run, nested: false, childCount: kids.length));
+      if (isExpanded) {
+        for (final kid in kids) {
+          rows.add((run: kid, nested: true, childCount: 0));
+        }
+      }
+    }
+
+    return ListView.separated(
+      itemCount: rows.length + (listState.hasMore ? 1 : 0),
+      separatorBuilder: (_, _) => SizedBox(height: spacing.space2),
+      itemBuilder: (context, index) {
+        if (index == rows.length) {
+          final notifier = ref.read(runsListControllerProvider.notifier);
+          return Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: spacing.space2),
+              child: HiveButton(
+                key: const Key('runs_load_more_button'),
+                label: l10n.runsLoadMoreAction,
+                variant: HiveButtonVariant.secondary,
+                loading: listState.isLoadingMore,
+                onPressed: listState.isLoadingMore
+                    ? null
+                    : () => unawaited(notifier.loadMore()),
+              ),
+            ),
+          );
+        }
+
+        final row = rows[index];
+        final run = row.run;
+        return RunListCard(
+          run: run,
+          isBusy: listState.busyRunId == run.id,
+          childCount: row.childCount,
+          expanded: listState.expandedRunIds.contains(run.id),
+          indented: row.nested,
+          onOpen: () => RunDetailRoute(id: run.id).go(context),
+          onDelete: () => unawaited(_confirmDelete(context, ref, run)),
+          onToggleChildren: row.childCount > 0
+              ? () => ref
+                    .read(runsListControllerProvider.notifier)
+                    .toggleExpanded(run.id)
+              : null,
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final spacing = context.hiveSpacing;
     final colors = context.hiveColors;
-    final typography = context.hiveTypography;
     final stateAsync = ref.watch(runsListControllerProvider);
 
     return DecoratedBox(
@@ -105,6 +166,15 @@ class RunsPage extends ConsumerWidget {
                   ),
                 ),
                 data: (listState) {
+                  if (listState.isGlobalSelected) {
+                    return HiveFadeIn(
+                      child: HiveEmptyState(
+                        icon: HiveIcons.runs,
+                        title: l10n.runsGlobalEmptyTitle,
+                        message: l10n.runsGlobalEmptyDescription,
+                      ),
+                    );
+                  }
                   if (listState.runs.isEmpty && !listState.hasActiveFilters) {
                     return HiveFadeIn(
                       child: HiveEmptyState(
@@ -150,165 +220,12 @@ class RunsPage extends ConsumerWidget {
                                   ),
                                 ),
                               )
-                            : ListView.separated(
-                                itemCount:
-                                    listState.runs.length +
-                                    (listState.hasMore ? 1 : 0),
-                                separatorBuilder: (_, _) =>
-                                    SizedBox(height: spacing.space2),
-                                itemBuilder: (context, index) {
-                                  if (index == listState.runs.length) {
-                                    final notifier = ref.read(
-                                      runsListControllerProvider.notifier,
-                                    );
-                                    return Center(
-                                      child: Padding(
-                                        padding: EdgeInsets.symmetric(
-                                          vertical: spacing.space2,
-                                        ),
-                                        child: HiveButton(
-                                          key: const Key(
-                                            'runs_load_more_button',
-                                          ),
-                                          label: l10n.runsLoadMoreAction,
-                                          variant: HiveButtonVariant.secondary,
-                                          loading: listState.isLoadingMore,
-                                          onPressed: listState.isLoadingMore
-                                              ? null
-                                              : () => unawaited(
-                                                  notifier.loadMore(),
-                                                ),
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                  final run = listState.runs[index];
-                                  final isBusy = listState.busyRunId == run.id;
-                                  final nodeStatus = RunL10n.nodeStatusFor(
-                                    run.status,
-                                  );
-                                  final statusLabel = RunL10n.localizeStatus(
-                                    l10n,
-                                    run.status,
-                                  );
-                                  return HiveCard(
-                                    key: Key('run_card_${run.id}'),
-                                    surface: HiveCardSurface.surface2,
-                                    semanticLabel:
-                                        '${run.workflowName} - $statusLabel',
-                                    onPressed: () =>
-                                        RunDetailRoute(id: run.id).go(context),
-                                    child: Row(
-                                      children: <Widget>[
-                                        HiveStatusDot(
-                                          status: nodeStatus,
-                                          semanticLabel: statusLabel,
-                                          size: spacing.space2,
-                                        ),
-                                        SizedBox(width: spacing.space2),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: <Widget>[
-                                              Row(
-                                                children: <Widget>[
-                                                  Flexible(
-                                                    child: Text(
-                                                      run.workflowName,
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: typography
-                                                          .titleSmall
-                                                          .copyWith(
-                                                            color: colors
-                                                                .onSurface,
-                                                          ),
-                                                    ),
-                                                  ),
-                                                  SizedBox(
-                                                    width: spacing.space2,
-                                                  ),
-                                                  HiveBadge(
-                                                    label: statusLabel,
-                                                    tone: RunL10n.badgeToneFor(
-                                                      run.status,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              SizedBox(
-                                                height: spacing.spaceHalf,
-                                              ),
-                                              Wrap(
-                                                spacing: spacing.space3,
-                                                runSpacing: spacing.spaceHalf,
-                                                children: <Widget>[
-                                                  Text(
-                                                    RunL10n.formatTimestamp(
-                                                      run.startedAt,
-                                                    ),
-                                                    style: typography.mono
-                                                        .copyWith(
-                                                          color: colors
-                                                              .onSurfaceMuted,
-                                                        ),
-                                                  ),
-                                                  Text(
-                                                    RunL10n.formatDuration(
-                                                      l10n,
-                                                      run.status,
-                                                      run.startedAt,
-                                                      run.finishedAt,
-                                                    ),
-                                                    style: typography.mono
-                                                        .copyWith(
-                                                          color: colors
-                                                              .onSurfaceMuted,
-                                                        ),
-                                                  ),
-                                                  Text(
-                                                    l10n.runsCheckpointCount(
-                                                      run.checkpointCount,
-                                                    ),
-                                                    style: typography.label
-                                                        .copyWith(
-                                                          color: colors
-                                                              .onSurfaceMuted,
-                                                        ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        if (!run.status.isActive) ...<Widget>[
-                                          SizedBox(width: spacing.space2),
-                                          if (isBusy)
-                                            HiveSpinner(
-                                              size: spacing.space3,
-                                              color: colors.accent,
-                                            )
-                                          else
-                                            HiveIconButton(
-                                              key: Key('run_delete_${run.id}'),
-                                              icon: HiveIcons.delete,
-                                              semanticLabel:
-                                                  l10n.runsDeleteTooltip,
-                                              onPressed: () => unawaited(
-                                                _confirmDelete(
-                                                  context,
-                                                  ref,
-                                                  run,
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                      ],
-                                    ),
-                                  );
-                                },
+                            : _buildRunsList(
+                                context,
+                                ref,
+                                l10n,
+                                spacing,
+                                listState,
                               ),
                       ),
                     ],
@@ -322,6 +239,8 @@ class RunsPage extends ConsumerWidget {
     );
   }
 }
+
+typedef _RunRow = ({RunSummary run, bool nested, int childCount});
 
 class _RunsFilterBar extends ConsumerWidget {
   const new({required this.state});

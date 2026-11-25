@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/engine/graph_engine.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/child_run_port.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/fan_out_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/human_approval_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_registry.dart';
@@ -91,17 +93,33 @@ final class EngineHarness {
     int maxConcurrency = GraphEngine.defaultMaxConcurrency,
     int circuitBreakerThreshold = GraphEngine.defaultCircuitBreakerThreshold,
     Duration cancelGracePeriod = const Duration(seconds: 1),
+    ChildRunPort Function()? childRuns,
+    void Function(NodeRegistry registry)? registerNodes,
+    bool registerFakeCommand = true,
   }) {
     snapshots.clock = tick;
     final registry = NodeRegistry()
-      ..register(NodeDescriptors.command, () => FakeNode(script))
       ..register(
         NodeDescriptors.humanApproval,
         () => HumanApprovalNode(approvalPort: approvalPort),
       );
+    if (registerFakeCommand) {
+      registry.register(NodeDescriptors.command, () => FakeNode(script));
+    }
+    if (childRuns != null) {
+      registry.register(
+        NodeDescriptors.fanOut,
+        () => FanOutNode(
+          childRuns: childRuns(),
+          pollInterval: const Duration(milliseconds: 1),
+        ),
+      );
+    }
+    registerNodes?.call(registry);
     recovery = RunRecoveryService(
       runs: runs,
       checkpoints: checkpoints,
+      attachments: attachments,
       generateId: nextId,
       now: tick,
     );
@@ -115,6 +133,7 @@ final class EngineHarness {
       pauseGateway: gateway,
       processTreeKiller: killer,
       pauses: pauses,
+      attachments: attachments,
       maxConcurrency: maxConcurrency,
       circuitBreakerThreshold: circuitBreakerThreshold,
       cancelGracePeriod: cancelGracePeriod,
@@ -125,6 +144,9 @@ final class EngineHarness {
 
   /// Script for the fake nodes.
   final NodeScript script = NodeScript();
+
+  /// Fake attachment store.
+  final FakeRunAttachmentStore attachments = FakeRunAttachmentStore();
 
   /// In-memory run repository.
   final InMemoryRunRepository runs = InMemoryRunRepository();
@@ -171,6 +193,7 @@ final class EngineHarness {
     Workflow workflow, {
     RunStatus status = RunStatus.running,
     String? input,
+    List<RunAttachment>? attachments,
   }) async {
     final run = Run(
       id: runId,
@@ -180,6 +203,7 @@ final class EngineHarness {
       status: status,
       startedAt: DateTime.utc(2026),
       input: input,
+      attachments: attachments,
     );
     await runs.create(run);
     return run;

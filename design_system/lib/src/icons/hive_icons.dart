@@ -183,6 +183,14 @@ abstract final class HiveIcons {
     HugeIcons.strokeRoundedArrowDown01,
   );
 
+  /// Expand a side-rail section or navigate right.
+  static const HiveIconData chevronRight = _HugeGlyph(
+    HugeIcons.strokeRoundedArrowRight01,
+  );
+
+  /// Pin a panel so it stays open beside the rail.
+  static const HiveIconData pin = _HugeGlyph(HugeIcons.strokeRoundedPin);
+
   /// Jump to the newest line of a live log.
   static const HiveIconData scrollToBottom = _HugeGlyph(
     HugeIcons.strokeRoundedArrowDownDouble,
@@ -312,6 +320,8 @@ abstract final class HiveIcons {
     'info': info,
     'success': success,
     'chevronDown': chevronDown,
+    'chevronRight': chevronRight,
+    'pin': pin,
     'scrollToBottom': scrollToBottom,
     'search': search,
     'refresh': refresh,

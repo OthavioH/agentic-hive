@@ -40,6 +40,27 @@
   "@railCollapseTooltip": {
     "description": "Tooltip for the button that collapses the side rail."
   },
+  "navWorkspaces": "Workspaces",
+  "@navWorkspaces": {
+    "description": "Navigation rail section label for Workspaces."
+  },
+  "navWorkspacesActiveSemantic": "Workspaces, {count, plural, =1{1 active run} other{{count} active runs}}",
+  "@navWorkspacesActiveSemantic": {
+    "description": "Accessibility label for the Workspaces side rail section when active runs exist.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "railPanelPin": "Pin panel",
+  "@railPanelPin": {
+    "description": "Tooltip for the button that pins the side rail panel."
+  },
+  "railPanelUnpin": "Unpin panel",
+  "@railPanelUnpin": {
+    "description": "Tooltip for the button that unpins the side rail panel."
+  },
   "overviewEmptyTitle": "No activity yet",
   "@overviewEmptyTitle": {
     "description": "Empty state title on the Overview placeholder page."
@@ -442,6 +463,26 @@
   "@agentsSelectPromptDescription": {
     "description": "Empty state description in the detail pane when no agent is selected."
   },
+  "agentsScopeWorkspaceBadge": "Workspace",
+  "@agentsScopeWorkspaceBadge": {
+    "description": "Scope badge on agent list items stored in the current workspace folder."
+  },
+  "agentsScopeGlobalBadge": "Global",
+  "@agentsScopeGlobalBadge": {
+    "description": "Scope badge on agent list items stored in the global agent library."
+  },
+  "agentsOverriddenBadge": "Overridden",
+  "@agentsOverriddenBadge": {
+    "description": "Badge on a global agent shadowed by a workspace agent with the same id."
+  },
+  "agentsScopeGlobalOption": "Global",
+  "@agentsScopeGlobalOption": {
+    "description": "Segment that switches the Agents page to manage only global agents."
+  },
+  "agentsScopeControlLabel": "Agent scope",
+  "@agentsScopeControlLabel": {
+    "description": "Accessibility label of the control choosing between the current workspace and Global agents."
+  },
   "agentsParseErrorBadge": "Parse error",
   "@agentsParseErrorBadge": {
     "description": "Badge label on agent list items whose .md file failed to parse."
@@ -640,6 +681,22 @@
   "@agentsExternalDeletedMessage": {
     "description": "Banner message when the currently open agent is deleted externally."
   },
+  "agentsMigrationBannerTitle": "Some agents were not moved",
+  "@agentsMigrationBannerTitle": {
+    "description": "Title of the banner listing agent files left in the old agents folder because a different file with the same name already exists in the new one."
+  },
+  "agentsMigrationBannerMessage": "These files exist in both {legacyDir} and {targetDir} with different content. The copy in {targetDir} was kept and the other one was left untouched. Compare them and delete the one you do not need.",
+  "@agentsMigrationBannerMessage": {
+    "description": "Explanation under the agents migration banner title.",
+    "placeholders": {
+      "legacyDir": {
+        "type": "String"
+      },
+      "targetDir": {
+        "type": "String"
+      }
+    }
+  },
   "agentsDismissTooltip": "Dismiss",
   "@agentsDismissTooltip": {
     "description": "Semantics label for dismissing an inline banner or toast."
@@ -777,6 +834,18 @@
   "@workflowsDuplicateAction": {
     "description": "Semantic label and tooltip for duplicating a workflow."
   },
+  "workflowsScopeWorkspaceBadge": "Workspace",
+  "@workflowsScopeWorkspaceBadge": {
+    "description": "Badge on a workflow stored in the current workspace folder."
+  },
+  "workflowsScopeGlobalBadge": "Global",
+  "@workflowsScopeGlobalBadge": {
+    "description": "Badge on a workflow shared by every workspace, and the Global option when creating one."
+  },
+  "workflowsScopeControlLabel": "Workflow scope",
+  "@workflowsScopeControlLabel": {
+    "description": "Accessibility label of the control choosing where a new workflow is stored."
+  },
   "workflowsDeleteAction": "Delete workflow",
   "@workflowsDeleteAction": {
     "description": "Semantic label and tooltip for deleting a workflow."
@@ -794,9 +863,9 @@
   "@workflowsDeleteTitle": {
     "description": "Title of the delete workflow confirmation dialog."
   },
-  "workflowsDeleteMessage": "Delete \"{name}\"? This action cannot be undone.",
+  "workflowsDeleteMessage": "Delete \"{name}\"? Its run history is deleted too. Files and worktrees are kept.",
   "@workflowsDeleteMessage": {
-    "description": "Message in the delete workflow confirmation dialog.",
+    "description": "Message in the delete workflow confirmation dialog. Says the run history is deleted and files and worktrees are kept.",
     "placeholders": {
       "name": {
         "type": "String"
@@ -806,6 +875,85 @@
   "workflowsDeleteConfirm": "Delete",
   "@workflowsDeleteConfirm": {
     "description": "Confirm button label in the delete workflow dialog."
+  },
+  "workflowsDeleteActiveRunsMessage": "{count, plural, =1{1 run of \"{name}\" is running. Stop it and delete?} other{{count} runs of \"{name}\" are running. Stop them and delete?}}",
+  "@workflowsDeleteActiveRunsMessage": {
+    "description": "Message of the second delete dialog, shown when the workflow has active runs. Asks to stop them and delete.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workflowsDeleteStopRunsConfirm": "Stop runs and delete",
+  "@workflowsDeleteStopRunsConfirm": {
+    "description": "Confirm button label of the dialog that stops active runs before deleting a workflow."
+  },
+  "workflowsDeletingStatus": "Deleting…",
+  "@workflowsDeletingStatus": {
+    "description": "Status label on a workflow row while its deletion runs, before any phase is known."
+  },
+  "workflowsDeletingStoppingRuns": "{total, plural, =1{Deleting… (stopping {stopped} of 1 run)} other{Deleting… (stopping {stopped} of {total} runs)}}",
+  "@workflowsDeletingStoppingRuns": {
+    "description": "Status label on a workflow row while its active runs are being stopped.",
+    "placeholders": {
+      "stopped": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "workflowsDeletingRemovingRuns": "Deleting… (removing runs)",
+  "@workflowsDeletingRemovingRuns": {
+    "description": "Status label on a workflow row while its runs are being removed."
+  },
+  "workflowsDeletedNotice": "Workflow deleted.",
+  "@workflowsDeletedNotice": {
+    "description": "Success notice after a workflow was deleted and no run was kept."
+  },
+  "workflowsDeletePartialNotice": "{count, plural, =1{Workflow deleted. 1 run could not be confirmed as stopped and was kept so you can retry.} other{Workflow deleted. {count} runs could not be confirmed as stopped and were kept so you can retry.}}",
+  "@workflowsDeletePartialNotice": {
+    "description": "Warning notice after a workflow was deleted but some runs were kept.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workflowsDeleteFailedTitle": "Could not delete \"{name}\".",
+  "@workflowsDeleteFailedTitle": {
+    "description": "Title of the error notice when a workflow deletion failed.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workflowsDeleteKeptRunsDetail": "{count, plural, =1{1 run could not be confirmed as stopped and was kept so you can retry.} other{{count} runs could not be confirmed as stopped and were kept so you can retry.}}",
+  "@workflowsDeleteKeptRunsDetail": {
+    "description": "Detail of the error notice listing the runs kept by a failed deletion.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workflowsReloadAction": "Reload",
+  "@workflowsReloadAction": {
+    "description": "Button label of the delete error notice after a revision conflict: reloads the list so the user can confirm the delete again."
+  },
+  "workflowsDismissNoticeAction": "Dismiss notice",
+  "@workflowsDismissNoticeAction": {
+    "description": "Semantic label of the button that dismisses a notice on the Workflows page."
+  },
+  "workflowsActionUnavailableDeleting": "Unavailable while the workflow is being deleted.",
+  "@workflowsActionUnavailableDeleting": {
+    "description": "Disabled reason (tooltip and screen-reader hint) of a workflow row action while the workflow is being deleted."
   },
   "workflowsNodeCount": "{count, plural, =0{0 nodes} =1{1 node} other{{count} nodes}}",
   "@workflowsNodeCount": {
@@ -903,6 +1051,22 @@
   "editorKeepEditingAction": "Keep editing",
   "@editorKeepEditingAction": {
     "description": "Cancel button label to stay in the graph editor."
+  },
+  "editorRevisionConflictTitle": "Workflow changed elsewhere",
+  "@editorRevisionConflictTitle": {
+    "description": "Title of the dialog shown when saving fails because the workflow changed since it was opened."
+  },
+  "editorRevisionConflictMessage": "This workflow was changed outside this editor since you opened it. Reload it to get the latest version? Your unsaved changes will be lost.",
+  "@editorRevisionConflictMessage": {
+    "description": "Message of the revision-conflict dialog."
+  },
+  "editorReloadAction": "Reload",
+  "@editorReloadAction": {
+    "description": "Button that reloads the workflow from the backend, discarding the draft."
+  },
+  "editorRevisionConflictBadge": "Changed elsewhere",
+  "@editorRevisionConflictBadge": {
+    "description": "Toolbar error badge after a save failed with a revision conflict."
   },
   "editorInspectorWorkflowTitle": "Workflow",
   "@editorInspectorWorkflowTitle": {
@@ -1120,6 +1284,14 @@
   "workflowsFailureBackend": "The local backend rejected the workflow request.",
   "@workflowsFailureBackend": {
     "description": "Localized error message when a workflow operation fails with a BackendFailure."
+  },
+  "workflowsFailureActiveRuns": "This workflow has active runs. Stop them in Runs, then delete it again.",
+  "@workflowsFailureActiveRuns": {
+    "description": "Error shown when deleting a workflow is refused because some of its runs are running, paused or cancelling."
+  },
+  "workflowsFailureDeleting": "This workflow is being deleted.",
+  "@workflowsFailureDeleting": {
+    "description": "Error shown when editing, duplicating or running a workflow that is being deleted."
   },
   "workflowsFailureUnexpected": "An unexpected error occurred while processing the workflow.",
   "@workflowsFailureUnexpected": {
@@ -1421,14 +1593,6 @@
         "type": "String"
       }
     }
-  },
-  "settingsDefaultWorkspaceLabel": "Default workspace",
-  "@settingsDefaultWorkspaceLabel": {
-    "description": "Label for the Default workspace text field."
-  },
-  "settingsDefaultWorkspaceHint": "Optional default workspace folder",
-  "@settingsDefaultWorkspaceHint": {
-    "description": "Placeholder text for the Default workspace text field."
   },
   "settingsBrowse": "Browse",
   "@settingsBrowse": {
@@ -1838,7 +2002,7 @@
   },
   "runDetailTabSnapshots": "Snapshots",
   "@runDetailTabSnapshots": {
-    "description": "Segment label for the workspace snapshots view on Run Detail."
+    "description": "Inspector tab label for workspace snapshots."
   },
   "runDetailIsolationLabel": "Isolation",
   "@runDetailIsolationLabel": {
@@ -2023,21 +2187,65 @@
   "@startRunNoWorkflowsMessage": {
     "description": "Message shown in the Start Run dialog when no workflows exist."
   },
-  "startRunWorkspaceLabel": "Workspace folder",
+  "startRunWorkspaceLabel": "Workspace",
   "@startRunWorkspaceLabel": {
     "description": "Label for the workspace folder path input in the Start Run dialog."
   },
-  "startRunWorkspaceHint": "Path to workspace folder",
-  "@startRunWorkspaceHint": {
-    "description": "Placeholder hint for the workspace folder path input."
-  },
-  "startRunBrowseAction": "Browse",
-  "@startRunBrowseAction": {
-    "description": "Button label to open the folder picker in the Start Run dialog."
+  "startRunNoWorkspacesMessage": "Register a workspace before starting a run.",
+  "@startRunNoWorkspacesMessage": {
+    "description": "Warning shown in the Start run dialog when no workspace is registered."
   },
   "startRunIsolationLabel": "Workspace isolation",
   "@startRunIsolationLabel": {
     "description": "Label for the workspace isolation mode selector."
+  },
+  "startRunTargetLabel": "Where to run",
+  "@startRunTargetLabel": {
+    "description": "Label for the run target selector in the Start Run dialog."
+  },
+  "startRunTargetPrimary": "Primary checkout",
+  "@startRunTargetPrimary": {
+    "description": "Option label to run in the workspace's primary checkout."
+  },
+  "startRunTargetPrimaryDescription": "Run directly in the workspace's primary checkout.",
+  "@startRunTargetPrimaryDescription": {
+    "description": "Helper description for running in the primary checkout."
+  },
+  "startRunTargetExistingWorktree": "Existing worktree",
+  "@startRunTargetExistingWorktree": {
+    "description": "Option label to run in an existing git worktree."
+  },
+  "startRunTargetExistingWorktreeDescription": "Run inside an existing persistent worktree.",
+  "@startRunTargetExistingWorktreeDescription": {
+    "description": "Helper description for running in an existing worktree."
+  },
+  "startRunTargetNewWorktree": "New worktree",
+  "@startRunTargetNewWorktree": {
+    "description": "Option label to create and run in a new git worktree."
+  },
+  "startRunTargetNewWorktreeDescription": "Create a new worktree on a dedicated branch.",
+  "@startRunTargetNewWorktreeDescription": {
+    "description": "Helper description for creating a new worktree."
+  },
+  "startRunExistingWorktreeLabel": "Worktree",
+  "@startRunExistingWorktreeLabel": {
+    "description": "Label for the existing worktree dropdown in the Start Run dialog."
+  },
+  "startRunExistingWorktreeHint": "Select a worktree",
+  "@startRunExistingWorktreeHint": {
+    "description": "Placeholder for the existing worktree dropdown."
+  },
+  "startRunNewWorktreeBranchLabel": "Branch name",
+  "@startRunNewWorktreeBranchLabel": {
+    "description": "Label for the new worktree branch name input in the Start Run dialog."
+  },
+  "startRunNewWorktreeBranchHint": "Optional (defaults to hive/<runId>)",
+  "@startRunNewWorktreeBranchHint": {
+    "description": "Placeholder for the new worktree branch name input."
+  },
+  "startRunNonGitExplanation": "This workspace is not a git repository, so worktree options are hidden. Runs use the primary checkout directly with shadow snapshots.",
+  "@startRunNonGitExplanation": {
+    "description": "Explanation shown in the Start Run dialog when worktree options are hidden for a non-git workspace."
   },
   "startRunIsolationDirect": "Direct",
   "@startRunIsolationDirect": {
@@ -2071,10 +2279,6 @@
   "@startRunValidationWorkflowRequired": {
     "description": "Validation error when submitting Start Run without a workflow."
   },
-  "startRunValidationWorkspaceRequired": "Choose a workspace folder.",
-  "@startRunValidationWorkspaceRequired": {
-    "description": "Validation error when submitting Start Run without a workspace folder."
-  },
   "startRunConfirmAction": "Start run",
   "@startRunConfirmAction": {
     "description": "Confirm button label in the Start Run dialog."
@@ -2095,9 +2299,147 @@
   "@startRunInputHint": {
     "description": "Placeholder text for the run input field in the Start Run dialog."
   },
-  "startRunInputHelper": "Optional. Passed only to the workflow's entry node.",
+  "startRunInputHelper": "Optional. Passed only to the workflow's entry node. Paste or drop images to attach them.",
   "@startRunInputHelper": {
     "description": "Helper text below the run input field in the Start Run dialog."
+  },
+  "startRunAttachmentDropCaption": "Drop images to attach",
+  "@startRunAttachmentDropCaption": {
+    "description": "Drop overlay caption shown while dragging files over the Start Run dialog."
+  },
+  "startRunAttachmentChipLabel": "{name} · {size}",
+  "@startRunAttachmentChipLabel": {
+    "description": "Label on an attachment chip showing file name and formatted size.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "startRunAttachmentRemove": "Remove {name}",
+  "@startRunAttachmentRemove": {
+    "description": "Semantic label on the remove button of a staged attachment chip.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "startRunAttachmentAdded": "Attached {name}",
+  "@startRunAttachmentAdded": {
+    "description": "Screen reader announcement when an image attachment is staged.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "startRunAttachmentTypeError": "{name} is not a PNG, JPEG, WebP or GIF image.",
+  "@startRunAttachmentTypeError": {
+    "description": "Validation error shown when an attached file is not a supported image type.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "startRunAttachmentLimitError": "You can attach up to {maxCount} images, {maxEachMb} MB each and {maxTotalMb} MB in total.",
+  "@startRunAttachmentLimitError": {
+    "description": "Validation error shown when staged attachments exceed count or size limits.",
+    "placeholders": {
+      "maxCount": {
+        "type": "int"
+      },
+      "maxEachMb": {
+        "type": "int"
+      },
+      "maxTotalMb": {
+        "type": "int"
+      }
+    }
+  },
+  "startRunPastedImageName": "Pasted image {index}.{extension}",
+  "@startRunPastedImageName": {
+    "description": "Generated file name for an image pasted from the clipboard.",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "extension": {
+        "type": "String"
+      }
+    }
+  },
+  "attachmentSizeKb": "{size} KB",
+  "@attachmentSizeKb": {
+    "description": "Formatted attachment size in kilobytes.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "attachmentSizeMb": "{size} MB",
+  "@attachmentSizeMb": {
+    "description": "Formatted attachment size in megabytes.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "runDetailCopyInput": "Copy run input",
+  "@runDetailCopyInput": {
+    "description": "Semantic label for the copy button in the Run input card."
+  },
+  "runDetailInputCopied": "Copied",
+  "@runDetailInputCopied": {
+    "description": "Toast message shown after copying the run input."
+  },
+  "runDetailAttachmentRemovedLabel": "{name} · {size} · removed",
+  "@runDetailAttachmentRemovedLabel": {
+    "description": "Label on a read-only attachment chip after the run has ended and files were removed.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "runDetailAttachmentSemantics": "{name}, {type}, {size}",
+  "@runDetailAttachmentSemantics": {
+    "description": "Semantic label for an active attachment chip on the Run Detail page.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "type": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "runDetailAttachmentRemovedSemantics": "{name}, {type}, {size}, removed",
+  "@runDetailAttachmentRemovedSemantics": {
+    "description": "Semantic label for a removed attachment chip on the Run Detail page.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "type": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
   },
   "runDetailInputLabel": "Run input",
   "@runDetailInputLabel": {
@@ -2166,10 +2508,6 @@
   "runDetailTabCheckpoints": "Checkpoints",
   "@runDetailTabCheckpoints": {
     "description": "Inspector tab label for saved run checkpoints."
-  },
-  "runDetailTabSnapshots": "Snapshots",
-  "@runDetailTabSnapshots": {
-    "description": "Inspector tab label for workspace snapshots."
   },
   "runDetailOutputTitle": "Node output",
   "@runDetailOutputTitle": {
@@ -2609,6 +2947,482 @@
   "@overviewFailureUnexpected": {
     "description": "Fallback localized error message on Overview."
   },
+  "workspaceCurrentLabel": "Current workspace",
+  "@workspaceCurrentLabel": {
+    "description": "Label for the active workspace selector in the shell bar."
+  },
+  "workspaceNoneSelected": "No workspace registered",
+  "@workspaceNoneSelected": {
+    "description": "Placeholder text shown when no workspaces are registered."
+  },
+  "workspaceLoading": "Loading workspaces…",
+  "@workspaceLoading": {
+    "description": "Status text while registered workspaces are loading."
+  },
+  "workspaceLoadError": "Could not load workspaces",
+  "@workspaceLoadError": {
+    "description": "Error label when loading registered workspaces fails."
+  },
+  "workspaceRetryAction": "Retry",
+  "@workspaceRetryAction": {
+    "description": "Button label to retry loading workspaces."
+  },
+  "workspaceManageAction": "Workspaces",
+  "@workspaceManageAction": {
+    "description": "Button label to open the workspace registry dialog."
+  },
+  "workspaceRegistryTitle": "Workspaces",
+  "@workspaceRegistryTitle": {
+    "description": "Title of the workspace registry dialog."
+  },
+  "workspaceRegistrySubtitle": "Register a folder once to organize runs and scoped definitions.",
+  "@workspaceRegistrySubtitle": {
+    "description": "Subtitle of the workspace registry dialog."
+  },
+  "workspaceEmptyTitle": "No workspaces yet",
+  "@workspaceEmptyTitle": {
+    "description": "Empty state title in the workspace registry dialog."
+  },
+  "workspaceEmptyMessage": "Add a folder below to register your first workspace.",
+  "@workspaceEmptyMessage": {
+    "description": "Empty state message in the workspace registry dialog."
+  },
+  "workspaceAddFolderLabel": "Folder path",
+  "@workspaceAddFolderLabel": {
+    "description": "Label for the workspace folder path input."
+  },
+  "workspaceAddFolderHint": "Select or enter an absolute folder path",
+  "@workspaceAddFolderHint": {
+    "description": "Hint for the workspace folder path input."
+  },
+  "workspaceAddBrowseAction": "Browse",
+  "@workspaceAddBrowseAction": {
+    "description": "Button label to browse for a workspace folder."
+  },
+  "workspaceAddNameLabel": "Workspace name",
+  "@workspaceAddNameLabel": {
+    "description": "Label for the workspace display name input."
+  },
+  "workspaceAddNameHint": "Defaults to folder name",
+  "@workspaceAddNameHint": {
+    "description": "Hint for the workspace display name input."
+  },
+  "workspaceAddAction": "Add workspace",
+  "@workspaceAddAction": {
+    "description": "Primary button label to register a new workspace."
+  },
+  "workspaceGitBadge": "Git",
+  "@workspaceGitBadge": {
+    "description": "Badge shown on a git-backed workspace."
+  },
+  "workspaceActiveRunsBadge": "{count, plural, =1{1 active run} other{{count} active runs}}",
+  "@workspaceActiveRunsBadge": {
+    "description": "Badge showing how many active runs belong to a workspace.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workspaceRenameTooltip": "Rename {name}",
+  "@workspaceRenameTooltip": {
+    "description": "Tooltip and semantic label for renaming a workspace.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceSettingsTooltip": "Settings of {name}",
+  "@workspaceSettingsTooltip": {
+    "description": "Tooltip and semantic label for opening the execution settings of a workspace.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceSettingsTitle": "Settings of {name}",
+  "@workspaceSettingsTitle": {
+    "description": "Title of the workspace execution settings dialog.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceSettingsSubtitle": "Override the global execution settings for this workspace only. Settings you leave on inherit follow the global value.",
+  "@workspaceSettingsSubtitle": {
+    "description": "Explains what the workspace execution settings dialog does."
+  },
+  "workspaceSettingsMachineNote": "CLI paths and the theme are global only and cannot be overridden here.",
+  "@workspaceSettingsMachineNote": {
+    "description": "Tells the user which settings a workspace cannot override."
+  },
+  "workspaceSettingsLoadError": "Could not load the workspace settings.",
+  "@workspaceSettingsLoadError": {
+    "description": "Error title when the workspace settings fail to load."
+  },
+  "workspaceSettingsSaveAction": "Save",
+  "@workspaceSettingsSaveAction": {
+    "description": "Button that stores the workspace settings overrides."
+  },
+  "workspaceSettingsSaveError": "Could not save the workspace settings.",
+  "@workspaceSettingsSaveError": {
+    "description": "Error title when saving the workspace settings fails."
+  },
+  "workspaceSettingsIsolationLabel": "Default isolation mode",
+  "@workspaceSettingsIsolationLabel": {
+    "description": "Label of the default isolation mode setting."
+  },
+  "workspaceSettingsInheritOption": "Inherit",
+  "@workspaceSettingsInheritOption": {
+    "description": "Segment that makes a workspace follow the global setting."
+  },
+  "workspaceSettingsIsolationDirect": "Direct",
+  "@workspaceSettingsIsolationDirect": {
+    "description": "Segment for the direct isolation mode."
+  },
+  "workspaceSettingsIsolationWorktree": "Worktree",
+  "@workspaceSettingsIsolationWorktree": {
+    "description": "Segment for the worktree isolation mode."
+  },
+  "workspaceSettingsInheritedValue": "Inherited: {value}",
+  "@workspaceSettingsInheritedValue": {
+    "description": "Shows the global value a setting falls back to.",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceSettingsPatternsOverrideLabel": "Override snapshot ignore patterns",
+  "@workspaceSettingsPatternsOverrideLabel": {
+    "description": "Switch that enables a workspace-specific list of snapshot ignore patterns."
+  },
+  "workspaceSettingsPatternsLabel": "Snapshot ignore patterns",
+  "@workspaceSettingsPatternsLabel": {
+    "description": "Label of the snapshot ignore patterns list."
+  },
+  "workspaceSettingsPatternItemLabel": "Pattern",
+  "@workspaceSettingsPatternItemLabel": {
+    "description": "Accessibility label of one ignore pattern field."
+  },
+  "workspaceSettingsPatternPlaceholder": "build/",
+  "@workspaceSettingsPatternPlaceholder": {
+    "description": "Placeholder of an empty ignore pattern field."
+  },
+  "workspaceSettingsPatternAdd": "Add pattern",
+  "@workspaceSettingsPatternAdd": {
+    "description": "Button that adds an ignore pattern."
+  },
+  "workspaceSettingsPatternRemove": "Remove pattern",
+  "@workspaceSettingsPatternRemove": {
+    "description": "Accessibility label of the button that removes an ignore pattern."
+  },
+  "workspaceSettingsPatternsInherited": "Inherited patterns: {patterns}",
+  "@workspaceSettingsPatternsInherited": {
+    "description": "Lists the global ignore patterns a workspace falls back to.",
+    "placeholders": {
+      "patterns": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceSettingsPatternsNone": "none",
+  "@workspaceSettingsPatternsNone": {
+    "description": "Shown when there are no ignore patterns."
+  },
+  "workspaceSettingsPatternsEmpty": "No patterns: every file is snapshotted.",
+  "@workspaceSettingsPatternsEmpty": {
+    "description": "Shown when the workspace overrides the patterns with an empty list."
+  },
+  "workspaceSettingsShellLabel": "Default shell",
+  "@workspaceSettingsShellLabel": {
+    "description": "Label of the default shell setting."
+  },
+  "workspaceSettingsShellHint": "Leave empty to inherit: {value}",
+  "@workspaceSettingsShellHint": {
+    "description": "Hint of the default shell field, naming the global value.",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceRemoveTooltip": "Remove {name}",
+  "@workspaceRemoveTooltip": {
+    "description": "Tooltip and semantic label for removing a workspace.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceRenameTitle": "Rename workspace",
+  "@workspaceRenameTitle": {
+    "description": "Title of the rename workspace dialog."
+  },
+  "workspaceRenameSave": "Save",
+  "@workspaceRenameSave": {
+    "description": "Save button label in the rename workspace dialog."
+  },
+  "workspaceRenameCancel": "Cancel",
+  "@workspaceRenameCancel": {
+    "description": "Cancel button label in the rename workspace dialog."
+  },
+  "workspaceRemoveTitle": "Remove workspace?",
+  "@workspaceRemoveTitle": {
+    "description": "Title of the unregister workspace confirmation dialog."
+  },
+  "workspaceRemoveMessage": "Remove \"{name}\" from the workspace list? This only unregisters it and does not delete any files on disk.",
+  "@workspaceRemoveMessage": {
+    "description": "Confirmation message when removing a workspace with no active runs.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workspaceRemoveActiveRunsMessage": "\"{name}\" has {count, plural, =1{1 active run} other{{count} active runs}}. Removing only unregisters the workspace and does not delete any files on disk, but active runs must finish or be cancelled first.",
+  "@workspaceRemoveActiveRunsMessage": {
+    "description": "Warning confirmation message when removing a workspace with active runs.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workspaceRemoveConfirm": "Remove",
+  "@workspaceRemoveConfirm": {
+    "description": "Destructive confirm button label to unregister a workspace."
+  },
+  "workspaceRemoveCancel": "Cancel",
+  "@workspaceRemoveCancel": {
+    "description": "Cancel button label in the remove workspace dialog."
+  },
+  "workspaceCloseAction": "Close",
+  "@workspaceCloseAction": {
+    "description": "Close button label in the workspace registry dialog."
+  },
+  "workspaceErrorPathRequired": "Enter or select a folder path.",
+  "@workspaceErrorPathRequired": {
+    "description": "Validation error when adding a workspace without a folder path."
+  },
+  "workspaceErrorNameRequired": "Enter a workspace name.",
+  "@workspaceErrorNameRequired": {
+    "description": "Validation error when renaming a workspace to an empty name."
+  },
+  "workspaceErrorNetwork": "Could not reach the local backend.",
+  "@workspaceErrorNetwork": {
+    "description": "Error message when a workspace request fails with NetworkFailure."
+  },
+  "workspaceErrorConflict": "That workspace folder is already registered or has active runs.",
+  "@workspaceErrorConflict": {
+    "description": "Error message when a workspace request fails with a 409 conflict."
+  },
+  "workspaceErrorUnexpected": "Could not complete the workspace action.",
+  "@workspaceErrorUnexpected": {
+    "description": "Fallback error message for workspace operations."
+  },
+  "sideRailTreeTitle": "Workspaces",
+  "@sideRailTreeTitle": {
+    "description": "Header title of the side rail workspace/worktree/run tree."
+  },
+  "sideRailTreeRefreshTooltip": "Refresh workspace tree",
+  "@sideRailTreeRefreshTooltip": {
+    "description": "Tooltip and semantic label for refreshing the side rail tree."
+  },
+  "sideRailTreeLoadErrorTitle": "Could not load workspace tree",
+  "@sideRailTreeLoadErrorTitle": {
+    "description": "Error title when loading the side rail tree fails."
+  },
+  "sideRailTreeRetryAction": "Retry",
+  "@sideRailTreeRetryAction": {
+    "description": "Button label to retry loading the side rail tree."
+  },
+  "sideRailTreeEmptyTitle": "No workspaces yet",
+  "@sideRailTreeEmptyTitle": {
+    "description": "Empty state title in the side rail tree when no workspaces are registered."
+  },
+  "sideRailTreeEmptyMessage": "Register a workspace to see its worktrees and runs.",
+  "@sideRailTreeEmptyMessage": {
+    "description": "Empty state message in the side rail tree."
+  },
+  "sideRailTreePrimaryLabel": "primary",
+  "@sideRailTreePrimaryLabel": {
+    "description": "Label for the primary checkout item in the side rail tree."
+  },
+  "sideRailTreePrimaryBadge": "primary",
+  "@sideRailTreePrimaryBadge": {
+    "description": "Badge label on the primary checkout row."
+  },
+  "sideRailTreeDirtyBadge": "uncommitted",
+  "@sideRailTreeDirtyBadge": {
+    "description": "Badge label when a worktree has uncommitted changes."
+  },
+  "sideRailTreeDetachedHead": "detached HEAD",
+  "@sideRailTreeDetachedHead": {
+    "description": "Subtitle shown when a git worktree has a detached HEAD."
+  },
+  "sideRailTreeStartRunTooltip": "Start run in {target}",
+  "@sideRailTreeStartRunTooltip": {
+    "description": "Semantic label for the Start Run button on a worktree row.",
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "sideRailTreeSeeAll": "See all ({count} more)",
+  "@sideRailTreeSeeAll": {
+    "description": "Action row to expand more than 3 runs in a worktree group.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sideRailTreeShowLess": "Show less",
+  "@sideRailTreeShowLess": {
+    "description": "Action row to collapse an expanded run list back to 3 items."
+  },
+  "sideRailTreeNoRuns": "No active or recent runs",
+  "@sideRailTreeNoRuns": {
+    "description": "Muted row shown when a worktree has no active or 24h runs."
+  },
+  "sideRailTreeActiveRunsSemantic": "{count, plural, =1{1 active run} other{{count} active runs}}",
+  "@sideRailTreeActiveRunsSemantic": {
+    "description": "Accessibility label for the active runs badge on a workspace row.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sideRailTreePendingPausesSemantic": "{count, plural, =1{1 pending pause} other{{count} pending pauses}}",
+  "@sideRailTreePendingPausesSemantic": {
+    "description": "Accessibility label for the pending pauses badge on a workspace row.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sideRailTreeExpandWorkspace": "Expand {name}",
+  "@sideRailTreeExpandWorkspace": {
+    "description": "Accessibility label for expanding a workspace row.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sideRailTreeCollapseWorkspace": "Collapse {name}",
+  "@sideRailTreeCollapseWorkspace": {
+    "description": "Accessibility label for collapsing a workspace row.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sideRailTreeExpandWorktree": "Expand {name}",
+  "@sideRailTreeExpandWorktree": {
+    "description": "Accessibility label for expanding a worktree row.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sideRailTreeCollapseWorktree": "Collapse {name}",
+  "@sideRailTreeCollapseWorktree": {
+    "description": "Accessibility label for collapsing a worktree row.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sideRailTreeRemoveWorktreeTooltip": "Remove worktree {name}",
+  "@sideRailTreeRemoveWorktreeTooltip": {
+    "description": "Tooltip for removing a non-primary worktree in the side rail tree.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "worktreeRemoveTitle": "Remove worktree?",
+  "@worktreeRemoveTitle": {
+    "description": "Confirmation dialog title when removing a worktree."
+  },
+  "worktreeRemoveMessage": "Remove worktree \"{name}\"? Its branch is deleted only if merged.",
+  "@worktreeRemoveMessage": {
+    "description": "Confirmation dialog message when removing a worktree.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "worktreeRemoveConfirm": "Remove",
+  "@worktreeRemoveConfirm": {
+    "description": "Confirm button label when removing a worktree."
+  },
+  "worktreeRemoveCancel": "Cancel",
+  "@worktreeRemoveCancel": {
+    "description": "Cancel button label when removing a worktree."
+  },
+  "worktreeRemoveDirtyTitle": "Worktree has uncommitted changes",
+  "@worktreeRemoveDirtyTitle": {
+    "description": "Second confirmation dialog title when force-removing a dirty worktree."
+  },
+  "worktreeRemoveDirtyMessage": "Worktree \"{name}\" has uncommitted changes. Force removing it will permanently discard them. Continue?",
+  "@worktreeRemoveDirtyMessage": {
+    "description": "Second confirmation dialog message when force-removing a dirty worktree.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "worktreeRemoveForceConfirm": "Discard & remove",
+  "@worktreeRemoveForceConfirm": {
+    "description": "Confirm button label for force-removing a dirty worktree."
+  },
+  "worktreeRemoveBranchKeptNotice": "Worktree removed; its branch was kept because it is not merged.",
+  "@worktreeRemoveBranchKeptNotice": {
+    "description": "Fallback notice when a removed worktree's branch was kept."
+  },
+  "worktreeRemoveError": "Could not remove worktree.",
+  "@worktreeRemoveError": {
+    "description": "Fallback error message when removing a worktree fails."
+  },
+  "runsGlobalEmptyTitle": "Runs belong to a workspace",
+  "@runsGlobalEmptyTitle": {
+    "description": "Empty state title on the Runs page when Global is selected."
+  },
+  "runsGlobalEmptyDescription": "Select a workspace in the side rail to view its runs. Only workflows and agents can be global.",
+  "@runsGlobalEmptyDescription": {
+    "description": "Empty state description on the Runs page when Global is selected."
+  },
+  "sideRailTreeGlobalLabel": "Global",
+  "@sideRailTreeGlobalLabel": {
+    "description": "Label for the fixed Global entry in the side rail tree."
+  },
+  "workspaceRemoveActiveRunsConflict": "Cannot remove workspace while runs are active. Finish or cancel active runs first.",
+  "@workspaceRemoveActiveRunsConflict": {
+    "description": "Error message when removing a workspace is rejected with 409 because runs are active."
+  },
+  "sideRailTreeMissingWorktreeLabel": "Removed worktrees",
+  "@sideRailTreeMissingWorktreeLabel": {
+    "description": "Fallback group label in the side rail tree for runs whose worktree no longer exists."
+  },
   "windowMinimize": "Minimize",
   "@windowMinimize": {
     "description": "Accessible label and tooltip for the window minimize button."
@@ -2624,5 +3438,580 @@
   "windowCloseToTray": "Close to tray",
   "@windowCloseToTray": {
     "description": "Accessible label and tooltip for the window close-to-tray button."
+  },
+  "harnessesSkillStatusInstalled": "Skill installed",
+  "@harnessesSkillStatusInstalled": {
+    "description": "Badge label when the Agentic Hive skill is installed and matches the bundle."
+  },
+  "harnessesSkillStatusNotInstalled": "Skill not installed",
+  "@harnessesSkillStatusNotInstalled": {
+    "description": "Badge label when the Agentic Hive skill is not installed for a harness."
+  },
+  "harnessesSkillStatusOutdated": "Skill outdated",
+  "@harnessesSkillStatusOutdated": {
+    "description": "Badge label when the installed Agentic Hive skill differs from the current bundle."
+  },
+  "harnessesSkillStatusModified": "Skill modified",
+  "@harnessesSkillStatusModified": {
+    "description": "Badge label when the installed Agentic Hive skill files were edited locally."
+  },
+  "harnessesSkillStatusConflict": "Skill conflict",
+  "@harnessesSkillStatusConflict": {
+    "description": "Badge label when an existing skill folder, file, or symlink was not installed by Agentic Hive."
+  },
+  "harnessesSkillStatusUnknown": "Skill status unknown",
+  "@harnessesSkillStatusUnknown": {
+    "description": "Badge label when detecting the Agentic Hive skill status failed."
+  },
+  "harnessesSkillConflictExplanation": "A skill named agentic-hive already exists here and was not installed by Agentic Hive.",
+  "@harnessesSkillConflictExplanation": {
+    "description": "Explanation shown when a conflicting skill folder or link is present."
+  },
+  "harnessesSkillInstall": "Install",
+  "@harnessesSkillInstall": {
+    "description": "Button label to install the Agentic Hive skill for a harness."
+  },
+  "harnessesSkillUpdate": "Update",
+  "@harnessesSkillUpdate": {
+    "description": "Button label to update an outdated or modified Agentic Hive skill."
+  },
+  "harnessesSkillRemove": "Remove",
+  "@harnessesSkillRemove": {
+    "description": "Button label to remove the installed Agentic Hive skill."
+  },
+  "harnessesSkillRetry": "Retry",
+  "@harnessesSkillRetry": {
+    "description": "Button label to retry a failed or unknown skill action."
+  },
+  "harnessesSkillInstalling": "Installing…",
+  "@harnessesSkillInstalling": {
+    "description": "Progressive button label while installing the Agentic Hive skill."
+  },
+  "harnessesSkillUpdating": "Updating…",
+  "@harnessesSkillUpdating": {
+    "description": "Progressive button label while updating the Agentic Hive skill."
+  },
+  "harnessesSkillRemoving": "Removing…",
+  "@harnessesSkillRemoving": {
+    "description": "Progressive button label while removing the Agentic Hive skill."
+  },
+  "harnessesSkillMcpMissing": "The skill needs the Hive MCP server.",
+  "@harnessesSkillMcpMissing": {
+    "description": "Warning banner title when a skill is present but the Hive MCP server is not installed."
+  },
+  "harnessesSkillErrorTitle": "The skill action failed",
+  "@harnessesSkillErrorTitle": {
+    "description": "Title of the inline error banner when a skill install, update, or remove fails."
+  },
+  "harnessesSkillErrorFallback": "The backend could not finish the skill action.",
+  "@harnessesSkillErrorFallback": {
+    "description": "Fallback error message when a skill failure provides no message."
+  },
+  "harnessesSkillInstallSuccess": "Installed the skill for {name}",
+  "@harnessesSkillInstallSuccess": {
+    "description": "Toast confirmation shown after installing or updating the skill for a harness.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessesSkillRemoveSuccess": "Removed the skill from {name}",
+  "@harnessesSkillRemoveSuccess": {
+    "description": "Toast confirmation shown after removing the skill from a harness.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessesSkillOverwriteTitle": "Replace your edited skill?",
+  "@harnessesSkillOverwriteTitle": {
+    "description": "Confirmation dialog title when updating a locally modified skill."
+  },
+  "harnessesSkillOverwriteMessage": "You changed the agentic-hive skill files for {name}. Updating replaces your changes with the version bundled with this app.",
+  "@harnessesSkillOverwriteMessage": {
+    "description": "Confirmation dialog body when updating a locally modified skill.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessesSkillOverwriteConfirm": "Replace",
+  "@harnessesSkillOverwriteConfirm": {
+    "description": "Destructive confirm button label when replacing a modified skill."
+  },
+  "harnessesSkillRemoveTitle": "Remove the skill from {name}?",
+  "@harnessesSkillRemoveTitle": {
+    "description": "Confirmation dialog title when removing the skill from a harness.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessesSkillRemoveMessage": "This deletes the agentic-hive skill folder that Agentic Hive installed for {name}. The Hive MCP server stays installed.",
+  "@harnessesSkillRemoveMessage": {
+    "description": "Confirmation dialog body when removing the skill from a harness.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "harnessesSkillRemoveConfirm": "Remove",
+  "@harnessesSkillRemoveConfirm": {
+    "description": "Destructive confirm button label when removing the skill from a harness."
+  },
+  "harnessesSkillCancel": "Cancel",
+  "@harnessesSkillCancel": {
+    "description": "Cancel button label in skill confirmation dialogs."
+  },
+  "skillNoticeInstalledTitle": "Installed the Agentic Hive skill and MCP for {harnesses}.",
+  "@skillNoticeInstalledTitle": {
+    "description": "First-run banner title when automatic skill and MCP installs succeeded.",
+    "placeholders": {
+      "harnesses": {
+        "type": "String"
+      }
+    }
+  },
+  "skillNoticePathLine": "{harness}: {path}",
+  "@skillNoticePathLine": {
+    "description": "Line showing the installed skill folder path for one harness.",
+    "placeholders": {
+      "harness": {
+        "type": "String"
+      },
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "skillNoticeUndo": "Undo",
+  "@skillNoticeUndo": {
+    "description": "Button label to undo automatic skill installations."
+  },
+  "skillNoticePartialTitle": "Some installs did not finish",
+  "@skillNoticePartialTitle": {
+    "description": "First-run banner title when one or more automatic skill or MCP steps failed."
+  },
+  "skillNoticeFailureSkill": "{harness} skill: {message}",
+  "@skillNoticeFailureSkill": {
+    "description": "Failure detail line for a harness skill step.",
+    "placeholders": {
+      "harness": {
+        "type": "String"
+      },
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "skillNoticeFailureMcp": "{harness} MCP: {message}",
+  "@skillNoticeFailureMcp": {
+    "description": "Failure detail line for a harness MCP step.",
+    "placeholders": {
+      "harness": {
+        "type": "String"
+      },
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "skillNoticeFailureFallback": "No details were reported.",
+  "@skillNoticeFailureFallback": {
+    "description": "Fallback failure detail when an automatic install failure includes no message."
+  },
+  "skillNoticeRetry": "Retry",
+  "@skillNoticeRetry": {
+    "description": "Button label to retry failed automatic skill or MCP installs."
+  },
+  "skillNoticeDismiss": "Dismiss notice",
+  "@skillNoticeDismiss": {
+    "description": "Accessible label for dismissing the automatic skill install notice."
+  },
+  "skillNoticeNamesSeparator": ", ",
+  "@skillNoticeNamesSeparator": {
+    "description": "Separator used when joining harness display names in banners."
+  },
+  "skillNoticeUndoSuccess": "Removed the skill from {harnesses}",
+  "@skillNoticeUndoSuccess": {
+    "description": "Toast confirmation after undoing automatic skill installations.",
+    "placeholders": {
+      "harnesses": {
+        "type": "String"
+      }
+    }
+  },
+  "skillNoticeUndoError": "Could not undo: {message}",
+  "@skillNoticeUndoError": {
+    "description": "Toast error shown when undoing automatic skill installations fails.",
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "outdatedBannerTitle": "Agentic Hive tools need an update for {harnesses}.",
+  "@outdatedBannerTitle": {
+    "description": "Global warning banner title when one or more harnesses have outdated skill or MCP installations.",
+    "placeholders": {
+      "harnesses": {
+        "type": "String"
+      }
+    }
+  },
+  "outdatedBannerOpen": "Open Harnesses",
+  "@outdatedBannerOpen": {
+    "description": "Button label on the outdated tools banner to navigate to the Harnesses page."
+  },
+  "outdatedBannerDismiss": "Dismiss update notice",
+  "@outdatedBannerDismiss": {
+    "description": "Accessible label for dismissing the outdated tools banner."
+  },
+  "settingsAutoInstallSkillsLabel": "Install the skill automatically for new harnesses",
+  "@settingsAutoInstallSkillsLabel": {
+    "description": "Label for the Settings switch controlling automatic skill installation."
+  },
+  "settingsAutoInstallSkillsHelp": "The first time Agentic Hive finds a harness, it installs the agentic-hive skill and the Hive MCP server for it. It never updates them by itself.",
+  "@settingsAutoInstallSkillsHelp": {
+    "description": "Helper text under the automatic skill install switch in Settings."
+  },
+  "nodeConfigModelLabel": "Model",
+  "@nodeConfigModelLabel": {
+    "description": "Text field label for the harness model override."
+  },
+  "nodeConfigEffortLabel": "Effort",
+  "@nodeConfigEffortLabel": {
+    "description": "Select field label for choosing the harness reasoning effort."
+  },
+  "nodeConfigHarnessDefaultHint": "Harness default",
+  "@nodeConfigHarnessDefaultHint": {
+    "description": "Placeholder hint and default option label indicating the harness chooses its own default."
+  },
+  "nodeConfigEffortLow": "Low",
+  "@nodeConfigEffortLow": {
+    "description": "Option label for low reasoning effort."
+  },
+  "nodeConfigEffortMedium": "Medium",
+  "@nodeConfigEffortMedium": {
+    "description": "Option label for medium reasoning effort."
+  },
+  "nodeConfigEffortHigh": "High",
+  "@nodeConfigEffortHigh": {
+    "description": "Option label for high reasoning effort."
+  },
+  "nodeConfigEffortMax": "Max",
+  "@nodeConfigEffortMax": {
+    "description": "Option label for maximum reasoning effort."
+  },
+  "nodeConfigModelUnsupportedError": "{harness} does not support choosing a model.",
+  "@nodeConfigModelUnsupportedError": {
+    "description": "Error text shown when a stored model value is configured on a harness that does not support model selection.",
+    "placeholders": {
+      "harness": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeConfigEffortUnsupportedError": "{harness} does not support choosing an effort.",
+  "@nodeConfigEffortUnsupportedError": {
+    "description": "Error text shown when a stored effort value is configured on a harness that does not support effort selection.",
+    "placeholders": {
+      "harness": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeConfigEffortInvalidError": "\"{effort}\" is not a valid effort.",
+  "@nodeConfigEffortInvalidError": {
+    "description": "Error text shown when a stored effort value is not one of the recognized effort levels.",
+    "placeholders": {
+      "effort": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeConfigHumanProposalHeading": "Proposal",
+  "@nodeConfigHumanProposalHeading": {
+    "description": "Section heading for proposal source fields in human approval node config."
+  },
+  "nodeConfigHumanProposalNodeLabel": "Proposal source",
+  "@nodeConfigHumanProposalNodeLabel": {
+    "description": "Select label for choosing the upstream node that supplies a proposal."
+  },
+  "nodeConfigHumanProposalNodeNone": "None",
+  "@nodeConfigHumanProposalNodeNone": {
+    "description": "Select option indicating the approval node has no proposal source."
+  },
+  "nodeConfigHumanProposalPathLabel": "Field",
+  "@nodeConfigHumanProposalPathLabel": {
+    "description": "Text field label for the dot path inside the proposal source node output data."
+  },
+  "nodeConfigHumanProposalPathHint": "e.g. issues",
+  "@nodeConfigHumanProposalPathHint": {
+    "description": "Placeholder hint for the proposal field dot path."
+  },
+  "nodeConfigHumanProposalSchemaLabel": "JSON Schema (optional)",
+  "@nodeConfigHumanProposalSchemaLabel": {
+    "description": "Multiline text area label for an optional JSON Schema validating edited proposals."
+  },
+  "nodeConfigHumanProposalSchemaHint": "Paste a JSON Schema that the edited proposal must match",
+  "@nodeConfigHumanProposalSchemaHint": {
+    "description": "Placeholder hint for the optional proposal JSON Schema text area."
+  },
+  "pausesProposalHeading": "Proposal from {source}",
+  "@pausesProposalHeading": {
+    "description": "Heading for the proposal section on an approval pause when the source node label is known.",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "pausesProposalHeadingGeneric": "Proposal",
+  "@pausesProposalHeadingGeneric": {
+    "description": "Fallback heading for the proposal section on an approval pause when no source node label is present."
+  },
+  "pausesProposalEditAction": "Edit proposal",
+  "@pausesProposalEditAction": {
+    "description": "Button label to switch the approval proposal from read-only to JSON editing mode."
+  },
+  "pausesProposalDiscardAction": "Discard edit",
+  "@pausesProposalDiscardAction": {
+    "description": "Button label to discard proposal edits and return to read-only view."
+  },
+  "pausesProposalCopy": "Copy proposal",
+  "@pausesProposalCopy": {
+    "description": "Tooltip and semantics label for copying the read-only proposal JSON."
+  },
+  "pausesProposalEditorLabel": "Edited proposal (JSON)",
+  "@pausesProposalEditorLabel": {
+    "description": "Label for the multiline JSON editor used to edit an approval proposal."
+  },
+  "pausesApproveEditedAction": "Approve edited proposal",
+  "@pausesApproveEditedAction": {
+    "description": "Primary button label when approving a pause while editing its proposal."
+  },
+  "nodeTypeFanOut": "Fan-out",
+  "@nodeTypeFanOut": {
+    "description": "Display label for the fan-out workflow node type."
+  },
+  "nodeConfigFanOutWorkflowLabel": "Child workflow",
+  "@nodeConfigFanOutWorkflowLabel": {
+    "description": "Select field label for picking the child workflow of a fan-out node."
+  },
+  "nodeConfigFanOutWorkflowHint": "Select a saved workflow",
+  "@nodeConfigFanOutWorkflowHint": {
+    "description": "Placeholder hint for the child workflow select."
+  },
+  "nodeConfigFanOutWorkflowLoadingHint": "Loading workflows…",
+  "@nodeConfigFanOutWorkflowLoadingHint": {
+    "description": "Placeholder hint while saved workflows are loading."
+  },
+  "nodeConfigFanOutWorkflowLoadError": "Could not load workflows.",
+  "@nodeConfigFanOutWorkflowLoadError": {
+    "description": "Error text when loading saved workflows fails."
+  },
+  "nodeConfigFanOutWorkflowEmptyHint": "No saved workflows",
+  "@nodeConfigFanOutWorkflowEmptyHint": {
+    "description": "Placeholder hint when no saved workflows are available."
+  },
+  "nodeConfigFanOutWorkflowMissingError": "Workflow \"{workflowId}\" was not found.",
+  "@nodeConfigFanOutWorkflowMissingError": {
+    "description": "Error text when a fan-out node references a workflow ID that was not found.",
+    "placeholders": {
+      "workflowId": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeConfigFanOutItemsNodeLabel": "Items node",
+  "@nodeConfigFanOutItemsNodeLabel": {
+    "description": "Select field label for choosing the upstream node producing the fan-out list."
+  },
+  "nodeConfigFanOutItemsNodeHint": "Node whose output holds the list",
+  "@nodeConfigFanOutItemsNodeHint": {
+    "description": "Placeholder hint for the items node select."
+  },
+  "nodeConfigFanOutItemsPathLabel": "Items path",
+  "@nodeConfigFanOutItemsPathLabel": {
+    "description": "Text field label for the dot path to the list of items."
+  },
+  "nodeConfigFanOutItemsPathHint": "For example: issues",
+  "@nodeConfigFanOutItemsPathHint": {
+    "description": "Placeholder hint for the items path field."
+  },
+  "nodeConfigFanOutInputFieldLabel": "Input field (optional)",
+  "@nodeConfigFanOutInputFieldLabel": {
+    "description": "Text field label for the optional dot path to each child run input."
+  },
+  "nodeConfigFanOutInputFieldHint": "Whole item when empty",
+  "@nodeConfigFanOutInputFieldHint": {
+    "description": "Placeholder hint for the input field."
+  },
+  "nodeConfigFanOutOverridesFieldLabel": "Overrides field (optional)",
+  "@nodeConfigFanOutOverridesFieldLabel": {
+    "description": "Text field label for the optional dot path to per-child node overrides."
+  },
+  "nodeConfigFanOutOverridesFieldHint": "For example: overrides",
+  "@nodeConfigFanOutOverridesFieldHint": {
+    "description": "Placeholder hint for the overrides field."
+  },
+  "nodeConfigFanOutNameFieldLabel": "Name field (optional)",
+  "@nodeConfigFanOutNameFieldLabel": {
+    "description": "Text field label for the optional dot path to each child run name."
+  },
+  "nodeConfigFanOutNameFieldHint": "Names the child run and its worktree",
+  "@nodeConfigFanOutNameFieldHint": {
+    "description": "Placeholder hint for the name field."
+  },
+  "nodeConfigFanOutConcurrencyLabel": "Concurrency",
+  "@nodeConfigFanOutConcurrencyLabel": {
+    "description": "Text field label for the maximum concurrent child runs."
+  },
+  "nodeConfigFanOutMaxItemsLabel": "Item cap",
+  "@nodeConfigFanOutMaxItemsLabel": {
+    "description": "Text field label for the maximum number of items processed."
+  },
+  "nodeConfigFanOutPositiveIntError": "Enter a whole number of 1 or more.",
+  "@nodeConfigFanOutPositiveIntError": {
+    "description": "Validation error when concurrency or item cap is not a positive integer."
+  },
+  "runsChildCount": "{count, plural, =1{1 child run} other{{count} child runs}}",
+  "@runsChildCount": {
+    "description": "Number of loaded child runs under a parent run in the runs list.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "runsChildrenExpandTooltip": "Show child runs",
+  "@runsChildrenExpandTooltip": {
+    "description": "Semantic label and tooltip to expand child runs under a parent run."
+  },
+  "runsChildrenCollapseTooltip": "Hide child runs",
+  "@runsChildrenCollapseTooltip": {
+    "description": "Semantic label and tooltip to collapse child runs under a parent run."
+  },
+  "runDetailFanOutPanelTitle": "Child runs",
+  "@runDetailFanOutPanelTitle": {
+    "description": "Title of the fan-out child runs panel in the run detail inspector."
+  },
+  "runDetailFanOutProgress": "{done}/{total} done, {failed} failed",
+  "@runDetailFanOutProgress": {
+    "description": "Progress summary for a fan-out node when one or more items failed.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "runDetailFanOutProgressNoFailures": "{done}/{total} done",
+  "@runDetailFanOutProgressNoFailures": {
+    "description": "Progress summary for a fan-out node with zero failed items.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "runDetailFanOutNeedsYou": "{count, plural, =1{1 child needs you} other{{count} children need you}}",
+  "@runDetailFanOutNeedsYou": {
+    "description": "Warning badge text when one or more child runs are paused waiting for human input.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "runDetailFanOutNoItems": "No items",
+  "@runDetailFanOutNoItems": {
+    "description": "Label shown when a fan-out node received an empty list."
+  },
+  "runDetailFanOutFailedGeneric": "The fan-out node failed.",
+  "@runDetailFanOutFailedGeneric": {
+    "description": "Fallback error message when a fan-out node fails before starting child runs."
+  },
+  "runDetailFanOutFailedTitle": "Fan-out failed before starting",
+  "@runDetailFanOutFailedTitle": {
+    "description": "Banner title when a fan-out node fails before starting any child run."
+  },
+  "runDetailFanOutDeleted": "Deleted",
+  "@runDetailFanOutDeleted": {
+    "description": "Badge label on a fan-out item whose child run was deleted."
+  },
+  "runDetailFanOutNotStarted": "Not started",
+  "@runDetailFanOutNotStarted": {
+    "description": "Badge label on a fan-out item that failed to start a child run."
+  },
+  "runDetailFanOutItemFallbackName": "Item {number}",
+  "@runDetailFanOutItemFallbackName": {
+    "description": "Fallback display name for a fan-out item without an explicit name.",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "runDetailFanOutLoadError": "Could not load child runs.",
+  "@runDetailFanOutLoadError": {
+    "description": "Error banner title when loading child runs fails."
+  },
+  "runDetailFanOutChildSemantic": "{name}, {status}",
+  "@runDetailFanOutChildSemantic": {
+    "description": "Accessibility label for a fan-out child item card.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "workflowsDeleteReferencedMessage": "Used by fan-out nodes in: {workflows}",
+  "@workflowsDeleteReferencedMessage": {
+    "description": "Extra warning in the workflow deletion dialog listing workflows whose fan-out nodes reference it.",
+    "placeholders": {
+      "workflows": {
+        "type": "String"
+      }
+    }
+  },
+  "pausesChildOfRun": "In run {runId}",
+  "@pausesChildOfRun": {
+    "description": "Muted parent run label shown on a pause row belonging to a child run.",
+    "placeholders": {
+      "runId": {
+        "type": "String"
+      }
+    }
+  },
+  "pausesOpenParentRunAction": "Open parent run",
+  "@pausesOpenParentRunAction": {
+    "description": "Button label in the pause detail header to open the parent run."
+  },
+  "pausesOpenParentRunSemantic": "Open parent run {runId}",
+  "@pausesOpenParentRunSemantic": {
+    "description": "Accessibility label for opening the parent run from a pause detail pane.",
+    "placeholders": {
+      "runId": {
+        "type": "String"
+      }
+    }
   }
 }

@@ -146,10 +146,14 @@ class _RunOutputPanelState extends ConsumerState<RunOutputPanel> {
           SizedBox(height: spacing.space2),
           Expanded(
             child: nodeId == null
-                ? HiveEmptyState(
-                    icon: HiveIcons.terminal,
-                    title: l10n.runDetailOutputTitle,
-                    message: l10n.runDetailOutputSelectNode,
+                ? Center(
+                    child: SingleChildScrollView(
+                      child: HiveEmptyState(
+                        icon: HiveIcons.terminal,
+                        title: l10n.runDetailOutputTitle,
+                        message: l10n.runDetailOutputSelectNode,
+                      ),
+                    ),
                   )
                 : showTerminal
                 ? PtyTerminalPanel(

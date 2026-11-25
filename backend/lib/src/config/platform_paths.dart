@@ -13,6 +13,9 @@ abstract interface class PlatformPaths {
   /// The folder where the backend keeps its database, logs, config and socket.
   String defaultDataDir();
 
+  /// The user's home folder.
+  String homeDir();
+
   /// The longest Unix domain socket path, in bytes, this platform accepts.
   int get maxSocketPathBytes;
 
@@ -54,6 +57,9 @@ final class WindowsPaths implements PlatformPaths {
       context.join(_requireEnv(_environment, 'LOCALAPPDATA'), 'AgenticHive');
 
   @override
+  String homeDir() => _requireEnv(_environment, 'USERPROFILE');
+
+  @override
   int get maxSocketPathBytes => 107;
 
   @override
@@ -83,6 +89,9 @@ final class LinuxPaths with _PosixPermissions implements PlatformPaths {
   }
 
   @override
+  String homeDir() => _requireEnv(_environment, 'HOME');
+
+  @override
   int get maxSocketPathBytes => 107;
 }
 
@@ -103,6 +112,9 @@ final class MacOSPaths with _PosixPermissions implements PlatformPaths {
     'Application Support',
     'AgenticHive',
   );
+
+  @override
+  String homeDir() => _requireEnv(_environment, 'HOME');
 
   @override
   int get maxSocketPathBytes => 103;

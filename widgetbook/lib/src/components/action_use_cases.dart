@@ -161,6 +161,29 @@ WidgetbookComponent iconButtonComponent() {
           ),
         ),
       WidgetbookUseCase(
+        name: 'Disabled · With reason',
+        builder: (context) => const UseCaseFrame(
+          child: HiveIconButton(
+            icon: HiveIcons.copy,
+            semanticLabel: 'Duplicate workflow',
+            onPressed: null,
+            disabledReason: 'Unavailable while the workflow is being deleted.',
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Disabled · With reason (secondary)',
+        builder: (context) => const UseCaseFrame(
+          child: HiveIconButton(
+            icon: HiveIcons.copy,
+            semanticLabel: 'Duplicate workflow',
+            variant: HiveButtonVariant.secondary,
+            onPressed: null,
+            disabledReason: 'Unavailable while the workflow is being deleted.',
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
         name: 'Sizes',
         builder: (context) => UseCaseFrame(
           child: ShowcaseSection(
@@ -228,6 +251,10 @@ WidgetbookComponent iconButtonComponent() {
           );
           final dangerHover = context.knobs.boolean(label: 'Danger hover');
           final loading = context.knobs.boolean(label: 'Loading');
+          final disabledReason = context.knobs.string(
+            label: 'Disabled reason',
+            initialValue: 'Unavailable while the workflow is being deleted.',
+          );
           final onPressed =
               context.knobs.boolean(label: 'Enabled', initialValue: true)
               ? _noop
@@ -240,6 +267,7 @@ WidgetbookComponent iconButtonComponent() {
                     semanticLabel: semanticLabel,
                     size: size,
                     loading: loading,
+                    disabledReason: disabledReason,
                     onPressed: onPressed,
                   )
                 : HiveIconButton(
@@ -248,6 +276,7 @@ WidgetbookComponent iconButtonComponent() {
                     variant: variant,
                     size: size,
                     loading: loading,
+                    disabledReason: disabledReason,
                     onPressed: onPressed,
                   ),
           );
@@ -358,6 +387,108 @@ WidgetbookComponent cardComponent() {
               ),
             ),
           ),
+      WidgetbookUseCase(
+        name: 'Busy · Deleting',
+        builder: (context) => UseCaseFrame(
+          child: sized(
+            context,
+            HiveCard(
+              busy: true,
+              semanticLabel: 'Open Release checklist',
+              statusLabel: 'Deleting…',
+              surface: HiveCardSurface.surface2,
+              child: _busyRowContent(context, 'Deleting…'),
+            ),
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Busy · Stopping runs',
+        builder: (context) => UseCaseFrame(
+          child: sized(
+            context,
+            HiveCard(
+              busy: true,
+              semanticLabel: 'Open Release checklist',
+              statusLabel: 'Deleting… (stopping 2 of 3 runs)',
+              surface: HiveCardSurface.surface2,
+              child: _busyRowContent(
+                context,
+                'Deleting… (stopping 2 of 3 runs)',
+              ),
+            ),
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Busy · with disabled actions',
+        builder: (context) {
+          final spacing = context.hiveSpacing;
+          const reason = 'Unavailable while the workflow is being deleted.';
+          return UseCaseFrame(
+            child: sized(
+              context,
+              HiveCard(
+                busy: true,
+                semanticLabel: 'Open Release checklist',
+                statusLabel: 'Deleting…',
+                surface: HiveCardSurface.surface2,
+                child: Row(
+                  children: <Widget>[
+                    Expanded(child: _busyRowContent(context, 'Deleting…')),
+                    SizedBox(width: spacing.space2),
+                    const HiveIconButton(
+                      icon: HiveIcons.play,
+                      semanticLabel: 'Run workflow',
+                      onPressed: null,
+                      disabledReason: reason,
+                    ),
+                    SizedBox(width: spacing.space1),
+                    const HiveIconButton(
+                      icon: HiveIcons.copy,
+                      semanticLabel: 'Duplicate workflow',
+                      onPressed: null,
+                      disabledReason: reason,
+                    ),
+                    SizedBox(width: spacing.space1),
+                    const HiveIconButton(
+                      icon: HiveIcons.delete,
+                      semanticLabel: 'Delete workflow',
+                      onPressed: null,
+                      disabledReason: reason,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    ],
+  );
+}
+
+Widget _busyRowContent(BuildContext context, String statusLabel) {
+  final colors = context.hiveColors;
+  final spacing = context.hiveSpacing;
+  final typography = context.hiveTypography;
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: <Widget>[
+      Text(
+        'Release checklist',
+        style: typography.titleSmall.copyWith(color: colors.onSurface),
+      ),
+      SizedBox(height: spacing.spaceHalf),
+      ExcludeSemantics(
+        child: HiveBadge(label: statusLabel, tone: HiveBadgeTone.warning),
+      ),
+      SizedBox(height: spacing.spaceHalf),
+      Text(
+        '4 nodes · 3 edges',
+        style: typography.bodySmall.copyWith(color: colors.onSurfaceMuted),
+      ),
     ],
   );
 }
@@ -452,6 +583,7 @@ WidgetbookComponent sideRailComponent() {
     BuildContext context, {
     required bool expanded,
     List<HiveRailDestination> destinations = railDestinations,
+    HiveRailSection? section,
   }) {
     return Padding(
       padding: EdgeInsets.all(context.hiveSpacing.space2),
@@ -465,8 +597,54 @@ WidgetbookComponent sideRailComponent() {
           markLabel: 'Agentic Hive',
           expandLabel: 'Expand navigation',
           collapseLabel: 'Collapse navigation',
+          section: section,
         ),
       ),
+    );
+  }
+
+  HiveRailSection staticSection({
+    int? badgeCount,
+    bool pinned = false,
+    bool longContent = false,
+  }) {
+    return HiveRailSection(
+      icon: HiveIcons.folder,
+      label: 'Workspaces',
+      title: 'Workspaces',
+      badgeCount: badgeCount,
+      semanticLabel: badgeCount != null && badgeCount > 0
+          ? 'Workspaces, $badgeCount active runs'
+          : null,
+      pinned: pinned,
+      onPinnedChanged: pinned ? (_) {} : null,
+      trailing: pinned
+          ? const HiveIconButton(
+              icon: HiveIcons.refresh,
+              semanticLabel: 'Refresh workspaces',
+              size: HiveButtonSize.small,
+              onPressed: _noop,
+            )
+          : null,
+      child: longContent
+          ? Builder(
+              builder: (context) {
+                final spacing = context.hiveSpacing;
+                return ListView.builder(
+                  padding: EdgeInsets.all(spacing.space1),
+                  itemCount: 24,
+                  itemBuilder: (context, index) => Padding(
+                    padding: EdgeInsets.only(bottom: spacing.spaceHalf),
+                    child: HiveTreeItem(
+                      label: 'workspace-$index',
+                      leading: const HiveIcon(HiveIcons.folder),
+                      onPressed: _noop,
+                    ),
+                  ),
+                );
+              },
+            )
+          : const SizedBox.shrink(),
     );
   }
 
@@ -512,6 +690,54 @@ WidgetbookComponent sideRailComponent() {
       WidgetbookUseCase(
         name: 'Interactive shell',
         builder: (context) => const _RailShell(),
+      ),
+      WidgetbookUseCase(
+        name: 'With section · Collapsed',
+        builder: (context) => Align(
+          alignment: Alignment.centerLeft,
+          child: rail(context, expanded: false, section: staticSection()),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'With section · Collapsed · Badge',
+        builder: (context) => Align(
+          alignment: Alignment.centerLeft,
+          child: rail(
+            context,
+            expanded: false,
+            section: staticSection(badgeCount: 2),
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'With section · Expanded · Badge',
+        builder: (context) => Align(
+          alignment: Alignment.centerLeft,
+          child: rail(
+            context,
+            expanded: true,
+            section: staticSection(badgeCount: 2),
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'With section · Pinned · Long content',
+        builder: (context) => Align(
+          alignment: Alignment.centerLeft,
+          child: rail(
+            context,
+            expanded: false,
+            section: staticSection(
+              badgeCount: 2,
+              pinned: true,
+              longContent: true,
+            ),
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'With section · Interactive',
+        builder: (context) => const _RailSectionShowcase(),
       ),
     ],
   );
@@ -670,6 +896,367 @@ class _RailShellState extends State<_RailShell> {
             ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _RailSectionShowcase extends StatefulWidget {
+  const new();
+
+  @override
+  State<_RailSectionShowcase> createState() => _RailSectionShowcaseState();
+}
+
+class _RailSectionShowcaseState extends State<_RailSectionShowcase> {
+  int _selected = 0;
+  bool _pinned = false;
+  final HiveRailSectionController _controller = HiveRailSectionController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = context.hiveSpacing;
+    final colors = context.hiveColors;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Padding(
+          padding: EdgeInsets.all(spacing.space2),
+          child: HiveSideRail(
+            destinations: const <HiveRailDestination>[
+              HiveRailDestination(icon: HiveIcons.overview, label: 'Overview'),
+              HiveRailDestination(
+                icon: HiveIcons.workflows,
+                label: 'Workflows',
+              ),
+              HiveRailDestination(icon: HiveIcons.runs, label: 'Runs'),
+            ],
+            selectedIndex: _selected,
+            onSelected: (i) => setState(() => _selected = i),
+            markLabel: 'Agentic Hive',
+            expandLabel: 'Expand navigation',
+            collapseLabel: 'Collapse navigation',
+            section: HiveRailSection(
+              icon: HiveIcons.folder,
+              label: 'Workspaces',
+              title: 'Workspaces',
+              badgeCount: 2,
+              semanticLabel: 'Workspaces, 2 active runs',
+              pinned: _pinned,
+              onPinnedChanged: (value) => setState(() => _pinned = value),
+              controller: _controller,
+              trailing: HiveIconButton(
+                icon: HiveIcons.refresh,
+                semanticLabel: 'Refresh workspaces',
+                onPressed: () {},
+              ),
+              child: ListView.builder(
+                padding: EdgeInsets.all(spacing.space1),
+                itemCount: 24,
+                itemBuilder: (context, index) => Padding(
+                  padding: EdgeInsets.only(bottom: spacing.spaceHalf),
+                  child: HiveTreeItem(
+                    label: 'workspace-$index',
+                    leading: const HiveIcon(HiveIcons.folder),
+                    onPressed: _controller.close,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: Center(
+            child: Text(
+              'Hover, click, or pin the Workspaces section.',
+              style: context.hiveTypography.body.copyWith(
+                color: colors.onSurfaceMuted,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// `HiveTreeItem`: every state, indent levels, expand/collapse, highlighted
+/// pending pause, and an interactive tree.
+WidgetbookComponent treeItemComponent() {
+  Widget frame(BuildContext context, Widget child) => UseCaseFrame(
+    child: SizedBox(width: context.hiveSpacing.space8 * 4.5, child: child),
+  );
+
+  return WidgetbookComponent(
+    name: 'HiveTreeItem',
+    useCases: <WidgetbookUseCase>[
+      for (final state in PreviewState.values)
+        WidgetbookUseCase(
+          name: state.label,
+          builder: (context) => frame(
+            context,
+            StatesPreview(
+              states: state.states,
+              builder: (controller) => HiveTreeItem(
+                label: 'agentic-hive',
+                subtitle: 'feature/workspaces',
+                leading: const HiveStatusDot(
+                  status: HiveNodeStatus.running,
+                  semanticLabel: 'Running',
+                ),
+                trailing: const HiveBadge(label: 'primary'),
+                expanded: true,
+                onToggleExpand: state.isDisabled ? null : _noop,
+                statesController: controller,
+                onPressed: state.isDisabled ? null : _noop,
+              ),
+            ),
+          ),
+        ),
+      WidgetbookUseCase(
+        name: 'Selected',
+        builder: (context) => frame(
+          context,
+          const HiveTreeItem(
+            label: 'Build & test',
+            subtitle: '1m 12s',
+            indentLevel: 2,
+            leading: HiveStatusDot(
+              status: HiveNodeStatus.running,
+              semanticLabel: 'Running',
+            ),
+            selected: true,
+            onPressed: _noop,
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Highlighted (pending pause)',
+        builder: (context) => frame(
+          context,
+          const HiveTreeItem(
+            label: 'Deploy preview',
+            subtitle: '3m 45s',
+            indentLevel: 2,
+            leading: HiveStatusDot(
+              status: HiveNodeStatus.paused,
+              semanticLabel: 'Paused',
+            ),
+            trailing: HiveBadge(label: 'pause', tone: HiveBadgeTone.warning),
+            highlighted: true,
+            onPressed: _noop,
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Selected · Highlighted',
+        builder: (context) => frame(
+          context,
+          const HiveTreeItem(
+            label: 'Deploy preview',
+            subtitle: '3m 45s',
+            indentLevel: 2,
+            leading: HiveStatusDot(
+              status: HiveNodeStatus.paused,
+              semanticLabel: 'Paused',
+            ),
+            trailing: HiveBadge(label: 'pause', tone: HiveBadgeTone.warning),
+            selected: true,
+            highlighted: true,
+            onPressed: _noop,
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Collapsed',
+        builder: (context) => frame(
+          context,
+          HiveTreeItem(
+            label: 'agentic-hive',
+            leading: HiveIcon(
+              HiveIcons.folder,
+              size: context.hiveSpacing.space2,
+              color: context.hiveColors.onSurfaceMuted,
+            ),
+            trailing: const HiveBadge(label: '2', tone: HiveBadgeTone.warning),
+            expanded: false,
+            onToggleExpand: _noop,
+            onPressed: _noop,
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Tree hierarchy',
+        builder: (context) => frame(context, const _TreeDemo()),
+      ),
+      WidgetbookUseCase(
+        name: 'Long label',
+        builder: (context) => frame(
+          context,
+          const HiveTreeItem(
+            label: 'implement-workspaces-and-live-side-rail-tree-workflow',
+            subtitle: 'feature/workspaces-with-long-branch-name',
+            indentLevel: 1,
+            leading: HiveStatusDot(
+              status: HiveNodeStatus.succeeded,
+              semanticLabel: 'Succeeded',
+            ),
+            trailing: HiveBadge(label: 'primary'),
+            onPressed: _noop,
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Playground',
+        builder: (context) => frame(
+          context,
+          HiveTreeItem(
+            label: context.knobs.string(
+              label: 'Label',
+              initialValue: 'Build & test',
+            ),
+            subtitle:
+                context.knobs.boolean(
+                  label: 'Show subtitle',
+                  initialValue: true,
+                )
+                ? context.knobs.string(
+                    label: 'Subtitle',
+                    initialValue: '2m 14s',
+                  )
+                : null,
+            indentLevel: context.knobs.int.slider(
+              label: 'Indent level',
+              max: 3,
+              initialValue: 1,
+            ),
+            leading: const HiveStatusDot(
+              status: HiveNodeStatus.running,
+              semanticLabel: 'Running',
+            ),
+            trailing:
+                context.knobs.boolean(label: 'Show badge', initialValue: true)
+                ? const HiveBadge(label: 'primary')
+                : null,
+            expanded:
+                context.knobs.boolean(label: 'Expandable', initialValue: true)
+                ? context.knobs.boolean(label: 'Expanded', initialValue: true)
+                : null,
+            onToggleExpand: _noop,
+            selected: context.knobs.boolean(label: 'Selected'),
+            highlighted: context.knobs.boolean(label: 'Highlighted'),
+            onPressed:
+                context.knobs.boolean(label: 'Enabled', initialValue: true)
+                ? _noop
+                : null,
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+class _TreeDemo extends StatefulWidget {
+  const new();
+
+  @override
+  State<_TreeDemo> createState() => _TreeDemoState();
+}
+
+class _TreeDemoState extends State<_TreeDemo> {
+  bool _workspaceExpanded = true;
+  bool _primaryExpanded = true;
+  String _selectedId = 'run-2';
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.hiveColors;
+    final spacing = context.hiveSpacing;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        HiveTreeItem(
+          label: 'agentic-hive',
+          leading: HiveIcon(
+            HiveIcons.folder,
+            size: spacing.space2,
+            color: colors.onSurfaceMuted,
+          ),
+          trailing: const HiveBadge(label: '2', tone: HiveBadgeTone.warning),
+          expanded: _workspaceExpanded,
+          selected: _selectedId == 'ws',
+          onToggleExpand: () =>
+              setState(() => _workspaceExpanded = !_workspaceExpanded),
+          onPressed: () => setState(() => _selectedId = 'ws'),
+        ),
+        if (_workspaceExpanded) ...<Widget>[
+          HiveTreeItem(
+            label: 'Primary checkout',
+            subtitle: 'feature/workspaces',
+            indentLevel: 1,
+            leading: HiveIcon(
+              HiveIcons.branch,
+              size: spacing.space2,
+              color: colors.onSurfaceMuted,
+            ),
+            trailing: const HiveBadge(label: 'primary'),
+            expanded: _primaryExpanded,
+            selected: _selectedId == 'wt-1',
+            onToggleExpand: () =>
+                setState(() => _primaryExpanded = !_primaryExpanded),
+            onPressed: () => setState(() => _selectedId = 'wt-1'),
+          ),
+          if (_primaryExpanded) ...<Widget>[
+            HiveTreeItem(
+              label: 'Deploy preview',
+              subtitle: '3m 45s',
+              indentLevel: 2,
+              leading: const HiveStatusDot(
+                status: HiveNodeStatus.paused,
+                semanticLabel: 'Paused',
+              ),
+              trailing: const HiveBadge(
+                label: 'pause',
+                tone: HiveBadgeTone.warning,
+              ),
+              highlighted: true,
+              selected: _selectedId == 'run-1',
+              onPressed: () => setState(() => _selectedId = 'run-1'),
+            ),
+            HiveTreeItem(
+              label: 'Unit tests',
+              subtitle: '48s',
+              indentLevel: 2,
+              leading: const HiveStatusDot(
+                status: HiveNodeStatus.running,
+                semanticLabel: 'Running',
+              ),
+              selected: _selectedId == 'run-2',
+              onPressed: () => setState(() => _selectedId = 'run-2'),
+            ),
+          ],
+          HiveTreeItem(
+            label: 'hive-tree-item',
+            subtitle: 'feature/hive-tree-item',
+            indentLevel: 1,
+            leading: HiveIcon(
+              HiveIcons.branch,
+              size: spacing.space2,
+              color: colors.onSurfaceMuted,
+            ),
+            expanded: false,
+            selected: _selectedId == 'wt-2',
+            onToggleExpand: _noop,
+            onPressed: () => setState(() => _selectedId = 'wt-2'),
+          ),
+        ],
       ],
     );
   }

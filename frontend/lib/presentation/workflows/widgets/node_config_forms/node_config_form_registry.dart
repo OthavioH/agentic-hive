@@ -1,5 +1,6 @@
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/checklist_validator_config_form.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/command_config_form.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/fan_out_config_form.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/harness_config_form.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/human_approval_config_form.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/review_validator_config_form.dart';
@@ -12,6 +13,7 @@ typedef NodeConfigFormBuilder = Widget Function(
   BuildContext context,
   WorkflowNode node,
   ValueChanged<JsonMap> onConfigChanged,
+  List<WorkflowNode> workflowNodes,
 );
 
 /// Registry mapping canonical `WorkflowNode.type` identifiers to their typed
@@ -41,14 +43,15 @@ class NodeConfigFormRegistry {
   Widget? buildForm(
     BuildContext context,
     WorkflowNode node,
-    ValueChanged<JsonMap> onConfigChanged,
-  ) {
+    ValueChanged<JsonMap> onConfigChanged, {
+    List<WorkflowNode> workflowNodes = const <WorkflowNode>[],
+  }) {
     final builder = _builders[node.type];
-    return builder?.call(context, node, onConfigChanged);
+    return builder?.call(context, node, onConfigChanged, workflowNodes);
   }
 }
 
-/// Creates a [NodeConfigFormRegistry] with all 10 canonical node types
+/// Creates a [NodeConfigFormRegistry] with all 11 canonical node types
 /// registered.
 NodeConfigFormRegistry createNodeConfigFormRegistry() {
   final registry = NodeConfigFormRegistry();
@@ -57,6 +60,7 @@ NodeConfigFormRegistry createNodeConfigFormRegistry() {
     BuildContext context,
     WorkflowNode node,
     ValueChanged<JsonMap> onConfigChanged,
+    List<WorkflowNode> workflowNodes,
   ) {
     return HarnessConfigForm(
       key: ValueKey<String>(node.id),
@@ -72,7 +76,7 @@ NodeConfigFormRegistry createNodeConfigFormRegistry() {
     ..register(NodeTypeId.antigravity, buildHeadlessHarness)
     ..register(
       NodeTypeId.terminal,
-      (context, node, onConfigChanged) => HarnessConfigForm(
+      (context, node, onConfigChanged, _) => HarnessConfigForm(
         key: ValueKey<String>(node.id),
         node: node,
         includeTerminalFields: true,
@@ -81,7 +85,7 @@ NodeConfigFormRegistry createNodeConfigFormRegistry() {
     )
     ..register(
       NodeTypeId.command,
-      (context, node, onConfigChanged) => CommandConfigForm(
+      (context, node, onConfigChanged, _) => CommandConfigForm(
         key: ValueKey<String>(node.id),
         node: node,
         onConfigChanged: onConfigChanged,
@@ -89,7 +93,7 @@ NodeConfigFormRegistry createNodeConfigFormRegistry() {
     )
     ..register(
       NodeTypeId.testsValidator,
-      (context, node, onConfigChanged) => TestsValidatorConfigForm(
+      (context, node, onConfigChanged, _) => TestsValidatorConfigForm(
         key: ValueKey<String>(node.id),
         node: node,
         onConfigChanged: onConfigChanged,
@@ -97,7 +101,7 @@ NodeConfigFormRegistry createNodeConfigFormRegistry() {
     )
     ..register(
       NodeTypeId.checklistValidator,
-      (context, node, onConfigChanged) => ChecklistValidatorConfigForm(
+      (context, node, onConfigChanged, _) => ChecklistValidatorConfigForm(
         key: ValueKey<String>(node.id),
         node: node,
         onConfigChanged: onConfigChanged,
@@ -105,7 +109,7 @@ NodeConfigFormRegistry createNodeConfigFormRegistry() {
     )
     ..register(
       NodeTypeId.reviewValidator,
-      (context, node, onConfigChanged) => ReviewValidatorConfigForm(
+      (context, node, onConfigChanged, _) => ReviewValidatorConfigForm(
         key: ValueKey<String>(node.id),
         node: node,
         onConfigChanged: onConfigChanged,
@@ -113,10 +117,21 @@ NodeConfigFormRegistry createNodeConfigFormRegistry() {
     )
     ..register(
       NodeTypeId.humanApproval,
-      (context, node, onConfigChanged) => HumanApprovalConfigForm(
+      (context, node, onConfigChanged, workflowNodes) =>
+          HumanApprovalConfigForm(
+            key: ValueKey<String>(node.id),
+            node: node,
+            onConfigChanged: onConfigChanged,
+            upstreamNodes: workflowNodes,
+          ),
+    )
+    ..register(
+      NodeTypeId.fanOut,
+      (context, node, onConfigChanged, workflowNodes) => FanOutConfigForm(
         key: ValueKey<String>(node.id),
         node: node,
         onConfigChanged: onConfigChanged,
+        upstreamNodes: workflowNodes,
       ),
     );
 

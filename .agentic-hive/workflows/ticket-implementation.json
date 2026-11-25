@@ -1,0 +1,267 @@
+{
+  "id": "ticket-implementation",
+  "name": "Ticket Implementation",
+  "nodes": [
+    {
+      "id": "plan",
+      "type": "harness.claude_code",
+      "label": "Plan (Opus 5.5)",
+      "position": {
+        "x": 15.0,
+        "y": 330.48979947844737
+      },
+      "config": {
+        "additionalInstructions": "The run input names the issue and the base branch. Before planning, check that the issue is not already handled: run `gh pr list --state all --limit 200 --json number,state,url,body --jq '[.[] | select(.state != \"CLOSED\") | select(.body | test(\"(?i)(close[sd]?|fix(e[sd])?|resolve[sd]?)[[:space:]]+#<issue>([^0-9]|$)\")) | {number,state,url}]'` with <issue> replaced by the issue number. If it lists any PR (open or merged), stop: do not plan, and report failure with a summary naming each PR (number, state, url). PRs into non-default branches do not auto-close issues, so a merged PR can exist while the issue is still open. Otherwise report the plan in data.plan, and also echo data.issue (number) and data.baseBranch so later nodes can read them.",
+        "extraArgs": [],
+        "agentId": "ticket-planner",
+        "model": "claude-opus-5-5",
+        "effort": "medium",
+        "timeoutSeconds": 1800
+      }
+    },
+    {
+      "id": "codegen",
+      "type": "command",
+      "label": "Codegen",
+      "position": {
+        "x": 362.5,
+        "y": 342.50000000000034
+      },
+      "config": {
+        "command": "C:/Users/Ots/fvm/default/bin/cache/dart-sdk/bin/dart.exe",
+        "args": [
+          "run",
+          "tool/codegen.dart"
+        ],
+        "env": {},
+        "timeoutSeconds": 1800
+      }
+    },
+    {
+      "id": "implement",
+      "type": "harness.antigravity",
+      "label": "Implement (Hydrogen low)",
+      "position": {
+        "x": 672.5,
+        "y": 360.00000000000045
+      },
+      "config": {
+        "additionalInstructions": "Work in ponytail mode (ponytail skill). The plan is data.plan in the output of node plan. On a retry, first fix exactly what the gate output (node gate, stdout) or the review findings (node review, data.findings) report. Commit your work; do not push.",
+        "extraArgs": [],
+        "agentId": "ticket-implementer",
+        "model": "gemini-4-hydrogen-low",
+        "effort": "low",
+        "timeoutSeconds": 3600
+      }
+    },
+    {
+      "id": "gate",
+      "type": "command",
+      "label": "Quality gate",
+      "position": {
+        "x": 862.5,
+        "y": 620.0000000000002
+      },
+      "config": {
+        "command": "C:/Users/Ots/fvm/default/bin/cache/dart-sdk/bin/dart.exe",
+        "args": [
+          "run",
+          "tool/hive/quality_gate.dart",
+          "--base",
+          "development"
+        ],
+        "env": {},
+        "timeoutSeconds": 3600
+      }
+    },
+    {
+      "id": "review",
+      "type": "harness.claude_code",
+      "label": "Review (Sonnet 5.5)",
+      "position": {
+        "x": 1090.0,
+        "y": 1054.9999999999995
+      },
+      "config": {
+        "additionalInstructions": "Diff against origin/<base branch from the plan output>. Run both passes: the code-review skill and /ponytail-review. Report failure (changes requested) only for confirmed blocking findings.",
+        "extraArgs": [],
+        "agentId": "ticket-reviewer",
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "timeoutSeconds": 1800
+      }
+    },
+    {
+      "id": "open_pr",
+      "type": "harness.claude_code",
+      "label": "Open PR (Haiku 5.5)",
+      "position": {
+        "x": 1435.0,
+        "y": 942.4999999999997
+      },
+      "config": {
+        "additionalInstructions": "Push the current branch with `git push -u origin HEAD`, then open a pull request against the base branch from the plan output (data.baseBranch) with `gh pr create`. If this branch already has an open PR, update its body instead. Title: a Conventional Commit summary of the change. Body: use the pr skill template (Summary, Evidence from the quality gate output, Merge Danger), put \"Closes #<issue>\" on its own line, and under Merge Danger list the `shortcut:` comments this change adds (run /ponytail-debt and keep only the ones in `git diff origin/<base>...HEAD`). End the body with: 🤖 Generated with Agentic Hive. Report data.pr (number) and data.url.",
+        "extraArgs": [],
+        "model": "claude-haiku-5-5",
+        "effort": "medium",
+        "timeoutSeconds": 900
+      }
+    },
+    {
+      "id": "wait_ci",
+      "type": "command",
+      "label": "Wait for CI",
+      "position": {
+        "x": 1695.0,
+        "y": 712.4999999999997
+      },
+      "config": {
+        "command": "C:/Users/Ots/fvm/default/bin/cache/dart-sdk/bin/dart.exe",
+        "args": [
+          "run",
+          "tool/hive/wait_ci.dart"
+        ],
+        "env": {},
+        "timeoutSeconds": 7500
+      }
+    },
+    {
+      "id": "investigate_ci",
+      "type": "harness.claude_code",
+      "label": "Investigate CI (Sonnet 5.5)",
+      "position": {
+        "x": 2202.4999999999995,
+        "y": 242.5
+      },
+      "config": {
+        "additionalInstructions": "The failing checks are in the stdout of node wait_ci.",
+        "extraArgs": [],
+        "agentId": "ci-investigator",
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "timeoutSeconds": 1800
+      }
+    },
+    {
+      "id": "fix_ci",
+      "type": "harness.antigravity",
+      "label": "Fix CI (Hydrogen low)",
+      "position": {
+        "x": 2085.0,
+        "y": 952.4999999999998
+      },
+      "config": {
+        "additionalInstructions": "Work in ponytail mode (ponytail skill). The plan is data.plan in the output of node investigate_ci. Commit and push to the current branch.",
+        "extraArgs": [],
+        "agentId": "ci-fixer",
+        "model": "gemini-4-hydrogen-low",
+        "effort": "low",
+        "timeoutSeconds": 3600
+      }
+    },
+    {
+      "id": "pr_ready",
+      "type": "command",
+      "label": "PR ready for review",
+      "position": {
+        "x": 1820.0,
+        "y": 0.0
+      },
+      "config": {
+        "command": "gh",
+        "args": [
+          "pr",
+          "view",
+          "--json",
+          "number,url,title",
+          "--jq",
+          "\"CI green: #\\(.number) \\(.title) \\(.url)\""
+        ],
+        "env": {},
+        "timeoutSeconds": 120
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_1",
+      "sourceNodeId": "plan",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "codegen"
+    },
+    {
+      "id": "edge_2",
+      "sourceNodeId": "codegen",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "implement"
+    },
+    {
+      "id": "edge_3",
+      "sourceNodeId": "implement",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "gate"
+    },
+    {
+      "id": "edge_4",
+      "sourceNodeId": "gate",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "review"
+    },
+    {
+      "id": "edge_5",
+      "sourceNodeId": "gate",
+      "sourceOutput": "onFailure",
+      "targetNodeId": "implement",
+      "maxRetries": 5
+    },
+    {
+      "id": "edge_6",
+      "sourceNodeId": "review",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "open_pr"
+    },
+    {
+      "id": "edge_7",
+      "sourceNodeId": "review",
+      "sourceOutput": "onFailure",
+      "targetNodeId": "implement",
+      "maxRetries": 2
+    },
+    {
+      "id": "edge_8",
+      "sourceNodeId": "open_pr",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "wait_ci"
+    },
+    {
+      "id": "edge_9",
+      "sourceNodeId": "wait_ci",
+      "sourceOutput": "onFailure",
+      "targetNodeId": "investigate_ci"
+    },
+    {
+      "id": "edge_10",
+      "sourceNodeId": "investigate_ci",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "fix_ci"
+    },
+    {
+      "id": "edge_11",
+      "sourceNodeId": "fix_ci",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "wait_ci",
+      "maxRetries": 3
+    },
+    {
+      "id": "edge_12",
+      "sourceNodeId": "wait_ci",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "pr_ready"
+    }
+  ],
+  "createdAt": "2026-11-24T19:52:45.005146Z",
+  "updatedAt": "2026-11-25T19:28:34.987894Z",
+  "description": "Implements one GitHub issue end to end: plan (Opus) → codegen → implement (Hydrogen, ponytail) → quality gate → review (Sonnet, code-review + ponytail-review) → PR → wait for CI, with an investigate/fix loop on CI failure. The plan node first stops the run if an open or merged PR already closes the issue. Run input: \"Implement issue #<n>. Base branch: <branch>.\" (the Spec Implementation fan-out sends this per ticket, with base spec/<n>). Never merges: the PR is left for the parent workflow or a human. Start it in a new worktree.",
+  "entryNodeId": "plan",
+  "schemaVersion": 1
+}

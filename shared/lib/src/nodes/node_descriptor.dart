@@ -1,5 +1,7 @@
 import 'package:agentic_hive_shared/src/json_fields.dart';
+import 'package:agentic_hive_shared/src/nodes/harness_effort.dart';
 import 'package:agentic_hive_shared/src/nodes/node_category.dart';
+import 'package:agentic_hive_shared/src/nodes/node_config_field.dart';
 import 'package:agentic_hive_shared/src/nodes/node_config_validation.dart';
 import 'package:agentic_hive_shared/src/nodes/node_configs.dart';
 
@@ -12,6 +14,8 @@ final class NodeDescriptor {
     required this.availableOutputs,
     required this.defaultConfig,
     required this.validateConfig,
+    required this.configFields,
+    this.requiredOneOf = const <String>[],
   });
 
   /// Canonical `WorkflowNode.type` string identifier.
@@ -28,6 +32,14 @@ final class NodeDescriptor {
 
   /// Validates a raw `WorkflowNode.config` map and returns field-level issues.
   final List<NodeConfigIssue> Function(JsonMap config) validateConfig;
+
+  /// Config keys this node type accepts, in display order (the single source
+  /// for tools and editors).
+  final List<NodeConfigField> configFields;
+
+  /// Field names of which at least one must be non-blank; empty when there is
+  /// no such rule.
+  final List<String> requiredOneOf;
 }
 
 /// Static catalog of all 10 canonical [NodeDescriptor]s.
@@ -37,21 +49,175 @@ abstract final class NodeDescriptors {
     NodeOutput.onFailure,
   ];
 
+  static const NodeConfigField _workingDirectory = NodeConfigField(
+    name: 'workingDirectory',
+  );
+  static const NodeConfigField _timeoutSeconds = NodeConfigField(
+    name: 'timeoutSeconds',
+    kind: NodeConfigFieldKind.integer,
+  );
+  static const NodeConfigField _model = NodeConfigField(name: 'model');
+  static const NodeConfigField _effort = NodeConfigField(
+    name: 'effort',
+    values: harnessEffortIds,
+  );
+  static const NodeConfigField _args = NodeConfigField(
+    name: 'args',
+    kind: NodeConfigFieldKind.stringList,
+  );
+
+  static const List<NodeConfigField> _claudeCodeFields = [
+    NodeConfigField(name: 'agentId'),
+    NodeConfigField(name: 'additionalInstructions'),
+    _workingDirectory,
+    _timeoutSeconds,
+    _model,
+    _effort,
+    NodeConfigField(name: 'extraArgs', kind: NodeConfigFieldKind.stringList),
+  ];
+  static const List<NodeConfigField> _codexFields = _claudeCodeFields;
+  static const List<NodeConfigField> _antigravityFields = _claudeCodeFields;
+  static const List<NodeConfigField> _geminiCliFields = [
+    NodeConfigField(name: 'agentId'),
+    NodeConfigField(name: 'additionalInstructions'),
+    _workingDirectory,
+    _timeoutSeconds,
+    _model,
+    NodeConfigField(name: 'extraArgs', kind: NodeConfigFieldKind.stringList),
+  ];
+  static const List<NodeConfigField> _terminalFields = [
+    NodeConfigField(name: 'agentId'),
+    NodeConfigField(name: 'additionalInstructions'),
+    _workingDirectory,
+    _timeoutSeconds,
+    NodeConfigField(name: 'extraArgs', kind: NodeConfigFieldKind.stringList),
+    NodeConfigField(name: 'command'),
+    _args,
+    NodeConfigField(
+      name: 'sendPromptToStdin',
+      kind: NodeConfigFieldKind.boolean,
+    ),
+  ];
+  static const List<NodeConfigField> _commandFields = [
+    NodeConfigField(name: 'command', required: true),
+    _args,
+    _workingDirectory,
+    _timeoutSeconds,
+    NodeConfigField(name: 'env', kind: NodeConfigFieldKind.stringMap),
+  ];
+  static const List<NodeConfigField> _testsValidatorFields = [
+    NodeConfigField(name: 'command', required: true),
+    _args,
+    _workingDirectory,
+    _timeoutSeconds,
+  ];
+
+  /// Names of [ChecklistRuleKind] values as serialized in JSON.
+  static const Set<String> _checklistRuleKinds = {
+    'fileExists',
+    'commandSucceeds',
+    'outputMatchesRegex',
+  };
+
+  static const List<NodeConfigField> _checklistFields = [
+    NodeConfigField(
+      name: 'rules',
+      kind: NodeConfigFieldKind.objectList,
+      required: true,
+      itemFields: [
+        NodeConfigField(name: 'label', required: true),
+        NodeConfigField(
+          name: 'kind',
+          required: true,
+          values: _checklistRuleKinds,
+        ),
+        NodeConfigField(name: 'path'),
+        NodeConfigField(name: 'command'),
+        NodeConfigField(name: 'workingDirectory'),
+        NodeConfigField(name: 'pattern'),
+      ],
+    ),
+  ];
+  static const List<NodeConfigField> _reviewFields = [
+    NodeConfigField(
+      name: 'harnessType',
+      required: true,
+      values: headlessHarnessTypeIds,
+    ),
+    NodeConfigField(name: 'agentId'),
+    NodeConfigField(name: 'reviewCriteria'),
+    _timeoutSeconds,
+  ];
+  static const List<NodeConfigField> _humanApprovalFields = [
+    NodeConfigField(name: 'instructions', required: true),
+    NodeConfigField(name: 'title'),
+    NodeConfigField(name: 'allowFeedback', kind: NodeConfigFieldKind.boolean),
+    NodeConfigField(name: 'proposalNodeId'),
+    NodeConfigField(name: 'proposalPath'),
+    NodeConfigField(name: 'proposalSchema'),
+  ];
+
   static JsonMap _defaultHarnessConfig() =>
       const HarnessNodeConfig(additionalInstructions: '').toJson();
 
-  static List<NodeConfigIssue> _validateHarnessConfig(JsonMap raw) =>
-      validateTypedConfig(raw, HarnessNodeConfig.fromJson, (c) => c.validate());
+  static List<NodeConfigIssue> _validateHarnessConfigFor(
+    JsonMap raw,
+    String typeId,
+    List<NodeConfigField> fields,
+  ) {
+    final issues = validateTypedConfig(
+      raw,
+      HarnessNodeConfig.fromJson,
+      (c) => c.validate(),
+    );
+    if (issues.any((i) => i.field == 'config')) {
+      return issues;
+    }
+    validateUndeclaredHarnessFields(
+      raw,
+      typeId: typeId,
+      declaredFieldNames: {for (final f in fields) f.name},
+      issues: issues,
+    );
+    return issues;
+  }
+
+  static List<NodeConfigIssue> _validateClaudeCodeConfig(JsonMap raw) =>
+      _validateHarnessConfigFor(raw, NodeTypeId.claudeCode, _claudeCodeFields);
+
+  static List<NodeConfigIssue> _validateCodexConfig(JsonMap raw) =>
+      _validateHarnessConfigFor(raw, NodeTypeId.codex, _codexFields);
+
+  static List<NodeConfigIssue> _validateGeminiCliConfig(JsonMap raw) =>
+      _validateHarnessConfigFor(raw, NodeTypeId.geminiCli, _geminiCliFields);
+
+  static List<NodeConfigIssue> _validateAntigravityConfig(JsonMap raw) =>
+      _validateHarnessConfigFor(
+        raw,
+        NodeTypeId.antigravity,
+        _antigravityFields,
+      );
 
   static JsonMap _defaultTerminalConfig() =>
       const TerminalHarnessNodeConfig(command: '').toJson();
 
-  static List<NodeConfigIssue> _validateTerminalConfig(JsonMap raw) =>
-      validateTypedConfig(
-        raw,
-        TerminalHarnessNodeConfig.fromJson,
-        (c) => c.validate(),
-      );
+  static List<NodeConfigIssue> _validateTerminalConfig(JsonMap raw) {
+    final issues = validateTypedConfig(
+      raw,
+      TerminalHarnessNodeConfig.fromJson,
+      (c) => c.validate(),
+    );
+    if (issues.any((i) => i.field == 'config')) {
+      return issues;
+    }
+    validateUndeclaredHarnessFields(
+      raw,
+      typeId: NodeTypeId.terminal,
+      declaredFieldNames: {for (final f in _terminalFields) f.name},
+      issues: issues,
+    );
+    return issues;
+  }
 
   static JsonMap _defaultCommandConfig() =>
       const CommandNodeConfig(command: '').toJson();
@@ -102,13 +268,35 @@ abstract final class NodeDescriptors {
         (c) => c.validate(),
       );
 
+  static const List<NodeConfigField> _fanOutFields = [
+    NodeConfigField(name: 'workflowId', required: true),
+    NodeConfigField(name: 'itemsNodeId', required: true),
+    NodeConfigField(name: 'itemsPath', required: true),
+    NodeConfigField(name: 'inputField'),
+    NodeConfigField(name: 'overridesField'),
+    NodeConfigField(name: 'nameField'),
+    NodeConfigField(name: 'concurrency', kind: NodeConfigFieldKind.integer),
+    NodeConfigField(name: 'maxItems', kind: NodeConfigFieldKind.integer),
+  ];
+
+  static JsonMap _defaultFanOutConfig() => const FanOutNodeConfig(
+    workflowId: '',
+    itemsNodeId: '',
+    itemsPath: '',
+  ).toJson();
+
+  static List<NodeConfigIssue> _validateFanOutConfig(JsonMap raw) =>
+      validateTypedConfig(raw, FanOutNodeConfig.fromJson, (c) => c.validate());
+
   /// Descriptor for `harness.claude_code`.
   static const NodeDescriptor claudeCode = NodeDescriptor(
     typeId: NodeTypeId.claudeCode,
     category: NodeCategory.harnesses,
     availableOutputs: _standardOutputs,
     defaultConfig: _defaultHarnessConfig,
-    validateConfig: _validateHarnessConfig,
+    validateConfig: _validateClaudeCodeConfig,
+    configFields: _claudeCodeFields,
+    requiredOneOf: ['agentId', 'additionalInstructions'],
   );
 
   /// Descriptor for `harness.codex`.
@@ -117,7 +305,9 @@ abstract final class NodeDescriptors {
     category: NodeCategory.harnesses,
     availableOutputs: _standardOutputs,
     defaultConfig: _defaultHarnessConfig,
-    validateConfig: _validateHarnessConfig,
+    validateConfig: _validateCodexConfig,
+    configFields: _codexFields,
+    requiredOneOf: ['agentId', 'additionalInstructions'],
   );
 
   /// Descriptor for `harness.gemini_cli`.
@@ -126,7 +316,9 @@ abstract final class NodeDescriptors {
     category: NodeCategory.harnesses,
     availableOutputs: _standardOutputs,
     defaultConfig: _defaultHarnessConfig,
-    validateConfig: _validateHarnessConfig,
+    validateConfig: _validateGeminiCliConfig,
+    configFields: _geminiCliFields,
+    requiredOneOf: ['agentId', 'additionalInstructions'],
   );
 
   /// Descriptor for `harness.antigravity`.
@@ -135,7 +327,9 @@ abstract final class NodeDescriptors {
     category: NodeCategory.harnesses,
     availableOutputs: _standardOutputs,
     defaultConfig: _defaultHarnessConfig,
-    validateConfig: _validateHarnessConfig,
+    validateConfig: _validateAntigravityConfig,
+    configFields: _antigravityFields,
+    requiredOneOf: ['agentId', 'additionalInstructions'],
   );
 
   /// Descriptor for `harness.terminal`.
@@ -145,6 +339,8 @@ abstract final class NodeDescriptors {
     availableOutputs: _standardOutputs,
     defaultConfig: _defaultTerminalConfig,
     validateConfig: _validateTerminalConfig,
+    configFields: _terminalFields,
+    requiredOneOf: ['agentId', 'additionalInstructions', 'command'],
   );
 
   /// Descriptor for `command`.
@@ -154,6 +350,7 @@ abstract final class NodeDescriptors {
     availableOutputs: _standardOutputs,
     defaultConfig: _defaultCommandConfig,
     validateConfig: _validateCommandConfig,
+    configFields: _commandFields,
   );
 
   /// Descriptor for `validator.tests`.
@@ -163,6 +360,7 @@ abstract final class NodeDescriptors {
     availableOutputs: _standardOutputs,
     defaultConfig: _defaultTestsValidatorConfig,
     validateConfig: _validateTestsValidatorConfig,
+    configFields: _testsValidatorFields,
   );
 
   /// Descriptor for `validator.checklist`.
@@ -172,6 +370,7 @@ abstract final class NodeDescriptors {
     availableOutputs: _standardOutputs,
     defaultConfig: _defaultChecklistValidatorConfig,
     validateConfig: _validateChecklistValidatorConfig,
+    configFields: _checklistFields,
   );
 
   /// Descriptor for `validator.review`.
@@ -181,6 +380,8 @@ abstract final class NodeDescriptors {
     availableOutputs: [NodeOutput.approved, NodeOutput.changesRequested],
     defaultConfig: _defaultReviewValidatorConfig,
     validateConfig: _validateReviewValidatorConfig,
+    configFields: _reviewFields,
+    requiredOneOf: ['agentId', 'reviewCriteria'],
   );
 
   /// Descriptor for `human_approval`.
@@ -190,9 +391,20 @@ abstract final class NodeDescriptors {
     availableOutputs: [NodeOutput.approved, NodeOutput.rejected],
     defaultConfig: _defaultHumanApprovalConfig,
     validateConfig: _validateHumanApprovalConfig,
+    configFields: _humanApprovalFields,
   );
 
-  /// All 10 canonical node descriptors.
+  /// Descriptor for `fan_out`.
+  static const NodeDescriptor fanOut = NodeDescriptor(
+    typeId: NodeTypeId.fanOut,
+    category: NodeCategory.execution,
+    availableOutputs: _standardOutputs,
+    defaultConfig: _defaultFanOutConfig,
+    validateConfig: _validateFanOutConfig,
+    configFields: _fanOutFields,
+  );
+
+  /// All 11 canonical node descriptors.
   static const List<NodeDescriptor> all = [
     claudeCode,
     codex,
@@ -204,6 +416,7 @@ abstract final class NodeDescriptors {
     checklistValidator,
     reviewValidator,
     humanApproval,
+    fanOut,
   ];
 
   /// Lookup map keyed by [NodeDescriptor.typeId].

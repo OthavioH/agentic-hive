@@ -5,10 +5,31 @@ import 'package:test/test.dart';
 
 JsonMap _overTheWire(JsonMap json) => jsonDecode(jsonEncode(json)) as JsonMap;
 
+Object? _sampleValue(NodeConfigField field) => switch (field.kind) {
+  NodeConfigFieldKind.string =>
+    field.name == 'proposalSchema'
+        ? '{"type":"object"}'
+        : field.values.isEmpty
+        ? 'x'
+        : field.values.first,
+  NodeConfigFieldKind.integer => 1,
+  NodeConfigFieldKind.boolean => true,
+  NodeConfigFieldKind.stringList => ['x'],
+  NodeConfigFieldKind.stringMap => {'k': 'v'},
+  NodeConfigFieldKind.objectList => [_sample(field.itemFields)],
+};
+
+JsonMap _sample(List<NodeConfigField> fields) => {
+  for (final field in fields) field.name: _sampleValue(field),
+};
+
+NodeConfigField _field(NodeDescriptor descriptor, String name) =>
+    descriptor.configFields.singleWhere((f) => f.name == name);
+
 void main() {
   group('NodeDescriptors catalog', () {
-    test('contains all 10 canonical node types across 4 categories', () {
-      expect(NodeDescriptors.all, hasLength(10));
+    test('contains all 11 canonical node types across 4 categories', () {
+      expect(NodeDescriptors.all, hasLength(11));
       expect(
         NodeDescriptors.byTypeId.keys,
         unorderedEquals([
@@ -22,6 +43,7 @@ void main() {
           NodeTypeId.checklistValidator,
           NodeTypeId.reviewValidator,
           NodeTypeId.humanApproval,
+          NodeTypeId.fanOut,
         ]),
       );
 
@@ -35,7 +57,7 @@ void main() {
         NodeDescriptors.all
             .where((d) => d.category == NodeCategory.execution)
             .length,
-        1,
+        2,
       );
       expect(
         NodeDescriptors.all
@@ -104,6 +126,50 @@ void main() {
         ).validate().map((i) => i.field),
         contains('workingDirectory'),
       );
+    });
+
+    test('HarnessNodeConfig model and effort round-trip and validate', () {
+      const config = HarnessNodeConfig(
+        additionalInstructions: 'x',
+        model: 'opus',
+        effort: 'high',
+      );
+      final json = config.toJson();
+      final decoded = HarnessNodeConfig.fromJson(_overTheWire(json));
+      expect(decoded, config);
+      expect(decoded.validate(), isEmpty);
+
+      final defaultJson = const HarnessNodeConfig(additionalInstructions: 'x')
+          .toJson();
+      expect(defaultJson.containsKey('model'), isFalse);
+      expect(defaultJson.containsKey('effort'), isFalse);
+
+      expect(
+        const HarnessNodeConfig(
+          additionalInstructions: 'x',
+          effort: 'turbo',
+        ).validate().map((i) => i.field),
+        contains('effort'),
+      );
+      expect(
+        const HarnessNodeConfig(
+          additionalInstructions: 'x',
+          model: '  ',
+          effort: '',
+        ).validate(),
+        isEmpty,
+      );
+      expect(
+        const HarnessNodeConfig(
+          additionalInstructions: 'x',
+          model: '--dangerously-skip-permissions',
+        ).validate().map((i) => i.field),
+        contains('model'),
+      );
+    });
+
+    test('T-S6 harnessEffortIds mirrors HarnessEffort', () {
+      expect(harnessEffortIds, HarnessEffort.values.map((e) => e.name).toSet());
     });
 
     test('TerminalHarnessNodeConfig round-trips and validates', () {
@@ -265,6 +331,508 @@ void main() {
         const HumanApprovalNodeConfig(instructions: '   ').validate(),
         isNotEmpty,
       );
+    });
+
+    test('HumanApprovalNodeConfig round-trips proposal keys', () {
+      const config = HumanApprovalNodeConfig(
+        instructions: 'Review the plan.',
+        proposalNodeId: 'planner',
+        proposalPath: 'issues',
+        proposalSchema: '{"type":"array"}',
+      );
+      final decoded = HumanApprovalNodeConfig.fromJson(
+        _overTheWire(config.toJson()),
+      );
+      expect(decoded, config);
+      expect(decoded.validate(), isEmpty);
+
+      final defaultJson = NodeDescriptors.humanApproval.defaultConfig();
+      expect(defaultJson.containsKey('proposalNodeId'), isFalse);
+      expect(defaultJson.containsKey('proposalPath'), isFalse);
+      expect(defaultJson.containsKey('proposalSchema'), isFalse);
+    });
+
+    test(
+      'HumanApprovalNodeConfig validates proposalNodeId and proposalPath',
+      () {
+        final missingPath = const HumanApprovalNodeConfig(
+          instructions: 'Review.',
+          proposalNodeId: 'planner',
+        ).validate();
+        expect(missingPath.map((i) => i.field), contains('proposalPath'));
+
+        final missingNode = const HumanApprovalNodeConfig(
+          instructions: 'Review.',
+          proposalPath: 'issues',
+        ).validate();
+        expect(missingNode.map((i) => i.field), contains('proposalNodeId'));
+
+        final bothBlank = const HumanApprovalNodeConfig(
+          instructions: 'Review.',
+          proposalNodeId: '   ',
+          proposalPath: '',
+        ).validate();
+        expect(bothBlank, isEmpty);
+      },
+    );
+
+    test('HumanApprovalNodeConfig proposalSchema requires proposalNodeId', () {
+      final issues = const HumanApprovalNodeConfig(
+        instructions: 'Review.',
+        proposalSchema: '{"type":"object"}',
+      ).validate();
+      expect(issues.map((i) => i.field), contains('proposalSchema'));
+    });
+
+    test(
+      'HumanApprovalNodeConfig validates proposalSchema JSON Schema syntax',
+      () {
+        final invalid = const HumanApprovalNodeConfig(
+          instructions: 'Review.',
+          proposalNodeId: 'planner',
+          proposalPath: 'issues',
+          proposalSchema: '{bad',
+        ).validate();
+        expect(invalid.map((i) => i.field), contains('proposalSchema'));
+
+        final valid = const HumanApprovalNodeConfig(
+          instructions: 'Review.',
+          proposalNodeId: 'planner',
+          proposalPath: 'issues',
+          proposalSchema: '{"type":"array"}',
+        ).validate();
+        expect(valid, isEmpty);
+      },
+    );
+
+    test('HumanApprovalNodeConfig validates proposalPath dot segments', () {
+      for (final bad in ['a..b', '.a', 'a.']) {
+        final issues = HumanApprovalNodeConfig(
+          instructions: 'Review.',
+          proposalNodeId: 'planner',
+          proposalPath: bad,
+        ).validate();
+        expect(
+          issues.map((i) => i.field),
+          contains('proposalPath'),
+          reason: 'Expected issue for $bad',
+        );
+      }
+
+      for (final good in ['issues', 'plan.items.0']) {
+        final issues = HumanApprovalNodeConfig(
+          instructions: 'Review.',
+          proposalNodeId: 'planner',
+          proposalPath: good,
+        ).validate();
+        expect(issues, isEmpty, reason: 'Expected no issue for $good');
+      }
+    });
+  });
+
+  group('Config fields', () {
+    // Typed config round-trip per canonical type (drift guard).
+    final typedRoundTrip = <String, JsonMap Function(JsonMap)>{
+      NodeTypeId.claudeCode: (json) =>
+          HarnessNodeConfig.fromJson(json).toJson(),
+      NodeTypeId.codex: (json) => HarnessNodeConfig.fromJson(json).toJson(),
+      NodeTypeId.geminiCli: (json) => HarnessNodeConfig.fromJson(json).toJson(),
+      NodeTypeId.antigravity: (json) =>
+          HarnessNodeConfig.fromJson(json).toJson(),
+      NodeTypeId.terminal: (json) =>
+          TerminalHarnessNodeConfig.fromJson(json).toJson(),
+      NodeTypeId.command: (json) => CommandNodeConfig.fromJson(json).toJson(),
+      NodeTypeId.testsValidator: (json) =>
+          TestsValidatorNodeConfig.fromJson(json).toJson(),
+      NodeTypeId.checklistValidator: (json) =>
+          ChecklistValidatorNodeConfig.fromJson(json).toJson(),
+      NodeTypeId.reviewValidator: (json) =>
+          ReviewValidatorNodeConfig.fromJson(json).toJson(),
+      NodeTypeId.humanApproval: (json) =>
+          HumanApprovalNodeConfig.fromJson(json).toJson(),
+      NodeTypeId.fanOut: (json) => FanOutNodeConfig.fromJson(json).toJson(),
+    };
+
+    test('T-S1 every descriptor declares config fields', () {
+      for (final descriptor in NodeDescriptors.all) {
+        expect(descriptor.configFields, isNotEmpty, reason: descriptor.typeId);
+      }
+    });
+
+    test('T-S2 declared fields match the typed config class', () {
+      for (final descriptor in NodeDescriptors.all) {
+        final sampleJson = _sample(descriptor.configFields);
+        final roundTrip = typedRoundTrip[descriptor.typeId]!(
+          _overTheWire(sampleJson),
+        );
+        expect(
+          roundTrip.keys.toSet(),
+          descriptor.configFields.map((f) => f.name).toSet(),
+          reason: descriptor.typeId,
+        );
+        if (descriptor.typeId == NodeTypeId.checklistValidator) {
+          final rules = roundTrip['rules']! as List<Object?>;
+          final firstRule = rules.first! as JsonMap;
+          expect(
+            firstRule.keys.toSet(),
+            _field(descriptor, 'rules').itemFields.map((f) => f.name).toSet(),
+          );
+        }
+        expect(
+          descriptor.validateConfig(sampleJson),
+          isEmpty,
+          reason: descriptor.typeId,
+        );
+      }
+    });
+
+    test('T-S3 required flags match the freezed required parameters', () {
+      expect(
+        NodeDescriptors.claudeCode.configFields
+            .where((f) => f.required)
+            .map((f) => f.name),
+        isEmpty,
+      );
+      expect(
+        NodeDescriptors.terminal.configFields
+            .where((f) => f.required)
+            .map((f) => f.name),
+        isEmpty,
+      );
+      expect(
+        NodeDescriptors.command.configFields
+            .where((f) => f.required)
+            .map((f) => f.name),
+        ['command'],
+      );
+      expect(
+        NodeDescriptors.testsValidator.configFields
+            .where((f) => f.required)
+            .map((f) => f.name),
+        ['command'],
+      );
+      final checklist = _field(NodeDescriptors.checklistValidator, 'rules');
+      expect(
+        NodeDescriptors.checklistValidator.configFields
+            .where((f) => f.required)
+            .map((f) => f.name),
+        ['rules'],
+      );
+      expect(checklist.itemFields.where((f) => f.required).map((f) => f.name), [
+        'label',
+        'kind',
+      ]);
+      expect(
+        NodeDescriptors.reviewValidator.configFields
+            .where((f) => f.required)
+            .map((f) => f.name),
+        ['harnessType'],
+      );
+      expect(
+        NodeDescriptors.humanApproval.configFields
+            .where((f) => f.required)
+            .map((f) => f.name),
+        ['instructions'],
+      );
+      expect(NodeDescriptors.humanApproval.configFields.map((f) => f.name), [
+        'instructions',
+        'title',
+        'allowFeedback',
+        'proposalNodeId',
+        'proposalPath',
+        'proposalSchema',
+      ]);
+    });
+
+    test('T-S4 closed values come from the shared constants', () {
+      expect(
+        _field(NodeDescriptors.reviewValidator, 'harnessType').values,
+        headlessHarnessTypeIds,
+      );
+      final kind = _field(
+        NodeDescriptors.checklistValidator,
+        'rules',
+      ).itemFields.singleWhere((f) => f.name == 'kind');
+      expect(kind.values, ChecklistRuleKind.values.map((k) => k.name).toSet());
+    });
+
+    test('T-S5 requiredOneOf mirrors validate()', () {
+      expect(NodeDescriptors.claudeCode.requiredOneOf, [
+        'agentId',
+        'additionalInstructions',
+      ]);
+      expect(NodeDescriptors.terminal.requiredOneOf, [
+        'agentId',
+        'additionalInstructions',
+        'command',
+      ]);
+      expect(NodeDescriptors.reviewValidator.requiredOneOf, [
+        'agentId',
+        'reviewCriteria',
+      ]);
+      expect(NodeDescriptors.command.requiredOneOf, isEmpty);
+      expect(NodeDescriptors.testsValidator.requiredOneOf, isEmpty);
+      expect(NodeDescriptors.checklistValidator.requiredOneOf, isEmpty);
+      expect(NodeDescriptors.humanApproval.requiredOneOf, isEmpty);
+    });
+
+    test('T-S7 harness descriptors declare model and effort per support', () {
+      for (final descriptor in [
+        NodeDescriptors.claudeCode,
+        NodeDescriptors.codex,
+        NodeDescriptors.antigravity,
+      ]) {
+        expect(_field(descriptor, 'model').values, isEmpty);
+        expect(_field(descriptor, 'effort').values, harnessEffortIds);
+        expect(descriptor.configFields.map((f) => f.name).toList(), [
+          'agentId',
+          'additionalInstructions',
+          'workingDirectory',
+          'timeoutSeconds',
+          'model',
+          'effort',
+          'extraArgs',
+        ]);
+      }
+
+      expect(
+        NodeDescriptors.geminiCli.configFields.map((f) => f.name).toList(),
+        [
+          'agentId',
+          'additionalInstructions',
+          'workingDirectory',
+          'timeoutSeconds',
+          'model',
+          'extraArgs',
+        ],
+      );
+
+      final terminalFieldNames = NodeDescriptors.terminal.configFields
+          .map((f) => f.name)
+          .toSet();
+      expect(terminalFieldNames.contains('model'), isFalse);
+      expect(terminalFieldNames.contains('effort'), isFalse);
+    });
+
+    test('T-S8 unsupported fields are refused', () {
+      final geminiIssues = NodeDescriptors.geminiCli.validateConfig(const {
+        'additionalInstructions': 'x',
+        'effort': 'high',
+      });
+      expect(geminiIssues, hasLength(1));
+      expect(geminiIssues.first.field, 'effort');
+      expect(
+        geminiIssues.first.message,
+        'harness.gemini_cli does not support choosing an effort.',
+      );
+
+      final terminalIssues = NodeDescriptors.terminal.validateConfig(const {
+        'command': 'x',
+        'model': 'opus',
+      });
+      expect(terminalIssues, hasLength(1));
+      expect(terminalIssues.first.field, 'model');
+      expect(
+        terminalIssues.first.message,
+        'harness.terminal does not support choosing a model.',
+      );
+
+      expect(
+        NodeDescriptors.geminiCli.validateConfig(const {
+          'additionalInstructions': 'x',
+          'effort': '',
+        }),
+        isEmpty,
+      );
+      expect(
+        NodeDescriptors.claudeCode.validateConfig(const {
+          'additionalInstructions': 'x',
+          'model': 'opus',
+          'effort': 'max',
+        }),
+        isEmpty,
+      );
+    });
+
+    test('T-S3 fan_out declares required and optional fields', () {
+      expect(
+        NodeDescriptors.fanOut.configFields
+            .where((f) => f.required)
+            .map((f) => f.name)
+            .toList(),
+        ['workflowId', 'itemsNodeId', 'itemsPath'],
+      );
+      expect(NodeDescriptors.fanOut.configFields.map((f) => f.name).toList(), [
+        'workflowId',
+        'itemsNodeId',
+        'itemsPath',
+        'inputField',
+        'overridesField',
+        'nameField',
+        'concurrency',
+        'maxItems',
+      ]);
+    });
+  });
+
+  group('FanOutNodeConfig', () {
+    const base = FanOutNodeConfig(
+      workflowId: 'child',
+      itemsNodeId: 'planner',
+      itemsPath: 'issues',
+    );
+
+    test('valid config has no issues and defaults are 2 and 20', () {
+      expect(base.validate(), isEmpty);
+      expect(base.concurrency, fanOutDefaultConcurrency);
+      expect(base.concurrency, 2);
+      expect(base.maxItems, 20);
+    });
+
+    test('blank required fields are refused', () {
+      expect(
+        const FanOutNodeConfig(
+          workflowId: '  ',
+          itemsNodeId: 'planner',
+          itemsPath: 'issues',
+        ).validate().map((i) => i.field),
+        contains('workflowId'),
+      );
+      expect(
+        const FanOutNodeConfig(
+          workflowId: 'child',
+          itemsNodeId: '  ',
+          itemsPath: 'issues',
+        ).validate().map((i) => i.field),
+        contains('itemsNodeId'),
+      );
+      expect(
+        const FanOutNodeConfig(
+          workflowId: 'child',
+          itemsNodeId: 'planner',
+          itemsPath: '  ',
+        ).validate().map((i) => i.field),
+        contains('itemsPath'),
+      );
+    });
+
+    test('dot paths are validated', () {
+      for (final bad in ['a..b', '.a', 'a.']) {
+        expect(
+          FanOutNodeConfig(
+            workflowId: 'child',
+            itemsNodeId: 'planner',
+            itemsPath: bad,
+          ).validate().map((i) => i.field),
+          contains('itemsPath'),
+        );
+        expect(
+          FanOutNodeConfig(
+            workflowId: 'child',
+            itemsNodeId: 'planner',
+            itemsPath: 'issues',
+            inputField: bad,
+          ).validate().map((i) => i.field),
+          contains('inputField'),
+        );
+        expect(
+          FanOutNodeConfig(
+            workflowId: 'child',
+            itemsNodeId: 'planner',
+            itemsPath: 'issues',
+            overridesField: bad,
+          ).validate().map((i) => i.field),
+          contains('overridesField'),
+        );
+        expect(
+          FanOutNodeConfig(
+            workflowId: 'child',
+            itemsNodeId: 'planner',
+            itemsPath: 'issues',
+            nameField: bad,
+          ).validate().map((i) => i.field),
+          contains('nameField'),
+        );
+      }
+
+      expect(
+        const FanOutNodeConfig(
+          workflowId: 'child',
+          itemsNodeId: 'planner',
+          itemsPath: 'plan.items.0',
+          inputField: 'title',
+          overridesField: '  ',
+          nameField: '  ',
+        ).validate(),
+        isEmpty,
+      );
+    });
+
+    test('concurrency and maxItems must be positive', () {
+      for (final bad in [0, -1]) {
+        expect(
+          FanOutNodeConfig(
+            workflowId: 'child',
+            itemsNodeId: 'planner',
+            itemsPath: 'issues',
+            concurrency: bad,
+          ).validate().map((i) => i.field),
+          contains('concurrency'),
+        );
+        expect(
+          FanOutNodeConfig(
+            workflowId: 'child',
+            itemsNodeId: 'planner',
+            itemsPath: 'issues',
+            maxItems: bad,
+          ).validate().map((i) => i.field),
+          contains('maxItems'),
+        );
+      }
+    });
+
+    test('optional fields are omitted from JSON when null', () {
+      final json = base.toJson();
+      expect(json.containsKey('inputField'), isFalse);
+      expect(json.containsKey('overridesField'), isFalse);
+      expect(json.containsKey('nameField'), isFalse);
+      expect(json['concurrency'], 2);
+      expect(json['maxItems'], 20);
+      expect(FanOutNodeConfig.fromJson(_overTheWire(json)), base);
+    });
+
+    test('defaultConfig is a blank draft with defaults', () {
+      final defaults = NodeDescriptors.fanOut.defaultConfig();
+      expect(defaults, {
+        'workflowId': '',
+        'itemsNodeId': '',
+        'itemsPath': '',
+        'concurrency': 2,
+        'maxItems': 20,
+      });
+      expect(
+        NodeDescriptors.fanOut.validateConfig(defaults).map((i) => i.field),
+        containsAll(['workflowId', 'itemsNodeId', 'itemsPath']),
+      );
+    });
+
+    test('outputs and category', () {
+      expect(NodeDescriptors.fanOut.availableOutputs, [
+        NodeOutput.onSuccess,
+        NodeOutput.onFailure,
+      ]);
+      expect(NodeDescriptors.fanOut.category, NodeCategory.execution);
+      expect(NodeDescriptors.of('fan_out'), same(NodeDescriptors.fanOut));
+    });
+
+    test('a malformed config is a config issue', () {
+      final issues = NodeDescriptors.fanOut.validateConfig(const {
+        'workflowId': 1,
+        'itemsNodeId': 'planner',
+        'itemsPath': 'issues',
+      });
+      expect(issues, hasLength(1));
+      expect(issues.first.field, 'config');
     });
   });
 }

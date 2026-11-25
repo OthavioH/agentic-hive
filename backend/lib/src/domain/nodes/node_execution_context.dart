@@ -3,6 +3,18 @@ import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 /// Callback receiving streamed stdout/stderr lines from a running node.
 typedef NodeOutputCallback = void Function(String stream, String line);
 
+/// A stored Run attachment as a node sees it (ADR 0030).
+final class RunAttachmentFile {
+  /// Creates a stored Run attachment reference.
+  const new({required this.path, required this.fileName});
+
+  /// Absolute path of the stored file.
+  final String path;
+
+  /// Display name the user gave the file.
+  final String fileName;
+}
+
 /// Execution inputs passed to `Node.execute`.
 final class NodeExecutionContext {
   /// Creates a node execution context.
@@ -10,6 +22,9 @@ final class NodeExecutionContext {
     required this.runId,
     required this.nodeId,
     required this.workspacePath,
+    this.nodeLabel,
+    this.workspaceRoot,
+    this.workspaceId,
     this.attempt = 1,
     this.availableOutputs = const <String>[
       NodeOutput.onSuccess,
@@ -21,6 +36,7 @@ final class NodeExecutionContext {
     this.resultJsonPath,
     this.humanAnswer,
     this.runInput,
+    this.runAttachments = const <RunAttachmentFile>[],
     this.onOutput,
   });
 
@@ -30,8 +46,20 @@ final class NodeExecutionContext {
   /// Identifier of the node being executed.
   final String nodeId;
 
+  /// Display label of the node being executed.
+  final String? nodeLabel;
+
   /// Absolute path to the run's workspace directory.
   final String workspacePath;
+
+  /// Root folder of the registered workspace the run belongs to, which can
+  /// differ from [workspacePath] under worktree isolation. Used to find
+  /// workspace-scoped agents (ADR 0025).
+  final String? workspaceRoot;
+
+  /// Identifier of the registered workspace the run belongs to. Used to
+  /// resolve the workspace's effective execution settings (ADR 0025).
+  final String? workspaceId;
 
   /// 1-based attempt number for this node execution.
   final int attempt;
@@ -57,6 +85,9 @@ final class NodeExecutionContext {
 
   /// Optional free-text run input passed only to the workflow's entry node.
   final String? runInput;
+
+  /// Stored Run attachments of the run, all in one folder; empty when none.
+  final List<RunAttachmentFile> runAttachments;
 
   /// Optional callback for streamed output lines.
   final NodeOutputCallback? onOutput;

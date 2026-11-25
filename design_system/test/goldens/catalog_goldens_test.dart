@@ -71,6 +71,138 @@ void main() {
         );
       });
 
+      testWidgets('HiveSideRail section collapsed', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_side_rail_section_collapsed',
+          SizedBox(
+            height: 440,
+            child: HiveSideRail(
+              destinations: const <HiveRailDestination>[
+                HiveRailDestination(
+                  icon: HiveIcons.overview,
+                  label: 'Overview',
+                ),
+                HiveRailDestination(
+                  icon: HiveIcons.workflows,
+                  label: 'Workflows',
+                ),
+              ],
+              selectedIndex: 0,
+              onSelected: (_) {},
+              markLabel: 'Agentic Hive',
+              expandLabel: 'Expand',
+              collapseLabel: 'Collapse',
+              section: const HiveRailSection(
+                icon: HiveIcons.folder,
+                label: 'Workspaces',
+                title: 'Workspaces',
+                badgeCount: 2,
+                semanticLabel: 'Workspaces, 2 active runs',
+                child: SizedBox.shrink(),
+              ),
+            ),
+          ),
+          size: const Size(320, 480),
+        );
+      });
+
+      testWidgets('HiveSideRail section expanded', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_side_rail_section_expanded',
+          SizedBox(
+            height: 440,
+            child: HiveSideRail(
+              destinations: const <HiveRailDestination>[
+                HiveRailDestination(
+                  icon: HiveIcons.overview,
+                  label: 'Overview',
+                ),
+                HiveRailDestination(
+                  icon: HiveIcons.workflows,
+                  label: 'Workflows',
+                ),
+              ],
+              selectedIndex: 0,
+              onSelected: (_) {},
+              initiallyExpanded: true,
+              markLabel: 'Agentic Hive',
+              expandLabel: 'Expand',
+              collapseLabel: 'Collapse',
+              section: const HiveRailSection(
+                icon: HiveIcons.folder,
+                label: 'Workspaces',
+                title: 'Workspaces',
+                badgeCount: 2,
+                semanticLabel: 'Workspaces, 2 active runs',
+                child: SizedBox.shrink(),
+              ),
+            ),
+          ),
+          size: const Size(360, 480),
+        );
+      });
+
+      testWidgets('HiveSideRail section pinned', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_side_rail_section_pinned',
+          SizedBox(
+            height: 440,
+            child: HiveSideRail(
+              destinations: const <HiveRailDestination>[
+                HiveRailDestination(
+                  icon: HiveIcons.overview,
+                  label: 'Overview',
+                ),
+                HiveRailDestination(
+                  icon: HiveIcons.workflows,
+                  label: 'Workflows',
+                ),
+              ],
+              selectedIndex: 0,
+              onSelected: (_) {},
+              markLabel: 'Agentic Hive',
+              expandLabel: 'Expand',
+              collapseLabel: 'Collapse',
+              section: HiveRailSection(
+                icon: HiveIcons.folder,
+                label: 'Workspaces',
+                title: 'Workspaces',
+                badgeCount: 2,
+                semanticLabel: 'Workspaces, 2 active runs',
+                pinned: true,
+                onPinnedChanged: (_) {},
+                trailing: HiveIconButton(
+                  icon: HiveIcons.refresh,
+                  semanticLabel: 'Refresh workspaces',
+                  size: HiveButtonSize.small,
+                  onPressed: () {},
+                ),
+                child: ListView(
+                  children: <Widget>[
+                    HiveTreeItem(
+                      label: 'agentic-hive',
+                      leading: const HiveIcon(HiveIcons.folder),
+                      expanded: true,
+                      onPressed: () {},
+                    ),
+                    HiveTreeItem(
+                      label: 'main',
+                      indentLevel: 1,
+                      leading: const HiveIcon(HiveIcons.branch),
+                      onPressed: () {},
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          size: const Size(520, 480),
+        );
+      });
+
       testWidgets('HiveRailItem', (tester) async {
         await pumpAndMatch(
           tester,
@@ -180,6 +312,87 @@ void main() {
           tester,
           'hive_badge',
           const HiveBadge(label: 'Running', tone: HiveBadgeTone.success),
+        );
+      });
+
+      testWidgets('HiveInsetPanel', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_inset_panel',
+          SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: 16,
+              children: <Widget>[
+                HiveInsetPanel(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: <Widget>[
+                      const HiveBadge(label: 'Not installed'),
+                      HiveButton(
+                        label: 'Install',
+                        size: HiveButtonSize.small,
+                        variant: HiveButtonVariant.secondary,
+                        onPressed: () {},
+                      ),
+                    ],
+                  ),
+                ),
+                const HiveInsetPanel(
+                  padding: HiveInsetPadding.comfortable,
+                  child: Text(
+                    'Run claude login in a terminal before using this harness.',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          size: const Size(480, 260),
+        );
+      });
+
+      testWidgets('HiveBanner compact', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_banner_compact',
+          SizedBox(
+            width: 400,
+            child: HiveBanner(
+              tone: HiveFeedbackTone.danger,
+              density: HiveBannerDensity.compact,
+              title: 'Could not install skill',
+              message: 'Permission denied writing to ~/.claude/skills.',
+              actions: <Widget>[
+                HiveButton(
+                  label: 'Retry',
+                  size: HiveButtonSize.small,
+                  variant: HiveButtonVariant.secondary,
+                  onPressed: () {},
+                ),
+              ],
+            ),
+          ),
+          size: const Size(480, 220),
+        );
+      });
+
+      testWidgets('HiveSwitch with helper', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_switch_helper',
+          SizedBox(
+            width: 400,
+            child: HiveSwitch(
+              label: 'Install the skill automatically',
+              helperText:
+                  'Installs the agentic-hive skill when a new harness is '
+                  'found.',
+              value: true,
+              onChanged: (_) {},
+            ),
+          ),
         );
       });
 

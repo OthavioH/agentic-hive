@@ -28,7 +28,24 @@ sealed class Pause with _$Pause {
     String? decision,
     String? feedback,
     String? answer,
+
+    /// Original JSON proposal value read from the source node.
+    Object? proposal,
+
+    /// Optional JSON Schema text snapshotted at pause creation.
+    String? proposalSchema,
+
+    /// Label of the source node that produced [proposal].
+    String? proposalSource,
+
+    /// Edited JSON proposal value approved by the human when it differs from
+    /// [proposal].
+    Object? editedProposal,
     DateTime? answeredAt,
+
+    /// Id of the parent run when this pause belongs to a child run started by
+    /// a fan-out node; null for ordinary runs.
+    String? parentRunId,
   }) = _Pause;
 
   /// Decodes a pause; throws a [FormatException] on a bad shape.

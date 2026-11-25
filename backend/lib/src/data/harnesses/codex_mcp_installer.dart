@@ -32,6 +32,9 @@ final class CodexMcpInstaller implements HarnessMcpInstaller {
   HarnessId get id => HarnessId.codex;
 
   @override
+  String? get configPath => _resolveConfigPath();
+
+  @override
   Future<HarnessMcpDetectionResult> detect({
     required String executablePath,
     required HiveMcpLaunchCommand expectedCommand,

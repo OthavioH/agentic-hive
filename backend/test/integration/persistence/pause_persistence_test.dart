@@ -97,7 +97,7 @@ void main() {
     final db = AppDatabase.open(dbFile);
     addTearDown(db.close);
 
-    expect(db.schemaVersion, 7);
+    expect(db.schemaVersion, 12);
     final tables = await db
         .customSelect(
           "SELECT name FROM sqlite_master WHERE type='table' AND name='pauses'",
@@ -237,6 +237,58 @@ void main() {
       );
     },
   );
+
+  test('persists and reloads proposal fields across reopen', () async {
+    final dir = await Directory.systemTemp.createTemp('pause_prop_');
+    addTearDown(() => dir.delete(recursive: true));
+    final dbFile = File('${dir.path}/test.db');
+
+    final db1 = AppDatabase.open(dbFile);
+    await DriftRunRepository(db1).create(makeRun('r1'));
+    final repo1 = DriftPauseRepository(db1);
+    await repo1.create(
+      Pause(
+        id: 'p1',
+        runId: 'r1',
+        nodeId: 'gate',
+        kind: PauseKind.humanApproval,
+        status: PauseStatus.pending,
+        workflowName: 'Flow',
+        nodeLabel: 'Gate',
+        instructions: 'Review',
+        proposal: const [
+          {'id': 1},
+        ],
+        proposalSchema: '{"type":"array"}',
+        proposalSource: 'Planner',
+        createdAt: DateTime.utc(2026, 11, 21),
+      ),
+    );
+    await repo1.markAnswered(
+      'p1',
+      answeredAt: DateTime.utc(2026, 11, 21, 1),
+      decision: 'approved',
+      editedProposal: const [
+        {'id': 2},
+      ],
+    );
+    await repo1.close();
+    await db1.close();
+
+    final db2 = AppDatabase.open(dbFile);
+    addTearDown(db2.close);
+    final repo2 = DriftPauseRepository(db2);
+    addTearDown(repo2.close);
+    final loaded = (await repo2.getById('p1')).valueOrNull!;
+    expect(loaded.proposal, [
+      {'id': 1},
+    ]);
+    expect(loaded.proposalSchema, '{"type":"array"}');
+    expect(loaded.proposalSource, 'Planner');
+    expect(loaded.editedProposal, [
+      {'id': 2},
+    ]);
+  });
 }
 
 final class _V5SeedUser implements QueryExecutorUser {

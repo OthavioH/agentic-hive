@@ -1,4 +1,5 @@
 import 'package:agentic_hive_shared/src/json_fields.dart';
+import 'package:agentic_hive_shared/src/workflows/workflow_scope.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'workflow_summary.freezed.dart';
@@ -16,6 +17,16 @@ sealed class WorkflowSummary with _$WorkflowSummary {
     required bool hasValidationErrors,
     required DateTime updatedAt,
     String? description,
+    @Default(WorkflowScope.global) WorkflowScope scope,
+    String? workspaceId,
+
+    /// Content hash of the workflow definition for optimistic concurrency;
+    /// always set by the backend.
+    String? revision,
+
+    /// Whether a deletion operation is running for this workflow (ADR 0027);
+    /// derived by the backend, never stored.
+    @Default(false) bool deleting,
   }) = _WorkflowSummary;
 
   /// Decodes a workflow summary; throws a [FormatException] on a bad shape.

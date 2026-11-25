@@ -24,32 +24,41 @@ void main() {
           });
         }
 
-        test('covers the inverse pair and feedback tones on every surface', () {
-          final pairs = entry.value.contrastPairs;
-          expect(
-            pairs.any(
-              (p) =>
-                  p.foregroundRole == 'background' &&
-                  p.backgroundRole == 'onSurface' &&
-                  p.level == HiveContrastLevel.text,
-            ),
-            isTrue,
-          );
-          for (final tone in <String>['success', 'warning', 'danger', 'info']) {
-            for (final surface in entry.value.surfaces.keys) {
-              expect(
-                pairs.any(
-                  (p) =>
-                      p.foregroundRole == tone &&
-                      p.backgroundRole == surface &&
-                      p.level == HiveContrastLevel.ui,
-                ),
-                isTrue,
-                reason: '$tone on $surface is not tested',
-              );
+        test(
+          'covers inverse pair, feedback tones, borderStrong on every surface',
+          () {
+            final pairs = entry.value.contrastPairs;
+            expect(
+              pairs.any(
+                (p) =>
+                    p.foregroundRole == 'background' &&
+                    p.backgroundRole == 'onSurface' &&
+                    p.level == HiveContrastLevel.text,
+              ),
+              isTrue,
+            );
+            for (final role in <String>[
+              'success',
+              'warning',
+              'danger',
+              'info',
+              'borderStrong',
+            ]) {
+              for (final surface in entry.value.surfaces.keys) {
+                expect(
+                  pairs.any(
+                    (p) =>
+                        p.foregroundRole == role &&
+                        p.backgroundRole == surface &&
+                        p.level == HiveContrastLevel.ui,
+                  ),
+                  isTrue,
+                  reason: '$role on $surface is not tested',
+                );
+              }
             }
-          }
-        });
+          },
+        );
       });
     }
   });

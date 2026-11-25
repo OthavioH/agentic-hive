@@ -15,6 +15,8 @@ const Map<String, String> _useCases = <String, String>{
   'Mono prompt (filled)': 'Prompt',
   'Tag editor': 'design-system',
   'Tag filter row': 'backend',
+  'Read-only · Default': 'login-mockup.png · 248 KB',
+  'Read-only · Removed': 'login-mockup.png · 248 KB',
   'Text only': 'With errors',
   'Conflict · Changed on disk': 'Reload from disk',
   'Parse error detail': 'This agent could not be read',
@@ -59,6 +61,14 @@ const Map<String, String> _useCases = <String, String>{
   'Long value and label': '1,284,356',
   'Title bar · Restored': '',
   'Title bar · Maximized': '',
+  'Busy · Deleting': 'Deleting…',
+  'Busy · Stopping runs': 'Deleting… (stopping 2 of 3 runs)',
+  'Busy · with disabled actions': 'Release checklist',
+  'Disabled · With reason': '',
+  'Compact · Badge and action': 'Skill installed',
+  'Compact · danger': 'This agent could not be read',
+  'With label and helper text':
+      'Automatically install the skill for newly detected harnesses.',
 };
 
 void main() {

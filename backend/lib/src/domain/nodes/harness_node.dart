@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node.dart';
@@ -64,6 +66,7 @@ abstract base class HarnessNode extends Node {
       if (trimmedAgentId != null && trimmedAgentId.isNotEmpty) {
         final agentResult = await agentPromptResolver.resolvePrompt(
           trimmedAgentId,
+          workspaceRoot: context.workspaceRoot,
         );
         if (agentResult case FailureResult<String>(:final failure)) {
           return FailureResult(failure);
@@ -85,13 +88,28 @@ abstract base class HarnessNode extends Node {
       sections.add('## Run input\n$runInput');
     }
 
+    if (context.runAttachments.isNotEmpty) {
+      final b = StringBuffer()
+        ..writeln('## Run attachments')
+        ..writeln(
+          'The user attached these files to the run. '
+          'Open them with your file-reading tool:',
+        );
+      for (final a in context.runAttachments) {
+        b.writeln('- ${a.path} (${a.fileName})');
+      }
+      sections.add(b.toString().trimRight());
+    }
+
     final contextBuffer = StringBuffer()
       ..writeln('## Execution Context')
       ..writeln('- Run ID: ${context.runId}')
       ..writeln('- Node ID: ${context.nodeId}')
       ..writeln('- Workspace: ${context.workspacePath}');
     if (context.inputs.isNotEmpty) {
-      contextBuffer.writeln('- Inputs: ${context.inputs}');
+      contextBuffer.writeln(
+        '- Inputs: ${jsonEncode(_formatPromptInputs(context.inputs))}',
+      );
     }
     sections.add(contextBuffer.toString().trimRight());
 
@@ -219,6 +237,7 @@ abstract base class HarnessNode extends Node {
       if (trimmedAgentId != null && trimmedAgentId.isNotEmpty) {
         final agentResult = await agentPromptResolver.resolveAgent(
           trimmedAgentId,
+          workspaceRoot: context.workspaceRoot,
         );
         if (agentResult case FailureResult<ResolvedAgent>(:final failure)) {
           return FailureResult(failure);
@@ -384,10 +403,28 @@ abstract base class HeadlessHarnessNode extends HarnessNode {
   List<String> buildPermissionArgs({
     required WorkspaceIsolationMode isolationMode,
     String? resultsDir,
+    String? attachmentsDir,
     List<String> allowedTools = const <String>[],
     List<String> deniedTools = const <String>[],
     String? runId,
   });
+
+  /// CLI flags that select [model]; empty when this harness cannot choose one.
+  List<String> buildModelArgs(String model) => const <String>[];
+
+  /// CLI flags that set [effort]; empty when this harness cannot set one.
+  List<String> buildEffortArgs(HarnessEffort effort) => const <String>[];
+
+  /// Flags for the config's model and effort; each unset or blank value adds
+  /// nothing.
+  List<String> buildModelAndEffortArgs(HarnessNodeConfig config) {
+    final model = config.model?.trim();
+    final effort = HarnessEffort.tryParse(config.effort);
+    return <String>[
+      if (model != null && model.isNotEmpty) ...buildModelArgs(model),
+      if (effort != null) ...buildEffortArgs(effort),
+    ];
+  }
 
   /// Builds the CLI [ProcessInvocation] for this harness.
   ///
@@ -401,6 +438,7 @@ abstract base class HeadlessHarnessNode extends HarnessNode {
     Map<String, String> environment = const <String, String>{},
     WorkspaceIsolationMode isolationMode = WorkspaceIsolationMode.direct,
     String? resultsDir,
+    String? attachmentsDir,
     List<String> allowedTools = const <String>[],
     List<String> deniedTools = const <String>[],
     String? runId,
@@ -424,6 +462,9 @@ abstract base class HeadlessHarnessNode extends HarnessNode {
         effectiveResultPath != null && effectiveResultPath.isNotEmpty
         ? p.dirname(effectiveResultPath)
         : null;
+    final attachmentsDir = context.runAttachments.isEmpty
+        ? null
+        : p.dirname(context.runAttachments.first.path);
     final invocation = buildInvocation(
       config: config,
       workingDirectory: workingDirectory,
@@ -432,6 +473,7 @@ abstract base class HeadlessHarnessNode extends HarnessNode {
       environment: environment,
       isolationMode: context.isolationMode,
       resultsDir: resultsDir,
+      attachmentsDir: attachmentsDir,
       allowedTools: allowedTools,
       deniedTools: deniedTools,
       runId: context.runId,
@@ -462,13 +504,8 @@ HarnessOutputAnalysis analyzeCliOutput(
   required RegExp authPattern,
   required RegExp rateLimitPattern,
 }) {
-  final metadata = <String, Object?>{
-    if (result.stdout.isNotEmpty) 'stdout': result.stdout,
-    if (result.stderr.isNotEmpty) 'stderr': result.stderr,
-  };
-
   if (result.exitCode == 0 && !result.timedOut) {
-    return HarnessOutputAnalysis(metadata: metadata);
+    return const HarnessOutputAnalysis();
   }
 
   final combined = '${result.stderr}\n${result.stdout}'.trim();
@@ -476,17 +513,77 @@ HarnessOutputAnalysis analyzeCliOutput(
     return HarnessOutputAnalysis(
       isAuthenticationError: true,
       errorMessage: _firstMatchingLine(combined, authPattern),
-      metadata: metadata,
     );
   }
   if (rateLimitPattern.hasMatch(combined)) {
     return HarnessOutputAnalysis(
       isRateLimitError: true,
       errorMessage: _firstMatchingLine(combined, rateLimitPattern),
-      metadata: metadata,
     );
   }
-  return HarnessOutputAnalysis(metadata: metadata);
+  return const HarnessOutputAnalysis();
+}
+
+Map<String, Object?> _formatPromptInputs(Map<String, Object?> inputs) {
+  final formatted = <String, Object?>{};
+  for (final entry in inputs.entries) {
+    if (entry.key == 'nodeOutputs' || entry.key == 'predecessors') continue;
+    formatted[entry.key] = entry.value;
+  }
+
+  final rawNodeOutputs = inputs['nodeOutputs'];
+  final rawPredecessors = inputs['predecessors'];
+  final nodeOutputKeys = <String>{};
+
+  if (rawPredecessors is Map) {
+    final ids = rawPredecessors.keys.map((k) => k.toString()).toList();
+    if (ids.isNotEmpty) {
+      formatted['predecessorIds'] = ids;
+    }
+  }
+
+  if (rawNodeOutputs is Map) {
+    final sanitized = <String, Object?>{};
+    for (final entry in rawNodeOutputs.entries) {
+      final key = entry.key.toString();
+      nodeOutputKeys.add(key);
+      sanitized[key] = _stripLegacyHarnessRawOutput(entry.value);
+    }
+    formatted['nodeOutputs'] = sanitized;
+  }
+
+  if (rawPredecessors is Map) {
+    final unindexed = <String, Object?>{};
+    for (final entry in rawPredecessors.entries) {
+      final key = entry.key.toString();
+      if (!nodeOutputKeys.contains(key)) {
+        unindexed[key] = _stripLegacyHarnessRawOutput(entry.value);
+      }
+    }
+    if (unindexed.isNotEmpty) {
+      formatted['predecessors'] = unindexed;
+    }
+  }
+
+  return formatted;
+}
+
+Object? _stripLegacyHarnessRawOutput(Object? nodeOutput) {
+  if (nodeOutput is! Map) return nodeOutput;
+  final data = nodeOutput['data'];
+  if (data is! Map || !data.containsKey('contractStatus')) return nodeOutput;
+  if (!data.containsKey('stdout') && !data.containsKey('stderr')) {
+    return nodeOutput;
+  }
+  final cleanData = <String, Object?>{
+    for (final entry in data.entries)
+      if (entry.key != 'stdout' && entry.key != 'stderr')
+        entry.key.toString(): entry.value,
+  };
+  return <String, Object?>{
+    for (final entry in nodeOutput.entries)
+      entry.key.toString(): entry.key == 'data' ? cleanData : entry.value,
+  };
 }
 
 String? _firstMatchingLine(String text, RegExp pattern) {

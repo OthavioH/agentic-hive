@@ -11,6 +11,9 @@ import 'package:agentic_hive_frontend/core/lifecycle/window_lifecycle_service.da
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/core/theme/app_theme_preference.dart';
 import 'package:agentic_hive_frontend/core/theme/theme_preference_store.dart';
+import 'package:agentic_hive_frontend/data/harnesses/harness_repository_impl.dart';
+import 'package:agentic_hive_frontend/data/skills/file_outdated_banner_store.dart';
+import 'package:agentic_hive_frontend/data/skills/skill_notice_repository_impl.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/agents/pages/agents_page.dart';
 import 'package:agentic_hive_frontend/presentation/connecting/pages/connecting_page.dart';
@@ -25,8 +28,13 @@ import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+
+import 'harnesses/scripted_harness_repository.dart';
+import 'skills/memory_outdated_banner_store.dart';
+import 'skills/scripted_skill_notice_repository.dart';
 
 final class _FakeWebSocketSession implements BackendWebSocketSession {
   final StreamController<WsEnvelope> _messages =
@@ -261,6 +269,20 @@ void main() {
     return AppLocalizations.of(context)!;
   }
 
+  List<Override> skillOverrides() {
+    final harnessRepo = ScriptedHarnessRepository();
+    final noticeRepo = ScriptedSkillNoticeRepository();
+    addTearDown(harnessRepo.dispose);
+    addTearDown(noticeRepo.dispose);
+    return [
+      harnessRepositoryProvider.overrideWithValue(harnessRepo),
+      skillNoticeRepositoryProvider.overrideWithValue(noticeRepo),
+      outdatedBannerStoreProvider.overrideWithValue(
+        MemoryOutdatedBannerStore(),
+      ),
+    ];
+  }
+
   group('HiveApp', () {
     testWidgets(
       'side rail navigation switches pages and expands/collapses labels',
@@ -280,6 +302,7 @@ void main() {
               themePreferenceStoreProvider.overrideWithValue(
                 _FakeThemePreferenceStore(),
               ),
+              ...skillOverrides(),
             ],
             child: const HiveApp(),
           ),
@@ -289,7 +312,13 @@ void main() {
         expect(find.byType(HiveSideRail), findsOneWidget);
         expect(find.byType(OverviewPage), findsOneWidget);
         expect(find.byType(HivePageHeader), findsOneWidget);
-        expect(find.byType(HiveEmptyState), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(OverviewPage),
+            matching: find.byType(HiveEmptyState),
+          ),
+          findsOneWidget,
+        );
 
         final l10n = l10nFrom(tester);
 
@@ -347,6 +376,7 @@ void main() {
               themePreferenceStoreProvider.overrideWithValue(
                 _FakeThemePreferenceStore(),
               ),
+              ...skillOverrides(),
             ],
             child: const HiveApp(),
           ),
@@ -385,6 +415,7 @@ void main() {
               themePreferenceStoreProvider.overrideWithValue(
                 _FakeThemePreferenceStore(),
               ),
+              ...skillOverrides(),
             ],
             child: const HiveApp(),
           ),
@@ -437,6 +468,7 @@ void main() {
               themePreferenceStoreProvider.overrideWithValue(
                 _FakeThemePreferenceStore(initial: AppThemePreference.light),
               ),
+              ...skillOverrides(),
             ],
             child: const HiveApp(),
           ),
@@ -469,6 +501,7 @@ void main() {
               themePreferenceStoreProvider.overrideWithValue(
                 _FakeThemePreferenceStore(),
               ),
+              ...skillOverrides(),
             ],
             child: const HiveApp(),
           ),
@@ -497,6 +530,7 @@ void main() {
               themePreferenceStoreProvider.overrideWithValue(
                 _FakeThemePreferenceStore(),
               ),
+              ...skillOverrides(),
             ],
             child: const HiveApp(),
           ),
@@ -576,6 +610,7 @@ void main() {
             themePreferenceStoreProvider.overrideWithValue(
               _FakeThemePreferenceStore(),
             ),
+            ...skillOverrides(),
           ],
           child: const HiveApp(),
         ),
@@ -619,6 +654,7 @@ void main() {
             themePreferenceStoreProvider.overrideWithValue(
               _FakeThemePreferenceStore(),
             ),
+            ...skillOverrides(),
           ],
           child: const HiveApp(),
         ),

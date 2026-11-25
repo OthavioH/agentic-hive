@@ -10,8 +10,8 @@ sealed class SettingsState with _$SettingsState {
   const factory({
     required AppSettings saved,
     required String agentsDirDraft,
-    required String defaultWorkspaceDirDraft,
     required Map<HarnessId, String> harnessOverridesDraft,
+    required bool autoInstallSkillsDraft,
     @Default(false) bool isSaving,
     @Default(<String, String>{}) Map<String, String> fieldErrors,
   }) = _SettingsState;
@@ -22,17 +22,17 @@ sealed class SettingsState with _$SettingsState {
   factory fromAppSettings(AppSettings settings) => SettingsState(
     saved: settings,
     agentsDirDraft: settings.effectiveAgentsDir,
-    defaultWorkspaceDirDraft: settings.defaultWorkspaceDir ?? '',
     harnessOverridesDraft: Map<HarnessId, String>.from(
       settings.harnessOverrides,
     ),
+    autoInstallSkillsDraft: settings.autoInstallSkills,
   );
 
-  /// Whether any path or harness override draft differs from [saved].
+  /// Whether any path, override, or skill auto-install draft differs from
+  /// [saved].
   bool get hasUnsavedChanges {
     if (agentsDirDraft.trim() != saved.effectiveAgentsDir) return true;
-    final savedWorkspace = saved.defaultWorkspaceDir ?? '';
-    if (defaultWorkspaceDirDraft.trim() != savedWorkspace) return true;
+    if (autoInstallSkillsDraft != saved.autoInstallSkills) return true;
     return !_mapsEqual(normalizedHarnessOverrides, saved.harnessOverrides);
   }
 
@@ -49,11 +49,10 @@ sealed class SettingsState with _$SettingsState {
         trimmedAgents.isEmpty || trimmedAgents == saved.defaultAgentsDir
         ? null
         : trimmedAgents;
-    final trimmedWorkspace = defaultWorkspaceDirDraft.trim();
     return UpdateSettingsRequest(
       agentsDir: agentsDir,
-      defaultWorkspaceDir: trimmedWorkspace.isEmpty ? null : trimmedWorkspace,
       harnessOverrides: normalizedHarnessOverrides,
+      autoInstallSkills: autoInstallSkillsDraft,
     );
   }
 

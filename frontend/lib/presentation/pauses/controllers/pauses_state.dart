@@ -51,6 +51,7 @@ final class PausesState {
     this.lastAnnouncement,
     this.feedbackDrafts = const <String, String>{},
     this.answerDrafts = const <String, String>{},
+    this.proposalDrafts = const <String, String>{},
     this.now,
   });
 
@@ -82,6 +83,12 @@ final class PausesState {
   /// Preserved answer drafts keyed by pause ID.
   final Map<String, String> answerDrafts;
 
+  /// Preserved edited proposal JSON drafts keyed by pause ID.
+  ///
+  /// Presence of a key indicates that the pause is currently in proposal
+  /// editing mode.
+  final Map<String, String> proposalDrafts;
+
   /// Reference timestamp updated periodically to refresh relative waiting
   /// times.
   final DateTime? now;
@@ -94,6 +101,13 @@ final class PausesState {
 
   /// Returns the preserved answer draft for [pauseId].
   String answerDraftFor(String pauseId) => answerDrafts[pauseId] ?? '';
+
+  /// Whether [pauseId] is currently in proposal editing mode.
+  bool isEditingProposal(String pauseId) => proposalDrafts.containsKey(pauseId);
+
+  /// Returns the preserved proposal JSON draft for [pauseId], or `null` when
+  /// not editing.
+  String? proposalDraftFor(String pauseId) => proposalDrafts[pauseId];
 
   /// Returns the currently selected [Pause], or `null` if none is selected.
   Pause? get selectedPause {
@@ -118,6 +132,7 @@ final class PausesState {
     PauseAnnouncement? Function()? lastAnnouncement,
     Map<String, String>? feedbackDrafts,
     Map<String, String>? answerDrafts,
+    Map<String, String>? proposalDrafts,
     DateTime? now,
   }) {
     return PausesState(
@@ -140,6 +155,7 @@ final class PausesState {
           : this.lastAnnouncement,
       feedbackDrafts: feedbackDrafts ?? this.feedbackDrafts,
       answerDrafts: answerDrafts ?? this.answerDrafts,
+      proposalDrafts: proposalDrafts ?? this.proposalDrafts,
       now: now ?? this.now,
     );
   }

@@ -7,6 +7,8 @@ import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart'
 import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_service.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_operation.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_registry.dart';
 import 'package:agentic_hive_backend/src/http/api_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/shutdown_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
@@ -27,7 +29,17 @@ final class _FakeRunRepository implements RunRepository {
   }
 
   @override
-  Future<Result<void>> delete(String id) async {
+  Future<Result<List<Run>>> listChildren(
+    String parentRunId, {
+    String? parentNodeId,
+  }) async => const Success(<Run>[]);
+
+  @override
+  Future<Result<Map<String, Run>>> getByIds(Iterable<String> ids) async =>
+      Success({for (final id in ids) id: ?store[id]});
+
+  @override
+  Future<Result<List<String>>> delete(String id) async {
     final existing = store[id];
     if (existing == null) {
       return FailureResult(NotFoundFailure('Run "$id" not found.'));
@@ -41,8 +53,15 @@ final class _FakeRunRepository implements RunRepository {
       );
     }
     store.remove(id);
-    return const Success<void>(null);
+    return Success(<String>[id]);
   }
+
+  @override
+  Future<Result<List<String>>> deleteAllOfWorkflow(
+    String workflowId, {
+    String? workspaceId,
+    Set<String> orphanIds = const {},
+  }) => throw UnimplementedError();
 
   @override
   Future<Result<Run>> markInterruptedWithEvent(
@@ -262,6 +281,7 @@ void main() {
   late _FakeRunRepository runsRepo;
   late _FakeCheckpointRepository checkpointsRepo;
   late _FakeRunEventRepository eventsRepo;
+  late WorkflowDeletionRegistry deletions;
   late Handler handler;
 
   final workflow = Workflow(
@@ -300,10 +320,12 @@ void main() {
     runsRepo = _FakeRunRepository();
     checkpointsRepo = _FakeCheckpointRepository();
     eventsRepo = _FakeRunEventRepository();
+    deletions = WorkflowDeletionRegistry();
     final service = RunService(
       runs: runsRepo,
       checkpoints: checkpointsRepo,
       events: eventsRepo,
+      deletions: deletions,
     );
     handler = buildApiHandler(
       statusHandler: StatusHandler(
@@ -559,6 +581,36 @@ void main() {
     });
   });
 
+  group('POST /api/v1/runs/:id/resume', () {
+    test('answers 409 workflow_deleting with details.operationId while the '
+        'workflow is being deleted', () async {
+      await runsRepo.create(
+        makeRun(
+          id: 'r-interrupted',
+          status: RunStatus.interrupted,
+          startedAt: DateTime.utc(2026, 11, 20, 10),
+        ),
+      );
+      deletions.start(
+        WorkflowDeletionOperation(
+          id: 'op-1',
+          workflowId: 'wf-1',
+          phase: WorkflowDeletionPhase.deletingRuns,
+          startedAt: DateTime.utc(2026, 11, 23, 10),
+        ),
+      );
+
+      final resp = await handler(
+        buildRequest('/api/v1/runs/r-interrupted/resume', method: 'POST'),
+      );
+
+      expect(resp.statusCode, 409);
+      final error = ApiError.fromJson(await readJson(resp));
+      expect(error.code, ApiErrorCode.workflowDeleting);
+      expect(error.details, {'operationId': 'op-1'});
+    });
+  });
+
   group('POST /api/v1/runs', () {
     test('rejects input exceeding 64 KiB with 400 bad_request', () async {
       final oversized = 'a' * (RunService.maxInputBytes + 1);
@@ -579,5 +631,28 @@ void main() {
         ApiErrorCode.badRequest,
       );
     });
+
+    test(
+      'rejects body exceeding maxStartRunBodyBytes with 400 bad_request',
+      () async {
+        final hugeData = 'A' * (RunsHandler.maxStartRunBodyBytes + 1);
+        final resp = await handler(
+          buildRequest(
+            '/api/v1/runs',
+            method: 'POST',
+            body:
+                '{"workflowId":"wf-1","workspaceId":"ws-1",'
+                '"attachments":[{"fileName":"a.png","mimeType":"image/png",'
+                '"data":"$hugeData"}]}',
+          ),
+        );
+        expect(resp.statusCode, 400);
+        expect(
+          ApiError.fromJson(await readJson(resp)).code,
+          ApiErrorCode.badRequest,
+        );
+        expect(runsRepo.store, isEmpty);
+      },
+    );
   });
 }

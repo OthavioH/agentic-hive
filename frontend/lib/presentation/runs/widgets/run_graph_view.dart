@@ -1,5 +1,7 @@
+import 'package:agentic_hive_frontend/domain/runs/fan_out_progress.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/runs/utils/run_l10n.dart';
+import 'package:agentic_hive_frontend/presentation/runs/widgets/fan_out_children_panel.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/workflow_graph_painter.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
@@ -19,6 +21,7 @@ class RunGraphView extends StatefulWidget {
     required this.nodeStatuses,
     required this.selectedNodeId,
     required this.onSelectNode,
+    this.fanOutProgress = const <String, FanOutProgress>{},
     super.key,
   });
 
@@ -33,6 +36,9 @@ class RunGraphView extends StatefulWidget {
 
   /// Called when the user taps a node on the canvas.
   final ValueChanged<String> onSelectNode;
+
+  /// Progress summaries keyed by fan-out node ID.
+  final Map<String, FanOutProgress> fanOutProgress;
 
   @override
   State<RunGraphView> createState() => _RunGraphViewState();
@@ -132,6 +138,7 @@ class _RunGraphViewState extends State<RunGraphView> {
                                 widget.nodeStatuses[node.id] ??
                                 HiveNodeStatus.idle,
                             isSelected: widget.selectedNodeId == node.id,
+                            progress: widget.fanOutProgress[node.id],
                             onTap: () => widget.onSelectNode(node.id),
                           ),
                         ),
@@ -219,11 +226,13 @@ class _RunNodeCard extends StatelessWidget {
     required this.status,
     required this.isSelected,
     required this.onTap,
+    this.progress,
   });
 
   final WorkflowNode node;
   final HiveNodeStatus status;
   final bool isSelected;
+  final FanOutProgress? progress;
   final VoidCallback onTap;
 
   @override
@@ -256,6 +265,24 @@ class _RunNodeCard extends StatelessWidget {
           };
 
     final statusLabel = RunL10n.localizeNodeStatus(l10n, status);
+    final currentProgress = progress;
+    final hasProgressLine =
+        currentProgress != null &&
+        (currentProgress.emptyList || !currentProgress.isEmpty);
+    final subtitleText = currentProgress == null
+        ? resolveNodeVisualLabel(l10n, visual.labelKey)
+        : (currentProgress.emptyList
+              ? l10n.runDetailFanOutNoItems
+              : (!currentProgress.isEmpty
+                    ? fanOutProgressText(l10n, currentProgress)
+                    : resolveNodeVisualLabel(l10n, visual.labelKey)));
+    final needsHuman = currentProgress?.needsHuman ?? 0;
+    final needsYouText = needsHuman > 0
+        ? l10n.runDetailFanOutNeedsYou(needsHuman)
+        : null;
+    final semanticsLabel = needsYouText == null
+        ? '${node.label} ($statusLabel)'
+        : '${node.label} ($statusLabel), $needsYouText';
 
     return SizedBox(
       width: WorkflowCanvasGeometry.nodeWidth,
@@ -263,7 +290,7 @@ class _RunNodeCard extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Semantics(
-          label: '${node.label} ($statusLabel)',
+          label: semanticsLabel,
           selected: isSelected,
           button: true,
           child: AnimatedContainer(
@@ -314,7 +341,10 @@ class _RunNodeCard extends StatelessWidget {
                 ),
                 SizedBox(height: spacing.spaceHalf),
                 Text(
-                  resolveNodeVisualLabel(l10n, visual.labelKey),
+                  subtitleText,
+                  key: hasProgressLine
+                      ? Key('run_graph_node_progress_${node.id}')
+                      : null,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: typography.bodySmall.copyWith(

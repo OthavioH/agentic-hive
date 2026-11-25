@@ -109,7 +109,8 @@ abstract final class RunL10n {
       RunEventType.runCancelling ||
       RunEventType.runInterrupted ||
       RunEventType.nodeRetried ||
-      RunEventType.snapshotWarning => HiveBadgeTone.warning,
+      RunEventType.snapshotWarning ||
+      RunEventType.warning => HiveBadgeTone.warning,
       RunEventType.runSucceeded ||
       RunEventType.nodeCompleted ||
       RunEventType.snapshotRestored => HiveBadgeTone.success,
@@ -148,6 +149,16 @@ abstract final class RunL10n {
     if (minutes > 0) return '${minutes}m ${seconds}s';
     if (duration.inSeconds > 0) return '${duration.inSeconds}s';
     return '${duration.inMilliseconds}ms';
+  }
+
+  /// Formats an attachment byte count in KB or MB.
+  static String formatAttachmentSize(AppLocalizations l10n, int bytes) {
+    // shortcut: toStringAsFixed is not locale-aware; use NumberFormat when a
+    // 2nd locale lands.
+    if (bytes < 1024 * 1024) {
+      return l10n.attachmentSizeKb((bytes / 1024).toStringAsFixed(1));
+    }
+    return l10n.attachmentSizeMb((bytes / 1048576).toStringAsFixed(1));
   }
 
   /// Pretty-prints [value] as indented JSON, returning an empty string when

@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/agents/controllers/agents_controller.dart';
+import 'package:agentic_hive_frontend/presentation/agents/controllers/agents_migration_controller.dart';
 import 'package:agentic_hive_frontend/presentation/agents/controllers/agents_state.dart';
 import 'package:agentic_hive_frontend/presentation/agents/widgets/agent_detail_pane.dart';
 import 'package:agentic_hive_frontend/presentation/agents/widgets/agent_list_pane.dart';
+import 'package:agentic_hive_frontend/presentation/agents/widgets/agents_migration_banner.dart';
+import 'package:agentic_hive_frontend/presentation/workspace/controllers/workspace_registry_controller.dart';
 import 'package:design_system/design_system.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -20,6 +25,11 @@ class AgentsPage extends ConsumerWidget {
     final spacing = context.hiveSpacing;
     final state = ref.watch(agentsControllerProvider);
     final controller = ref.read(agentsControllerProvider.notifier);
+    final migration = ref.watch(agentsMigrationControllerProvider).value;
+    final currentWorkspace = ref
+        .watch(workspaceRegistryControllerProvider)
+        .value
+        ?.currentWorkspace;
 
     Future<void> handleSave() async {
       final outcome = await controller.save();
@@ -100,6 +110,23 @@ class AgentsPage extends ConsumerWidget {
           HivePageHeader(
             title: l10n.navAgents,
             actions: <Widget>[
+              if (currentWorkspace != null)
+                HiveSegmentedControl<bool>(
+                  segments: <HiveSegment<bool>>[
+                    HiveSegment<bool>(
+                      value: false,
+                      label: currentWorkspace.name,
+                    ),
+                    HiveSegment<bool>(
+                      value: true,
+                      label: l10n.agentsScopeGlobalOption,
+                    ),
+                  ],
+                  selected: state.globalOnly,
+                  onChanged: (globalOnly) =>
+                      unawaited(controller.setGlobalOnly(globalOnly)),
+                  semanticLabel: l10n.agentsScopeControlLabel,
+                ),
               HiveButton(
                 label: l10n.agentsNewAction,
                 icon: HiveIcons.add,
@@ -107,6 +134,15 @@ class AgentsPage extends ConsumerWidget {
               ),
             ],
           ),
+          if (migration != null && migration.hasPendingConflicts) ...<Widget>[
+            AgentsMigrationBanner(
+              status: migration,
+              onDismiss: () => unawaited(
+                ref.read(agentsMigrationControllerProvider.notifier).dismiss(),
+              ),
+            ),
+            SizedBox(height: spacing.space3),
+          ],
           Expanded(
             child: HiveMasterDetail(
               detailVisible: state.hasDetailOpen,
@@ -114,7 +150,9 @@ class AgentsPage extends ConsumerWidget {
                 state: state,
                 onSearchChanged: controller.setSearchQuery,
                 onToggleTag: controller.toggleTagFilter,
-                onSelectAgent: controller.selectAgent,
+                onSelectAgent: (agent) => unawaited(
+                  controller.selectAgent(agent.id, scope: agent.scope),
+                ),
                 onCreate: controller.startCreate,
                 onRetry: controller.loadAgents,
               ),

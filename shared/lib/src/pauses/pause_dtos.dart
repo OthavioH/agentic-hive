@@ -11,14 +11,19 @@ part 'pause_dtos.g.dart';
 /// or `{"answer": ...}`) without a discriminator field because the pause kind
 /// is stored on the target [Pause] record. For `PauseKind.humanApproval`,
 /// supply [decision] (`approved` or `rejected`) and optional [feedback]. For
-/// `PauseKind.askHuman`, supply a non-blank [answer]. Kind-specific validation
+/// `PauseKind.askHuman`, supply a non-blank [answer]. For `humanApproval`,
+/// an optional [proposal] is the edited JSON value. Kind-specific validation
 /// against the persisted [Pause] lives in the backend's `PauseAnswerHandler`
 /// strategies.
 @freezed
 sealed class AnswerPauseRequest with _$AnswerPauseRequest {
   /// Creates an answer-pause request.
-  const factory({String? decision, String? feedback, String? answer}) =
-      _AnswerPauseRequest;
+  const factory({
+    String? decision,
+    String? feedback,
+    String? answer,
+    Object? proposal,
+  }) = _AnswerPauseRequest;
 
   /// Decodes an answer-pause request; throws a [FormatException] on a bad
   /// shape.

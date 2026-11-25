@@ -11,7 +11,9 @@ import 'package:agentic_hive_backend/src/domain/nodes/pty_session.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/terminal_harness_node.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_coordinator.dart';
 import 'package:agentic_hive_backend/src/domain/runs/process_tree_killer.dart';
+import 'package:agentic_hive_backend/src/domain/settings/execution_settings_service.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 final class _FakePtyRunner implements PtyRunner {
@@ -50,16 +52,44 @@ final class _FakeShellProvider implements DefaultShellProvider {
   final String defaultShell;
 }
 
-final class _FakeAgentPromptResolver implements AgentPromptResolver {
-  @override
-  Future<Result<String>> resolvePrompt(String agentId) =>
-      Future<Result<String>>.value(Success('Agent prompt for $agentId'));
+final class _FakeExecutionSettings implements ExecutionSettingsService {
+  new(this.shell);
+
+  final String shell;
+  final List<String> requestedWorkspaceIds = <String>[];
 
   @override
-  Future<Result<ResolvedAgent>> resolveAgent(String agentId) =>
-      Future<Result<ResolvedAgent>>.value(
-        Success(ResolvedAgent(prompt: 'Agent prompt for $agentId')),
-      );
+  Future<Result<EffectiveExecutionSettings>> effectiveFor(
+    String workspaceId,
+  ) async {
+    requestedWorkspaceIds.add(workspaceId);
+    return Success(
+      EffectiveExecutionSettings(
+        defaultIsolationMode: WorkspaceIsolationMode.direct,
+        ignorePatterns: const <String>[],
+        defaultShell: shell,
+      ),
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
+}
+
+final class _FakeAgentPromptResolver implements AgentPromptResolver {
+  @override
+  Future<Result<String>> resolvePrompt(
+    String agentId, {
+    String? workspaceRoot,
+  }) => Future<Result<String>>.value(Success('Agent prompt for $agentId'));
+
+  @override
+  Future<Result<ResolvedAgent>> resolveAgent(
+    String agentId, {
+    String? workspaceRoot,
+  }) => Future<Result<ResolvedAgent>>.value(
+    Success(ResolvedAgent(prompt: 'Agent prompt for $agentId')),
+  );
 }
 
 final class _FakeProcessTreeKiller implements ProcessTreeKiller {
@@ -331,6 +361,35 @@ void main() {
       },
     );
 
+    test(
+      'uses the effective workspace default shell instead of the OS default',
+      () async {
+        final ptyRunner = _FakePtyRunner();
+        final settings = _FakeExecutionSettings('/opt/custom-shell');
+        final node = TerminalHarnessNode(
+          ptyRunner: ptyRunner,
+          defaultShellProvider: const _FakeShellProvider('/usr/bin/fish'),
+          executionSettings: settings,
+          resultContract: _FakeResultContract(),
+          agentPromptResolver: _FakeAgentPromptResolver(),
+        );
+
+        final result = await node.execute(
+          NodeExecutionContext(
+            runId: 'run-1',
+            nodeId: 'term-1',
+            workspacePath: workspaceDir.path,
+            workspaceId: 'ws-1',
+            config: const <String, Object?>{'additionalInstructions': 'go'},
+          ),
+        );
+
+        expect(result.isSuccess, isTrue);
+        expect(settings.requestedWorkspaceIds, ['ws-1']);
+        expect(ptyRunner.lastInvocation!.executable, '/opt/custom-shell');
+      },
+    );
+
     test('terminates idle PTY after grace period when report_result is '
         'accepted over MCP and resolves with accepted outcome', () async {
       final coordinator = ResultContractCoordinator();
@@ -542,6 +601,93 @@ void main() {
       );
       expect(resolved, shim.path);
     });
+
+    test('prefers PATHEXT match over extensionless file', () async {
+      final binDir = Directory(
+        '${workspaceDir.path}${Platform.pathSeparator}bin',
+      );
+      await binDir.create();
+      final shim = File('${binDir.path}${Platform.pathSeparator}tool');
+      await shim.writeAsString('#!/bin/sh\n');
+      final bat = File('${binDir.path}${Platform.pathSeparator}tool.bat');
+      await bat.writeAsString('@echo off\r\n');
+
+      final resolved = resolveWindowsExecutable(
+        'tool',
+        workingDirectory: workspaceDir.path,
+        env: <String, String>{
+          'PATH': binDir.path,
+          'PATHEXT': '.COM;.EXE;.BAT;.CMD',
+        },
+      );
+      expect(resolved, bat.path);
+    });
+
+    test('returns null when only an extensionless file exists', () async {
+      final binDir = Directory(
+        '${workspaceDir.path}${Platform.pathSeparator}bin',
+      );
+      await binDir.create();
+      final shim = File('${binDir.path}${Platform.pathSeparator}tool');
+      await shim.writeAsString('#!/bin/sh\n');
+
+      final resolved = resolveWindowsExecutable(
+        'tool',
+        workingDirectory: workspaceDir.path,
+        env: <String, String>{
+          'PATH': binDir.path,
+          'PATHEXT': '.COM;.EXE;.BAT;.CMD',
+        },
+      );
+      expect(resolved, isNull);
+    });
+
+    test('keeps explicit extensions and paths', () async {
+      final binDir = Directory(
+        '${workspaceDir.path}${Platform.pathSeparator}bin',
+      );
+      await binDir.create();
+      final exe = File('${binDir.path}${Platform.pathSeparator}tool.exe');
+      await exe.writeAsString('MZ');
+
+      final env = <String, String>{
+        'PATH': binDir.path,
+        'PATHEXT': '.COM;.EXE;.BAT;.CMD',
+      };
+
+      expect(
+        resolveWindowsExecutable(
+          'tool.exe',
+          workingDirectory: workspaceDir.path,
+          env: env,
+        ),
+        exe.path,
+      );
+      expect(
+        resolveWindowsExecutable(
+          exe.path,
+          workingDirectory: workspaceDir.path,
+          env: env,
+        ),
+        exe.path,
+      );
+      expect(
+        resolveWindowsExecutable(
+          p.join('bin', 'tool.exe'),
+          workingDirectory: workspaceDir.path,
+          env: env,
+        ),
+        p.join(workspaceDir.path, 'bin', 'tool.exe'),
+      );
+      expect(
+        resolveWindowsExecutable(
+          p.join('bin', 'tool'),
+          workingDirectory: workspaceDir.path,
+          env: env,
+        ),
+        exe.path,
+      );
+    });
   });
 
   group('PtySessionRegistry', () {
@@ -602,6 +748,50 @@ void main() {
 
       await registry.unregisterSession(key);
       expect((await registry.writeInput(key, <int>[66])).isFailure, isTrue);
+    });
+
+    test('includes ## Run attachments in prompt and passes no attachments dir '
+        'in args', () async {
+      final ptyRunner = _FakePtyRunner();
+      final node = TerminalHarnessNode(
+        ptyRunner: ptyRunner,
+        resultContract: _FakeResultContract(),
+        agentPromptResolver: _FakeAgentPromptResolver(),
+        executionSettings: _FakeExecutionSettings('bash'),
+        defaultShellProvider: const _FakeShellProvider('bash'),
+      );
+
+      final tempDir = await Directory.systemTemp.createTemp('term_attach_');
+      addTearDown(() => tempDir.delete(recursive: true));
+
+      final result = await node.execute(
+        NodeExecutionContext(
+          runId: 'run-1',
+          nodeId: 'term-1',
+          workspacePath: tempDir.path,
+          config: const {'command': 'echo ok'},
+          runAttachments: const [
+            RunAttachmentFile(
+              path: '/runs/r1/attachments/1.png',
+              fileName: 'ui.png',
+            ),
+          ],
+        ),
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(
+        ptyRunner.observedPromptFileContent,
+        contains('## Run attachments'),
+      );
+      expect(
+        ptyRunner.observedPromptFileContent,
+        contains('- /runs/r1/attachments/1.png (ui.png)'),
+      );
+      expect(
+        ptyRunner.lastInvocation!.arguments,
+        isNot(contains('/runs/r1/attachments')),
+      );
     });
   });
 }

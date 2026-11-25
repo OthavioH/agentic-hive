@@ -80,7 +80,7 @@ dart run build_runner build --delete-conflicting-outputs
 dart run tool/build_backend_bundle.dart <bundle-dir>
 ```
 
-It runs `dart build cli` for `bin/server.dart` and `bin/hive_mcp.dart` and merges the results into `<bundle-dir>/backend/`:
+It runs `dart build cli` for `bin/server.dart` and `bin/hive_mcp.dart` and merges the results into `<bundle-dir>/backend/`; `skills/agentic-hive/` is copied next to `bin/` and `lib/`:
 
 ```
 backend/

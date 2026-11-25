@@ -1,7 +1,9 @@
 import 'dart:io';
 
+import 'package:agentic_hive_backend/src/util/ids.dart';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:path/path.dart' as p;
 
 part 'app_database.g.dart';
 
@@ -16,6 +18,37 @@ class AppMetadata extends Table {
 
   @override
   Set<Column<Object>> get primaryKey => {key};
+}
+
+/// Registered workspaces: a named entity with one unique root folder
+/// (ADR 0025).
+@DataClassName('WorkspaceRow')
+@TableIndex(
+  name: 'idx_workspaces_root_path',
+  columns: {#rootPath},
+  unique: true,
+)
+class Workspaces extends Table {
+  /// Unique workspace identifier.
+  TextColumn get id => text()();
+
+  /// Human-readable workspace name (defaults to the folder name).
+  TextColumn get name => text()();
+
+  /// Normalized absolute path of the workspace root folder; unique.
+  TextColumn get rootPath => text()();
+
+  /// Whether the root folder was a git repository when registered.
+  BoolColumn get isGit => boolean()();
+
+  /// UTC ISO-8601 creation timestamp.
+  TextColumn get createdAt => text()();
+
+  /// UTC ISO-8601 last-updated timestamp.
+  TextColumn get updatedAt => text()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
 }
 
 /// Saved workflow definitions (graph recipes).
@@ -46,6 +79,8 @@ class Workflows extends Table {
 
 /// Execution runs of saved workflows.
 @DataClassName('RunRow')
+@TableIndex(name: 'idx_runs_workspace_id', columns: {#workspaceId})
+@TableIndex(name: 'idx_runs_parent_run_id', columns: {#parentRunId})
 class Runs extends Table {
   /// Unique run identifier.
   TextColumn get id => text()();
@@ -61,6 +96,14 @@ class Runs extends Table {
 
   /// Path to the workspace folder used by this run.
   TextColumn get workspacePath => text()();
+
+  /// Owning [Workspaces] row. Nullable only because migration 7 to 8 adds the
+  /// column and back-fills it; every new run sets it.
+  TextColumn get workspaceId => text().nullable().references(
+    Workspaces,
+    #id,
+    onDelete: KeyAction.cascade,
+  )();
 
   /// Current run status name.
   TextColumn get status => text()();
@@ -86,6 +129,21 @@ class Runs extends Table {
 
   /// Optional free-text run input passed to the entry node.
   TextColumn get input => text().nullable()();
+
+  /// Optional identifier of the parent run when this run is a child run.
+  TextColumn get parentRunId => text().nullable()();
+
+  /// Optional identifier of the fan-out node in the parent run.
+  TextColumn get parentNodeId => text().nullable()();
+
+  /// Optional 0-based index of this child within the fan-out execution.
+  IntColumn get childIndex => integer().nullable()();
+
+  /// Optional display name of this child within the fan-out execution.
+  TextColumn get childName => text().nullable()();
+
+  /// Optional JSON list of Run attachment metadata (no bytes, ADR 0030).
+  TextColumn get attachmentsJson => text().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -209,7 +267,7 @@ class Snapshots extends Table {
 /// Persisted runtime settings (key/value pairs).
 @DataClassName('SettingRow')
 class Settings extends Table {
-  /// Setting key (for example `agents_dir`, `default_workspace_dir`,
+  /// Setting key (for example `agents_dir`,
   /// `harness_override.claude_code`).
   TextColumn get key => text()();
 
@@ -237,6 +295,9 @@ class Pauses extends Table {
   /// Owning run identifier.
   TextColumn get runId =>
       text().references(Runs, #id, onDelete: KeyAction.cascade)();
+
+  /// Id of the parent run when the pause belongs to a fan-out child run.
+  TextColumn get parentRunId => text().nullable()();
 
   /// Node identifier that requested the pause.
   TextColumn get nodeId => text()();
@@ -277,6 +338,18 @@ class Pauses extends Table {
   /// Free-text answer for `askHuman` when answered.
   TextColumn get answer => text().nullable()();
 
+  /// JSON-encoded original proposal value read from the source node.
+  TextColumn get proposalJson => text().nullable()();
+
+  /// Optional JSON Schema text snapshotted at pause creation.
+  TextColumn get proposalSchema => text().nullable()();
+
+  /// Label of the source node that produced the proposal.
+  TextColumn get proposalSource => text().nullable()();
+
+  /// JSON-encoded edited proposal value approved by the human.
+  TextColumn get editedProposalJson => text().nullable()();
+
   /// UTC ISO-8601 creation timestamp.
   TextColumn get createdAt => text()();
 
@@ -301,6 +374,7 @@ class Pauses extends Table {
     Settings,
     Snapshots,
     Pauses,
+    Workspaces,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -316,7 +390,7 @@ class AppDatabase extends _$AppDatabase {
   static const installedAtKey = 'installed_at';
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -362,9 +436,85 @@ class AppDatabase extends _$AppDatabase {
           await m.addColumn(runs, runs.input);
         }
       }
+      if (from < 8) {
+        await m.createTable(workspaces);
+        await m.createIndex(idxWorkspacesRootPath);
+        if (from >= 3) {
+          await m.addColumn(runs, runs.workspaceId);
+        }
+        await m.createIndex(idxRunsWorkspaceId);
+        await _attachRunsToWorkspaces();
+      }
+      if (from < 9) {
+        if (from >= 6) {
+          await m.addColumn(pauses, pauses.proposalJson);
+          await m.addColumn(pauses, pauses.proposalSchema);
+          await m.addColumn(pauses, pauses.proposalSource);
+          await m.addColumn(pauses, pauses.editedProposalJson);
+        }
+      }
+      if (from < 10) {
+        if (from >= 3) {
+          await m.addColumn(runs, runs.parentRunId);
+          await m.addColumn(runs, runs.parentNodeId);
+          await m.addColumn(runs, runs.childIndex);
+          await m.addColumn(runs, runs.childName);
+        }
+        await m.createIndex(idxRunsParentRunId);
+      }
+      if (from < 11) {
+        if (from >= 6) {
+          await m.addColumn(pauses, pauses.parentRunId);
+        }
+      }
+      if (from < 12) {
+        if (from >= 3) {
+          await m.addColumn(runs, runs.attachmentsJson);
+        }
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
+
+  /// Migration 7 to 8: creates one workspace per distinct run
+  /// `workspace_path` (named after the folder) and attaches those runs to it
+  /// (ADR 0025).
+  Future<void> _attachRunsToWorkspaces() async {
+    final rows = await customSelect(
+      'SELECT workspace_path, MIN(started_at) AS first_started '
+      'FROM runs GROUP BY workspace_path ORDER BY first_started ASC',
+    ).get();
+    final workspaceIdByKey = <String, String>{};
+    final now = DateTime.now().toUtc().toIso8601String();
+    for (final row in rows) {
+      final path = row.read<String>('workspace_path');
+      final key = p.canonicalize(path);
+      var id = workspaceIdByKey[key];
+      if (id == null) {
+        id = randomId();
+        workspaceIdByKey[key] = id;
+        final rootPath = p.normalize(path);
+        final name = p.basename(rootPath);
+        await into(workspaces).insert(
+          WorkspacesCompanion.insert(
+            id: id,
+            name: name.isEmpty ? rootPath : name,
+            rootPath: rootPath,
+            isGit:
+                FileSystemEntity.typeSync(p.join(rootPath, '.git')) !=
+                FileSystemEntityType.notFound,
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+      }
+      await customUpdate(
+        'UPDATE runs SET workspace_id = ? WHERE workspace_path = ?',
+        variables: [Variable<String>(id), Variable<String>(path)],
+        updates: {runs},
+      );
+    }
+  }
 }

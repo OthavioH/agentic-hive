@@ -62,7 +62,6 @@ void main() {
     agentsDir: '/custom/agents',
     effectiveAgentsDir: '/custom/agents',
     defaultAgentsDir: '/default/agents',
-    defaultWorkspaceDir: '/workspace',
     harnessOverrides: <HarnessId, String>{
       HarnessId.claudeCode: '/usr/local/bin/claude',
     },
@@ -85,7 +84,6 @@ void main() {
       final initial = await container.read(settingsControllerProvider.future);
       expect(initial.hasUnsavedChanges, isFalse);
       expect(initial.agentsDirDraft, '/custom/agents');
-      expect(initial.defaultWorkspaceDirDraft, '/workspace');
       expect(
         initial.harnessOverridesDraft[HarnessId.claudeCode],
         '/usr/local/bin/claude',
@@ -161,7 +159,6 @@ void main() {
           agentsDir: '/valid/agents',
           effectiveAgentsDir: '/valid/agents',
           defaultAgentsDir: '/default/agents',
-          defaultWorkspaceDir: '/workspace',
           harnessOverrides: <HarnessId, String>{
             HarnessId.claudeCode: '/usr/local/bin/claude',
             HarnessId.codex: '/invalid/codex',
@@ -198,23 +195,18 @@ void main() {
       await container.read(settingsControllerProvider.future);
       final notifier = container.read(settingsControllerProvider.notifier)
         ..resetAgentsDirToDefault()
-        ..clearDefaultWorkspaceDir()
         ..clearHarnessOverride(HarnessId.claudeCode);
 
       var state = container.read(settingsControllerProvider).requireValue;
       expect(state.agentsDirDraft, '/default/agents');
-      expect(state.defaultWorkspaceDirDraft, '');
       expect(state.harnessOverridesDraft, isEmpty);
       expect(state.toUpdateRequest().agentsDir, isNull);
-      expect(state.toUpdateRequest().defaultWorkspaceDir, isNull);
 
       await notifier.browseAgentsDir();
-      await notifier.browseDefaultWorkspaceDir();
       await notifier.browseHarnessExecutable(HarnessId.geminiCli);
 
       state = container.read(settingsControllerProvider).requireValue;
       expect(state.agentsDirDraft, '/picked/dir');
-      expect(state.defaultWorkspaceDirDraft, '/picked/dir');
       expect(
         state.harnessOverridesDraft[HarnessId.geminiCli],
         '/picked/gemini',
@@ -286,8 +278,8 @@ void main() {
           ..setAgentsDir('/saved/agents');
 
         final saveFuture = notifier.save();
-        // Simulate edit to defaultWorkspaceDir while save() is in flight.
-        notifier.setDefaultWorkspaceDir('/new/workspace');
+        // Simulate an edit to a harness override while save() is in flight.
+        notifier.setHarnessOverride(HarnessId.codex, '/new/codex');
 
         pending.complete(
           const Success(
@@ -295,7 +287,6 @@ void main() {
               agentsDir: '/saved/agents',
               effectiveAgentsDir: '/saved/agents',
               defaultAgentsDir: '/default/agents',
-              defaultWorkspaceDir: '/workspace',
               harnessOverrides: <HarnessId, String>{
                 HarnessId.claudeCode: '/usr/local/bin/claude',
               },
@@ -306,8 +297,68 @@ void main() {
 
         final after = container.read(settingsControllerProvider).requireValue;
         expect(after.agentsDirDraft, '/saved/agents');
-        expect(after.defaultWorkspaceDirDraft, '/new/workspace');
+        expect(after.harnessOverridesDraft[HarnessId.codex], '/new/codex');
         expect(after.hasUnsavedChanges, isTrue);
+      },
+    );
+
+    test(
+      'autoInstallSkillsDraft tracks dirty state, sends in update, discards, '
+      'and refreshes on WS when clean',
+      () async {
+        final repo = _FakeSettingsRepository()
+          ..getResult = const Success(initialSettings);
+        addTearDown(repo.dispose);
+
+        final container = ProviderContainer.test(
+          overrides: [settingsRepositoryProvider.overrideWithValue(repo)],
+        );
+        final sub = container.listen(settingsControllerProvider, (_, _) {});
+        addTearDown(sub.close);
+
+        final initial = await container.read(settingsControllerProvider.future);
+        expect(initial.autoInstallSkillsDraft, isTrue);
+        expect(initial.hasUnsavedChanges, isFalse);
+        expect(initial.toUpdateRequest().autoInstallSkills, isTrue);
+
+        final notifier = container.read(settingsControllerProvider.notifier)
+          ..setAutoInstallSkills(false);
+        final dirty = container.read(settingsControllerProvider).requireValue;
+        expect(dirty.autoInstallSkillsDraft, isFalse);
+        expect(dirty.hasUnsavedChanges, isTrue);
+        expect(dirty.toUpdateRequest().autoInstallSkills, isFalse);
+
+        notifier.discard();
+        final reverted = container
+            .read(settingsControllerProvider)
+            .requireValue;
+        expect(reverted.autoInstallSkillsDraft, isTrue);
+        expect(reverted.hasUnsavedChanges, isFalse);
+
+        notifier.setAutoInstallSkills(false);
+        repo.updateResult = Success(
+          initialSettings.copyWith(autoInstallSkills: false),
+        );
+        final saveResult = await notifier.save();
+        expect(saveResult.isSuccess, isTrue);
+        expect(repo.lastRequest?.autoInstallSkills, isFalse);
+        expect(
+          container
+              .read(settingsControllerProvider)
+              .requireValue
+              .hasUnsavedChanges,
+          isFalse,
+        );
+
+        repo.updates.add(initialSettings.copyWith(autoInstallSkills: true));
+        await Future<void>.delayed(Duration.zero);
+        expect(
+          container
+              .read(settingsControllerProvider)
+              .requireValue
+              .autoInstallSkillsDraft,
+          isTrue,
+        );
       },
     );
   });

@@ -11,6 +11,38 @@ final class WorkspaceRepositoryImpl implements WorkspaceRepository {
   final WorkspaceRemoteDataSource _remote;
 
   @override
+  Future<Result<List<Workspace>>> listWorkspaces() => _remote.listWorkspaces();
+
+  @override
+  Future<Result<Workspace>> createWorkspace({
+    required String rootPath,
+    String? name,
+  }) => _remote.createWorkspace(
+    CreateWorkspaceRequest(rootPath: rootPath, name: name),
+  );
+
+  @override
+  Future<Result<Workspace>> renameWorkspace(
+    String id, {
+    required String name,
+  }) => _remote.renameWorkspace(id, UpdateWorkspaceRequest(name: name));
+
+  @override
+  Future<Result<void>> unregisterWorkspace(String id) =>
+      _remote.unregisterWorkspace(id);
+
+  @override
+  Future<Result<List<Worktree>>> listWorktrees(String workspaceId) =>
+      _remote.listWorktrees(workspaceId);
+
+  @override
+  Future<Result<RemoveWorktreeResponse>> removeWorktree(
+    String workspaceId,
+    String worktreeId, {
+    bool force = false,
+  }) => _remote.removeWorktree(workspaceId, worktreeId, force: force);
+
+  @override
   Future<Result<WorkspaceCapabilities>> getCapabilities({String? path}) =>
       _remote.getCapabilities(path: path);
 

@@ -9,7 +9,11 @@ final class DuplicateWorkflow {
 
   final WorkflowRepository _repository;
 
-  /// Executes the use case for [id] with an optional override [name].
-  Future<Result<WorkflowResponse>> call(String id, {String? name}) =>
-      _repository.duplicateWorkflow(id, name: name);
+  /// Executes the use case for [id] with an optional override [name], inside
+  /// the scope of [workspaceId].
+  Future<Result<WorkflowResponse>> call(
+    String id, {
+    String? name,
+    String? workspaceId,
+  }) => _repository.duplicateWorkflow(id, name: name, workspaceId: workspaceId);
 }

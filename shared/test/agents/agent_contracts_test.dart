@@ -15,6 +15,45 @@ Matcher _formatErrorNaming(String field) => isA<FormatException>().having(
 void main() {
   final updatedAt = DateTime.utc(2026, 11, 20, 14, 30);
 
+  group('AgentsMigrationStatus', () {
+    test('round-trips through JSON', () {
+      const status = AgentsMigrationStatus(
+        conflicts: ['a.md', 'sub/b.md'],
+        dismissed: true,
+        legacyDir: '/data/agents',
+        targetDir: '/home/me/.agents/agents',
+      );
+
+      final decoded = AgentsMigrationStatus.fromJson(
+        _overTheWire(status.toJson()),
+      );
+
+      expect(decoded, status);
+    });
+
+    test('defaults to no conflicts and not dismissed', () {
+      final decoded = AgentsMigrationStatus.fromJson(<String, Object?>{
+        'legacyDir': '/data/agents',
+        'targetDir': '/home/me/.agents/agents',
+      });
+
+      expect(decoded.conflicts, isEmpty);
+      expect(decoded.dismissed, isFalse);
+      expect(decoded.hasPendingConflicts, isFalse);
+    });
+
+    test('hasPendingConflicts is true only for undismissed conflicts', () {
+      const open = AgentsMigrationStatus(
+        conflicts: ['a.md'],
+        legacyDir: 'l',
+        targetDir: 't',
+      );
+
+      expect(open.hasPendingConflicts, isTrue);
+      expect(open.copyWith(dismissed: true).hasPendingConflicts, isFalse);
+    });
+  });
+
   group('AgentSummary', () {
     test('round-trips through JSON with all fields', () {
       final summary = AgentSummary(
@@ -173,6 +212,80 @@ void main() {
       );
 
       expect(decoded, response);
+    });
+  });
+
+  group('Agent scope (ADR 0025)', () {
+    test('summary defaults to global scope and not overridden', () {
+      final summary = AgentSummary(
+        id: 'a',
+        name: 'A',
+        contentHash: 'h',
+        updatedAt: updatedAt,
+      );
+
+      expect(summary.scope, AgentScope.global);
+      expect(summary.overridden, isFalse);
+      expect(summary.toJson()['scope'], 'global');
+    });
+
+    test('summary round-trips workspace scope and overridden flag', () {
+      final summary = AgentSummary(
+        id: 'a',
+        name: 'A',
+        contentHash: 'h',
+        updatedAt: updatedAt,
+        scope: AgentScope.workspace,
+        overridden: true,
+      );
+
+      final decoded = AgentSummary.fromJson(_overTheWire(summary.toJson()));
+
+      expect(decoded, summary);
+      expect(decoded.scope, AgentScope.workspace);
+    });
+
+    test('summary without scope decodes as global', () {
+      final decoded = AgentSummary.fromJson({
+        'id': 'a',
+        'name': 'A',
+        'contentHash': 'h',
+        'updatedAt': updatedAt.toIso8601String(),
+      });
+
+      expect(decoded.scope, AgentScope.global);
+    });
+
+    test('detail round-trips workspace scope', () {
+      final detail = AgentDetail(
+        id: 'a',
+        name: 'A',
+        contentHash: 'h',
+        updatedAt: updatedAt,
+        scope: AgentScope.workspace,
+      );
+
+      final decoded = AgentDetail.fromJson(_overTheWire(detail.toJson()));
+
+      expect(decoded.scope, AgentScope.workspace);
+    });
+
+    test('changed payload carries the workspace id, null meaning global', () {
+      const global = AgentsChangedPayload(
+        kind: AgentChangeKind.updated,
+        id: 'a',
+      );
+      const scoped = AgentsChangedPayload(
+        kind: AgentChangeKind.created,
+        id: 'a',
+        workspaceId: 'ws-1',
+      );
+
+      expect(global.workspaceId, isNull);
+      expect(
+        AgentsChangedPayload.fromJson(_overTheWire(scoped.toJson())),
+        scoped,
+      );
     });
   });
 }

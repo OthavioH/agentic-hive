@@ -240,6 +240,62 @@ WidgetbookComponent chipComponent() {
         name: 'Tag filter row',
         builder: (context) => const UseCaseFrame(child: _TagFilters()),
       ),
+      WidgetbookUseCase(
+        name: 'Read-only · Default',
+        builder: (context) => const UseCaseFrame(
+          child: HiveChip.readOnly(label: 'login-mockup.png · 248 KB'),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Read-only · Removed',
+        builder: (context) => const UseCaseFrame(
+          child: HiveChip.readOnly(
+            label: 'login-mockup.png · 248 KB',
+            removed: true,
+            semanticLabel: 'login-mockup.png, 248 KB, removed',
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Read-only · Long label',
+        builder: (context) => UseCaseFrame(
+          child: SizedBox(
+            width: context.hiveSpacing.space8 * 3,
+            child: const HiveChip.readOnly(
+              label:
+                  'Pasted image 1 - '
+                  'checkout-flow-error-state-dark-theme.png · 1.2 MB',
+              removed: true,
+            ),
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Attachment list',
+        builder: (context) => UseCaseFrame(
+          child: Wrap(
+            spacing: context.hiveSpacing.space1,
+            runSpacing: context.hiveSpacing.space1,
+            children: const <Widget>[
+              HiveChip.readOnly(
+                label: 'login-mockup.png · 248 KB',
+                removed: true,
+                semanticLabel: 'login-mockup.png, 248 KB, removed',
+              ),
+              HiveChip.readOnly(
+                label: 'error-state.png · 112 KB',
+                removed: true,
+                semanticLabel: 'error-state.png, 112 KB, removed',
+              ),
+              HiveChip.readOnly(
+                label: 'trace-log.txt · 18 KB',
+                removed: true,
+                semanticLabel: 'trace-log.txt, 18 KB, removed',
+              ),
+            ],
+          ),
+        ),
+      ),
     ],
   );
 }

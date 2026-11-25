@@ -1,25 +1,38 @@
 import 'dart:io';
 
 import 'package:agentic_hive_backend/src/api/agents/agents_handler.dart';
+import 'package:agentic_hive_backend/src/api/agents/agents_migration_handler.dart';
 import 'package:agentic_hive_backend/src/api/harnesses/harnesses_handler.dart';
+import 'package:agentic_hive_backend/src/api/mcp_tools/mcp_tools_handler.dart';
 import 'package:agentic_hive_backend/src/api/overview/overview_handler.dart';
 import 'package:agentic_hive_backend/src/api/pauses/pauses_handler.dart';
 import 'package:agentic_hive_backend/src/api/result_contract/result_contract_handler.dart';
 import 'package:agentic_hive_backend/src/api/runs/runs_handler.dart';
+import 'package:agentic_hive_backend/src/api/settings/execution_settings_handler.dart';
 import 'package:agentic_hive_backend/src/api/settings/settings_handler.dart';
+import 'package:agentic_hive_backend/src/api/skills/skill_auto_install_handler.dart';
+import 'package:agentic_hive_backend/src/api/workflows/workflow_deletion_handler.dart';
 import 'package:agentic_hive_backend/src/api/workflows/workflow_handler.dart';
 import 'package:agentic_hive_backend/src/api/workspace/workspace_handler.dart';
+import 'package:agentic_hive_backend/src/api/workspace/workspaces_handler.dart';
+import 'package:agentic_hive_backend/src/api/worktrees/worktrees_handler.dart';
 import 'package:agentic_hive_backend/src/config/app_config.dart';
 import 'package:agentic_hive_backend/src/config/platform_paths.dart';
 import 'package:agentic_hive_backend/src/data/agents/agent_directory_watcher.dart';
+import 'package:agentic_hive_backend/src/data/agents/layered_agent_repository.dart';
 import 'package:agentic_hive_backend/src/data/agents/local_agent_repository.dart';
+import 'package:agentic_hive_backend/src/data/agents/local_workspace_agent_repositories.dart';
 import 'package:agentic_hive_backend/src/data/agents/repository_agent_prompt_resolver.dart';
+import 'package:agentic_hive_backend/src/data/agents/workspace_agent_watchers.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/antigravity_mcp_installer.dart';
+import 'package:agentic_hive_backend/src/data/harnesses/antigravity_skill_installer.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/claude_code_mcp_installer.dart';
+import 'package:agentic_hive_backend/src/data/harnesses/claude_code_skill_installer.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/codex_mcp_installer.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/gemini_cli_mcp_installer.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/io_process_runner.dart';
 import 'package:agentic_hive_backend/src/data/harnesses/os_executable_locator.dart';
+import 'package:agentic_hive_backend/src/data/harnesses/shared_agents_skill_installer.dart';
 import 'package:agentic_hive_backend/src/data/nodes/dart_process_runner.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_process_platform.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_shell_provider.dart';
@@ -30,24 +43,50 @@ import 'package:agentic_hive_backend/src/data/result_contract/hive_result_contra
 import 'package:agentic_hive_backend/src/data/runs/drift_checkpoint_repository.dart';
 import 'package:agentic_hive_backend/src/data/runs/drift_run_event_repository.dart';
 import 'package:agentic_hive_backend/src/data/runs/drift_run_repository.dart';
+import 'package:agentic_hive_backend/src/data/runs/file_run_attachment_store.dart';
 import 'package:agentic_hive_backend/src/data/runs/file_run_log_store.dart';
 import 'package:agentic_hive_backend/src/data/runs/process_tree_killer_factory.dart';
 import 'package:agentic_hive_backend/src/data/settings/drift_settings_repository.dart';
+import 'package:agentic_hive_backend/src/data/settings/file_workspace_settings_store.dart';
 import 'package:agentic_hive_backend/src/data/settings/os_executable_validator.dart';
+import 'package:agentic_hive_backend/src/data/skills/located_bundled_skill_loader.dart';
+import 'package:agentic_hive_backend/src/data/skills/metadata_skill_auto_install_mark_store.dart';
 import 'package:agentic_hive_backend/src/data/workflows/drift_workflow_repository.dart';
+import 'package:agentic_hive_backend/src/data/workflows/file_workspace_workflow_repository.dart';
+import 'package:agentic_hive_backend/src/data/workflows/workspace_workflow_watcher.dart';
 import 'package:agentic_hive_backend/src/data/workspace/drift_snapshot_repository.dart';
+import 'package:agentic_hive_backend/src/data/workspace/drift_workspace_repository.dart';
 import 'package:agentic_hive_backend/src/data/workspace/git_client.dart';
+import 'package:agentic_hive_backend/src/data/worktrees/run_repository_active_run_lookup.dart';
 import 'package:agentic_hive_backend/src/db/app_database.dart';
 import 'package:agentic_hive_backend/src/db/database_health_check.dart';
 import 'package:agentic_hive_backend/src/db/metadata_repository.dart';
 import 'package:agentic_hive_backend/src/domain/agents/agent_repository.dart';
 import 'package:agentic_hive_backend/src/domain/agents/agent_service.dart';
+import 'package:agentic_hive_backend/src/domain/agents/agents_migration_service.dart';
+import 'package:agentic_hive_backend/src/domain/agents/workspace_agent_repositories.dart';
 import 'package:agentic_hive_backend/src/domain/engine/graph_engine.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/executable_locator.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_detector.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_mcp_installer.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/harness_service.dart';
+import 'package:agentic_hive_backend/src/domain/harnesses/harness_skill_installer.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/building_blocks_text_formatter.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/mcp_scope_resolver.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/mcp_tool_registry.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/create_workflow_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/delete_workflow_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/duplicate_workflow_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/edit_workflow_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/get_workflow_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/list_building_blocks_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/list_workflows_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/tools/list_workspaces_tool.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/workflow_create_input.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/workflow_patcher.dart';
+import 'package:agentic_hive_backend/src/domain/mcp_tools/workflow_text_formatter.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/child_run_port.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_registry.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/pty_session.dart';
@@ -61,21 +100,36 @@ import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_
 import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/pausing_human_approval_port.dart';
 import 'package:agentic_hive_backend/src/domain/runs/process_tree_killer.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_attachment_store.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_log_store.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_recovery_service.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_service.dart';
 import 'package:agentic_hive_backend/src/domain/settings/executable_validator.dart';
+import 'package:agentic_hive_backend/src/domain/settings/execution_settings_service.dart';
 import 'package:agentic_hive_backend/src/domain/settings/settings_repository.dart';
 import 'package:agentic_hive_backend/src/domain/settings/settings_service.dart';
+import 'package:agentic_hive_backend/src/domain/settings/workspace_settings_store.dart';
+import 'package:agentic_hive_backend/src/domain/skills/bundled_skill_loader.dart';
+import 'package:agentic_hive_backend/src/domain/skills/skill_auto_install_mark_store.dart';
+import 'package:agentic_hive_backend/src/domain/skills/skill_auto_install_service.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_events.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_registry.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workflow_events.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
+import 'package:agentic_hive_backend/src/domain/workflows/workspace_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/shadow_snapshot_service.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/snapshot_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_capabilities_service.dart';
+import 'package:agentic_hive_backend/src/domain/workspace/workspace_events.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_preparation_service.dart';
+import 'package:agentic_hive_backend/src/domain/workspace/workspace_repository.dart';
+import 'package:agentic_hive_backend/src/domain/workspace/workspace_service.dart';
+import 'package:agentic_hive_backend/src/domain/worktrees/active_run_lookup.dart';
+import 'package:agentic_hive_backend/src/domain/worktrees/worktree_service.dart';
 import 'package:agentic_hive_backend/src/http/api_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/shutdown_handler.dart';
 import 'package:agentic_hive_backend/src/http/handlers/status_handler.dart';
@@ -90,6 +144,9 @@ import 'package:agentic_hive_backend/src/server/server_info_file.dart';
 import 'package:agentic_hive_backend/src/version.dart';
 import 'package:agentic_hive_backend/src/ws/connection_registry.dart';
 import 'package:agentic_hive_backend/src/ws/ws_gateway.dart';
+import 'package:agentic_hive_backend/src/ws/ws_workflow_deletion_events.dart';
+import 'package:agentic_hive_backend/src/ws/ws_workflow_events.dart';
+import 'package:agentic_hive_backend/src/ws/ws_workspace_events.dart';
 import 'package:get_it/get_it.dart';
 
 Future<void> _noOpShutdown() async {}
@@ -110,6 +167,7 @@ Future<void> registerDependencies(
   required DateTime startedAt,
   Future<void> Function()? onShutdown,
   IOSink? consoleOut,
+  List<String> agentsMigrationConflicts = const <String>[],
 }) async {
   di
     ..registerSingleton<AppConfig>(config)
@@ -185,11 +243,32 @@ Future<void> registerDependencies(
         AntigravityMcpInstaller(processRunner: di<ProcessRunner>()),
       ]),
     )
+    ..registerSingleton<BundledSkillLoader>(LocatedBundledSkillLoader())
+    ..registerSingleton<HarnessSkillInstallerRegistry>(
+      HarnessSkillInstallerRegistry([
+        ClaudeCodeSkillInstaller(
+          platformPaths: platformPaths,
+          bundledSkillLoader: di<BundledSkillLoader>(),
+          appVersion: backendVersion,
+        ),
+        SharedAgentsSkillInstaller(
+          platformPaths: platformPaths,
+          bundledSkillLoader: di<BundledSkillLoader>(),
+          appVersion: backendVersion,
+        ),
+        AntigravitySkillInstaller(
+          platformPaths: platformPaths,
+          bundledSkillLoader: di<BundledSkillLoader>(),
+          appVersion: backendVersion,
+        ),
+      ]),
+    )
     ..registerSingleton<HarnessService>(
       DefaultHarnessService(
         detectors: di<List<HarnessDetector>>(),
         mcpInstallers: di<HarnessMcpInstallerRegistry>(),
         mcpLocator: di<HiveMcpLocator>(),
+        skillInstallers: di<HarnessSkillInstallerRegistry>(),
       ),
       dispose: (service) => service.dispose(),
     )
@@ -265,8 +344,17 @@ Future<void> registerDependencies(
       ),
     )
     ..registerSingleton<AgentRepository>(di<LocalAgentRepository>())
+    ..registerSingleton<WorkspaceAgentRepositories>(
+      LocalWorkspaceAgentRepositories(
+        findWorkspace: (id) => di<WorkspaceService>().get(id),
+        pathContext: platformPaths.context,
+      ),
+    )
     ..registerSingleton<AgentPromptResolver>(
-      RepositoryAgentPromptResolver(di<AgentRepository>()),
+      RepositoryAgentPromptResolver(
+        di<AgentRepository>(),
+        workspaceAgents: di<WorkspaceAgentRepositories>().forRoot,
+      ),
     )
     ..registerSingleton<NodeRegistry>(
       NodeRegistry.withDefaults(
@@ -277,21 +365,19 @@ Future<void> registerDependencies(
         approvalPort: di<HumanApprovalPort>(),
         agentPromptResolver: di<AgentPromptResolver>(),
         processTreeKiller: di<ProcessTreeKiller>(),
+        executionSettings: () => di<ExecutionSettingsService>(),
+        childRuns: () => di<ChildRunPort>(),
       ),
     )
     ..registerSingleton<WorkflowValidator>(
       WorkflowValidator(nodeRegistry: di<NodeRegistry>()),
     )
-    ..registerSingletonWithDependencies<WorkflowService>(
-      () => WorkflowService(
-        repository: di<WorkflowRepository>(),
-        validator: di<WorkflowValidator>(),
-      ),
-      dependsOn: [WorkflowRepository],
+    ..registerSingletonWithDependencies<WorkspaceRepository>(
+      () => DriftWorkspaceRepository(di<AppDatabase>()),
+      dependsOn: [AppDatabase],
     )
-    ..registerSingletonWithDependencies<WorkflowHandler>(
-      () => WorkflowHandler(service: di<WorkflowService>()),
-      dependsOn: [WorkflowService],
+    ..registerSingleton<WorkspaceWorkflowRepository>(
+      FileWorkspaceWorkflowRepository(pathContext: platformPaths.context),
     )
     ..registerSingletonWithDependencies<RunRepository>(
       () => DriftRunRepository(di<AppDatabase>()),
@@ -326,22 +412,91 @@ Future<void> registerDependencies(
       ),
       dispose: (store) => store.close(),
     )
+    ..registerSingleton<RunAttachmentStore>(
+      FileRunAttachmentStore(
+        runsDir: config.runsDir,
+        pathContext: platformPaths.context,
+      ),
+    )
     ..registerSingleton<GitClient>(GitClient(di<ProcessRunner>()))
     ..registerSingleton<WorkspaceCapabilitiesService>(
       WorkspaceCapabilitiesService(di<GitClient>()),
+    )
+    ..registerSingletonWithDependencies<WorkspaceService>(
+      () => WorkspaceService(
+        workspaces: di<WorkspaceRepository>(),
+        capabilities: di<WorkspaceCapabilitiesService>(),
+        pathContext: platformPaths.context,
+      ),
+      dependsOn: [WorkspaceRepository],
+    )
+    ..registerSingletonWithDependencies<WorkspaceWorkflowWatcher>(
+      () => WorkspaceWorkflowWatcher(
+        workspaces: di<WorkspaceRepository>(),
+        repository: di<WorkspaceWorkflowRepository>(),
+        validator: di<WorkflowValidator>(),
+        registry: di<ConnectionRegistry>(),
+        pathContext: platformPaths.context,
+      ),
+      dependsOn: [WorkspaceRepository],
+      dispose: (watcher) => watcher.close(),
+    )
+    ..registerSingletonWithDependencies<WorkspacesHandler>(
+      () => WorkspacesHandler(
+        service: di<WorkspaceService>(),
+        onChanged: () => di<WorkspaceAgentWatchers>().sync(),
+        events: di<WorkspaceEvents>(),
+      ),
+      dependsOn: [WorkspaceService],
+    )
+    ..registerSingletonWithDependencies<SettingsRepository>(
+      () => DriftSettingsRepository(di<AppDatabase>()),
+      dependsOn: [AppDatabase],
+    )
+    ..registerSingleton<WorkspaceSettingsStore>(
+      FileWorkspaceSettingsStore(pathContext: platformPaths.context),
+    )
+    ..registerSingletonWithDependencies<ExecutionSettingsService>(
+      () => DefaultExecutionSettingsService(
+        settings: di<SettingsRepository>(),
+        workspaces: di<WorkspaceRepository>(),
+        store: di<WorkspaceSettingsStore>(),
+        shellProvider: di<DefaultShellProvider>(),
+      ),
+      dependsOn: [SettingsRepository, WorkspaceRepository],
+    )
+    ..registerSingletonWithDependencies<ExecutionSettingsHandler>(
+      () => ExecutionSettingsHandler(di<ExecutionSettingsService>()),
+      dependsOn: [ExecutionSettingsService],
+    )
+    ..registerSingletonWithDependencies<ActiveRunLookup>(
+      () => RunRepositoryActiveRunLookup(di<RunRepository>()),
+      dependsOn: [RunRepository],
+    )
+    ..registerSingletonWithDependencies<WorktreeService>(
+      () => WorktreeService(
+        git: di<GitClient>(),
+        activeRuns: di<ActiveRunLookup>(),
+        worktreesDir: config.worktreesDir,
+        pathContext: platformPaths.context,
+      ),
+      dependsOn: [ActiveRunLookup],
+    )
+    ..registerSingletonWithDependencies<WorktreesHandler>(
+      () => WorktreesHandler(
+        workspaces: di<WorkspaceService>(),
+        worktrees: di<WorktreeService>(),
+        events: di<WorkspaceEvents>(),
+      ),
+      dependsOn: [WorkspaceService, WorktreeService],
     )
     ..registerSingletonWithDependencies<SnapshotRepository>(
       () => DriftSnapshotRepository(di<AppDatabase>()),
       dependsOn: [AppDatabase],
     )
     ..registerSingletonWithDependencies<WorkspacePreparationService>(
-      () => WorkspacePreparationService(
-        git: di<GitClient>(),
-        worktreesDir: config.worktreesDir,
-        pathContext: platformPaths.context,
-        events: di<RunEventRepository>(),
-      ),
-      dependsOn: [RunEventRepository],
+      () => WorkspacePreparationService(git: di<GitClient>()),
+      dependsOn: [SnapshotRepository],
     )
     ..registerSingletonWithDependencies<ShadowSnapshotService>(
       () => ShadowSnapshotService(
@@ -365,6 +520,7 @@ Future<void> registerDependencies(
       () => RunRecoveryService(
         runs: di<RunRepository>(),
         checkpoints: di<CheckpointRepository>(),
+        attachments: di<RunAttachmentStore>(),
       ),
       dependsOn: [RunRepository, CheckpointRepository],
     )
@@ -380,6 +536,7 @@ Future<void> registerDependencies(
         processTreeKiller: di<ProcessTreeKiller>(),
         pauses: di<PauseRepository>(),
         logStore: di<RunLogStore>(),
+        attachments: di<RunAttachmentStore>(),
       ),
       dependsOn: [
         RunRepository,
@@ -390,6 +547,7 @@ Future<void> registerDependencies(
         PauseRepository,
       ],
     )
+    ..registerSingleton<WorkflowDeletionRegistry>(WorkflowDeletionRegistry())
     ..registerSingletonWithDependencies<RunService>(
       () => RunService(
         runs: di<RunRepository>(),
@@ -398,9 +556,15 @@ Future<void> registerDependencies(
         snapshots: di<ShadowSnapshotService>(),
         workspacePreparation: di<WorkspacePreparationService>(),
         workflows: di<WorkflowRepository>(),
+        workspaceWorkflows: di<WorkspaceWorkflowRepository>(),
         workflowValidator: di<WorkflowValidator>(),
+        workspaces: di<WorkspaceService>(),
+        worktrees: di<WorktreeService>(),
+        executionSettings: di<ExecutionSettingsService>(),
         engine: di<GraphEngine>(),
         logStore: di<RunLogStore>(),
+        attachments: di<RunAttachmentStore>(),
+        deletions: di<WorkflowDeletionRegistry>(),
         pathContext: platformPaths.context,
       ),
       dependsOn: [
@@ -410,9 +574,114 @@ Future<void> registerDependencies(
         ShadowSnapshotService,
         WorkspacePreparationService,
         WorkflowRepository,
+        WorkspaceService,
+        WorktreeService,
+        ExecutionSettingsService,
         GraphEngine,
       ],
       dispose: (service) => service.dispose(),
+    )
+    ..registerSingletonWithDependencies<ChildRunPort>(
+      () => di<RunService>(),
+      dependsOn: [RunService],
+    )
+    ..registerSingletonWithDependencies<WorkflowService>(
+      () => WorkflowService(
+        repository: di<WorkflowRepository>(),
+        validator: di<WorkflowValidator>(),
+        workspaceWorkflows: di<WorkspaceWorkflowRepository>(),
+        workspaces: di<WorkspaceRepository>(),
+        runsDeleter: di<RunService>(),
+        deletions: di<WorkflowDeletionRegistry>(),
+        deletionEvents: di<WorkflowDeletionEvents>(),
+      ),
+      dependsOn: [WorkflowRepository, WorkspaceRepository, RunService],
+    )
+    ..registerSingletonWithDependencies<WorkflowHandler>(
+      () => WorkflowHandler(service: di<WorkflowService>()),
+      dependsOn: [WorkflowService],
+    )
+    ..registerSingletonWithDependencies<WorkflowDeletionHandler>(
+      () => WorkflowDeletionHandler(service: di<WorkflowService>()),
+      dependsOn: [WorkflowService],
+    )
+    ..registerSingletonWithDependencies<McpScopeResolver>(
+      () => McpScopeResolver(
+        workspaces: di<WorkspaceRepository>(),
+        worktreesDir: config.worktreesDir,
+        path: platformPaths.context,
+      ),
+      dependsOn: [WorkspaceRepository],
+    )
+    ..registerSingletonWithDependencies<McpToolRegistry>(
+      () {
+        const formatter = WorkflowTextFormatter();
+        final scopes = di<McpScopeResolver>();
+        final workflows = di<WorkflowService>();
+        return McpToolRegistry([
+          ListWorkspacesTool(
+            workspaces: di<WorkspaceRepository>(),
+            globalWorkflows: di<WorkflowRepository>(),
+            workspaceWorkflows: di<WorkspaceWorkflowRepository>(),
+            formatter: formatter,
+          ),
+          ListWorkflowsTool(
+            scopes: scopes,
+            workflows: workflows,
+            formatter: formatter,
+          ),
+          GetWorkflowTool(
+            scopes: scopes,
+            workflows: workflows,
+            formatter: formatter,
+          ),
+          CreateWorkflowTool(
+            scopes: scopes,
+            workflows: workflows,
+            parser: WorkflowCreateInputParser(
+              describe: di<NodeRegistry>().descriptorFor,
+            ),
+            formatter: formatter,
+            events: di<WorkflowEvents>(),
+          ),
+          DuplicateWorkflowTool(
+            scopes: scopes,
+            workflows: workflows,
+            formatter: formatter,
+            events: di<WorkflowEvents>(),
+          ),
+          EditWorkflowTool(
+            scopes: scopes,
+            workflows: workflows,
+            patcher: WorkflowPatcher(
+              describe: di<NodeRegistry>().descriptorFor,
+            ),
+            formatter: formatter,
+            events: di<WorkflowEvents>(),
+          ),
+          DeleteWorkflowTool(
+            scopes: scopes,
+            workflows: workflows,
+            events: di<WorkflowEvents>(),
+          ),
+          ListBuildingBlocksTool(
+            scopes: scopes,
+            nodeTypes: () => di<NodeRegistry>().descriptors,
+            agents: di<AgentService>(),
+            formatter: const BuildingBlocksTextFormatter(),
+          ),
+        ]);
+      },
+      dependsOn: [
+        McpScopeResolver,
+        WorkflowService,
+        WorkflowRepository,
+        WorkspaceRepository,
+      ],
+    )
+    ..registerSingletonWithDependencies<McpToolsHandler>(
+      () => McpToolsHandler(registry: di<McpToolRegistry>()),
+      dependsOn: [McpToolRegistry],
     )
     ..registerSingletonWithDependencies<RunsHandler>(
       () => RunsHandler(service: di<RunService>()),
@@ -448,8 +717,45 @@ Future<void> registerDependencies(
       dependsOn: [OverviewService],
     )
     ..registerSingleton<ConnectionRegistry>(ConnectionRegistry())
-    ..registerSingleton<AgentService>(AgentService(di<AgentRepository>()))
+    ..registerSingleton<WorkspaceEvents>(
+      WsWorkspaceEvents(di<ConnectionRegistry>()),
+    )
+    ..registerSingleton<WorkflowDeletionEvents>(
+      WsWorkflowDeletionEvents(di<ConnectionRegistry>()),
+    )
+    ..registerSingleton<WorkflowEvents>(
+      WsWorkflowEvents(di<ConnectionRegistry>()),
+    )
+    ..registerSingleton<AgentService>(
+      AgentService(
+        di<AgentRepository>(),
+        workspaces: di<WorkspaceAgentRepositories>(),
+        layer: LayeredAgentRepository.new,
+        onWorkspaceAgentsChanged: () => di<WorkspaceAgentWatchers>().sync(),
+      ),
+    )
+    ..registerSingletonWithDependencies<AgentsMigrationHandler>(
+      () => AgentsMigrationHandler(
+        AgentsMigrationService(
+          legacyDir: config.legacyAgentsDir,
+          targetDir: config.agentsDir,
+          conflicts: agentsMigrationConflicts,
+          settings: di<SettingsRepository>(),
+        ),
+      ),
+      dependsOn: [SettingsRepository],
+    )
     ..registerSingleton<AgentsHandler>(AgentsHandler(di<AgentService>()))
+    ..registerSingletonWithDependencies<WorkspaceAgentWatchers>(
+      () => WorkspaceAgentWatchers(
+        listWorkspaces: () => di<WorkspaceService>().list(),
+        repositoryFor: di<WorkspaceAgentRepositories>().forRoot,
+        registry: di<ConnectionRegistry>(),
+        pathContext: platformPaths.context,
+      ),
+      dependsOn: [WorkspaceService],
+      dispose: (watchers) => watchers.close(),
+    )
     ..registerSingletonAsync<AgentDirectoryWatcher>(() async {
       final watcher = AgentDirectoryWatcher(
         agentsDir: config.agentsDir,
@@ -461,10 +767,6 @@ Future<void> registerDependencies(
       return watcher;
     }, dispose: (watcher) => watcher.close())
     ..registerSingleton<ExecutableValidator>(currentExecutableValidator())
-    ..registerSingletonWithDependencies<SettingsRepository>(
-      () => DriftSettingsRepository(di<AppDatabase>()),
-      dependsOn: [AppDatabase],
-    )
     ..registerSingletonWithDependencies<SettingsService>(
       () => DefaultSettingsService(
         repository: di<SettingsRepository>(),
@@ -482,6 +784,25 @@ Future<void> registerDependencies(
       () => SettingsHandler(di<SettingsService>()),
       dependsOn: [SettingsService],
     )
+    ..registerSingletonWithDependencies<SkillAutoInstallMarkStore>(
+      () => MetadataSkillAutoInstallMarkStore(di<MetadataRepository>()),
+      dependsOn: [MetadataRepository],
+    )
+    ..registerSingletonWithDependencies<SkillAutoInstallService>(
+      () => DefaultSkillAutoInstallService(
+        harnessService: di<HarnessService>(),
+        settingsService: di<SettingsService>(),
+        markStore: di<SkillAutoInstallMarkStore>(),
+        skillInstallers: di<HarnessSkillInstallerRegistry>(),
+        mcpInstallers: di<HarnessMcpInstallerRegistry>(),
+      ),
+      dependsOn: [SettingsService, SkillAutoInstallMarkStore],
+      dispose: (service) => service.dispose(),
+    )
+    ..registerSingletonWithDependencies<SkillAutoInstallHandler>(
+      () => SkillAutoInstallHandler(di<SkillAutoInstallService>()),
+      dependsOn: [SkillAutoInstallService],
+    )
     ..registerSingletonWithDependencies<WsGateway>(
       () => WsGateway(
         registry: di<ConnectionRegistry>(),
@@ -494,11 +815,13 @@ Future<void> registerDependencies(
         ptySessions: di<PtySessionRegistry>(),
         pauseCreated: di<DriftPauseRepository>().created,
         pauseResolved: di<DriftPauseRepository>().resolved,
+        skillAutoInstalls: di<SkillAutoInstallService>().notices,
       ),
       dependsOn: [
         SettingsService,
         DriftRunEventRepository,
         DriftPauseRepository,
+        SkillAutoInstallService,
       ],
       dispose: (gateway) => gateway.close(),
     )
@@ -521,14 +844,21 @@ Future<void> registerDependencies(
           shutdownHandler: di<ShutdownHandler>(),
           webSocketHandler: di<WsGateway>().handler,
           agentsHandler: di<AgentsHandler>(),
+          agentsMigrationHandler: di<AgentsMigrationHandler>(),
           harnessesHandler: di<HarnessesHandler>(),
           workflowHandler: di<WorkflowHandler>(),
+          workflowDeletionHandler: di<WorkflowDeletionHandler>(),
           resultContractHandler: di<ResultContractHandler>(),
+          mcpToolsHandler: di<McpToolsHandler>(),
           runsHandler: di<RunsHandler>(),
           pausesHandler: di<PausesHandler>(),
           overviewHandler: di<OverviewHandler>(),
           workspaceHandler: di<WorkspaceHandler>(),
+          workspacesHandler: di<WorkspacesHandler>(),
+          worktreesHandler: di<WorktreesHandler>(),
           settingsHandler: di<SettingsHandler>(),
+          executionSettingsHandler: di<ExecutionSettingsHandler>(),
+          skillAutoInstallHandler: di<SkillAutoInstallHandler>(),
         ),
         socket: LocalSocket(
           config.socketPath,
@@ -542,15 +872,23 @@ Future<void> registerDependencies(
         StatusHandler,
         AgentDirectoryWatcher,
         WorkflowHandler,
+        WorkflowDeletionHandler,
+        McpToolsHandler,
         RunsHandler,
         PausesHandler,
         OverviewHandler,
         WorkspaceHandler,
+        WorkspacesHandler,
+        WorktreesHandler,
         SettingsHandler,
+        ExecutionSettingsHandler,
+        SkillAutoInstallHandler,
         WsGateway,
       ],
       dispose: (server) => server.stop(),
     );
 
   await di.allReady();
+  await di<WorkspaceAgentWatchers>().sync();
+  await di<WorkspaceWorkflowWatcher>().start();
 }

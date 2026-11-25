@@ -22,7 +22,7 @@ Features read tokens through context accessors and never pass literal colors, sp
 
 Expose colors only as semantic roles (with `on*` foreground pairs where applicable):
 
-- Surfaces & structure: `background`, `surface1`, `surface2`, `surface3`, `borderSubtle` (1px hairline)
+- Surfaces & structure: `background`, `surface1`, `surface2`, `surface3`, `borderSubtle` (1px hairline, decorative), `borderStrong` (1px boundary for non-text UI reaching 3:1 on all surfaces)
 - Primary action & active item only: `accent`, `onAccent`
 - Secondary green & status: `accentMuted` (green family for charts, success, running), `success`, `warning`, `danger`, `info` (desaturated, each with an `on*` color)
 - Node statuses: `statusIdle`, `statusRunning`, `statusPaused`, `statusFailed`, `statusSucceeded`
@@ -67,7 +67,7 @@ Sizes and line heights follow the 4/8 rhythm. Confirm SIL OFL licenses before bu
 
 ## Initial Catalog & Desktop Profile
 
-Initial components: `HiveSideRail` (floating pill, collapsed by default, expandable with labels, Hive hexagon mark on top, active item as filled circle, the only subtle green→black vertical gradient in the app on its background), `HiveRailItem`, `HivePageHeader`, `HiveEmptyState`, `HiveButton` (primary/accent, secondary, ghost; sizes; hover, focus, pressed, disabled, loading), `HiveIconButton` (circular), `HiveCard`, `HiveBadge`, `HiveStatusDot` (shape per status, not only color), `HiveAgentAvatar`, `HiveConnectionIndicator`, `HiveHexMark`, `HiveDialog` (modal panel on `surface2` with `radiusPanel`, shown with `showHiveDialog` over a `background` scrim at `scrimOpacity`).
+Initial components: `HiveSideRail` (floating pill, collapsed by default, expandable with labels, Hive hexagon mark on top, active item as filled circle, the only subtle green→black vertical gradient in the app on its background, optional `section: HiveRailSection(...)` below the destinations separated by a `borderSubtle` hairline that opens an attached `surface1` flyout panel on hover/click/keyboard or pins beside the rail), `HiveRailItem`, `HivePageHeader`, `HiveEmptyState`, `HiveButton` (primary/accent, secondary, ghost; sizes; hover, focus, pressed, disabled, loading), `HiveIconButton` (circular), `HiveCard`, `HiveBadge`, `HiveStatusDot` (shape per status, not only color), `HiveAgentAvatar`, `HiveConnectionIndicator`, `HiveHexMark`, `HiveDialog` (modal panel on `surface2` with `radiusPanel`, shown with `showHiveDialog` over a `background` scrim at `scrimOpacity`), `HiveTreeItem` (one row of the hierarchical side rail tree: indentation by `indentLevel`, optional expand chevron, leading status or icon, `label` with a muted `subtitle`, trailing badge, `selected` / `highlighted` states; #63).
 
 **Tray icons:** `HiveTrayAssets` exposes the static system tray icons in `assets/tray/` (Windows `.ico`, Linux `.png`, macOS template `.png`), all derived from the Hive hexagon mark. Regenerate them with `tool/generate_tray_icons.py` (Pillow) instead of editing the files by hand.
 
@@ -82,6 +82,19 @@ F11 addition (#23): `HiveRailItem.badgeCount` / `HiveRailDestination.badgeCount`
 F12 addition (#21): `HiveTerminalView` + `HiveTerminalController` (VT100/xterm emulator over `xterm`, imported only in `hive_terminal_view.dart`). Raw PTY bytes in through `appendBytes` (UTF-8 decoded across chunks), typed keys out through `onInput` as bytes, screen size in cells through `onResize` after layout (the consumer debounces). `HiveTerminalMode.watch` (read-only, `info` eye icon), `.interactive` (taken over, `accentMuted` keyboard icon, `focusRing` border while focused) and `.ended` (read-only, cursor hidden, no resizes, `onSurfaceMuted` stop icon). Frame: `surface1` panel with `radiusPanel`, screen in a `background` well with `radiusCard`, Geist Mono `mono` role. Colors come from `HiveTerminalColors` (derived from `HiveColors`; every ANSI text color reaches 4.5:1 on the terminal background, and the ANSI fill colors carry `foreground` at 4.5:1).
 
 F15 addition (#22): `HiveMetricTile` (`focal` value in `number` inside `space3`, `compact` value in `display` inside `space2`; value in `onSurface`, Geist `label` in `onSurfaceMuted`; on a `HiveCardSurface` step with `radiusCard` and a hairline border; an optional `HiveFeedbackTone` colors only a leading tone icon, never text; one semantics node labelled `label: value` unless `semanticLabel` is given).
+
+#106 additions: `HiveDialog.confirm(destructive: true)` focuses Cancel. `HiveCard.busy` + `statusLabel` (inert card, one semantics node whose value is the live-region status; the consumer draws any visible status and excludes it from semantics). `HiveIconButton.disabledReason` (while disabled: `surface3` pill tooltip with `onSurface` `bodySmall` text and a `borderSubtle` hairline, plus the semantics hint). `HiveFieldFrame`'s well gesture is excluded from semantics so text fields pass the labelled tap target guideline.
+
+#145 / #146 additions:
+- `HiveInsetPanel`: non-interactive `surface2` grouping panel with a `borderSubtle` hairline and `radiusCard`, adding no semantics node; padding comes from `HiveInsetPadding` (`tight` `space1`, default `compact` `space2`/`space1`, `comfortable` `space2`).
+- `HiveBanner.density`: `HiveBannerDensity.regular` (default) and `.compact` (`space1` padding, `space3` badge and title min height, `bodySmall` message) for inline card feedback.
+- `HiveSwitch.helperText`: optional muted `bodySmall` text (`onSurfaceMuted`) below the label (requires `label != null`), aligned to the label's start edge (`space6 + space1`), as a non-toggling sibling that keeps its own semantics node and dims when disabled.
+- `HiveBadgeTone.neutral` foreground outline: draws a 1px `borderStrong` outline with `radiusPill` in the foreground so the neutral badge boundary reaches 3:1 against `surface2` without changing badge layout size.
+
+#175 addition: `HiveChip.readOnly` (`HiveReadOnlyChip`): no remove button, no selection, no tap target; `removed: true` mutes label and icon to `onSurfaceMuted` on `surface3` with a `borderSubtle` hairline (AA via the existing `onSurfaceMuted` text pairs); the full label is in a tooltip and the semantics node (`semanticLabel` overrides, consumers include `"removed"`).
+
+#177 addition:
+- `HiveDropZone`: visual-only drop-target highlight toggled by `active`; draws a `background` scrim at `scrimOpacity`, `focusRing` border at `focusRingWidth`, `radiusPanel` by default, and centered `titleSmall` `onSurface` caption. Fades over `short`/`standardCurve` (through `motion.resolve`); while active, exposes one live-region semantics node labelled with the caption; never takes pointer events (`IgnorePointer`). `HiveDialog.dropActive`/`dropCaption` wraps only the dialog panel in `HiveDropZone`.
 
 **Desktop platform profile:** Windows, Linux, and macOS; mouse + keyboard first. Every interactive component must have a hover state, a visible keyboard focus indicator, and a semantics label. Support desktop density (sidebar, multi-column, master-detail).
 

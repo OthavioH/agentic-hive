@@ -1,5 +1,12 @@
+import 'dart:async';
+
+import 'package:agentic_hive_frontend/core/shell/side_rail_pin_controller.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/pauses/controllers/pending_pauses_count_provider.dart';
+import 'package:agentic_hive_frontend/presentation/skills/widgets/skill_notice_host.dart';
+import 'package:agentic_hive_frontend/presentation/workspace/controllers/side_rail_tree_controller.dart';
+import 'package:agentic_hive_frontend/presentation/workspace/widgets/side_rail_tree.dart';
+import 'package:agentic_hive_frontend/presentation/workspace/widgets/workspace_switcher_bar.dart';
 import 'package:agentic_hive_frontend/routes/app_routes.dart';
 import 'package:design_system/design_system.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,7 +22,7 @@ typedef _DestinationSpec = ({
 });
 
 /// Desktop application shell hosting [HiveSideRail] and the active route.
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   /// Creates an [AppShell].
   const new({required this.location, required this.child, super.key});
 
@@ -26,11 +33,40 @@ class AppShell extends ConsumerWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
+  final HiveRailSectionController _sectionController =
+      HiveRailSectionController();
+
+  @override
+  void dispose() {
+    _sectionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final spacing = context.hiveSpacing;
     final pendingPausesCount =
         ref.watch(pendingPausesCountProvider).asData?.value ?? 0;
+    final pinned = ref.watch(sideRailPinControllerProvider);
+    final treeAsync = ref.watch(sideRailTreeControllerProvider);
+    final treeState = treeAsync.asData?.value;
+    final isRefreshing = treeState?.isRefreshing ?? false;
+    final activeRunsCount = treeState == null
+        ? 0
+        : treeState.workspaces.fold<int>(
+            0,
+            (sum, ws) =>
+                sum +
+                ws.worktrees.fold<int>(
+                  0,
+                  (wtSum, wt) => wtSum + wt.activeRuns.length,
+                ),
+          );
     final specs = <_DestinationSpec>[
       (
         path: OverviewRoute.path,
@@ -93,7 +129,9 @@ class AppShell extends ConsumerWidget {
     ];
 
     final matchedIndex = specs.indexWhere(
-      (spec) => location == spec.path || location.startsWith('${spec.path}/'),
+      (spec) =>
+          widget.location == spec.path ||
+          widget.location.startsWith('${spec.path}/'),
     );
 
     return Scaffold(
@@ -118,9 +156,53 @@ class AppShell extends ConsumerWidget {
                 markLabel: l10n.appTitle,
                 expandLabel: l10n.railExpandTooltip,
                 collapseLabel: l10n.railCollapseTooltip,
+                section: HiveRailSection(
+                  icon: HiveIcons.folder,
+                  label: l10n.navWorkspaces,
+                  title: l10n.sideRailTreeTitle,
+                  badgeCount: activeRunsCount > 0 ? activeRunsCount : null,
+                  semanticLabel: activeRunsCount > 0
+                      ? l10n.navWorkspacesActiveSemantic(activeRunsCount)
+                      : null,
+                  pinned: pinned,
+                  onPinnedChanged: (value) => unawaited(
+                    ref
+                        .read(sideRailPinControllerProvider.notifier)
+                        .setPinned(value),
+                  ),
+                  pinLabel: l10n.railPanelPin,
+                  unpinLabel: l10n.railPanelUnpin,
+                  controller: _sectionController,
+                  trailing: HiveIconButton(
+                    key: const Key('side_rail_tree_refresh_button'),
+                    icon: HiveIcons.refresh,
+                    size: HiveButtonSize.small,
+                    semanticLabel: l10n.sideRailTreeRefreshTooltip,
+                    loading: isRefreshing,
+                    onPressed: () => unawaited(
+                      ref
+                          .read(sideRailTreeControllerProvider.notifier)
+                          .refresh(),
+                    ),
+                  ),
+                  child: SideRailTree(
+                    currentLocation: widget.location,
+                    onRunSelected: _sectionController.close,
+                  ),
+                ),
               ),
               SizedBox(width: spacing.space2),
-              Expanded(child: child),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    const WorkspaceSwitcherBar(),
+                    SizedBox(height: spacing.space2),
+                    SkillNoticeHost(location: widget.location),
+                    Expanded(child: widget.child),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

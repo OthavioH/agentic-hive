@@ -1,113 +1,20 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
-import 'package:agentic_hive_frontend/domain/workflows/workflow_repository.dart';
+import 'package:agentic_hive_frontend/domain/workflows/workflow_deletion_update.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/pages/workflows_page.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
-final class _FakeWorkflowRepository implements WorkflowRepository {
-  final DateTime now = DateTime.utc(2026, 11, 20, 12);
-  final List<WorkflowSummary> items = <WorkflowSummary>[];
-  final List<String> deletedIds = <String>[];
-  final List<String> duplicatedIds = <String>[];
-  Result<List<WorkflowSummary>>? listOverride;
-
-  @override
-  Future<Result<List<WorkflowSummary>>> listWorkflows() async {
-    if (listOverride != null) return listOverride!;
-    return Success(List<WorkflowSummary>.from(items));
-  }
-
-  @override
-  Future<Result<WorkflowResponse>> createWorkflow(
-    CreateWorkflowRequest request,
-  ) async {
-    final wf = Workflow(
-      id: 'wf-new',
-      name: request.name,
-      description: request.description,
-      nodes: const <WorkflowNode>[],
-      edges: const <WorkflowEdge>[],
-      createdAt: now,
-      updatedAt: now,
-    );
-    items.add(
-      WorkflowSummary(
-        id: wf.id,
-        name: wf.name,
-        description: wf.description,
-        nodeCount: 0,
-        edgeCount: 0,
-        hasValidationErrors: true,
-        updatedAt: now,
-      ),
-    );
-    return Success(
-      WorkflowResponse(
-        workflow: wf,
-        validation: const WorkflowValidationResult(isValid: false),
-      ),
-    );
-  }
-
-  @override
-  Future<Result<WorkflowResponse>> duplicateWorkflow(
-    String id, {
-    String? name,
-  }) async {
-    duplicatedIds.add(id);
-    final source = items.firstWhere((w) => w.id == id);
-    final copy = WorkflowSummary(
-      id: '$id-copy',
-      name: '${source.name} (Copy)',
-      nodeCount: source.nodeCount,
-      edgeCount: source.edgeCount,
-      hasValidationErrors: source.hasValidationErrors,
-      updatedAt: now,
-    );
-    items.add(copy);
-    return Success(
-      WorkflowResponse(
-        workflow: Workflow(
-          id: copy.id,
-          name: copy.name,
-          nodes: const <WorkflowNode>[],
-          edges: const <WorkflowEdge>[],
-          createdAt: now,
-          updatedAt: now,
-        ),
-        validation: const WorkflowValidationResult(isValid: true),
-      ),
-    );
-  }
-
-  @override
-  Future<Result<void>> deleteWorkflow(String id) async {
-    deletedIds.add(id);
-    items.removeWhere((w) => w.id == id);
-    return const Success<void>(null);
-  }
-
-  @override
-  Future<Result<WorkflowResponse>> getWorkflow(String id) async =>
-      const FailureResult(NotFoundFailure('unused'));
-
-  @override
-  Future<Result<WorkflowResponse>> updateWorkflow(
-    String id,
-    UpdateWorkflowRequest request,
-  ) async => const FailureResult(NotFoundFailure('unused'));
-
-  @override
-  Future<Result<WorkflowValidationResult>> validateWorkflow(
-    Workflow workflow,
-  ) async => const Success(WorkflowValidationResult(isValid: true));
-}
+import 'scripted_workflow_repository.dart';
 
 Widget _buildRouterHost({required List<String> navigatedPaths}) {
   final router = GoRouter(
@@ -139,28 +46,68 @@ Widget _buildRouterHost({required List<String> navigatedPaths}) {
   );
 }
 
+final _updatedAt = DateTime.utc(2026, 11, 20, 12);
+
+WorkflowSummary _workflow({
+  String id = 'wf-1',
+  String name = 'Release Flow',
+  String revision = 'r1',
+  bool deleting = false,
+}) => WorkflowSummary(
+  id: id,
+  name: name,
+  nodeCount: 2,
+  edgeCount: 1,
+  hasValidationErrors: false,
+  updatedAt: _updatedAt,
+  revision: revision,
+  deleting: deleting,
+);
+
+Future<void> _pump(
+  WidgetTester tester,
+  ScriptedWorkflowRepository repo, {
+  List<String>? navigated,
+}) async {
+  tester.view.physicalSize = const Size(1440, 900);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+  addTearDown(() async {
+    for (final controller in repo.live) {
+      await controller.close();
+    }
+  });
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+      child: _buildRouterHost(navigatedPaths: navigated ?? <String>[]),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+AppLocalizations _l10n(WidgetTester tester) =>
+    AppLocalizations.of(tester.element(find.byType(WorkflowsPage)))!;
+
+Future<void> _startDelete(WidgetTester tester, String id) async {
+  await tester.tap(find.byKey(Key('delete_workflow_$id')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(_l10n(tester).workflowsDeleteConfirm));
+  await tester.pumpAndSettle();
+}
+
+HiveButton _focusedButton() => FocusManager.instance.primaryFocus!.context!
+    .findAncestorWidgetOfExactType<HiveButton>()!;
+
 void main() {
   testWidgets(
     'WorkflowsPage shows empty state and creates workflow via dialog',
     (tester) async {
-      tester.view.physicalSize = const Size(1440, 900);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.reset);
-
-      final repo = _FakeWorkflowRepository();
+      final repo = ScriptedWorkflowRepository();
       final navigated = <String>[];
+      await _pump(tester, repo, navigated: navigated);
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
-          child: _buildRouterHost(navigatedPaths: navigated),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      final l10n = AppLocalizations.of(
-        tester.element(find.byType(WorkflowsPage)),
-      )!;
+      final l10n = _l10n(tester);
       expect(find.text(l10n.workflowsEmptyTitle), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('workflows_new_button')));
@@ -178,73 +125,798 @@ void main() {
     },
   );
 
+  testWidgets('WorkflowsPage lists items, filters, duplicates, and confirms '
+      'delete', (tester) async {
+    final repo = ScriptedWorkflowRepository()
+      ..items.addAll(<WorkflowSummary>[
+        _workflow(),
+        _workflow(id: 'wf-2', name: 'Lint Check', revision: 'r2'),
+      ])
+      ..scripts.add(<WorkflowDeletionUpdate>[
+        const WorkflowDeletionStarted(operationId: 'op-1'),
+        const WorkflowDeletionSucceeded(),
+      ]);
+    await _pump(tester, repo);
+    final l10n = _l10n(tester);
+
+    expect(find.text('Release Flow'), findsOneWidget);
+    expect(find.text('Lint Check'), findsOneWidget);
+
+    // Duplicate wf-1
+    await tester.tap(find.byKey(const Key('duplicate_workflow_wf-1')));
+    await tester.pumpAndSettle();
+    expect(repo.duplicatedIds, <String>['wf-1']);
+    expect(find.text('Release Flow (Copy)'), findsOneWidget);
+
+    // Search filter
+    await tester.enterText(
+      find.byKey(const Key('workflows_search_field')),
+      'Lint',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Lint Check'), findsOneWidget);
+    expect(find.text('Release Flow'), findsNothing);
+
+    // Delete wf-2 through the destructive confirmation.
+    await tester.tap(find.byKey(const Key('delete_workflow_wf-2')));
+    await tester.pumpAndSettle();
+    expect(find.byType(HiveConfirmDialog), findsOneWidget);
+    await tester.tap(find.text(l10n.workflowsDeleteConfirm));
+    await tester.pumpAndSettle();
+
+    expect(repo.deleteCalls.single.id, 'wf-2');
+    expect(find.text('Lint Check'), findsNothing);
+    expect(
+      find.byKey(const Key('workflows_delete_notice_success')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('WorkflowsPage delete dialog says run history is deleted and '
+      'files are kept', (tester) async {
+    final repo = ScriptedWorkflowRepository()..items.add(_workflow());
+    await _pump(tester, repo);
+
+    await tester.tap(find.byKey(const Key('delete_workflow_wf-1')));
+    await tester.pumpAndSettle();
+
+    final l10n = _l10n(tester);
+    final message = l10n.workflowsDeleteMessage('Release Flow');
+    expect(find.text(message), findsOneWidget);
+    expect(message, contains('run history is deleted too'));
+    expect(message, contains('Files and worktrees are kept'));
+  });
+
+  testWidgets('delete dialog focuses Cancel first and Escape cancels', (
+    tester,
+  ) async {
+    final repo = ScriptedWorkflowRepository()..items.add(_workflow());
+    await _pump(tester, repo);
+
+    await tester.tap(find.byKey(const Key('delete_workflow_wf-1')));
+    await tester.pumpAndSettle();
+
+    expect(_focusedButton().label, _l10n(tester).workflowsCancelAction);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HiveConfirmDialog), findsNothing);
+    expect(repo.deleteCalls, isEmpty);
+  });
+
+  testWidgets('active runs answer opens the stop-runs dialog with the count, '
+      'focused on Cancel', (tester) async {
+    final repo = ScriptedWorkflowRepository()
+      ..items.add(_workflow())
+      ..scripts.add(<WorkflowDeletionUpdate>[activeRuns]);
+    await _pump(tester, repo);
+    final l10n = _l10n(tester);
+
+    await _startDelete(tester, 'wf-1');
+
+    expect(
+      find.text(l10n.workflowsDeleteActiveRunsMessage(2, 'Release Flow')),
+      findsOneWidget,
+    );
+    expect(find.text(l10n.workflowsDeleteStopRunsConfirm), findsOneWidget);
+    expect(_focusedButton().label, l10n.workflowsCancelAction);
+  });
+
+  testWidgets('stop-runs confirm sends force=true', (tester) async {
+    final repo = ScriptedWorkflowRepository()
+      ..items.add(_workflow())
+      ..scripts.addAll(<List<WorkflowDeletionUpdate>>[
+        <WorkflowDeletionUpdate>[activeRuns],
+        <WorkflowDeletionUpdate>[
+          const WorkflowDeletionStarted(operationId: 'op-1'),
+          const WorkflowDeletionSucceeded(),
+        ],
+      ]);
+    await _pump(tester, repo);
+
+    await _startDelete(tester, 'wf-1');
+    await tester.tap(find.text(_l10n(tester).workflowsDeleteStopRunsConfirm));
+    await tester.pumpAndSettle();
+
+    expect(repo.deleteCalls.map((c) => c.force), <bool>[false, true]);
+  });
+
+  testWidgets('cancelling the stop-runs dialog sends nothing more', (
+    tester,
+  ) async {
+    final repo = ScriptedWorkflowRepository()
+      ..items.add(_workflow())
+      ..scripts.add(<WorkflowDeletionUpdate>[activeRuns]);
+    await _pump(tester, repo);
+
+    await _startDelete(tester, 'wf-1');
+    await tester.tap(find.text(_l10n(tester).workflowsCancelAction));
+    await tester.pumpAndSettle();
+
+    expect(repo.deleteCalls, hasLength(1));
+    expect(find.byType(HiveConfirmDialog), findsNothing);
+    expect(find.text('Release Flow'), findsOneWidget);
+  });
+
+  testWidgets('accepted delete closes the dialog and shows the deleting row '
+      'with disabled actions and reasons', (tester) async {
+    final repo = ScriptedWorkflowRepository()..items.add(_workflow());
+    final navigated = <String>[];
+    await _pump(tester, repo, navigated: navigated);
+    final l10n = _l10n(tester);
+
+    await _startDelete(tester, 'wf-1');
+    repo.live.last.add(const WorkflowDeletionStarted(operationId: 'op-1'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HiveConfirmDialog), findsNothing);
+    expect(find.text(l10n.workflowsDeletingStatus), findsOneWidget);
+
+    final duplicate = tester.widget<HiveIconButton>(
+      find.byKey(const Key('duplicate_workflow_wf-1')),
+    );
+    expect(duplicate.onPressed, isNull);
+    expect(duplicate.semanticLabel, l10n.workflowsDuplicateAction);
+    expect(duplicate.disabledReason, l10n.workflowsActionUnavailableDeleting);
+
+    final run = tester.widget<HiveIconButton>(
+      find.byKey(const Key('run_workflow_wf-1')),
+    );
+    expect(run.onPressed, isNull);
+    expect(run.semanticLabel, l10n.workflowsRunAction);
+    expect(run.disabledReason, l10n.workflowsActionUnavailableDeleting);
+
+    final delete = tester.widget<HiveIconButton>(
+      find.byKey(const Key('delete_workflow_wf-1')),
+    );
+    expect(delete.onPressed, isNull);
+    expect(delete.semanticLabel, l10n.workflowsDeleteAction);
+    expect(delete.disabledReason, l10n.workflowsActionUnavailableDeleting);
+
+    final card = tester.widget<HiveCard>(
+      find.byKey(const Key('workflow_card_wf-1')),
+    );
+    expect(card.onPressed, isNull);
+    expect(card.busy, isTrue);
+    expect(card.semanticLabel, l10n.workflowsOpenAction('Release Flow'));
+    expect(card.statusLabel, l10n.workflowsDeletingStatus);
+
+    await tester.tap(find.byKey(const Key('workflow_card_wf-1')));
+    await tester.pumpAndSettle();
+    expect(navigated, isEmpty);
+  });
+
+  testWidgets('deleting row shows phase and counters and is a live region', (
+    tester,
+  ) async {
+    final repo = ScriptedWorkflowRepository()..items.add(_workflow());
+    await _pump(tester, repo);
+    final l10n = _l10n(tester);
+    final semantics = tester.ensureSemantics();
+
+    await _startDelete(tester, 'wf-1');
+    repo.live.last
+      ..add(const WorkflowDeletionStarted(operationId: 'op-1'))
+      ..add(
+        const WorkflowDeletionProgressed(
+          phase: WorkflowDeletionPhase.stoppingRuns,
+          runsToStop: 3,
+          runsStopped: 2,
+        ),
+      );
+    await tester.pumpAndSettle();
+
+    expect(find.text(l10n.workflowsDeletingStoppingRuns(2, 3)), findsOneWidget);
+    expect(
+      tester.getSemantics(find.byKey(const Key('workflow_card_wf-1'))),
+      isSemantics(
+        isLiveRegion: true,
+        value: l10n.workflowsDeletingStoppingRuns(2, 3),
+      ),
+    );
+
+    repo.live.last.add(
+      const WorkflowDeletionProgressed(
+        phase: WorkflowDeletionPhase.deletingRuns,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(l10n.workflowsDeletingRemovingRuns), findsOneWidget);
+    expect(
+      tester.getSemantics(find.byKey(const Key('workflow_card_wf-1'))),
+      isSemantics(
+        isLiveRegion: true,
+        value: l10n.workflowsDeletingRemovingRuns,
+      ),
+    );
+    semantics.dispose();
+  });
+
+  testWidgets('a row the backend marks deleting shows Deleting… with actions '
+      'disabled', (tester) async {
+    final repo = ScriptedWorkflowRepository()
+      ..items.add(_workflow(deleting: true));
+    await _pump(tester, repo);
+    final l10n = _l10n(tester);
+
+    expect(find.text(l10n.workflowsDeletingStatus), findsOneWidget);
+    final card = tester.widget<HiveCard>(
+      find.byKey(const Key('workflow_card_wf-1')),
+    );
+    expect(card.busy, isTrue);
+    expect(card.statusLabel, l10n.workflowsDeletingStatus);
+    final duplicate = tester.widget<HiveIconButton>(
+      find.byKey(const Key('duplicate_workflow_wf-1')),
+    );
+    expect(duplicate.onPressed, isNull);
+    expect(duplicate.disabledReason, l10n.workflowsActionUnavailableDeleting);
+    expect(repo.deleteCalls, isEmpty);
+  });
+
+  testWidgets('success removes the row and shows the success notice', (
+    tester,
+  ) async {
+    final repo = ScriptedWorkflowRepository()
+      ..items.add(_workflow())
+      ..scripts.add(<WorkflowDeletionUpdate>[
+        const WorkflowDeletionStarted(operationId: 'op-1'),
+        const WorkflowDeletionSucceeded(deletedRuns: 3),
+      ]);
+    await _pump(tester, repo);
+
+    await _startDelete(tester, 'wf-1');
+
+    expect(find.text('Release Flow'), findsNothing);
+    expect(
+      find.byKey(const Key('workflows_delete_notice_success')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('partial result lists kept runs in a live warning notice', (
+    tester,
+  ) async {
+    final repo = ScriptedWorkflowRepository()
+      ..items.add(_workflow())
+      ..scripts.add(<WorkflowDeletionUpdate>[
+        const WorkflowDeletionStarted(operationId: 'op-1'),
+        const WorkflowDeletionSucceeded(
+          deletedRuns: 1,
+          orphanedRuns: ['run-1', 'run-2'],
+        ),
+      ]);
+    await _pump(tester, repo);
+    final semantics = tester.ensureSemantics();
+
+    await _startDelete(tester, 'wf-1');
+
+    expect(
+      find.text(_l10n(tester).workflowsDeletePartialNotice(2)),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('workflows_delete_kept_run_run-1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('workflows_delete_kept_run_run-2')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getSemantics(
+        find.byKey(const Key('workflows_delete_notice_partial')),
+      ),
+      isSemantics(isLiveRegion: true),
+    );
+    semantics.dispose();
+  });
+
+  testWidgets('failure shows the error notice, the row returns to normal, and '
+      'Retry re-sends without confirmation', (tester) async {
+    final repo = ScriptedWorkflowRepository()
+      ..items.add(_workflow())
+      ..scripts.addAll(<List<WorkflowDeletionUpdate>>[
+        <WorkflowDeletionUpdate>[
+          const WorkflowDeletionStarted(operationId: 'op-1'),
+          const WorkflowDeletionFailed(
+            BackendFailure('Database is locked.', statusCode: 500),
+          ),
+        ],
+        <WorkflowDeletionUpdate>[
+          const WorkflowDeletionStarted(operationId: 'op-2'),
+          const WorkflowDeletionSucceeded(),
+        ],
+      ]);
+    await _pump(tester, repo);
+    final l10n = _l10n(tester);
+
+    await _startDelete(tester, 'wf-1');
+
+    expect(
+      find.text(l10n.workflowsDeleteFailedTitle('Release Flow')),
+      findsOneWidget,
+    );
+    expect(find.text('Database is locked.'), findsOneWidget);
+    expect(find.text(l10n.workflowsDeletingStatus), findsNothing);
+    final duplicate = tester.widget<HiveIconButton>(
+      find.byKey(const Key('duplicate_workflow_wf-1')),
+    );
+    expect(duplicate.onPressed, isNotNull);
+    expect(
+      tester.widget<HiveCard>(find.byKey(const Key('workflow_card_wf-1'))).busy,
+      isFalse,
+    );
+
+    await tester.tap(find.byKey(const Key('workflows_delete_retry_button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HiveConfirmDialog), findsNothing);
+    expect(repo.deleteCalls, hasLength(2));
+    expect(
+      find.byKey(const Key('workflows_delete_notice_success')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('revision conflict offers Reload, which asks to confirm again '
+      'with the fresh revision', (tester) async {
+    final repo = ScriptedWorkflowRepository()
+      ..items.add(_workflow())
+      ..scripts.add(<WorkflowDeletionUpdate>[
+        const WorkflowDeletionRejected(
+          BackendFailure(
+            'Revision changed.',
+            code: ApiErrorCode.revisionConflict,
+            statusCode: 409,
+            details: {'currentRevision': 'r2'},
+          ),
+        ),
+      ]);
+    await _pump(tester, repo);
+    final l10n = _l10n(tester);
+
+    await _startDelete(tester, 'wf-1');
+
+    expect(
+      find.byKey(const Key('workflows_delete_reload_button')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('workflows_delete_retry_button')),
+      findsNothing,
+    );
+
+    repo.items
+      ..clear()
+      ..add(_workflow(revision: 'r2'));
+    repo.scripts.add(<WorkflowDeletionUpdate>[
+      const WorkflowDeletionStarted(operationId: 'op-2'),
+      const WorkflowDeletionSucceeded(),
+    ]);
+    await tester.tap(find.byKey(const Key('workflows_delete_reload_button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HiveConfirmDialog), findsOneWidget);
+    expect(
+      find.byKey(const Key('workflows_delete_notice_error')),
+      findsNothing,
+    );
+
+    await tester.tap(find.text(l10n.workflowsDeleteConfirm));
+    await tester.pumpAndSettle();
+
+    expect(repo.deleteCalls, hasLength(2));
+    expect(repo.deleteCalls.last.revision, 'r2');
+  });
+
+  testWidgets('network failure shows the localized message', (tester) async {
+    final repo = ScriptedWorkflowRepository()
+      ..items.add(_workflow())
+      ..scripts.add(<WorkflowDeletionUpdate>[
+        const WorkflowDeletionRejected(NetworkFailure('socket closed')),
+      ]);
+    await _pump(tester, repo);
+
+    await _startDelete(tester, 'wf-1');
+
+    expect(find.text(_l10n(tester).workflowsFailureNetwork), findsOneWidget);
+  });
+
+  testWidgets('deleting the last workflow keeps the notice above the empty '
+      'state', (tester) async {
+    final repo = ScriptedWorkflowRepository()
+      ..items.add(_workflow())
+      ..scripts.add(<WorkflowDeletionUpdate>[
+        const WorkflowDeletionStarted(operationId: 'op-1'),
+        const WorkflowDeletionSucceeded(),
+      ]);
+    await _pump(tester, repo);
+
+    await _startDelete(tester, 'wf-1');
+
+    expect(
+      find.byKey(const Key('workflows_delete_notice_success')),
+      findsOneWidget,
+    );
+    expect(find.text(_l10n(tester).workflowsEmptyTitle), findsOneWidget);
+  });
+
+  testWidgets('dismissing a notice removes it', (tester) async {
+    final repo = ScriptedWorkflowRepository()
+      ..items.add(_workflow())
+      ..scripts.add(<WorkflowDeletionUpdate>[
+        const WorkflowDeletionStarted(operationId: 'op-1'),
+        const WorkflowDeletionSucceeded(),
+      ]);
+    await _pump(tester, repo);
+    final label = _l10n(tester).workflowsDismissNoticeAction;
+
+    await _startDelete(tester, 'wf-1');
+    await tester.tap(
+      find.byWidgetPredicate(
+        (widget) => widget is HiveIconButton && widget.semanticLabel == label,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('workflows_delete_notice_success')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('delete flow surfaces meet the labeled tap target guideline', (
+    tester,
+  ) async {
+    final repo = ScriptedWorkflowRepository()..items.add(_workflow());
+    await _pump(tester, repo);
+    final semantics = tester.ensureSemantics();
+
+    await _startDelete(tester, 'wf-1');
+    repo.live.last.add(const WorkflowDeletionStarted(operationId: 'op-1'));
+    await tester.pumpAndSettle();
+
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    semantics.dispose();
+  });
+
+  testWidgets('deleting row action reason shows in a tooltip on hover', (
+    tester,
+  ) async {
+    final repo = ScriptedWorkflowRepository()..items.add(_workflow());
+    await _pump(tester, repo);
+    final l10n = _l10n(tester);
+
+    await _startDelete(tester, 'wf-1');
+    repo.live.last.add(const WorkflowDeletionStarted(operationId: 'op-1'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: Offset.zero);
+    addTearDown(gesture.removePointer);
+    await tester.pump();
+    await gesture.moveTo(
+      tester.getCenter(find.byKey(const Key('duplicate_workflow_wf-1'))),
+    );
+    await tester.pump(HiveMotionTokens.standard.long);
+    await tester.pumpAndSettle();
+
+    expect(find.text(l10n.workflowsActionUnavailableDeleting), findsOneWidget);
+  });
+
+  testWidgets('deleting status is announced once', (tester) async {
+    final repo = ScriptedWorkflowRepository()..items.add(_workflow());
+    await _pump(tester, repo);
+    final l10n = _l10n(tester);
+    final semantics = tester.ensureSemantics();
+
+    await _startDelete(tester, 'wf-1');
+    repo.live.last.add(const WorkflowDeletionStarted(operationId: 'op-1'));
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel(l10n.workflowsDeletingStatus), findsNothing);
+    expect(
+      tester.getSemantics(find.byKey(const Key('workflow_card_wf-1'))).value,
+      l10n.workflowsDeletingStatus,
+    );
+    semantics.dispose();
+  });
+
   testWidgets(
-    'WorkflowsPage lists items, filters, duplicates, and confirms delete',
+    'duplicating-only row disables actions without busy or disabledReason',
     (tester) async {
-      tester.view.physicalSize = const Size(1440, 900);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.reset);
+      final gate = Completer<void>();
+      final repo = ScriptedWorkflowRepository()
+        ..items.add(_workflow())
+        ..duplicateGate = gate;
+      await _pump(tester, repo);
 
-      final now = DateTime.utc(2026, 11, 20, 12);
-      final repo = _FakeWorkflowRepository()
+      await tester.tap(find.byKey(const Key('duplicate_workflow_wf-1')));
+      await tester.pump();
+
+      final card = tester.widget<HiveCard>(
+        find.byKey(const Key('workflow_card_wf-1')),
+      );
+      expect(card.busy, isFalse);
+      expect(card.onPressed, isNull);
+
+      for (final keyName in <String>[
+        'run_workflow_wf-1',
+        'duplicate_workflow_wf-1',
+        'delete_workflow_wf-1',
+      ]) {
+        final button = tester.widget<HiveIconButton>(find.byKey(Key(keyName)));
+        expect(button.onPressed, isNull);
+        expect(button.disabledReason, isNull);
+      }
+
+      gate.complete();
+      await tester.pumpAndSettle();
+    },
+  );
+
+  group('delete flow styling', () {
+    testWidgets('kept run ids use the mono role in onSurface', (tester) async {
+      final repo = ScriptedWorkflowRepository()
         ..items.addAll(<WorkflowSummary>[
-          WorkflowSummary(
-            id: 'wf-1',
-            name: 'Release Flow',
-            nodeCount: 2,
-            edgeCount: 1,
-            hasValidationErrors: false,
-            updatedAt: now,
-          ),
-          WorkflowSummary(
-            id: 'wf-2',
-            name: 'Lint Check',
-            nodeCount: 1,
-            edgeCount: 0,
-            hasValidationErrors: true,
-            updatedAt: now,
-          ),
+          _workflow(),
+          _workflow(id: 'wf-2', name: 'Lint Check'),
         ]);
+      await _pump(tester, repo);
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
-          child: _buildRouterHost(navigatedPaths: <String>[]),
+      await _startDelete(tester, 'wf-1');
+      repo.live.last.add(
+        const WorkflowDeletionSucceeded(
+          orphanedRuns: <String>['run-1', 'run-2'],
         ),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Release Flow'), findsOneWidget);
-      expect(find.text('Lint Check'), findsOneWidget);
+      final ctx = tester.element(find.byType(WorkflowsPage));
+      final colors = ctx.hiveColors;
+      final typography = ctx.hiveTypography;
+      for (final id in <String>['run-1', 'run-2']) {
+        final text = tester.widget<Text>(
+          find.byKey(Key('workflows_delete_kept_run_$id')),
+        );
+        expect(text.style?.fontFamily, typography.mono.fontFamily);
+        expect(text.style?.color, colors.onSurface);
+      }
+    });
 
-      // Duplicate wf-1
-      await tester.tap(find.byKey(const Key('duplicate_workflow_wf-1')));
+    testWidgets(
+      'kept-runs sentence and ids use body/onSurfaceMuted and mono/onSurface '
+      'on error',
+      (tester) async {
+        final repo = ScriptedWorkflowRepository()
+          ..items.addAll(<WorkflowSummary>[
+            _workflow(),
+            _workflow(id: 'wf-2', name: 'Lint Check'),
+          ]);
+        await _pump(tester, repo);
+        final l10n = _l10n(tester);
+
+        await _startDelete(tester, 'wf-1');
+        repo.live.last.add(
+          const WorkflowDeletionFailed(
+            BackendFailure('boom', statusCode: 500),
+            orphanedRuns: <String>['run-a', 'run-b'],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final ctx = tester.element(find.byType(WorkflowsPage));
+        final colors = ctx.hiveColors;
+        final typography = ctx.hiveTypography;
+
+        final sentence = tester.widget<Text>(
+          find.text(l10n.workflowsDeleteKeptRunsDetail(2)),
+        );
+        expect(sentence.style?.fontSize, typography.body.fontSize);
+        expect(sentence.style?.color, colors.onSurfaceMuted);
+
+        for (final id in <String>['run-a', 'run-b']) {
+          final text = tester.widget<Text>(
+            find.byKey(Key('workflows_delete_kept_run_$id')),
+          );
+          expect(text.style?.fontFamily, typography.mono.fontFamily);
+          expect(text.style?.color, colors.onSurface);
+        }
+      },
+    );
+
+    testWidgets('a new notice fades in', (tester) async {
+      final repo = ScriptedWorkflowRepository()
+        ..items.addAll(<WorkflowSummary>[
+          _workflow(),
+          _workflow(id: 'wf-2', name: 'Lint Check'),
+        ]);
+      await _pump(tester, repo);
+
+      await _startDelete(tester, 'wf-1');
+      repo.live.last.add(const WorkflowDeletionSucceeded());
+      await tester.pump();
+      await tester.pump();
+
+      final fadeFinder = find.ancestor(
+        of: find.byKey(const Key('workflows_delete_notice_success')),
+        matching: find.byType(HiveFadeIn),
+      );
+      expect(fadeFinder, findsOneWidget);
+      expect(tester.widget<HiveFadeIn>(fadeFinder).key, isA<ObjectKey>());
       await tester.pumpAndSettle();
-      expect(repo.duplicatedIds, <String>['wf-1']);
-      expect(find.text('Release Flow (Copy)'), findsOneWidget);
+    });
 
-      // Search filter
-      await tester.enterText(
-        find.byKey(const Key('workflows_search_field')),
-        'Lint',
+    testWidgets('notice renders without a fade under reduced motion', (
+      tester,
+    ) async {
+      final repo = ScriptedWorkflowRepository()
+        ..items.addAll(<WorkflowSummary>[
+          _workflow(),
+          _workflow(id: 'wf-2', name: 'Lint Check'),
+        ]);
+      await _pump(tester, repo);
+
+      await _startDelete(tester, 'wf-1');
+      repo.live.last.add(
+        const WorkflowDeletionFailed(BackendFailure('boom', statusCode: 500)),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final noticeFade = find.ancestor(
+        of: find.byKey(const Key('workflows_delete_notice_error')),
+        matching: find.byType(HiveFadeIn),
+      );
+      expect(
+        find.descendant(
+          of: noticeFade,
+          matching: find.byWidgetPredicate(
+            (w) =>
+                w is FadeTransition ||
+                w.runtimeType.toString().startsWith('Flux'),
+          ),
+        ),
+        findsWidgets,
       );
       await tester.pumpAndSettle();
-      expect(find.text('Lint Check'), findsOneWidget);
-      expect(find.text('Release Flow'), findsNothing);
 
-      // Delete wf-2 with HiveDialog confirmation
-      await tester.tap(find.byKey(const Key('delete_workflow_wf-2')));
+      // Now with disableAnimations: true.
+      final repo2 = ScriptedWorkflowRepository()..items.add(_workflow());
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [workflowRepositoryProvider.overrideWithValue(repo2)],
+          child: MediaQuery(
+            data: const MediaQueryData(disableAnimations: true),
+            child: MaterialApp(
+              theme: HiveTheme.dark(),
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: const Scaffold(body: WorkflowsPage()),
+            ),
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
 
-      final l10n = AppLocalizations.of(
-        tester.element(find.byType(WorkflowsPage)),
-      )!;
-      expect(find.byType(HiveDialog), findsOneWidget);
-      await tester.tap(find.text(l10n.workflowsDeleteConfirm));
+      await _startDelete(tester, 'wf-1');
+      repo2.live.last.add(
+        const WorkflowDeletionFailed(BackendFailure('boom', statusCode: 500)),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final noticeFade2 = find.ancestor(
+        of: find.byKey(const Key('workflows_delete_notice_error')),
+        matching: find.byType(HiveFadeIn),
+      );
+      expect(
+        find.descendant(
+          of: noticeFade2,
+          matching: find.byWidgetPredicate(
+            (w) =>
+                w is FadeTransition ||
+                w.runtimeType.toString().startsWith('Flux'),
+          ),
+        ),
+        findsNothing,
+      );
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('rebuilding the same notice does not replay the fade', (
+      tester,
+    ) async {
+      final repo = ScriptedWorkflowRepository()
+        ..items.addAll(<WorkflowSummary>[
+          _workflow(),
+          _workflow(id: 'wf-2', name: 'Lint Check'),
+        ]);
+      await _pump(tester, repo);
+
+      await _startDelete(tester, 'wf-1');
+      repo.live.last.add(const WorkflowDeletionSucceeded());
       await tester.pumpAndSettle();
 
-      expect(repo.deletedIds, <String>['wf-2']);
-      expect(find.text('Lint Check'), findsNothing);
-    },
-  );
+      final noticeFade = find.ancestor(
+        of: find.byKey(const Key('workflows_delete_notice_success')),
+        matching: find.byType(HiveFadeIn),
+      );
+      final before = tester.element(noticeFade);
+      await tester.enterText(find.byType(EditableText).first, 'lint');
+      await tester.pumpAndSettle();
+      final after = tester.element(noticeFade);
+
+      expect(after, same(before));
+    });
+
+    testWidgets('Retry keeps focus, hover and pressed from the catalog', (
+      tester,
+    ) async {
+      final repo = ScriptedWorkflowRepository()
+        ..items.addAll(<WorkflowSummary>[
+          _workflow(),
+          _workflow(id: 'wf-2', name: 'Lint Check'),
+        ]);
+      await _pump(tester, repo);
+
+      await _startDelete(tester, 'wf-1');
+      repo.live.last.add(
+        const WorkflowDeletionFailed(BackendFailure('boom', statusCode: 500)),
+      );
+      await tester.pumpAndSettle();
+
+      final retryFinder = find.byKey(
+        const Key('workflows_delete_retry_button'),
+      );
+      final retryButton = tester.widget<HiveButton>(retryFinder);
+      expect(retryButton.variant, HiveButtonVariant.secondary);
+      expect(retryButton.size, HiveButtonSize.small);
+
+      var focused = false;
+      for (var i = 0; i < 10; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        final focusCtx = FocusManager.instance.primaryFocus?.context;
+        if (focusCtx != null &&
+            find
+                .ancestor(
+                  of: find.byWidget(focusCtx.widget),
+                  matching: retryFinder,
+                )
+                .evaluate()
+                .isNotEmpty) {
+          focused = true;
+          break;
+        }
+      }
+      expect(
+        focused,
+        isTrue,
+        reason: 'Retry button was not focused within 10 Tabs',
+      );
+    });
+  });
 }

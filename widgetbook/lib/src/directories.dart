@@ -59,6 +59,7 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
         children: <WidgetbookNode>[
           sideRailComponent(),
           railItemComponent(),
+          treeItemComponent(),
           hexMarkComponent(),
         ],
       ),
@@ -96,6 +97,7 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
               ...forms.dialogComponent().useCases,
             ],
           ),
+          dropZoneComponent(),
         ],
       ),
       WidgetbookFolder(
@@ -104,6 +106,7 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
           titleBarComponent(),
           pageHeaderComponent(),
           cardComponent(),
+          insetPanelComponent(),
           emptyStateComponent(),
           masterDetailComponent(),
           collapsibleSectionComponent(),

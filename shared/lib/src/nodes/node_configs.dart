@@ -1,6 +1,8 @@
 import 'package:agentic_hive_shared/src/json_fields.dart';
+import 'package:agentic_hive_shared/src/nodes/harness_effort.dart';
 import 'package:agentic_hive_shared/src/nodes/node_category.dart';
 import 'package:agentic_hive_shared/src/nodes/node_config_validation.dart';
+import 'package:agentic_hive_shared/src/pauses/proposal_schema.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'node_configs.freezed.dart';
@@ -25,6 +27,8 @@ sealed class HarnessNodeConfig with _$HarnessNodeConfig {
     String? additionalInstructions,
     String? workingDirectory,
     int? timeoutSeconds,
+    String? model,
+    String? effort,
     @Default(<String>[]) List<String> extraArgs,
   }) = _HarnessNodeConfig;
 
@@ -57,6 +61,22 @@ sealed class HarnessNodeConfig with _$HarnessNodeConfig {
       field: 'timeoutSeconds',
       issues: issues,
     );
+    if (!isBlank(effort) && !harnessEffortIds.contains(effort)) {
+      issues.add(
+        NodeConfigIssue(
+          field: 'effort',
+          message: 'Must be one of: ${harnessEffortIds.join(', ')}.',
+        ),
+      );
+    }
+    if (!isBlank(model) && model!.trim().startsWith('-')) {
+      issues.add(
+        const NodeConfigIssue(
+          field: 'model',
+          message: 'Must not start with "-".',
+        ),
+      );
+    }
     return issues;
   }
 }
@@ -386,6 +406,9 @@ sealed class HumanApprovalNodeConfig with _$HumanApprovalNodeConfig {
     required String instructions,
     String? title,
     @Default(true) bool allowFeedback,
+    String? proposalNodeId,
+    String? proposalPath,
+    String? proposalSchema,
   }) = _HumanApprovalNodeConfig;
 
   const new _();
@@ -406,6 +429,114 @@ sealed class HumanApprovalNodeConfig with _$HumanApprovalNodeConfig {
         ),
       );
     }
+    final hasNodeId = !isBlank(proposalNodeId);
+    final hasPath = !isBlank(proposalPath);
+    final hasSchema = !isBlank(proposalSchema);
+
+    if (hasNodeId && !hasPath) {
+      issues.add(
+        const NodeConfigIssue(
+          field: 'proposalPath',
+          message: 'Must be set together with proposalNodeId.',
+        ),
+      );
+    } else if (!hasNodeId && hasPath) {
+      issues.add(
+        const NodeConfigIssue(
+          field: 'proposalNodeId',
+          message: 'Must be set together with proposalPath.',
+        ),
+      );
+    }
+
+    if (hasPath) {
+      final path = proposalPath!.trim();
+      if (path.split('.').any((s) => s.isEmpty)) {
+        issues.add(
+          const NodeConfigIssue(
+            field: 'proposalPath',
+            message: 'Must be a dot path with no empty segment.',
+          ),
+        );
+      }
+    }
+
+    if (hasSchema && !hasNodeId) {
+      issues.add(
+        const NodeConfigIssue(
+          field: 'proposalSchema',
+          message: 'Requires proposalNodeId.',
+        ),
+      );
+    } else if (hasSchema) {
+      for (final msg in ProposalSchema.checkSchema(proposalSchema!.trim())) {
+        issues.add(NodeConfigIssue(field: 'proposalSchema', message: msg));
+      }
+    }
+    return issues;
+  }
+}
+
+/// Default simultaneous children of a fan-out node.
+const int fanOutDefaultConcurrency = 2;
+
+/// Default maximum number of items of a fan-out node.
+const int fanOutDefaultMaxItems = 20;
+
+/// Typed configuration for `fan_out` nodes.
+@freezed
+sealed class FanOutNodeConfig with _$FanOutNodeConfig {
+  /// Creates a fan-out node configuration.
+  const factory({
+    required String workflowId,
+    required String itemsNodeId,
+    required String itemsPath,
+    String? inputField,
+    String? overridesField,
+    String? nameField,
+    @Default(fanOutDefaultConcurrency) int concurrency,
+    @Default(fanOutDefaultMaxItems) int maxItems,
+  }) = _FanOutNodeConfig;
+
+  const new _();
+
+  /// Decodes a [FanOutNodeConfig] from JSON.
+  factory fromJson(JsonMap json) => parseJson(json, _$FanOutNodeConfigFromJson);
+
+  /// Validates the configuration and returns any field-level issues.
+  List<NodeConfigIssue> validate() {
+    final issues = <NodeConfigIssue>[];
+    if (isBlank(workflowId)) {
+      issues.add(
+        const NodeConfigIssue(
+          field: 'workflowId',
+          message: 'Must not be blank.',
+        ),
+      );
+    }
+    if (isBlank(itemsNodeId)) {
+      issues.add(
+        const NodeConfigIssue(
+          field: 'itemsNodeId',
+          message: 'Must not be blank.',
+        ),
+      );
+    }
+    if (isBlank(itemsPath)) {
+      issues.add(
+        const NodeConfigIssue(
+          field: 'itemsPath',
+          message: 'Must not be blank.',
+        ),
+      );
+    } else {
+      validateDotPath(itemsPath, field: 'itemsPath', issues: issues);
+    }
+    validateDotPath(inputField, field: 'inputField', issues: issues);
+    validateDotPath(overridesField, field: 'overridesField', issues: issues);
+    validateDotPath(nameField, field: 'nameField', issues: issues);
+    validatePositiveInt(concurrency, field: 'concurrency', issues: issues);
+    validatePositiveInt(maxItems, field: 'maxItems', issues: issues);
     return issues;
   }
 }

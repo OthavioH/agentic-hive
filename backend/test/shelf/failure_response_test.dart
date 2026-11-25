@@ -8,6 +8,21 @@ import 'support.dart';
 
 void main() {
   group('mapFailureToHttp', () {
+    test('maps WorkflowDeletingFailure to 409 workflow_deleting with '
+        'details.operationId', () {
+      final mapped = mapFailureToHttp(
+        const WorkflowDeletingFailure(
+          'Workflow "wf-1" is being deleted.',
+          operationId: 'op-1',
+        ),
+      );
+
+      expect(mapped.statusCode, 409);
+      expect(mapped.error.code, ApiErrorCode.workflowDeleting);
+      expect(mapped.error.message, 'Workflow "wf-1" is being deleted.');
+      expect(mapped.error.details, {'operationId': 'op-1'});
+    });
+
     test('maps NotFoundFailure to 404 not_found with message', () {
       final mapped = mapFailureToHttp(
         const NotFoundFailure('Workflow not found.'),
@@ -71,6 +86,21 @@ void main() {
       );
     });
 
+    test(
+      'maps StaleRevisionFailure to 409 revision_conflict with currentRevision '
+      'detail',
+      () {
+        final mapped = mapFailureToHttp(
+          const StaleRevisionFailure('msg', currentRevision: 'abcd'),
+        );
+
+        expect(mapped.statusCode, 409);
+        expect(mapped.error.code, ApiErrorCode.revisionConflict);
+        expect(mapped.error.message, 'msg');
+        expect(mapped.error.details, {'currentRevision': 'abcd'});
+      },
+    );
+
     test('maps PersistenceFailure to 500 internal_error without leaking '
         'details', () {
       final mapped = mapFailureToHttp(
@@ -108,6 +138,21 @@ void main() {
           requestId: 'req-4',
         ),
       );
+    });
+
+    test('maps WorkflowHasActiveRunsFailure to 409 workflow_has_active_runs '
+        'with run details', () {
+      final mapped = mapFailureToHttp(
+        const WorkflowHasActiveRunsFailure(
+          'msg',
+          activeRuns: {'r1': RunStatus.running, 'r2': RunStatus.paused},
+        ),
+      );
+
+      expect(mapped.statusCode, 409);
+      expect(mapped.error.code, ApiErrorCode.workflowHasActiveRuns);
+      expect(mapped.error.message, 'msg');
+      expect(mapped.error.details, {'r1': 'running', 'r2': 'paused'});
     });
   });
 

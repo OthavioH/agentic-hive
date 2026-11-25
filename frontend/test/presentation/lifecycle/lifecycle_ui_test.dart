@@ -9,6 +9,9 @@ import 'package:agentic_hive_frontend/core/lifecycle/backend_launcher.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/tray_service.dart';
 import 'package:agentic_hive_frontend/core/lifecycle/window_lifecycle_service.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
+import 'package:agentic_hive_frontend/data/harnesses/harness_repository_impl.dart';
+import 'package:agentic_hive_frontend/data/skills/file_outdated_banner_store.dart';
+import 'package:agentic_hive_frontend/data/skills/skill_notice_repository_impl.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/connecting/pages/connecting_page.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
@@ -17,6 +20,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+
+import '../harnesses/scripted_harness_repository.dart';
+import '../skills/memory_outdated_banner_store.dart';
+import '../skills/scripted_skill_notice_repository.dart';
 
 final class _FakeWebSocketSession implements BackendWebSocketSession {
   final StreamController<WsEnvelope> _messages =
@@ -242,6 +249,15 @@ void main() {
             backendConnectionConfigProvider.overrideWithValue(
               const BackendConnectionConfig(createTimer: _FakeTimer.new),
             ),
+            harnessRepositoryProvider.overrideWithValue(
+              ScriptedHarnessRepository(),
+            ),
+            skillNoticeRepositoryProvider.overrideWithValue(
+              ScriptedSkillNoticeRepository(),
+            ),
+            outdatedBannerStoreProvider.overrideWithValue(
+              MemoryOutdatedBannerStore(),
+            ),
           ],
           child: const HiveApp(),
         ),
@@ -287,6 +303,15 @@ void main() {
             trayServiceProvider.overrideWithValue(trayService),
             backendConnectionConfigProvider.overrideWithValue(
               const BackendConnectionConfig(createTimer: _FakeTimer.new),
+            ),
+            harnessRepositoryProvider.overrideWithValue(
+              ScriptedHarnessRepository(),
+            ),
+            skillNoticeRepositoryProvider.overrideWithValue(
+              ScriptedSkillNoticeRepository(),
+            ),
+            outdatedBannerStoreProvider.overrideWithValue(
+              MemoryOutdatedBannerStore(),
             ),
           ],
           child: const HiveApp(),

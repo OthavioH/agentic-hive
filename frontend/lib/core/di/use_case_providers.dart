@@ -9,24 +9,35 @@ import 'package:agentic_hive_frontend/data/pauses/pause_providers.dart';
 import 'package:agentic_hive_frontend/data/runs/run_providers.dart';
 import 'package:agentic_hive_frontend/data/settings/file_picker_repository_impl.dart';
 import 'package:agentic_hive_frontend/data/settings/settings_repository_impl.dart';
+import 'package:agentic_hive_frontend/data/skills/file_outdated_banner_store.dart';
+import 'package:agentic_hive_frontend/data/skills/skill_notice_repository_impl.dart';
 import 'package:agentic_hive_frontend/data/window/window_providers.dart';
+import 'package:agentic_hive_frontend/data/workflows/workflow_deletion_providers.dart';
 import 'package:agentic_hive_frontend/data/workflows/workflow_providers.dart';
+import 'package:agentic_hive_frontend/data/workflows/workflow_reference_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_providers.dart';
+import 'package:agentic_hive_frontend/data/workspace/workspace_settings_providers.dart';
+import 'package:agentic_hive_frontend/data/workspace/workspace_tree_changes_providers.dart';
 import 'package:agentic_hive_frontend/domain/agents/create_agent_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/delete_agent_use_case.dart';
+import 'package:agentic_hive_frontend/domain/agents/dismiss_agents_migration_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/get_agent_use_case.dart';
+import 'package:agentic_hive_frontend/domain/agents/get_agents_migration_status_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/list_agents_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/update_agent_use_case.dart';
 import 'package:agentic_hive_frontend/domain/agents/watch_agent_changes_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/get_harnesses_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/install_harness_mcp_use_case.dart';
+import 'package:agentic_hive_frontend/domain/harnesses/install_harness_skill_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/refresh_harness_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/refresh_harnesses_use_case.dart';
+import 'package:agentic_hive_frontend/domain/harnesses/remove_harness_skill_use_case.dart';
 import 'package:agentic_hive_frontend/domain/harnesses/watch_harness_updates_use_case.dart';
 import 'package:agentic_hive_frontend/domain/overview/use_cases/get_overview_use_case.dart';
 import 'package:agentic_hive_frontend/domain/overview/use_cases/watch_overview_events_use_case.dart';
 import 'package:agentic_hive_frontend/domain/pauses/use_cases/answer_pause_use_case.dart';
 import 'package:agentic_hive_frontend/domain/pauses/use_cases/list_pending_pauses_use_case.dart';
+import 'package:agentic_hive_frontend/domain/pauses/use_cases/validate_proposal_draft.dart';
 import 'package:agentic_hive_frontend/domain/pauses/use_cases/watch_pause_events_use_case.dart';
 import 'package:agentic_hive_frontend/domain/pauses/use_cases/watch_pending_pauses_count_use_case.dart';
 import 'package:agentic_hive_frontend/domain/runs/use_cases/build_run_output_messages.dart';
@@ -48,6 +59,11 @@ import 'package:agentic_hive_frontend/domain/settings/pick_directory.dart';
 import 'package:agentic_hive_frontend/domain/settings/pick_file.dart';
 import 'package:agentic_hive_frontend/domain/settings/update_settings.dart';
 import 'package:agentic_hive_frontend/domain/settings/watch_settings_updates.dart';
+import 'package:agentic_hive_frontend/domain/skills/acknowledge_outdated_version_use_case.dart';
+import 'package:agentic_hive_frontend/domain/skills/dismiss_skill_notice_use_case.dart';
+import 'package:agentic_hive_frontend/domain/skills/get_acknowledged_outdated_version_use_case.dart';
+import 'package:agentic_hive_frontend/domain/skills/get_pending_skill_notice_use_case.dart';
+import 'package:agentic_hive_frontend/domain/skills/watch_skill_notices_use_case.dart';
 import 'package:agentic_hive_frontend/domain/window/get_window_chrome_use_case.dart';
 import 'package:agentic_hive_frontend/domain/window/hide_window_to_tray_use_case.dart';
 import 'package:agentic_hive_frontend/domain/window/minimize_window_use_case.dart';
@@ -60,13 +76,27 @@ import 'package:agentic_hive_frontend/domain/workflows/use_cases/create_workflow
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/delete_workflow.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/duplicate_workflow.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/get_workflow.dart';
+import 'package:agentic_hive_frontend/domain/workflows/use_cases/get_workflow_references.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/list_workflows.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/update_workflow.dart';
 import 'package:agentic_hive_frontend/domain/workflows/use_cases/validate_workflow.dart';
+import 'package:agentic_hive_frontend/domain/workflows/use_cases/watch_workflow_changes.dart';
+import 'package:agentic_hive_frontend/domain/workflows/use_cases/watch_workflow_deletions.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/create_workspace.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/get_snapshot_diff.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/get_workspace_capabilities.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/get_workspace_settings.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/list_run_snapshots.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/list_workspaces.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/list_worktrees.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/load_last_workspace_id.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/remove_worktree.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/rename_workspace.dart';
 import 'package:agentic_hive_frontend/domain/workspace/use_cases/restore_snapshot.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/save_last_workspace_id.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/unregister_workspace.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/update_workspace_settings.dart';
+import 'package:agentic_hive_frontend/domain/workspace/use_cases/watch_workspace_tree_changes.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'use_case_providers.g.dart';
@@ -101,6 +131,18 @@ DeleteAgentUseCase deleteAgentUseCase(Ref ref) =>
 WatchAgentChangesUseCase watchAgentChangesUseCase(Ref ref) =>
     WatchAgentChangesUseCase(ref.watch(agentRepositoryProvider));
 
+/// Provides [GetAgentsMigrationStatusUseCase].
+@riverpod
+GetAgentsMigrationStatusUseCase getAgentsMigrationStatusUseCase(Ref ref) =>
+    GetAgentsMigrationStatusUseCase(
+      ref.watch(agentsMigrationRepositoryProvider),
+    );
+
+/// Provides [DismissAgentsMigrationUseCase].
+@riverpod
+DismissAgentsMigrationUseCase dismissAgentsMigrationUseCase(Ref ref) =>
+    DismissAgentsMigrationUseCase(ref.watch(agentsMigrationRepositoryProvider));
+
 /// Provides [GetHarnessesUseCase].
 @riverpod
 GetHarnessesUseCase getHarnessesUseCase(Ref ref) =>
@@ -121,10 +163,48 @@ RefreshHarnessUseCase refreshHarnessUseCase(Ref ref) =>
 InstallHarnessMcpUseCase installHarnessMcpUseCase(Ref ref) =>
     InstallHarnessMcpUseCase(ref.watch(harnessRepositoryProvider));
 
+/// Provides [InstallHarnessSkillUseCase].
+@riverpod
+InstallHarnessSkillUseCase installHarnessSkillUseCase(Ref ref) =>
+    InstallHarnessSkillUseCase(ref.watch(harnessRepositoryProvider));
+
+/// Provides [RemoveHarnessSkillUseCase].
+@riverpod
+RemoveHarnessSkillUseCase removeHarnessSkillUseCase(Ref ref) =>
+    RemoveHarnessSkillUseCase(ref.watch(harnessRepositoryProvider));
+
 /// Provides [WatchHarnessUpdatesUseCase].
 @riverpod
 WatchHarnessUpdatesUseCase watchHarnessUpdatesUseCase(Ref ref) =>
     WatchHarnessUpdatesUseCase(ref.watch(harnessRepositoryProvider));
+
+/// Provides [GetPendingSkillNoticeUseCase].
+@riverpod
+GetPendingSkillNoticeUseCase getPendingSkillNoticeUseCase(Ref ref) =>
+    GetPendingSkillNoticeUseCase(ref.watch(skillNoticeRepositoryProvider));
+
+/// Provides [DismissSkillNoticeUseCase].
+@riverpod
+DismissSkillNoticeUseCase dismissSkillNoticeUseCase(Ref ref) =>
+    DismissSkillNoticeUseCase(ref.watch(skillNoticeRepositoryProvider));
+
+/// Provides [WatchSkillNoticesUseCase].
+@riverpod
+WatchSkillNoticesUseCase watchSkillNoticesUseCase(Ref ref) =>
+    WatchSkillNoticesUseCase(ref.watch(skillNoticeRepositoryProvider));
+
+/// Provides [GetAcknowledgedOutdatedVersionUseCase].
+@Riverpod(keepAlive: true)
+GetAcknowledgedOutdatedVersionUseCase getAcknowledgedOutdatedVersionUseCase(
+  Ref ref,
+) => GetAcknowledgedOutdatedVersionUseCase(
+  ref.watch(outdatedBannerStoreProvider),
+);
+
+/// Provides [AcknowledgeOutdatedVersionUseCase].
+@Riverpod(keepAlive: true)
+AcknowledgeOutdatedVersionUseCase acknowledgeOutdatedVersionUseCase(Ref ref) =>
+    AcknowledgeOutdatedVersionUseCase(ref.watch(outdatedBannerStoreProvider));
 
 /// Provides [ListWorkflows].
 @riverpod
@@ -155,6 +235,26 @@ DuplicateWorkflow duplicateWorkflow(Ref ref) =>
 @riverpod
 DeleteWorkflow deleteWorkflow(Ref ref) =>
     DeleteWorkflow(ref.watch(workflowRepositoryProvider));
+
+/// Provides [GetWorkflowReferences].
+@riverpod
+GetWorkflowReferences getWorkflowReferences(Ref ref) =>
+    GetWorkflowReferences(ref.watch(workflowReferenceRepositoryProvider));
+
+/// Provides [WatchWorkflowChanges].
+@riverpod
+WatchWorkflowChanges watchWorkflowChanges(Ref ref) =>
+    WatchWorkflowChanges(ref.watch(workflowChangesSourceProvider));
+
+/// Provides [WatchWorkflowDeletions].
+@riverpod
+WatchWorkflowDeletions watchWorkflowDeletions(Ref ref) =>
+    WatchWorkflowDeletions(ref.watch(workflowDeletionEventsSourceProvider));
+
+/// Provides [WatchWorkspaceTreeChanges].
+@riverpod
+WatchWorkspaceTreeChanges watchWorkspaceTreeChanges(Ref ref) =>
+    WatchWorkspaceTreeChanges(ref.watch(workspaceTreeChangesSourceProvider));
 
 /// Provides [ValidateWorkflow].
 @riverpod
@@ -278,6 +378,11 @@ ListPendingPausesUseCase listPendingPausesUseCase(Ref ref) =>
 AnswerPauseUseCase answerPauseUseCase(Ref ref) =>
     AnswerPauseUseCase(ref.watch(pauseRepositoryProvider));
 
+/// Provides [ValidateProposalDraft].
+@riverpod
+ValidateProposalDraft validateProposalDraftUseCase(Ref ref) =>
+    const ValidateProposalDraft();
+
 /// Provides [WatchPendingPausesCountUseCase].
 @riverpod
 WatchPendingPausesCountUseCase watchPendingPausesCountUseCase(Ref ref) =>
@@ -297,6 +402,56 @@ GetOverviewUseCase getOverviewUseCase(Ref ref) =>
 @riverpod
 WatchOverviewEventsUseCase watchOverviewEventsUseCase(Ref ref) =>
     WatchOverviewEventsUseCase(ref.watch(overviewRepositoryProvider));
+
+/// Provides [ListWorkspaces].
+@riverpod
+ListWorkspaces listWorkspaces(Ref ref) =>
+    ListWorkspaces(ref.watch(workspaceRepositoryProvider));
+
+/// Provides [CreateWorkspace].
+@riverpod
+CreateWorkspace createWorkspace(Ref ref) =>
+    CreateWorkspace(ref.watch(workspaceRepositoryProvider));
+
+/// Provides [RenameWorkspace].
+@riverpod
+RenameWorkspace renameWorkspace(Ref ref) =>
+    RenameWorkspace(ref.watch(workspaceRepositoryProvider));
+
+/// Provides [UnregisterWorkspace].
+@riverpod
+UnregisterWorkspace unregisterWorkspace(Ref ref) =>
+    UnregisterWorkspace(ref.watch(workspaceRepositoryProvider));
+
+/// Provides [GetWorkspaceSettings].
+@riverpod
+GetWorkspaceSettings getWorkspaceSettings(Ref ref) =>
+    GetWorkspaceSettings(ref.watch(workspaceSettingsRepositoryProvider));
+
+/// Provides [UpdateWorkspaceSettings].
+@riverpod
+UpdateWorkspaceSettings updateWorkspaceSettings(Ref ref) =>
+    UpdateWorkspaceSettings(ref.watch(workspaceSettingsRepositoryProvider));
+
+/// Provides [LoadLastWorkspaceId].
+@riverpod
+LoadLastWorkspaceId loadLastWorkspaceId(Ref ref) =>
+    LoadLastWorkspaceId(ref.watch(workspaceSelectionStoreProvider));
+
+/// Provides [SaveLastWorkspaceId].
+@riverpod
+SaveLastWorkspaceId saveLastWorkspaceId(Ref ref) =>
+    SaveLastWorkspaceId(ref.watch(workspaceSelectionStoreProvider));
+
+/// Provides [ListWorktrees].
+@riverpod
+ListWorktrees listWorktrees(Ref ref) =>
+    ListWorktrees(ref.watch(workspaceRepositoryProvider));
+
+/// Provides [RemoveWorktree].
+@riverpod
+RemoveWorktree removeWorktree(Ref ref) =>
+    RemoveWorktree(ref.watch(workspaceRepositoryProvider));
 
 /// Provides [GetWindowChromeUseCase].
 @riverpod

@@ -21,7 +21,6 @@ final class _FakeSettingsRepository implements SettingsRepository {
       agentsDir: '/custom/agents',
       effectiveAgentsDir: '/custom/agents',
       defaultAgentsDir: '/default/agents',
-      defaultWorkspaceDir: '/workspace',
       harnessOverrides: <HarnessId, String>{
         HarnessId.claudeCode: '/usr/local/bin/claude',
       },
@@ -175,15 +174,10 @@ void main() {
         expect(find.text('/picked/agents'), findsNothing);
         expect(find.text('/custom/agents'), findsOneWidget);
 
-        // Reset Agents folder, Clear workspace, Browse Codex executable.
+        // Reset Agents folder, Browse Codex executable.
         await tester.tap(
           find.byKey(
             const ValueKey<String>('settings_agents_dir_reset_button'),
-          ),
-        );
-        await tester.tap(
-          find.byKey(
-            const ValueKey<String>('settings_workspace_dir_clear_button'),
           ),
         );
         final codexBrowse = find.byKey(
@@ -210,7 +204,6 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(repo.lastRequest?.agentsDir, isNull);
-        expect(repo.lastRequest?.defaultWorkspaceDir, isNull);
         expect(
           repo.lastRequest?.harnessOverrides[HarnessId.codex],
           '/picked/codex',
@@ -266,6 +259,74 @@ void main() {
         expect(find.text('Agents folder does not exist.'), findsOneWidget);
         expect(find.text('/bad/agents'), findsOneWidget);
         expect(find.byType(HiveToast), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'autoInstallSkills switch reflects saved value, enables Save on '
+      'toggle, and renders help text',
+      (tester) async {
+        configureDesktopWindow(tester);
+        final repo = _FakeSettingsRepository();
+        addTearDown(repo.dispose);
+        final themeStore = _FakeThemePreferenceStore();
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              settingsRepositoryProvider.overrideWithValue(repo),
+              themePreferenceStoreProvider.overrideWithValue(themeStore),
+            ],
+            child: _buildTestApp(),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final switchFinder = find.byKey(
+          const ValueKey<String>('settings_auto_install_skills_switch'),
+        );
+        await tester.ensureVisible(switchFinder);
+        final hiveSwitch = tester.widget<HiveSwitch>(switchFinder);
+        expect(hiveSwitch.value, isTrue);
+        expect(
+          hiveSwitch.label,
+          'Install the skill automatically for new harnesses',
+        );
+        expect(
+          find.text(
+            'The first time Agentic Hive finds a harness, it installs the '
+            'agentic-hive skill and the Hive MCP server for it. It never '
+            'updates them by itself.',
+          ),
+          findsOneWidget,
+        );
+
+        expect(
+          tester
+              .widget<HiveButton>(
+                find.byKey(const ValueKey<String>('settings_save_button')),
+              )
+              .onPressed,
+          isNull,
+        );
+
+        await tester.tap(
+          find.descendant(
+            of: switchFinder,
+            matching: find.byType(HiveInteraction),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(tester.widget<HiveSwitch>(switchFinder).value, isFalse);
+        expect(
+          tester
+              .widget<HiveButton>(
+                find.byKey(const ValueKey<String>('settings_save_button')),
+              )
+              .onPressed,
+          isNotNull,
+        );
       },
     );
   });

@@ -39,6 +39,35 @@ HttpFailureMapping mapFailureToHttp(Failure failure, {String? requestId}) =>
           requestId: requestId,
         ),
       ),
+      StaleRevisionFailure(:final message, :final currentRevision) => (
+        statusCode: 409,
+        error: ApiError(
+          code: ApiErrorCode.revisionConflict,
+          message: message,
+          requestId: requestId,
+          details: {'currentRevision': currentRevision},
+        ),
+      ),
+      WorkflowHasActiveRunsFailure(:final message, :final activeRuns) => (
+        statusCode: 409,
+        error: ApiError(
+          code: ApiErrorCode.workflowHasActiveRuns,
+          message: message,
+          requestId: requestId,
+          details: {
+            for (final entry in activeRuns.entries) entry.key: entry.value.name,
+          },
+        ),
+      ),
+      WorkflowDeletingFailure(:final message, :final operationId) => (
+        statusCode: 409,
+        error: ApiError(
+          code: ApiErrorCode.workflowDeleting,
+          message: message,
+          details: {'operationId': operationId},
+          requestId: requestId,
+        ),
+      ),
       HarnessMcpInstallFailure(:final message) => (
         statusCode: 500,
         error: ApiError(

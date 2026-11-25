@@ -1,7 +1,9 @@
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/data/nodes/os_shell_provider.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/child_run_port.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/command_node.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/fan_out_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/headless_harness_nodes.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/human_approval_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_execution_context.dart';
@@ -62,12 +64,23 @@ final class _FakeAgentPromptResolver implements AgentPromptResolver {
   const new();
 
   @override
-  Future<Result<String>> resolvePrompt(String agentId) async =>
-      FailureResult(NotFoundFailure('Agent "$agentId" not found.'));
+  Future<Result<String>> resolvePrompt(
+    String agentId, {
+    String? workspaceRoot,
+  }) async => FailureResult(NotFoundFailure('Agent "$agentId" not found.'));
 
   @override
-  Future<Result<ResolvedAgent>> resolveAgent(String agentId) async =>
-      FailureResult(NotFoundFailure('Agent "$agentId" not found.'));
+  Future<Result<ResolvedAgent>> resolveAgent(
+    String agentId, {
+    String? workspaceRoot,
+  }) async => FailureResult(NotFoundFailure('Agent "$agentId" not found.'));
+}
+
+final class _FakeChildRunPort implements ChildRunPort {
+  const new();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void main() {
@@ -82,11 +95,12 @@ void main() {
         resultContract: const _FakeResultContract(),
         approvalPort: const _FakeHumanApprovalPort(),
         agentPromptResolver: const _FakeAgentPromptResolver(),
+        childRuns: () => const _FakeChildRunPort(),
       );
     });
 
-    test('registers all 10 canonical node types', () {
-      expect(registry.descriptors, hasLength(10));
+    test('registers all 11 canonical node types', () {
+      expect(registry.descriptors, hasLength(11));
       for (final descriptor in NodeDescriptors.all) {
         expect(registry.contains(descriptor.typeId), isTrue);
         expect(registry.descriptorFor(descriptor.typeId), same(descriptor));
@@ -97,6 +111,7 @@ void main() {
         registry.create(NodeTypeId.claudeCode).valueOrNull,
         isA<ClaudeCodeNode>(),
       );
+      expect(registry.create(NodeTypeId.fanOut).valueOrNull, isA<FanOutNode>());
       expect(registry.create(NodeTypeId.codex).valueOrNull, isA<CodexNode>());
       expect(
         registry.create(NodeTypeId.geminiCli).valueOrNull,

@@ -1,0 +1,129 @@
+SemanticsNode#
+ │
+ └─SemanticsNode#
+   │
+   └─SemanticsNode#
+     │ sortKey: OrdinalSortKey#(order: 0.0)
+     │
+     └─SemanticsNode#
+       │ flags: scopesRoute
+       │
+       ├─SemanticsNode#
+       │   flags: isHeader
+       │   label: "Workflows"
+       │
+       ├─SemanticsNode#
+       │   label: "Create, inspect, and manage workflow graphs."
+       │
+       ├─SemanticsNode#
+       │   actions: tap
+       │   flags: isButton, hasEnabledState, isEnabled
+       │   label: "New workflow"
+       │
+       ├─SemanticsNode#
+       │   merge boundary ⛔️
+       │   actions: focus, tap
+       │   flags: isTextField, hasEnabledState, isEnabled, isFocusable
+       │   label:
+       │     "Search workflows
+       │     Filter by name or description..."
+       │   currentValueLength: 0
+       │   inputType: text
+       │
+       └─SemanticsNode#
+         │
+         └─SemanticsNode#
+           │ flags: hasImplicitScrolling
+           │ scrollChildren: 3
+           │ scrollIndex: 0
+           │ scrollExtentMin: 0.0
+           │ scrollPosition: 0.0
+           │
+           ├─SemanticsNode#
+           │ │ tags: RenderViewport.twoPane
+           │ │ indexInParent: 0
+           │ │
+           │ └─SemanticsNode#
+           │   │ flags: isLiveRegion
+           │   │ label: "Open Release Flow"
+           │   │ value: "Deleting… (stopping 2 of 3 runs)"
+           │   │
+           │   ├─SemanticsNode#
+           │   │   label: "Release Flow"
+           │   │
+           │   ├─SemanticsNode#
+           │   │   label: "Valid"
+           │   │
+           │   ├─SemanticsNode#
+           │   │   label: "Workspace"
+           │   │
+           │   ├─SemanticsNode#
+           │   │   label: "Build, test and publish a release candidate."
+           │   │
+           │   ├─SemanticsNode#
+           │   │   flags: isButton, hasEnabledState
+           │   │   traversalParentIdentifier: _OverlayPortalState#
+           │   │   label: "Run workflow"
+           │   │   hint: "Unavailable while the workflow is being deleted."
+           │   │
+           │   ├─SemanticsNode#
+           │   │   flags: isButton, hasEnabledState
+           │   │   traversalParentIdentifier: _OverlayPortalState#
+           │   │   label: "Duplicate workflow"
+           │   │   hint: "Unavailable while the workflow is being deleted."
+           │   │
+           │   ├─SemanticsNode#
+           │   │   flags: isButton, hasEnabledState
+           │   │   traversalParentIdentifier: _OverlayPortalState#
+           │   │   label: "Delete workflow"
+           │   │   hint: "Unavailable while the workflow is being deleted."
+           │   │
+           │   ├─SemanticsNode#
+           │   │   label: "6 nodes"
+           │   │
+           │   ├─SemanticsNode#
+           │   │   label: "7 edges"
+           │   │
+           │   └─SemanticsNode#
+           │       label: "Updated Nov 20, 2026 09:00"
+           │
+           ├─SemanticsNode#
+           │   tags: RenderViewport.twoPane
+           │   actions: tap
+           │   flags: isButton, hasEnabledState, isEnabled
+           │   label: "Open Lint Check"
+           │   indexInParent: 1
+           │
+           └─SemanticsNode#
+               tags: RenderViewport.twoPane
+               actions: tap
+               flags: isButton, hasEnabledState, isEnabled
+               label: "Open Nightly Dependency Audit"
+               indexInParent: 2
+
+--- texts ---
+Workflows
+Create, inspect, and manage workflow graphs.
+New workflow
+Search workflows
+Filter by name or description...
+Release Flow
+Valid
+Workspace
+Deleting… (stopping 2 of 3 runs)
+Build, test and publish a release candidate.
+6 nodes
+7 edges
+Updated Nov 20, 2026 09:00
+Lint Check
+Valid
+Global
+2 nodes
+1 edge
+Updated Nov 20, 2026 09:00
+Nightly Dependency Audit
+Needs attention
+Global
+4 nodes
+4 edges
+Updated Nov 20, 2026 09:00

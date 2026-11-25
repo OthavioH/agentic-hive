@@ -4,6 +4,7 @@ import 'package:agentic_hive_backend/src/domain/nodes/node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_execution_context.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_outcome.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/output_truncation.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 /// Executes a configured shell/process command in the run workspace.
@@ -64,8 +65,8 @@ final class CommandNode extends Node {
         data: <String, Object?>{
           'exitCode': result.exitCode,
           'timedOut': result.timedOut,
-          'stdout': result.stdout,
-          'stderr': result.stderr,
+          'stdout': truncateOutputTail(result.stdout),
+          'stderr': truncateOutputTail(result.stderr),
         },
       ),
     );

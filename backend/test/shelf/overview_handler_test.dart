@@ -27,8 +27,18 @@ final class _FakeRunRepository implements RunRepository {
   }
 
   @override
+  Future<Result<List<Run>>> listChildren(
+    String parentRunId, {
+    String? parentNodeId,
+  }) async => const Success(<Run>[]);
+
+  @override
   Future<Result<Run>> getById(String id) async =>
       FailureResult(NotFoundFailure('Run "$id" not found.'));
+
+  @override
+  Future<Result<Map<String, Run>>> getByIds(Iterable<String> ids) async =>
+      const Success(<String, Run>{});
 
   @override
   Future<Result<({List<RunSummary> items, int total})>> list({
@@ -108,7 +118,14 @@ final class _FakeRunRepository implements RunRepository {
   }) => throw UnimplementedError();
 
   @override
-  Future<Result<void>> delete(String id) => throw UnimplementedError();
+  Future<Result<List<String>>> delete(String id) => throw UnimplementedError();
+
+  @override
+  Future<Result<List<String>>> deleteAllOfWorkflow(
+    String workflowId, {
+    String? workspaceId,
+    Set<String> orphanIds = const {},
+  }) => throw UnimplementedError();
 }
 
 final class _FakeRunEventRepository implements RunEventRepository {
@@ -204,6 +221,7 @@ final class _FakePauseRepository implements PauseRepository {
     String? decision,
     String? feedback,
     String? answer,
+    Object? editedProposal,
   }) => throw UnimplementedError();
 
   @override
@@ -238,7 +256,7 @@ final class _FakeAgentRepository implements AgentRepository {
       throw UnimplementedError();
 
   @override
-  Future<Result<void>> delete(String id) => throw UnimplementedError();
+  Future<Result<List<String>>> delete(String id) => throw UnimplementedError();
 }
 
 Workflow _workflow(String id, String name, List<WorkflowNode> nodes) =>
@@ -277,7 +295,7 @@ void main() {
     handler = buildApiHandler(
       statusHandler: StatusHandler(
         databaseHealthCheck: FakeDatabaseHealthCheck(
-          const DatabaseStatus(ok: true, schemaVersion: 6),
+          const DatabaseStatus(ok: true, schemaVersion: 7),
         ),
         version: '1.0.0',
         dataDir: '/data',

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:agentic_hive_backend/agentic_hive_backend.dart';
+import 'package:agentic_hive_backend/src/config/dev_config_candidates.dart';
 import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 
@@ -50,7 +51,11 @@ Future<void> main(List<String> arguments) async {
 
   final Backend backend;
   try {
-    backend = await Backend.start(config: config, platformPaths: platformPaths);
+    backend = await Backend.start(
+      config: config,
+      platformPaths: platformPaths,
+      enableSkillAutoInstall: true,
+    );
   } on BackendAlreadyRunningException catch (e) {
     stderr.writeln(e);
     exitCode = _startFailure;
@@ -68,10 +73,8 @@ Future<void> main(List<String> arguments) async {
 /// Where `config/dev.yaml` may be when running from source: next to this
 /// script's package, or under the current folder.
 List<String> _devConfigCandidates() {
-  final script = Platform.script;
   return [
-    if (script.isScheme('file') && script.path.endsWith('.dart'))
-      p.join(p.dirname(p.dirname(script.toFilePath())), 'config', 'dev.yaml'),
+    ?scriptRelativeDevConfig(Platform.script),
     p.join(Directory.current.path, 'config', 'dev.yaml'),
     p.join(Directory.current.path, 'backend', 'config', 'dev.yaml'),
   ];

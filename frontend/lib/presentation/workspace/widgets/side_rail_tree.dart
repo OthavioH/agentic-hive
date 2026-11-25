@@ -1,0 +1,524 @@
+import 'dart:async';
+
+import 'package:agentic_hive_frontend/core/result/result.dart';
+import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
+import 'package:agentic_hive_frontend/presentation/runs/utils/run_l10n.dart';
+import 'package:agentic_hive_frontend/presentation/runs/widgets/start_run_dialog.dart';
+import 'package:agentic_hive_frontend/presentation/workspace/controllers/side_rail_tree_controller.dart';
+import 'package:agentic_hive_frontend/routes/app_routes.dart';
+import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+import 'package:design_system/design_system.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_ui/material_ui.dart';
+
+/// Hierarchical tree displaying workspaces, worktrees, and active/recent
+/// runs beside the navigation rail.
+class SideRailTree extends ConsumerWidget {
+  /// Creates a [SideRailTree].
+  const new({required this.currentLocation, this.onRunSelected, super.key});
+
+  /// Current router path used to highlight the selected run item.
+  final String currentLocation;
+
+  /// Called when the user selects a run to navigate to.
+  final VoidCallback? onRunSelected;
+
+  Future<void> _startRunFromTree(
+    BuildContext context,
+    WidgetRef ref,
+    Workspace workspace,
+    Worktree worktree,
+  ) async {
+    await ref
+        .read(sideRailTreeControllerProvider.notifier)
+        .selectWorkspace(workspace.id);
+    if (!context.mounted) return;
+    final created = await StartRunDialog.show(
+      context,
+      initialWorkspaceId: workspace.id,
+      initialWorktreeId: worktree.id,
+    );
+    if (created != null && context.mounted) {
+      RunDetailRoute(id: created.id).go(context);
+      onRunSelected?.call();
+    }
+  }
+
+  Future<void> _removeWorktreeFromTree(
+    BuildContext context,
+    WidgetRef ref,
+    Workspace workspace,
+    SideRailWorktreeNode wtNode,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final wt = wtNode.worktree;
+    final choice = await showHiveConfirmDialog(
+      context,
+      title: l10n.worktreeRemoveTitle,
+      message: l10n.worktreeRemoveMessage(wt.name),
+      confirmLabel: l10n.worktreeRemoveConfirm,
+      cancelLabel: l10n.worktreeRemoveCancel,
+      tone: HiveConfirmTone.destructive,
+      icon: HiveIcons.delete,
+    );
+    if (!context.mounted || choice != HiveConfirmChoice.confirm) return;
+
+    final controller = ref.read(sideRailTreeControllerProvider.notifier);
+    var result = await controller.removeWorktree(workspace.id, wt.id);
+    if (!context.mounted) return;
+
+    if (result case FailureResult<RemoveWorktreeResponse>(:final failure)) {
+      final is409 =
+          failure is ConflictFailure ||
+          (failure is BackendFailure && failure.statusCode == 409);
+      final isDirtyConflict =
+          is409 &&
+          wtNode.activeRuns.isEmpty &&
+          (wt.hasUncommittedChanges ||
+              failure.message.toLowerCase().contains('uncommitted'));
+      if (isDirtyConflict) {
+        final forceChoice = await showHiveConfirmDialog(
+          context,
+          title: l10n.worktreeRemoveDirtyTitle,
+          message: l10n.worktreeRemoveDirtyMessage(wt.name),
+          confirmLabel: l10n.worktreeRemoveForceConfirm,
+          cancelLabel: l10n.worktreeRemoveCancel,
+          tone: HiveConfirmTone.destructive,
+          icon: HiveIcons.alert,
+        );
+        if (!context.mounted || forceChoice != HiveConfirmChoice.confirm) {
+          return;
+        }
+        result = await controller.removeWorktree(
+          workspace.id,
+          wt.id,
+          force: true,
+        );
+        if (!context.mounted) return;
+      }
+    }
+
+    switch (result) {
+      case Success<RemoveWorktreeResponse>(:final value):
+        if (!value.branchDeleted) {
+          final notice = value.notice;
+          HiveToast.show(
+            context,
+            tone: HiveToastTone.info,
+            message: (notice != null && notice.isNotEmpty)
+                ? notice
+                : l10n.worktreeRemoveBranchKeptNotice,
+          );
+        }
+      case FailureResult<RemoveWorktreeResponse>(:final failure):
+        final message = failure.message.isNotEmpty
+            ? failure.message
+            : l10n.worktreeRemoveError;
+        HiveToast.show(context, tone: HiveToastTone.danger, message: message);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final spacing = context.hiveSpacing;
+    final colors = context.hiveColors;
+    final stateAsync = ref.watch(sideRailTreeControllerProvider);
+    final controller = ref.read(sideRailTreeControllerProvider.notifier);
+
+    return Semantics(
+      container: true,
+      explicitChildNodes: true,
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: spacing.space2,
+          right: spacing.space2,
+          bottom: spacing.space2,
+        ),
+        child: switch (stateAsync) {
+          AsyncLoading<SideRailTreeState>() => Center(
+            child: HiveSpinner(size: spacing.space4, color: colors.accent),
+          ),
+          AsyncError<SideRailTreeState>(:final error) => HiveEmptyState(
+            icon: HiveIcons.alert,
+            title: l10n.sideRailTreeLoadErrorTitle,
+            message: RunL10n.localizeError(l10n, error),
+            action: HiveButton(
+              label: l10n.sideRailTreeRetryAction,
+              size: HiveButtonSize.small,
+              onPressed: () => unawaited(controller.refresh()),
+            ),
+          ),
+          AsyncData<SideRailTreeState>(:final value) => _SideRailTreeContent(
+            state: value,
+            currentLocation: currentLocation,
+            onSelectWorkspace: (id) =>
+                unawaited(controller.selectWorkspace(id)),
+            onSelectGlobal: controller.selectGlobal,
+            onToggleWorkspace: controller.toggleWorkspaceExpanded,
+            onToggleWorktree: controller.toggleWorktreeExpanded,
+            onToggleShowAllActive: controller.toggleShowAllActive,
+            onToggleShowAllRecent: controller.toggleShowAllRecent,
+            onStartRun: (ws, wt) =>
+                unawaited(_startRunFromTree(context, ref, ws, wt)),
+            onRemoveWorktree: (ws, wtNode) =>
+                unawaited(_removeWorktreeFromTree(context, ref, ws, wtNode)),
+            onOpenRun: (runId) {
+              RunDetailRoute(id: runId).go(context);
+              onRunSelected?.call();
+            },
+          ),
+        },
+      ),
+    );
+  }
+}
+
+class _SideRailTreeContent extends ConsumerWidget {
+  const new({
+    required this.state,
+    required this.currentLocation,
+    required this.onSelectWorkspace,
+    required this.onSelectGlobal,
+    required this.onToggleWorkspace,
+    required this.onToggleWorktree,
+    required this.onToggleShowAllActive,
+    required this.onToggleShowAllRecent,
+    required this.onStartRun,
+    required this.onRemoveWorktree,
+    required this.onOpenRun,
+  });
+
+  final SideRailTreeState state;
+  final String currentLocation;
+  final ValueChanged<String> onSelectWorkspace;
+  final VoidCallback onSelectGlobal;
+  final ValueChanged<String> onToggleWorkspace;
+  final void Function(String workspaceId, String worktreeId) onToggleWorktree;
+  final void Function(String workspaceId, String worktreeId)
+  onToggleShowAllActive;
+  final void Function(String workspaceId, String worktreeId)
+  onToggleShowAllRecent;
+  final void Function(Workspace workspace, Worktree worktree) onStartRun;
+  final void Function(Workspace workspace, SideRailWorktreeNode wtNode)
+  onRemoveWorktree;
+  final ValueChanged<String> onOpenRun;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final spacing = context.hiveSpacing;
+    final colors = context.hiveColors;
+    // Only tick while a run is active; finished runs show a fixed duration.
+    final hasActiveRun = state.workspaces.any(
+      (ws) => ws.worktrees.any((wt) => wt.activeRuns.isNotEmpty),
+    );
+    final now = hasActiveRun
+        ? ref.watch(sideRailTreeNowProvider).value ??
+              ref.read(sideRailTreeClockProvider)()
+        : ref.read(sideRailTreeClockProvider)();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        if (state.refreshFailure != null) ...<Widget>[
+          HiveBanner(
+            tone: HiveFeedbackTone.danger,
+            title: l10n.sideRailTreeLoadErrorTitle,
+            message: RunL10n.localizeFailure(l10n, state.refreshFailure!),
+          ),
+          SizedBox(height: spacing.space2),
+        ],
+        HiveTreeItem(
+          key: const Key('tree_global_entry'),
+          label: l10n.sideRailTreeGlobalLabel,
+          leading: HiveIcon(
+            HiveIcons.settings,
+            size: spacing.space2,
+            color: colors.onSurfaceMuted,
+          ),
+          selected: state.isGlobalSelected,
+          onPressed: onSelectGlobal,
+        ),
+        SizedBox(height: spacing.space1),
+        Expanded(
+          child: state.workspaces.isEmpty
+              ? HiveEmptyState(
+                  icon: HiveIcons.folder,
+                  title: l10n.sideRailTreeEmptyTitle,
+                  message: l10n.sideRailTreeEmptyMessage,
+                )
+              : ListView(
+                  padding: EdgeInsets.symmetric(vertical: spacing.spaceHalf),
+                  children: <Widget>[
+                    for (
+                      var i = 0;
+                      i < state.workspaces.length;
+                      i++
+                    ) ...<Widget>[
+                      if (i > 0) SizedBox(height: spacing.spaceHalf),
+                      HiveTreeItem(
+                        key: Key(
+                          'tree_workspace_${state.workspaces[i].workspace.id}',
+                        ),
+                        label: state.workspaces[i].workspace.name,
+                        leading: HiveIcon(
+                          HiveIcons.folder,
+                          size: spacing.space2,
+                          color: colors.onSurfaceMuted,
+                        ),
+                        expanded: state.workspaces[i].expanded,
+                        expandSemanticLabel: state.workspaces[i].expanded
+                            ? l10n.sideRailTreeCollapseWorkspace(
+                                state.workspaces[i].workspace.name,
+                              )
+                            : l10n.sideRailTreeExpandWorkspace(
+                                state.workspaces[i].workspace.name,
+                              ),
+                        onToggleExpand: () =>
+                            onToggleWorkspace(state.workspaces[i].workspace.id),
+                        selected:
+                            state.workspaces[i].workspace.id ==
+                            state.currentWorkspaceId,
+                        highlighted: state.workspaces[i].pendingPauseCount > 0,
+                        trailing: _WorkspaceTrailingBadges(
+                          activeRunCount: state.workspaces[i].activeRunCount,
+                          pendingPauseCount:
+                              state.workspaces[i].pendingPauseCount,
+                        ),
+                        onPressed: () =>
+                            onSelectWorkspace(state.workspaces[i].workspace.id),
+                      ),
+                      if (state.workspaces[i].expanded)
+                        for (final wtNode in state.workspaces[i].worktrees)
+                          ..._buildWorktreeSection(
+                            context,
+                            l10n,
+                            spacing,
+                            colors,
+                            state.workspaces[i].workspace,
+                            wtNode,
+                            now,
+                          ),
+                    ],
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _buildWorktreeSection(
+    BuildContext context,
+    AppLocalizations l10n,
+    HiveSpacing spacing,
+    HiveColors colors,
+    Workspace workspace,
+    SideRailWorktreeNode wtNode,
+    DateTime now,
+  ) {
+    final wt = wtNode.worktree;
+    final wtLabel = wtNode.isFallback
+        ? l10n.sideRailTreeMissingWorktreeLabel
+        : wt.isPrimary
+        ? l10n.sideRailTreePrimaryLabel
+        : wt.name;
+    final wtSubtitle = wtNode.isFallback
+        ? null
+        : wt.branch ?? (workspace.isGit ? l10n.sideRailTreeDetachedHead : null);
+
+    final activeLimit = wtNode.showAllActive
+        ? wtNode.activeRuns.length
+        : SideRailTreeController.maxRunsPerGroup;
+    final visibleActive = wtNode.activeRuns.take(activeLimit).toList();
+    final remainingActive =
+        wtNode.activeRuns.length - SideRailTreeController.maxRunsPerGroup;
+
+    final recentLimit = wtNode.showAllRecent
+        ? wtNode.recentRuns.length
+        : SideRailTreeController.maxRunsPerGroup;
+    final visibleRecent = wtNode.recentRuns.take(recentLimit).toList();
+    final remainingRecent =
+        wtNode.recentRuns.length - SideRailTreeController.maxRunsPerGroup;
+
+    return <Widget>[
+      HiveTreeItem(
+        key: Key('tree_worktree_${workspace.id}_${wt.id}'),
+        indentLevel: 1,
+        label: wtLabel,
+        subtitle: wtSubtitle,
+        leading: HiveIcon(
+          wtNode.isFallback
+              ? HiveIcons.clock
+              : wt.isPrimary
+              ? HiveIcons.folder
+              : HiveIcons.branch,
+          size: spacing.space2,
+          color: colors.onSurfaceMuted,
+        ),
+        expanded: wtNode.expanded,
+        expandSemanticLabel: wtNode.expanded
+            ? l10n.sideRailTreeCollapseWorktree(wtLabel)
+            : l10n.sideRailTreeExpandWorktree(wtLabel),
+        onToggleExpand: () => onToggleWorktree(workspace.id, wt.id),
+        trailing: wtNode.isFallback
+            ? null
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  if (wt.isPrimary && workspace.isGit)
+                    HiveBadge(
+                      label: l10n.sideRailTreePrimaryBadge,
+                      tone: HiveBadgeTone.accentMuted,
+                    ),
+                  if (wt.isPrimary &&
+                      workspace.isGit &&
+                      wt.hasUncommittedChanges)
+                    SizedBox(width: spacing.spaceHalf),
+                  if (wt.hasUncommittedChanges)
+                    HiveIcon(
+                      HiveIcons.edit,
+                      key: Key('tree_worktree_dirty_${workspace.id}_${wt.id}'),
+                      size: spacing.space2,
+                      color: colors.warning,
+                      semanticLabel: l10n.sideRailTreeDirtyBadge,
+                    ),
+                  SizedBox(width: spacing.spaceHalf),
+                  HiveIconButton(
+                    key: Key('tree_start_run_${workspace.id}_${wt.id}'),
+                    icon: HiveIcons.play,
+                    size: HiveButtonSize.small,
+                    semanticLabel: l10n.sideRailTreeStartRunTooltip(wtLabel),
+                    onPressed: () => onStartRun(workspace, wt),
+                  ),
+                  if (!wt.isPrimary) ...<Widget>[
+                    SizedBox(width: spacing.spaceHalf),
+                    HiveIconButton(
+                      key: Key('tree_remove_worktree_${workspace.id}_${wt.id}'),
+                      icon: HiveIcons.delete,
+                      size: HiveButtonSize.small,
+                      semanticLabel: l10n.sideRailTreeRemoveWorktreeTooltip(
+                        wtLabel,
+                      ),
+                      onPressed: () => onRemoveWorktree(workspace, wtNode),
+                    ),
+                  ],
+                ],
+              ),
+        onPressed: () => onSelectWorkspace(workspace.id),
+      ),
+      if (wtNode.expanded) ...<Widget>[
+        if (wtNode.activeRuns.isEmpty && wtNode.recentRuns.isEmpty)
+          Padding(
+            padding: EdgeInsets.only(
+              left: spacing.space8,
+              right: spacing.space1,
+              top: spacing.spaceHalf,
+              bottom: spacing.spaceHalf,
+            ),
+            child: Text(
+              l10n.sideRailTreeNoRuns,
+              style: context.hiveTypography.bodySmall.copyWith(
+                color: colors.onSurfaceMuted,
+              ),
+            ),
+          ),
+        for (final run in visibleActive) _buildRunItem(l10n, run, now),
+        if (wtNode.activeRuns.length > SideRailTreeController.maxRunsPerGroup)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: EdgeInsets.only(left: spacing.space6),
+              child: HiveButton(
+                key: Key('tree_see_all_active_${workspace.id}_${wt.id}'),
+                label: wtNode.showAllActive
+                    ? l10n.sideRailTreeShowLess
+                    : l10n.sideRailTreeSeeAll(remainingActive),
+                variant: HiveButtonVariant.ghost,
+                size: HiveButtonSize.small,
+                onPressed: () => onToggleShowAllActive(workspace.id, wt.id),
+              ),
+            ),
+          ),
+        for (final run in visibleRecent) _buildRunItem(l10n, run, now),
+        if (wtNode.recentRuns.length > SideRailTreeController.maxRunsPerGroup)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: EdgeInsets.only(left: spacing.space6),
+              child: HiveButton(
+                key: Key('tree_see_all_recent_${workspace.id}_${wt.id}'),
+                label: wtNode.showAllRecent
+                    ? l10n.sideRailTreeShowLess
+                    : l10n.sideRailTreeSeeAll(remainingRecent),
+                variant: HiveButtonVariant.ghost,
+                size: HiveButtonSize.small,
+                onPressed: () => onToggleShowAllRecent(workspace.id, wt.id),
+              ),
+            ),
+          ),
+      ],
+    ];
+  }
+
+  Widget _buildRunItem(AppLocalizations l10n, RunSummary run, DateTime now) {
+    final isPendingPause = state.pendingPauseRunIds.contains(run.id);
+    final elapsed = RunL10n.formatDuration(
+      l10n,
+      run.status,
+      run.startedAt,
+      run.finishedAt ?? (run.status.isActive ? now : null),
+    );
+    return HiveTreeItem(
+      key: Key('tree_run_${run.id}'),
+      indentLevel: 2,
+      label: run.workflowName,
+      subtitle: elapsed,
+      leading: HiveStatusDot(
+        status: RunL10n.nodeStatusFor(run.status),
+        semanticLabel: RunL10n.localizeStatus(l10n, run.status),
+      ),
+      selected: currentLocation == '/runs/${run.id}',
+      highlighted: isPendingPause,
+      onPressed: () => onOpenRun(run.id),
+    );
+  }
+}
+
+class _WorkspaceTrailingBadges extends StatelessWidget {
+  const new({required this.activeRunCount, required this.pendingPauseCount});
+
+  final int activeRunCount;
+  final int pendingPauseCount;
+
+  @override
+  Widget build(BuildContext context) {
+    if (activeRunCount == 0 && pendingPauseCount == 0) {
+      return const SizedBox.shrink();
+    }
+    final l10n = AppLocalizations.of(context)!;
+    final spacing = context.hiveSpacing;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        if (activeRunCount > 0)
+          HiveBadge(
+            label: '$activeRunCount',
+            tone: HiveBadgeTone.info,
+            semanticLabel: l10n.sideRailTreeActiveRunsSemantic(activeRunCount),
+          ),
+        if (activeRunCount > 0 && pendingPauseCount > 0)
+          SizedBox(width: spacing.spaceHalf),
+        if (pendingPauseCount > 0)
+          HiveBadge(
+            label: '$pendingPauseCount',
+            tone: HiveBadgeTone.warning,
+            icon: HiveIcons.pause,
+            semanticLabel: l10n.sideRailTreePendingPausesSemantic(
+              pendingPauseCount,
+            ),
+          ),
+      ],
+    );
+  }
+}

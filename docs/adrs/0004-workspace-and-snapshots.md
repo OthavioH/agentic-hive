@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: partially superseded by ADR-0025 (the definition of workspace)
 ---
 
 # One workspace per run, with snapshots in a shadow git repository

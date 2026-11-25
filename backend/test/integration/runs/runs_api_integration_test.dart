@@ -33,12 +33,21 @@ void main() {
   late Directory workspaceDir;
   late Backend backend;
   late SocketHttpClient http;
+  late String workspaceId;
 
   setUp(() async {
     dataDir = (await createTempDir()).path;
     workspaceDir = await createTempDir();
     backend = await startBackend(dataDir);
     http = SocketHttpClient(backend.socketPath);
+    final registered = await http.post(
+      '/api/v1/workspaces',
+      body: jsonEncode(
+        CreateWorkspaceRequest(rootPath: workspaceDir.path).toJson(),
+      ),
+    );
+    expect(registered.statusCode, 201);
+    workspaceId = Workspace.fromJson(registered.json).id;
   });
 
   tearDown(() {
@@ -104,7 +113,7 @@ Future<void> main() async {
       body: jsonEncode(
         StartRunRequest(
           workflowId: workflow.id,
-          workspacePath: workspaceDir.path,
+          workspaceId: workspaceId,
           workspaceIsolationMode: WorkspaceIsolationMode.direct,
         ).toJson(),
       ),
@@ -128,7 +137,7 @@ Future<void> main() async {
       body: jsonEncode(
         StartRunRequest(
           workflowId: workflow.id,
-          workspacePath: workspaceDir.path,
+          workspaceId: workspaceId,
           workspaceIsolationMode: WorkspaceIsolationMode.direct,
         ).toJson(),
       ),
@@ -242,7 +251,7 @@ Future<void> main() => Future<void>.delayed(const Duration(milliseconds: 300));
       final body = jsonEncode(
         StartRunRequest(
           workflowId: workflow.id,
-          workspacePath: workspaceDir.path,
+          workspaceId: workspaceId,
           workspaceIsolationMode: WorkspaceIsolationMode.direct,
         ).toJson(),
       );
@@ -274,7 +283,7 @@ Future<void> main() => Future<void>.delayed(const Duration(seconds: 60));
       body: jsonEncode(
         StartRunRequest(
           workflowId: workflow.id,
-          workspacePath: workspaceDir.path,
+          workspaceId: workspaceId,
           workspaceIsolationMode: WorkspaceIsolationMode.direct,
         ).toJson(),
       ),
@@ -374,6 +383,34 @@ Future<void> main() => Future<void>.delayed(const Duration(seconds: 60));
       expect(delRes.statusCode, 204);
       final checkRes = await http.get('/api/v1/runs/run-uncertain');
       expect(checkRes.statusCode, 404);
+    },
+  );
+
+  test(
+    'POST /runs with invalid nodeOverrides returns 400 and creates no run',
+    () async {
+      final script = File(p.join(workspaceDir.path, 'noop.dart'));
+      await script.writeAsString('void main() {}');
+      final workflow = await createCommandWorkflow(script.path);
+
+      final res = await http.post(
+        '/api/v1/runs',
+        body: jsonEncode(
+          StartRunRequest(
+            workflowId: workflow.id,
+            workspaceId: workspaceId,
+            workspaceIsolationMode: WorkspaceIsolationMode.direct,
+            nodeOverrides: const {'unknown-node': NodeOverride(model: 'm1')},
+          ).toJson(),
+        ),
+      );
+      expect(res.statusCode, 400);
+      final error = ApiError.fromJson(res.json);
+      expect(error.message, contains('Invalid node overrides'));
+
+      final listRes = await http.get('/api/v1/runs');
+      expect(listRes.statusCode, 200);
+      expect(listRes.json['items'], isEmpty);
     },
   );
 }

@@ -1,6 +1,7 @@
 import 'dart:ui' show Tristate;
 
 import 'package:design_system/design_system.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -147,9 +148,137 @@ void main() {
 
       expect(focusNode.hasFocus, isFalse);
     });
+
+    testWidgets('labelled field meets the labeled tap target guideline', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          hiveTestApp(
+            child: const SizedBox(
+              width: 600,
+              child: HiveTextField(
+                label: 'Search workflows',
+                hint: 'Filter by name or description...',
+              ),
+            ),
+          ),
+        );
+
+        await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+      } finally {
+        handle.dispose();
+      }
+    });
+
+    testWidgets(
+      'semanticLabel-only field with leading icon meets the guideline',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        try {
+          await tester.pumpWidget(
+            hiveTestApp(
+              child: const SizedBox(
+                width: 600,
+                child: HiveTextField(
+                  semanticLabel: 'Search agents',
+                  hint: 'Filter agents...',
+                  leadingIcon: HiveIcons.search,
+                ),
+              ),
+            ),
+          );
+
+          await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+        } finally {
+          handle.dispose();
+        }
+      },
+    );
+
+    testWidgets('multi-line field meets the guideline', (tester) async {
+      final handle = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          hiveTestApp(
+            child: const SizedBox(
+              width: 600,
+              child: HiveTextField(label: 'Notes', maxLines: 4),
+            ),
+          ),
+        );
+
+        await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+      } finally {
+        handle.dispose();
+      }
+    });
+
+    testWidgets('the well adds no tappable semantics node of its own', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          hiveTestApp(
+            child: const SizedBox(
+              width: 600,
+              child: HiveTextField(label: 'Search workflows'),
+            ),
+          ),
+        );
+
+        final root = tester.getSemantics(find.byType(HiveTextField));
+        final tapNodes = <SemanticsNode>[];
+        void visit(SemanticsNode node) {
+          if (node.getSemanticsData().hasAction(SemanticsAction.tap)) {
+            tapNodes.add(node);
+          }
+          node.visitChildren((child) {
+            visit(child);
+            return true;
+          });
+        }
+
+        visit(root);
+        expect(tapNodes, hasLength(1));
+        expect(
+          tapNodes.single,
+          isSemantics(isTextField: true, label: 'Search workflows'),
+        );
+      } finally {
+        handle.dispose();
+      }
+    });
   });
 
   group('HiveSelect', () {
+    testWidgets('select meets the labeled tap target guideline', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          hiveTestApp(
+            child: SizedBox(
+              width: 600,
+              child: HiveSelect<String>(
+                label: 'Source output',
+                options: _outputs,
+                value: 'onSuccess',
+                onChanged: (_) {},
+              ),
+            ),
+          ),
+        );
+
+        await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+      } finally {
+        handle.dispose();
+      }
+    });
+
     testWidgets('shows the chosen option and picks a new one from the menu', (
       tester,
     ) async {
@@ -395,6 +524,135 @@ void main() {
       expect(align.duration, Duration.zero);
       expect(align.alignment, AlignmentDirectional.centerEnd);
     });
+
+    testWidgets('helperText aligns with label left edge', (tester) async {
+      await tester.pumpWidget(
+        hiveTestApp(
+          child: SizedBox(
+            width: 480,
+            child: HiveSwitch(
+              label: 'Auto-install skill',
+              helperText: 'Installs for newly detected harnesses.',
+              value: true,
+              onChanged: (_) {},
+            ),
+          ),
+        ),
+      );
+
+      final labelLeft = tester.getTopLeft(find.text('Auto-install skill')).dx;
+      final helperLeft = tester
+          .getTopLeft(find.text('Installs for newly detected harnesses.'))
+          .dx;
+      expect(helperLeft, labelLeft);
+    });
+
+    testWidgets(
+      'tapping helperText does not toggle, tapping label still does',
+      (tester) async {
+        var value = false;
+        await tester.pumpWidget(
+          hiveTestApp(
+            child: StatefulBuilder(
+              builder: (context, setState) => HiveSwitch(
+                label: 'Auto-install skill',
+                helperText: 'Installs for newly detected harnesses.',
+                value: value,
+                onChanged: (next) => setState(() => value = next),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('Installs for newly detected harnesses.'));
+        await tester.pumpAndSettle();
+        expect(value, isFalse);
+
+        await tester.tap(find.text('Auto-install skill'));
+        await tester.pumpAndSettle();
+        expect(value, isTrue);
+      },
+    );
+
+    testWidgets('disabled switch dims helperText', (tester) async {
+      await tester.pumpWidget(
+        hiveTestApp(
+          child: const HiveSwitch(
+            label: 'Auto-install skill',
+            helperText: 'Installs for newly detected harnesses.',
+            value: false,
+            onChanged: null,
+          ),
+        ),
+      );
+
+      final opacity = tester.widget<Opacity>(
+        find
+            .ancestor(
+              of: find.text('Installs for newly detected harnesses.'),
+              matching: find.byType(Opacity),
+            )
+            .first,
+      );
+      expect(opacity.opacity, HiveColors.dark.disabledOpacity);
+    });
+
+    testWidgets('helperText without label throws assertion error', (
+      tester,
+    ) async {
+      expect(
+        () => HiveSwitch(
+          semanticLabel: 'Auto-install skill',
+          helperText: 'Installs for newly detected harnesses.',
+          value: false,
+          onChanged: (_) {},
+        ),
+        throwsAssertionError,
+      );
+    });
+
+    testWidgets(
+      'semantics keeps toggle on label and helper as its own text node',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        try {
+          await tester.pumpWidget(
+            hiveTestApp(
+              child: HiveSwitch(
+                label: 'Auto-install skill',
+                helperText: 'Installs for newly detected harnesses.',
+                value: true,
+                onChanged: (_) {},
+              ),
+            ),
+          );
+
+          expect(
+            tester.getSemantics(find.bySemanticsLabel('Auto-install skill')),
+            matchesSemantics(
+              label: 'Auto-install skill',
+              hasToggledState: true,
+              isToggled: true,
+              hasEnabledState: true,
+              isEnabled: true,
+              hasTapAction: true,
+            ),
+          );
+
+          final helperNode = tester.getSemantics(
+            find.bySemanticsLabel('Installs for newly detected harnesses.'),
+          );
+          expect(helperNode.label, 'Installs for newly detected harnesses.');
+          expect(helperNode.flagsCollection.isToggled, Tristate.none);
+          expect(
+            helperNode.getSemanticsData().hasAction(SemanticsAction.tap),
+            isFalse,
+          );
+        } finally {
+          handle.dispose();
+        }
+      },
+    );
   });
 
   group('Form control contrast (WCAG AA)', () {

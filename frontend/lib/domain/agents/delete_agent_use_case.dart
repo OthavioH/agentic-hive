@@ -8,6 +8,8 @@ final class DeleteAgentUseCase {
 
   final AgentRepository _repository;
 
-  /// Deletes the agent with [id].
-  Future<Result<void>> call(String id) => _repository.deleteAgent(id);
+  /// Deletes the agent with [id] from the workspace folder when [workspaceId]
+  /// is set, and from the global library otherwise.
+  Future<Result<void>> call(String id, {String? workspaceId}) =>
+      _repository.deleteAgent(id, workspaceId: workspaceId);
 }

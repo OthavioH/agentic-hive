@@ -28,6 +28,9 @@ final class GeminiCliMcpInstaller implements HarnessMcpInstaller {
   HarnessId get id => HarnessId.geminiCli;
 
   @override
+  String? get configPath => _resolveConfigPath();
+
+  @override
   Future<HarnessMcpDetectionResult> detect({
     required String executablePath,
     required HiveMcpLaunchCommand expectedCommand,

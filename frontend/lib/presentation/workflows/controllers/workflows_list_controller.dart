@@ -1,7 +1,13 @@
+import 'dart:async';
+
 import 'package:agentic_hive_frontend/core/di/use_case_providers.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
+import 'package:agentic_hive_frontend/domain/workflows/workflow_deletion_events.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflow_delete_controller.dart';
+import 'package:agentic_hive_frontend/presentation/workspace/controllers/workspace_registry_controller.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'workflows_list_controller.g.dart';
@@ -23,10 +29,10 @@ final class WorkflowsListState {
   /// Current search filter text.
   final String searchQuery;
 
-  /// ID of the workflow currently undergoing duplicate or delete.
+  /// ID of the workflow currently undergoing duplicate.
   final String? busyWorkflowId;
 
-  /// Transient failure from a list action (create, duplicate, delete).
+  /// Transient failure from a list action (create, duplicate).
   final Failure? actionFailure;
 
   /// Workflows matching [searchQuery].
@@ -62,11 +68,55 @@ final class WorkflowsListState {
 }
 
 /// Manages the saved workflows list, search filter, and CRUD actions.
+///
+/// The list covers the global workflows plus those of the current workspace
+/// (each item carries its scope). With the Global entry selected, or without a
+/// workspace, only global workflows are listed. Workspace workflow files that
+/// change on disk, and workflows written through MCP, refresh the list live.
 @riverpod
 class WorkflowsListController extends _$WorkflowsListController {
+  /// Workspace whose workflows are listed besides the global ones; `null`
+  /// lists only global workflows.
+  String? get _workspaceId => ref.read(
+    workspaceRegistryControllerProvider.select(
+      (state) => state.asData?.value.currentWorkspaceId,
+    ),
+  );
+
   @override
   Future<WorkflowsListState> build() async {
-    final result = await ref.read(listWorkflowsProvider).call();
+    final workspaceId = ref.watch(
+      workspaceRegistryControllerProvider.select(
+        (state) => state.asData?.value.currentWorkspaceId,
+      ),
+    );
+    final changes = ref.read(watchWorkflowChangesProvider).call().listen((
+      payload,
+    ) {
+      if (payload.workspaceId == null || payload.workspaceId == _workspaceId) {
+        unawaited(_reloadSilently());
+      }
+    });
+    ref.onDispose(() => unawaited(changes.cancel()));
+    // Deletions finish for any client (MCP, another window): clear the row
+    // whose deletion ended, whoever started it (ADR 0027).
+    final deletions = ref
+        .read(watchWorkflowDeletionsProvider)
+        .call()
+        .listen(_applyFinishedDeletion);
+    ref.onDispose(() => unawaited(deletions.cancel()));
+    // Rows deleted by the Workflows page's delete flow leave the list.
+    ref.listen(
+      workflowDeleteControllerProvider.select((state) => state.removed),
+      (previous, next) {
+        for (final key in next.difference(previous ?? const {})) {
+          removeWorkflow(key.id, workspaceId: key.workspaceId);
+        }
+      },
+    );
+    final result = await ref
+        .read(listWorkflowsProvider)
+        .call(workspaceId: workspaceId);
     return switch (result) {
       Success<List<WorkflowSummary>>(:final value) => WorkflowsListState(
         workflows: value,
@@ -80,7 +130,9 @@ class WorkflowsListController extends _$WorkflowsListController {
   Future<void> refresh() async {
     final currentQuery = state.asData?.value.searchQuery ?? '';
     state = const AsyncLoading<WorkflowsListState>();
-    final result = await ref.read(listWorkflowsProvider).call();
+    final result = await ref
+        .read(listWorkflowsProvider)
+        .call(workspaceId: _workspaceId);
     if (!ref.mounted) return;
     state = switch (result) {
       Success<List<WorkflowSummary>>(:final value) => AsyncData(
@@ -101,9 +153,12 @@ class WorkflowsListController extends _$WorkflowsListController {
   }
 
   /// Creates a new workflow and refreshes the list on success.
+  ///
+  /// It is stored in [workspaceId] when given, otherwise globally.
   Future<Result<Workflow>> createWorkflow({
     required String name,
     String? description,
+    String? workspaceId,
   }) async {
     final trimmedName = name.trim();
     final trimmedDescription = description?.trim();
@@ -116,6 +171,7 @@ class WorkflowsListController extends _$WorkflowsListController {
                 trimmedDescription == null || trimmedDescription.isEmpty
                 ? null
                 : trimmedDescription,
+            workspaceId: workspaceId,
           ),
         );
     if (!ref.mounted) return result.map((response) => response.workflow);
@@ -130,10 +186,16 @@ class WorkflowsListController extends _$WorkflowsListController {
     }
   }
 
-  /// Duplicates an existing workflow and refreshes the list on success.
-  Future<Result<Workflow>> duplicateWorkflow(String id) async {
+  /// Duplicates an existing workflow of [workspaceId] (global when `null`)
+  /// and refreshes the list on success.
+  Future<Result<Workflow>> duplicateWorkflow(
+    String id, {
+    String? workspaceId,
+  }) async {
     _setBusy(id);
-    final result = await ref.read(duplicateWorkflowProvider).call(id);
+    final result = await ref
+        .read(duplicateWorkflowProvider)
+        .call(id, workspaceId: workspaceId);
     if (!ref.mounted) return result.map((response) => response.workflow);
 
     switch (result) {
@@ -146,35 +208,71 @@ class WorkflowsListController extends _$WorkflowsListController {
     }
   }
 
-  /// Deletes a workflow and updates the list on success.
-  Future<Result<void>> deleteWorkflow(String id) async {
-    _setBusy(id);
-    final result = await ref.read(deleteWorkflowProvider).call(id);
-    if (!ref.mounted) return result;
+  /// Marks the listed workflow [id] of [workspaceId] (global when `null`) as
+  /// being deleted, or back to normal (ADR 0027).
+  void setDeleting(
+    String id, {
+    required String? workspaceId,
+    required bool deleting,
+  }) {
+    final current = state.asData?.value;
+    if (current == null) return;
+    state = AsyncData(
+      current.copyWith(
+        workflows: [
+          for (final workflow in current.workflows)
+            if (workflow.id == id && workflow.workspaceId == workspaceId)
+              workflow.copyWith(deleting: deleting)
+            else
+              workflow,
+        ],
+      ),
+    );
+  }
 
-    switch (result) {
-      case Success<void>():
-        final current = state.asData?.value;
-        if (current != null) {
-          state = AsyncData(
-            current.copyWith(
-              workflows: current.workflows
-                  .where((workflow) => workflow.id != id)
-                  .toList(),
-              busyWorkflowId: () => null,
-              actionFailure: () => null,
-            ),
-          );
-        }
-        return const Success<void>(null);
-      case FailureResult<void>(:final failure):
-        _setBusy(null, actionFailure: failure);
-        return FailureResult<void>(failure);
+  /// Removes the listed workflow [id] of [workspaceId] (global when `null`)
+  /// after its deletion.
+  void removeWorkflow(String id, {required String? workspaceId}) {
+    final current = state.asData?.value;
+    if (current == null) return;
+    state = AsyncData(
+      current.copyWith(
+        workflows: current.workflows
+            .where(
+              (workflow) =>
+                  workflow.id != id || workflow.workspaceId != workspaceId,
+            )
+            .toList(),
+      ),
+    );
+  }
+
+  /// A deletion ended on the backend: the row goes on success and returns to
+  /// normal on failure. Rows of other scopes are left alone.
+  void _applyFinishedDeletion(WorkflowDeletionFinished event) {
+    final current = state.asData?.value;
+    if (current == null) return;
+    final listed = current.workflows.any(
+      (workflow) =>
+          workflow.id == event.workflowId &&
+          workflow.workspaceId == event.workspaceId,
+    );
+    if (!listed) return;
+    if (event.failure == null) {
+      removeWorkflow(event.workflowId, workspaceId: event.workspaceId);
+    } else {
+      setDeleting(
+        event.workflowId,
+        workspaceId: event.workspaceId,
+        deleting: false,
+      );
     }
   }
 
   Future<void> _reloadSilently() async {
-    final result = await ref.read(listWorkflowsProvider).call();
+    final result = await ref
+        .read(listWorkflowsProvider)
+        .call(workspaceId: _workspaceId);
     if (!ref.mounted) return;
     final current = state.asData?.value;
     switch (result) {

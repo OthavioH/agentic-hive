@@ -1,8 +1,11 @@
 import 'dart:async';
 
+import 'package:agentic_hive_frontend/domain/runs/fan_out_progress.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
+import 'package:agentic_hive_frontend/presentation/runs/controllers/fan_out_children_controller.dart';
 import 'package:agentic_hive_frontend/presentation/runs/controllers/run_detail_controller.dart';
 import 'package:agentic_hive_frontend/presentation/runs/utils/run_l10n.dart';
+import 'package:agentic_hive_frontend/presentation/runs/widgets/fan_out_children_panel.dart';
 import 'package:agentic_hive_frontend/presentation/runs/widgets/run_chat_outputs_panel.dart';
 import 'package:agentic_hive_frontend/presentation/runs/widgets/run_graph_view.dart';
 import 'package:agentic_hive_frontend/presentation/runs/widgets/run_inspector_tabs.dart';
@@ -11,6 +14,7 @@ import 'package:agentic_hive_frontend/presentation/workspace/widgets/snapshots_p
 import 'package:agentic_hive_frontend/routes/app_routes.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -159,10 +163,33 @@ class _RunDetailBodyState extends ConsumerState<_RunDetailBody> {
     final showRetryCancel = run.status == RunStatus.cancellationUncertain;
     final showResume = run.status == RunStatus.interrupted;
 
+    final fanOutNodes = run.workflowDefinition.nodes
+        .where((n) => n.type == NodeTypeId.fanOut)
+        .toList(growable: false);
+    final fanOutNodeIds = <String>{for (final n in fanOutNodes) n.id};
+    final childrenAsync = fanOutNodes.isEmpty
+        ? null
+        : ref.watch(fanOutChildrenControllerProvider(runId));
+    final children = childrenAsync?.asData?.value;
+    final latestOutputs = detailState.checkpoints.isEmpty
+        ? const <String, JsonMap>{}
+        : detailState.checkpoints.last.nodeOutputs;
+    final progressByNode = children == null
+        ? const <String, FanOutProgress>{}
+        : <String, FanOutProgress>{
+            for (final n in fanOutNodes)
+              n.id: FanOutProgress.of(
+                nodeId: n.id,
+                children: children,
+                nodeOutputEntry: latestOutputs[n.id],
+              ),
+          };
+
     final graphView = RunGraphView(
       workflow: run.workflowDefinition,
       nodeStatuses: detailState.nodeStatuses,
       selectedNodeId: detailState.inspectedNodeId,
+      fanOutProgress: progressByNode,
       onSelectNode: (nodeId) => unawaited(controller.selectNode(nodeId)),
     );
     final inspector = _InspectorColumn(
@@ -170,6 +197,13 @@ class _RunDetailBodyState extends ConsumerState<_RunDetailBody> {
       detailState: detailState,
       tab: _tab,
       onTabChanged: (tab) => setState(() => _tab = tab),
+      fanOutNodeIds: fanOutNodeIds,
+      fanOutProgress: progressByNode,
+      fanOutChildren: childrenAsync,
+      onOpenRun: (id) => RunDetailRoute(id: id).go(context),
+      onRetryFanOut: () => unawaited(
+        ref.read(fanOutChildrenControllerProvider(runId).notifier).refresh(),
+      ),
     );
 
     return Column(
@@ -310,9 +344,23 @@ class _RunDetailBodyState extends ConsumerState<_RunDetailBody> {
             ],
           ),
         ),
-        if (run.input != null && run.input!.trim().isNotEmpty) ...<Widget>[
+        if ((run.input != null && run.input!.trim().isNotEmpty) ||
+            (run.attachments?.isNotEmpty ?? false)) ...<Widget>[
           SizedBox(height: spacing.space2),
-          _RunInputCard(input: run.input!.trim()),
+          _RunInputCard(
+            input: (run.input != null && run.input!.trim().isNotEmpty)
+                ? run.input!.trim()
+                : null,
+            copyText: (run.input != null && run.input!.trim().isNotEmpty)
+                ? run.input!
+                : null,
+            attachments: run.attachments ?? const <RunAttachment>[],
+            removed: const <RunStatus>{
+              RunStatus.succeeded,
+              RunStatus.failed,
+              RunStatus.cancelled,
+            }.contains(run.status),
+          ),
         ],
         if (run.errorMessage != null &&
             run.errorMessage!.isNotEmpty) ...<Widget>[
@@ -555,18 +603,40 @@ class _EventTimelineColumn extends ConsumerWidget {
   }
 }
 
+String? _lastNodeFailedMessage(List<RunEvent> events, String nodeId) {
+  for (var i = events.length - 1; i >= 0; i--) {
+    final event = events[i];
+    if (event.type == RunEventType.nodeFailed && event.nodeId == nodeId) {
+      final message = event.payload['message'];
+      if (message is String && message.isNotEmpty) return message;
+      return null;
+    }
+  }
+  return null;
+}
+
 class _InspectorColumn extends StatelessWidget {
   const new({
     required this.runId,
     required this.detailState,
     required this.tab,
     required this.onTabChanged,
+    required this.fanOutNodeIds,
+    required this.fanOutProgress,
+    required this.fanOutChildren,
+    required this.onOpenRun,
+    required this.onRetryFanOut,
   });
 
   final String runId;
   final RunDetailState detailState;
   final RunInspectorTab tab;
   final ValueChanged<RunInspectorTab> onTabChanged;
+  final Set<String> fanOutNodeIds;
+  final Map<String, FanOutProgress> fanOutProgress;
+  final AsyncValue<List<Run>>? fanOutChildren;
+  final ValueChanged<String> onOpenRun;
+  final VoidCallback onRetryFanOut;
 
   @override
   Widget build(BuildContext context) {
@@ -585,10 +655,7 @@ class _InspectorColumn extends StatelessWidget {
         SizedBox(height: spacing.space2),
         Expanded(
           child: switch (tab) {
-            RunInspectorTab.output => RunOutputPanel(
-              runId: runId,
-              detailState: detailState,
-            ),
+            RunInspectorTab.output => _buildOutputTab(),
             RunInspectorTab.outputs => RunChatOutputsPanel(
               detailState: detailState,
             ),
@@ -615,6 +682,29 @@ class _InspectorColumn extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Widget _buildOutputTab() {
+    final inspectedId = detailState.inspectedNodeId;
+    if (inspectedId != null && fanOutNodeIds.contains(inspectedId)) {
+      final childrenAsync = fanOutChildren;
+      final progress = fanOutProgress[inspectedId];
+      final isLoading =
+          childrenAsync != null && childrenAsync.isLoading && progress == null;
+      final loadFailed =
+          childrenAsync != null && childrenAsync.hasError && progress == null;
+      return FanOutChildrenPanel(
+        nodeStatus:
+            detailState.nodeStatuses[inspectedId] ?? HiveNodeStatus.idle,
+        progress: progress,
+        isLoading: isLoading,
+        loadFailed: loadFailed,
+        failureMessage: _lastNodeFailedMessage(detailState.events, inspectedId),
+        onOpenRun: onOpenRun,
+        onRetry: onRetryFanOut,
+      );
+    }
+    return RunOutputPanel(runId: runId, detailState: detailState);
   }
 }
 
@@ -732,9 +822,17 @@ class _CheckpointInspectorColumn extends ConsumerWidget {
 }
 
 class _RunInputCard extends StatefulWidget {
-  const new({required this.input});
+  const new({
+    this.input,
+    this.copyText,
+    this.attachments = const <RunAttachment>[],
+    this.removed = false,
+  });
 
-  final String input;
+  final String? input;
+  final String? copyText;
+  final List<RunAttachment> attachments;
+  final bool removed;
 
   @override
   State<_RunInputCard> createState() => _RunInputCardState();
@@ -746,9 +844,21 @@ class _RunInputCardState extends State<_RunInputCard> {
 
   bool _expanded = false;
 
-  bool get _isLong =>
-      widget.input.length > _collapseCharThreshold ||
-      '\n'.allMatches(widget.input).length >= _collapseLineThreshold;
+  bool get _isLong {
+    final text = widget.input;
+    if (text == null) return false;
+    return text.length > _collapseCharThreshold ||
+        '\n'.allMatches(text).length >= _collapseLineThreshold;
+  }
+
+  Future<void> _copyInput(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    final textToCopy = widget.copyText ?? widget.input;
+    if (textToCopy == null) return;
+    await Clipboard.setData(ClipboardData(text: textToCopy));
+    if (!context.mounted) return;
+    HiveToast.show(context, message: l10n.runDetailInputCopied);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -781,23 +891,75 @@ class _RunInputCardState extends State<_RunInputCard> {
                   variant: HiveButtonVariant.ghost,
                   onPressed: () => setState(() => _expanded = !_expanded),
                 ),
+              if (_isLong && widget.input != null)
+                SizedBox(width: spacing.space1),
+              if (widget.input != null)
+                HiveIconButton(
+                  key: const Key('run_detail_input_copy'),
+                  icon: HiveIcons.copy,
+                  semanticLabel: l10n.runDetailCopyInput,
+                  onPressed: () => unawaited(_copyInput(context)),
+                ),
             ],
           ),
-          SizedBox(height: spacing.space1),
-          if (showExpanded)
-            SelectableText(
-              widget.input,
-              style: typography.mono.copyWith(color: colors.onSurface),
-            )
-          else
-            Text(
-              widget.input,
-              maxLines: _collapseLineThreshold,
-              overflow: TextOverflow.ellipsis,
-              style: typography.mono.copyWith(color: colors.onSurface),
+          if (widget.input != null) ...<Widget>[
+            SizedBox(height: spacing.space1),
+            if (showExpanded)
+              SelectableText(
+                widget.input!,
+                style: typography.mono.copyWith(color: colors.onSurface),
+              )
+            else
+              Text(
+                widget.input!,
+                maxLines: _collapseLineThreshold,
+                overflow: TextOverflow.ellipsis,
+                style: typography.mono.copyWith(color: colors.onSurface),
+              ),
+          ],
+          if (widget.attachments.isNotEmpty) ...<Widget>[
+            SizedBox(
+              height: widget.input != null ? spacing.space2 : spacing.space1,
             ),
+            Wrap(
+              spacing: spacing.space2,
+              runSpacing: spacing.space1,
+              children: <Widget>[
+                for (var i = 0; i < widget.attachments.length; i++)
+                  _buildAttachmentChip(l10n, i, widget.attachments[i]),
+              ],
+            ),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildAttachmentChip(
+    AppLocalizations l10n,
+    int index,
+    RunAttachment attachment,
+  ) {
+    final sizeLabel = RunL10n.formatAttachmentSize(l10n, attachment.sizeBytes);
+    final label = widget.removed
+        ? l10n.runDetailAttachmentRemovedLabel(attachment.fileName, sizeLabel)
+        : l10n.startRunAttachmentChipLabel(attachment.fileName, sizeLabel);
+    final semanticLabel = widget.removed
+        ? l10n.runDetailAttachmentRemovedSemantics(
+            attachment.fileName,
+            attachment.mimeType,
+            sizeLabel,
+          )
+        : l10n.runDetailAttachmentSemantics(
+            attachment.fileName,
+            attachment.mimeType,
+            sizeLabel,
+          );
+    return HiveChip.readOnly(
+      key: Key('run_detail_attachment_$index'),
+      label: label,
+      removed: widget.removed,
+      semanticLabel: semanticLabel,
     );
   }
 }

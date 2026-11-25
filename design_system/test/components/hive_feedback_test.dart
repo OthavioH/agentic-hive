@@ -209,8 +209,117 @@ void main() {
         expect(decoration.borderRadius, HiveRadii.standard.card);
         final badge = tester.widget<HiveToneBadge>(find.byType(HiveToneBadge));
         expect(badge.tone, tone);
+        expect(badge.diameter, HiveSpacing.standard.space4);
+        expect(box.padding, EdgeInsets.all(HiveSpacing.standard.space2));
         expect(find.byType(HiveIconButton), findsNothing);
       });
     }
+
+    for (final tone in HiveFeedbackTone.values) {
+      testWidgets('compact ${tone.name} uses space3 badge and space1 padding', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          hiveTestApp(
+            child: HiveBanner(
+              tone: tone,
+              density: HiveBannerDensity.compact,
+              title: 'MCP server missing',
+              message: 'Install the Hive MCP server.',
+            ),
+          ),
+        );
+
+        final box = tester.widget<Container>(
+          find
+              .descendant(
+                of: find.byType(HiveBanner),
+                matching: find.byType(Container),
+              )
+              .first,
+        );
+        expect(box.padding, EdgeInsets.all(HiveSpacing.standard.space1));
+        final decoration = box.decoration! as BoxDecoration;
+        expect(
+          (decoration.border! as Border).top.color,
+          tone.color(HiveColors.dark),
+        );
+        expect(decoration.borderRadius, HiveRadii.standard.card);
+
+        final badge = tester.widget<HiveToneBadge>(find.byType(HiveToneBadge));
+        expect(badge.tone, tone);
+        expect(badge.diameter, HiveSpacing.standard.space3);
+
+        final constrained = tester.widget<ConstrainedBox>(
+          find
+              .ancestor(
+                of: find.text('MCP server missing'),
+                matching: find.byType(ConstrainedBox),
+              )
+              .first,
+        );
+        expect(constrained.constraints.minHeight, HiveSpacing.standard.space3);
+
+        final messageText = tester.widget<Text>(
+          find.text('Install the Hive MCP server.'),
+        );
+        expect(
+          messageText.style?.fontSize,
+          HiveTypography.standard.bodySmall.fontSize,
+        );
+      });
+    }
+
+    testWidgets(
+      'compact with message, action and dismiss does not overflow at 320px',
+      (tester) async {
+        await tester.pumpWidget(
+          hiveTestApp(
+            child: SizedBox(
+              width: 320,
+              child: HiveBanner(
+                tone: HiveFeedbackTone.danger,
+                density: HiveBannerDensity.compact,
+                title: 'Could not install skill',
+                message: 'Permission denied writing to ~/.claude/skills.',
+                actions: <Widget>[
+                  HiveButton(
+                    label: 'Retry',
+                    size: HiveButtonSize.small,
+                    variant: HiveButtonVariant.secondary,
+                    onPressed: () {},
+                  ),
+                ],
+                onDismiss: () {},
+                dismissSemanticLabel: 'Dismiss',
+              ),
+            ),
+          ),
+        );
+
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('compact announces liveRegion when enabled', (tester) async {
+      final handle = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          hiveTestApp(
+            child: const HiveBanner(
+              tone: HiveFeedbackTone.warning,
+              density: HiveBannerDensity.compact,
+              liveRegion: true,
+              title: 'MCP server not installed',
+            ),
+          ),
+        );
+
+        final semantics = tester.getSemantics(find.byType(HiveBanner));
+        expect(semantics.flagsCollection.isLiveRegion, isTrue);
+      } finally {
+        handle.dispose();
+      }
+    });
   });
 }

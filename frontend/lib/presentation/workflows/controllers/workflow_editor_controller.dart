@@ -39,6 +39,7 @@ final class WorkflowEditorState {
     this.isValidating = false,
     this.saveFailure,
     this.focusRequest,
+    this.revision,
   });
 
   /// Current editable workflow draft.
@@ -67,6 +68,15 @@ final class WorkflowEditorState {
 
   /// Latest pan/focus target requested by clicking a validation issue.
   final EditorFocusRequest? focusRequest;
+
+  /// Revision of [savedWorkflow] as last read from the backend.
+  final String? revision;
+
+  /// Whether the last save failed because the workflow changed elsewhere.
+  bool get hasRevisionConflict => switch (saveFailure) {
+    BackendFailure(code: ApiErrorCode.revisionConflict) => true,
+    _ => false,
+  };
 
   /// Whether [workflow] has unsaved local edits compared to [savedWorkflow].
   bool get isDirty {
@@ -108,6 +118,7 @@ final class WorkflowEditorState {
     bool? isValidating,
     Failure? Function()? saveFailure,
     EditorFocusRequest? Function()? focusRequest,
+    String? Function()? revision,
   }) {
     return WorkflowEditorState(
       workflow: workflow ?? this.workflow,
@@ -123,29 +134,86 @@ final class WorkflowEditorState {
       isValidating: isValidating ?? this.isValidating,
       saveFailure: saveFailure != null ? saveFailure() : this.saveFailure,
       focusRequest: focusRequest != null ? focusRequest() : this.focusRequest,
+      revision: revision != null ? revision() : this.revision,
     );
   }
 }
 
 /// Manages editing, selection, validation, and saving of a single workflow.
+///
+/// An external change to the open workflow (for example an MCP edit) reloads
+/// it when there is no unsaved draft.
 @riverpod
 class WorkflowEditorController extends _$WorkflowEditorController {
   int _idCounter = 0;
   int _validationSeq = 0;
   int _focusSeq = 0;
+  String? _workspaceId;
 
+  /// Loads [workflowId] from the scope of [workspaceId]; `null` is the global
+  /// scope. Saving writes back to the same scope.
   @override
-  Future<WorkflowEditorState> build(String workflowId) async {
-    final result = await ref.read(getWorkflowProvider).call(workflowId);
+  Future<WorkflowEditorState> build(
+    String workflowId, {
+    String? workspaceId,
+  }) async {
+    _workspaceId = workspaceId;
+    final changes = ref.read(watchWorkflowChangesProvider).call().listen((
+      payload,
+    ) {
+      if (payload.kind == WorkflowChangeKind.updated &&
+          payload.id == workflowId &&
+          payload.workspaceId == workspaceId) {
+        unawaited(_reloadIfClean(workflowId, payload.workflow?.revision));
+      }
+    });
+    ref.onDispose(() => unawaited(changes.cancel()));
+    final result = await ref
+        .read(getWorkflowProvider)
+        .call(workflowId, workspaceId: workspaceId);
     return switch (result) {
       Success<WorkflowResponse>(:final value) => WorkflowEditorState(
         workflow: value.workflow,
         savedWorkflow: value.workflow,
         validation: value.validation,
+        revision: value.revision,
       ),
       FailureResult<WorkflowResponse>(:final failure) =>
         Error.throwWithStackTrace(failure, StackTrace.current),
     };
+  }
+
+  /// Reloads after an external change unless the user has a draft (E2-E5).
+  Future<void> _reloadIfClean(String workflowId, String? revision) async {
+    final current = state.asData?.value;
+    if (current == null) return;
+    if (revision != null && revision == current.revision) return;
+    if (current.isDirty || current.isSaving) return;
+    final result = await ref
+        .read(getWorkflowProvider)
+        .call(workflowId, workspaceId: _workspaceId);
+    if (!ref.mounted) return;
+    final latest = state.asData?.value;
+    if (latest == null || latest.isDirty || latest.isSaving) return;
+    if (result case Success<WorkflowResponse>(:final value)) {
+      _validationSeq++;
+      final nodeId = latest.selectedNodeId;
+      final edgeId = latest.selectedEdgeId;
+      state = AsyncData(
+        latest.copyWith(
+          workflow: value.workflow,
+          savedWorkflow: value.workflow,
+          validation: value.validation,
+          revision: () => value.revision,
+          isValidating: false,
+          saveFailure: () => null,
+          selectedNodeId: () =>
+              value.workflow.nodes.any((n) => n.id == nodeId) ? nodeId : null,
+          selectedEdgeId: () =>
+              value.workflow.edges.any((e) => e.id == edgeId) ? edgeId : null,
+        ),
+      );
+    }
   }
 
   /// Selects a node and clears any edge selection.
@@ -496,7 +564,9 @@ class WorkflowEditorController extends _$WorkflowEditorController {
             edges: draft.edges,
             entryNodeId: draft.entryNodeId,
             schemaVersion: draft.schemaVersion,
+            revision: current.revision,
           ),
+          workspaceId: _workspaceId,
         );
     if (!ref.mounted) return result;
 
@@ -512,6 +582,7 @@ class WorkflowEditorController extends _$WorkflowEditorController {
             validation: value.validation,
             isSaving: false,
             saveFailure: () => null,
+            revision: () => value.revision,
           ),
         );
         return Success<WorkflowResponse>(value);
@@ -522,6 +593,9 @@ class WorkflowEditorController extends _$WorkflowEditorController {
         return FailureResult<WorkflowResponse>(failure);
     }
   }
+
+  /// Discards the local draft and loads the workflow again from the backend.
+  void reload() => ref.invalidateSelf();
 
   void _applyDraft(
     WorkflowEditorState current,

@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:design_system/design_system.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -402,6 +404,186 @@ void main() {
       expect(find.bySemanticsLabel('Minimize'), findsOneWidget);
       expect(find.bySemanticsLabel('Maximize'), findsOneWidget);
       expect(find.bySemanticsLabel('Restore'), findsOneWidget);
+    });
+
+    testWidgets('disabled button announces disabledReason as its hint', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      try {
+        const reason = 'Unavailable while the workflow is being deleted.';
+        await tester.pumpWidget(
+          hiveTestApp(
+            child: const HiveIconButton(
+              icon: HiveIcons.copy,
+              semanticLabel: 'Duplicate workflow',
+              onPressed: null,
+              disabledReason: reason,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.getSemantics(find.bySemanticsLabel('Duplicate workflow')),
+          isSemantics(
+            label: 'Duplicate workflow',
+            hint: reason,
+            isButton: true,
+            hasEnabledState: true,
+            isEnabled: false,
+          ),
+        );
+      } finally {
+        handle.dispose();
+      }
+    });
+
+    testWidgets('disabled button shows disabledReason in a tooltip on hover', (
+      tester,
+    ) async {
+      const reason = 'Unavailable while the workflow is being deleted.';
+      await tester.pumpWidget(
+        hiveTestApp(
+          child: const HiveIconButton(
+            icon: HiveIcons.copy,
+            semanticLabel: 'Duplicate workflow',
+            onPressed: null,
+            disabledReason: reason,
+          ),
+        ),
+      );
+
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await gesture.addPointer(location: Offset.zero);
+      addTearDown(gesture.removePointer);
+      await tester.pump();
+      await gesture.moveTo(tester.getCenter(find.byType(HiveIconButton)));
+      await tester.pump(HiveMotionTokens.standard.long);
+      await tester.pumpAndSettle();
+
+      expect(find.text(reason), findsOneWidget);
+    });
+
+    testWidgets('the tooltip adds no semantics node', (tester) async {
+      final handle = tester.ensureSemantics();
+      try {
+        const reason = 'Unavailable while the workflow is being deleted.';
+        await tester.pumpWidget(
+          hiveTestApp(
+            child: const HiveIconButton(
+              icon: HiveIcons.copy,
+              semanticLabel: 'Duplicate workflow',
+              onPressed: null,
+              disabledReason: reason,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.bySemanticsLabel(reason), findsNothing);
+      } finally {
+        handle.dispose();
+      }
+    });
+
+    testWidgets('tooltip uses surface3, onSurface bodySmall and a pill', (
+      tester,
+    ) async {
+      const reason = 'Unavailable while the workflow is being deleted.';
+      for (final theme in <ThemeData>[HiveTheme.dark(), HiveTheme.light()]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            home: const Scaffold(
+              body: Center(
+                child: HiveIconButton(
+                  icon: HiveIcons.copy,
+                  semanticLabel: 'Duplicate workflow',
+                  onPressed: null,
+                  disabledReason: reason,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final colors = theme.extension<HiveColors>()!;
+        final tooltip = tester.widget<Tooltip>(find.byType(Tooltip));
+        final decoration = tooltip.decoration! as ShapeDecoration;
+        expect(decoration.color, colors.surface3);
+        expect(decoration.shape, isA<StadiumBorder>());
+        final border = decoration.shape as StadiumBorder;
+        expect(border.side.color, colors.borderSubtle);
+        expect(tooltip.textStyle!.color, colors.onSurface);
+      }
+    });
+
+    testWidgets('enabled button ignores disabledReason', (tester) async {
+      final handle = tester.ensureSemantics();
+      try {
+        const reason = 'Unavailable while the workflow is being deleted.';
+        for (final loading in <bool>[false, true]) {
+          await tester.pumpWidget(
+            hiveTestApp(
+              child: HiveIconButton(
+                icon: HiveIcons.copy,
+                semanticLabel: 'Duplicate workflow',
+                onPressed: () {},
+                loading: loading,
+                disabledReason: reason,
+              ),
+            ),
+          );
+
+          expect(find.byType(Tooltip), findsNothing);
+          expect(
+            tester
+                .getSemantics(find.bySemanticsLabel('Duplicate workflow'))
+                .hint,
+            isEmpty,
+          );
+        }
+      } finally {
+        handle.dispose();
+      }
+    });
+
+    testWidgets('dangerHover accepts disabledReason', (tester) async {
+      await tester.pumpWidget(
+        hiveTestApp(
+          child: const HiveIconButton.dangerHover(
+            icon: HiveIcons.close,
+            semanticLabel: 'Close',
+            onPressed: null,
+            disabledReason: 'Unavailable',
+          ),
+        ),
+      );
+
+      expect(find.byType(Tooltip), findsOneWidget);
+    });
+
+    testWidgets('tooltip waits zero when animations are disabled', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        hiveTestApp(
+          child: const MediaQuery(
+            data: MediaQueryData(disableAnimations: true),
+            child: HiveIconButton(
+              icon: HiveIcons.copy,
+              semanticLabel: 'Duplicate workflow',
+              onPressed: null,
+              disabledReason: 'Unavailable',
+            ),
+          ),
+        ),
+      );
+
+      final tooltip = tester.widget<Tooltip>(find.byType(Tooltip));
+      expect(tooltip.waitDuration, Duration.zero);
     });
   });
 }

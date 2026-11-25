@@ -4,6 +4,7 @@ import 'package:agentic_hive_backend/src/domain/engine/resume_input.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
 import 'package:agentic_hive_backend/src/domain/pauses/pause_repository.dart';
 import 'package:agentic_hive_backend/src/domain/result_contract/human_pause_gateway.dart';
+import 'package:agentic_hive_backend/src/util/json_equality.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 /// Callback used to resume a paused run (or supply an answer to a run that is
@@ -79,12 +80,55 @@ final class HumanApprovalPauseAnswerHandler extends PauseAnswerHandler {
       );
     }
 
+    final edit = request.proposal;
+    if (edit != null && pause.proposal == null) {
+      return const FailureResult(
+        ValidationFailure('This approval has no proposal to edit.'),
+      );
+    }
+    if (edit != null && decision == HumanApprovalDecision.rejected) {
+      return const FailureResult(
+        ValidationFailure('A rejection cannot carry an edited proposal.'),
+      );
+    }
+
+    final original = pause.proposal;
+    final finalValue = edit ?? original;
+    final edited = edit != null && !jsonEquals(edit, original);
+
+    if (decision == HumanApprovalDecision.approved &&
+        finalValue != null &&
+        pause.proposalSchema != null) {
+      if (ProposalSchema.checkSchema(pause.proposalSchema!).isNotEmpty) {
+        return const FailureResult(
+          UnexpectedFailure('Stored proposal schema is invalid.'),
+        );
+      }
+      final errors = ProposalSchema.validate(
+        schemaText: pause.proposalSchema!,
+        value: finalValue,
+      );
+      if (errors.isNotEmpty) {
+        final shown = errors.take(5).join('; ');
+        final suffix = errors.length > 5 ? '; …' : '';
+        return FailureResult(
+          ValidationFailure(
+            'Proposal does not match the schema: $shown$suffix',
+          ),
+        );
+      }
+    }
+
     final resumed = await resumePausedRun(
       pause.runId,
       input: ApprovalDecisionInput(
         nodeId: pause.nodeId,
         decision: decision,
         feedback: feedback,
+        proposal: decision == HumanApprovalDecision.rejected
+            ? original
+            : finalValue,
+        edited: decision == HumanApprovalDecision.approved && edited,
       ),
     );
     if (resumed case FailureResult<Run>(:final failure)) {
@@ -96,6 +140,9 @@ final class HumanApprovalPauseAnswerHandler extends PauseAnswerHandler {
       answeredAt: answeredAt,
       decision: decision.name,
       feedback: feedback,
+      editedProposal: decision == HumanApprovalDecision.approved && edited
+          ? edit
+          : null,
     );
   }
 }

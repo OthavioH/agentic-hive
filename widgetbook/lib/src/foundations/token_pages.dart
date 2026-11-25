@@ -29,6 +29,7 @@ class ColorRolesPage extends StatelessWidget {
     };
     final singles = <String, Color>{
       'borderSubtle': c.borderSubtle,
+      'borderStrong': c.borderStrong,
       'focusRing': c.focusRing,
       'statusIdle': c.statusIdle,
       'statusRunning': c.statusRunning,
@@ -58,8 +59,8 @@ class ColorRolesPage extends StatelessWidget {
         ShowcaseSection(
           title: 'Structure and status roles',
           description:
-              'Ratios are against surface1. Status and focus are UI '
-              'components (3:1); borderSubtle is decorative.',
+              'Ratios are against surface1. borderStrong, status and focus '
+              'are UI components (3:1); borderSubtle is decorative.',
           children: <Widget>[
             for (final e in singles.entries)
               _SingleSwatch(name: e.key, color: e.value, against: c.surface1),
