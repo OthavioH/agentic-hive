@@ -20,6 +20,7 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../engine/support/engine_harness.dart';
+import '../engine/support/fake_ports.dart';
 import '../engine/support/in_memory_repositories.dart';
 
 final class _FakeProcessRunner implements ProcessRunner {
@@ -270,5 +271,102 @@ void main() {
 
     expect(res, isA<Success<Run>>());
     expect(res.valueOrNull!.attachments, isNull);
+  });
+
+  test('deleteRun deletes attachments folder on disk', () async {
+    final res = await service.startRun(
+      StartRunRequest(
+        workflowId: 'wf-1',
+        workspaceId: 'ws-1',
+        attachments: [
+          RunAttachmentPayload(
+            fileName: 'shot.png',
+            mimeType: 'image/png',
+            data: base64Encode(pngBytes),
+          ),
+        ],
+      ),
+    );
+    final run = res.valueOrNull!;
+    await service.waitForActiveExecutions();
+    await runsRepo.updateStatus(run.id, status: RunStatus.succeeded);
+    expect(
+      Directory(attachmentStore.attachmentsDir(run.id)).existsSync(),
+      isTrue,
+    );
+
+    final del = await service.deleteRun(run.id);
+
+    expect(del, isA<Success<void>>());
+    expect(
+      Directory(attachmentStore.attachmentsDir(run.id)).existsSync(),
+      isFalse,
+    );
+  });
+
+  test('deleteRunsOfWorkflow deletes attachments folders on disk', () async {
+    final res = await service.startRun(
+      StartRunRequest(
+        workflowId: 'wf-1',
+        workspaceId: 'ws-1',
+        attachments: [
+          RunAttachmentPayload(
+            fileName: 'shot.png',
+            mimeType: 'image/png',
+            data: base64Encode(pngBytes),
+          ),
+        ],
+      ),
+    );
+    final run = res.valueOrNull!;
+    await service.waitForActiveExecutions();
+    await runsRepo.updateStatus(run.id, status: RunStatus.succeeded);
+    expect(
+      Directory(attachmentStore.attachmentsDir(run.id)).existsSync(),
+      isTrue,
+    );
+
+    final del = await service.deleteRunsOfWorkflow('wf-1');
+
+    expect(del.isSuccess, isTrue);
+    expect(
+      Directory(attachmentStore.attachmentsDir(run.id)).existsSync(),
+      isFalse,
+    );
+  });
+
+  test('deleteRun succeeds even when attachment deletion fails', () async {
+    final harness = EngineHarness();
+    const git = GitClient(_FakeProcessRunner());
+    final failingService = RunService(
+      runs: runsRepo,
+      checkpoints: harness.checkpoints,
+      events: eventsRepo,
+      workspacePreparation: const WorkspacePreparationService(git: git),
+      workflows: _SingleWorkflowRepository(workflow),
+      workspaces: WorkspaceService(
+        workspaces: _FakeWorkspaceRepository(workspaceDir.path),
+        capabilities: const WorkspaceCapabilitiesService(git),
+      ),
+      engine: harness.engine,
+      attachments: FakeRunAttachmentStore()..failDeletes = true,
+    );
+    await runsRepo.create(
+      Run(
+        id: 'run-fail-del',
+        workflowId: 'wf-1',
+        workflowName: workflow.name,
+        workflowDefinition: workflow,
+        workspaceId: 'ws-1',
+        workspacePath: workspaceDir.path,
+        status: RunStatus.succeeded,
+        startedAt: DateTime.utc(2026),
+      ),
+    );
+
+    final del = await failingService.deleteRun('run-fail-del');
+
+    expect(del, isA<Success<void>>());
+    expect(await runsRepo.getById('run-fail-del'), isA<FailureResult<Run>>());
   });
 }

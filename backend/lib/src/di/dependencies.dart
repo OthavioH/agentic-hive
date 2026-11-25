@@ -520,6 +520,7 @@ Future<void> registerDependencies(
       () => RunRecoveryService(
         runs: di<RunRepository>(),
         checkpoints: di<CheckpointRepository>(),
+        attachments: di<RunAttachmentStore>(),
       ),
       dependsOn: [RunRepository, CheckpointRepository],
     )

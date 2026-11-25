@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:agentic_hive_backend/src/core/result.dart';
-import 'package:agentic_hive_backend/src/data/runs/file_run_attachment_store.dart';
 import 'package:agentic_hive_backend/src/domain/engine/graph_engine.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/child_run_port.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/fan_out_node.dart';
@@ -12,7 +11,6 @@ import 'package:agentic_hive_backend/src/domain/result_contract/human_pause_gate
 import 'package:agentic_hive_backend/src/domain/runs/pausing_human_approval_port.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_recovery_service.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
-import 'package:path/path.dart' as p;
 
 import 'fake_ports.dart';
 import 'in_memory_repositories.dart';
@@ -116,6 +114,7 @@ final class EngineHarness {
     recovery = RunRecoveryService(
       runs: runs,
       checkpoints: checkpoints,
+      attachments: attachments,
       generateId: nextId,
       now: tick,
     );
@@ -129,10 +128,7 @@ final class EngineHarness {
       pauseGateway: gateway,
       processTreeKiller: killer,
       pauses: pauses,
-      attachments: FileRunAttachmentStore(
-        runsDir: '/runs',
-        pathContext: p.posix,
-      ),
+      attachments: attachments,
       maxConcurrency: maxConcurrency,
       circuitBreakerThreshold: circuitBreakerThreshold,
       cancelGracePeriod: cancelGracePeriod,
@@ -143,6 +139,9 @@ final class EngineHarness {
 
   /// Script for the fake nodes.
   final NodeScript script = NodeScript();
+
+  /// Fake attachment store.
+  final FakeRunAttachmentStore attachments = FakeRunAttachmentStore();
 
   /// In-memory run repository.
   final InMemoryRunRepository runs = InMemoryRunRepository();

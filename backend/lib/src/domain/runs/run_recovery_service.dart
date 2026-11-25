@@ -1,5 +1,6 @@
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/runs/checkpoint_repository.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_attachment_store.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
 import 'package:agentic_hive_backend/src/logging/log_event.dart';
 import 'package:agentic_hive_backend/src/util/ids.dart';
@@ -48,6 +49,7 @@ final class RunRecoveryService {
   new({
     required this._runs,
     required this._checkpoints,
+    this._attachments,
     String Function()? generateId,
     DateTime Function()? now,
   }) : _generateId = generateId ?? randomId,
@@ -59,6 +61,7 @@ final class RunRecoveryService {
 
   final RunRepository _runs;
   final CheckpointRepository _checkpoints;
+  final RunAttachmentStore? _attachments;
   final String Function() _generateId;
   final DateTime Function() _now;
 
@@ -67,6 +70,9 @@ final class RunRecoveryService {
   /// any runs left in [RunStatus.cancelling] into
   /// [RunStatus.cancellationUncertain] (appending
   /// `run.cancellation_uncertain`), each in a single transaction.
+  ///
+  /// After recovery settles statuses, sweeps orphaned or ended run attachment
+  /// folders on a best-effort basis (ADR 0030).
   ///
   /// Per-run failures are logged and skipped so one bad row does not block
   /// backend startup. Runs in [RunStatus.paused] are left untouched.
@@ -124,7 +130,46 @@ final class RunRecoveryService {
         LogEvent('runs.orphaned_recovered', fields: {'count': recovered}),
       );
     }
+    await _sweepAttachments();
     return Success(recovered);
+  }
+
+  Future<void> _sweepAttachments() async {
+    final attachments = _attachments;
+    if (attachments == null) return;
+
+    final listResult = await attachments.listRunIds();
+    if (listResult case FailureResult<List<String>>(:final failure)) {
+      _log.warning(
+        LogEvent(
+          'runs.attachments_sweep_failed',
+          fields: {'error': failure.message},
+        ),
+      );
+      return;
+    }
+
+    final ids = listResult.valueOrNull!;
+    if (ids.isEmpty) return;
+
+    final foundResult = await _runs.getByIds(ids);
+    if (foundResult case FailureResult<Map<String, Run>>(:final failure)) {
+      _log.warning(
+        LogEvent(
+          'runs.attachments_sweep_failed',
+          fields: {'error': failure.message},
+        ),
+      );
+      return;
+    }
+
+    final found = foundResult.valueOrNull!;
+    for (final id in ids) {
+      final run = found[id];
+      if (run == null || attachmentDeletingStatuses.contains(run.status)) {
+        await attachments.deleteRunBestEffort(id);
+      }
+    }
   }
 
   /// Resolves the [ResumePoint] for [runId] using its frozen workflow

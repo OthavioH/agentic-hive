@@ -1668,6 +1668,9 @@ final class GraphEngine implements RunCanceller {
       );
       return updated;
     }
+    if (attachmentDeletingStatuses.contains(status)) {
+      await _attachments?.deleteRunBestEffort(runId);
+    }
     await _emit(runId, eventType, payload: payload);
     return updated;
   }

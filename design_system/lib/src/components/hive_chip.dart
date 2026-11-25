@@ -83,36 +83,39 @@ class HiveRemovableChip extends HiveChip {
     final spacing = context.hiveSpacing;
     final remove = onRemoved;
     final leading = icon;
-    return Semantics(
-      container: true,
-      explicitChildNodes: true,
-      label: label,
-      child: _ChipFrame(
-        background: colors.surface3,
-        border: colors.borderSubtle,
-        padding: EdgeInsetsDirectional.only(
-          start: spacing.space2,
-          end: remove == null ? spacing.space2 : spacing.spaceHalf,
-        ),
-        children: <Widget>[
-          if (leading != null) ...<Widget>[
-            HiveIcon(leading, size: spacing.space2, color: colors.onSurface),
-            SizedBox(width: spacing.spaceHalf),
-          ],
-          Flexible(
-            child: ExcludeSemantics(
-              child: _ChipLabel(label: label, color: colors.onSurface),
-            ),
+    return _ChipTooltip(
+      message: label,
+      child: Semantics(
+        container: true,
+        explicitChildNodes: true,
+        label: label,
+        child: _ChipFrame(
+          background: colors.surface3,
+          border: colors.borderSubtle,
+          padding: EdgeInsetsDirectional.only(
+            start: spacing.space2,
+            end: remove == null ? spacing.space2 : spacing.spaceHalf,
           ),
-          if (remove != null) ...<Widget>[
-            SizedBox(width: spacing.spaceHalf),
-            _RemoveButton(
-              semanticLabel: removeSemanticLabel,
-              onPressed: remove,
-              statesController: removeStatesController,
+          children: <Widget>[
+            if (leading != null) ...<Widget>[
+              HiveIcon(leading, size: spacing.space2, color: colors.onSurface),
+              SizedBox(width: spacing.spaceHalf),
+            ],
+            Flexible(
+              child: ExcludeSemantics(
+                child: _ChipLabel(label: label, color: colors.onSurface),
+              ),
             ),
+            if (remove != null) ...<Widget>[
+              SizedBox(width: spacing.spaceHalf),
+              _RemoveButton(
+                semanticLabel: removeSemanticLabel,
+                onPressed: remove,
+                statesController: removeStatesController,
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -222,30 +225,10 @@ class HiveReadOnlyChip extends HiveChip {
   Widget build(BuildContext context) {
     final colors = context.hiveColors;
     final spacing = context.hiveSpacing;
-    final motion = context.hiveMotion;
-    final typography = context.hiveTypography;
-    final elevation = context.hiveElevation;
     final foreground = removed ? colors.onSurfaceMuted : colors.onSurface;
     final leading = icon;
-    return Tooltip(
+    return _ChipTooltip(
       message: label,
-      excludeFromSemantics: true,
-      waitDuration: motion.resolve(context, motion.long),
-      exitDuration: motion.resolve(context, motion.short),
-      padding: EdgeInsets.symmetric(
-        horizontal: spacing.space1,
-        vertical: spacing.spaceHalf,
-      ),
-      decoration: ShapeDecoration(
-        color: colors.surface3,
-        shape: StadiumBorder(
-          side: BorderSide(
-            color: colors.borderSubtle,
-            width: elevation.hairline,
-          ),
-        ),
-      ),
-      textStyle: typography.bodySmall.copyWith(color: colors.onSurface),
       child: Semantics(
         container: true,
         explicitChildNodes: true,
@@ -372,6 +355,43 @@ class _RemoveButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ChipTooltip extends StatelessWidget {
+  const new({required this.message, required this.child});
+
+  final String message;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.hiveColors;
+    final spacing = context.hiveSpacing;
+    final motion = context.hiveMotion;
+    final typography = context.hiveTypography;
+    final elevation = context.hiveElevation;
+    return Tooltip(
+      message: message,
+      excludeFromSemantics: true,
+      waitDuration: motion.resolve(context, motion.long),
+      exitDuration: motion.resolve(context, motion.short),
+      padding: EdgeInsets.symmetric(
+        horizontal: spacing.space1,
+        vertical: spacing.spaceHalf,
+      ),
+      decoration: ShapeDecoration(
+        color: colors.surface3,
+        shape: StadiumBorder(
+          side: BorderSide(
+            color: colors.borderSubtle,
+            width: elevation.hairline,
+          ),
+        ),
+      ),
+      textStyle: typography.bodySmall.copyWith(color: colors.onSurface),
+      child: child,
     );
   }
 }
