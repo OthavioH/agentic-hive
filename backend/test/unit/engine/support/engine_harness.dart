@@ -94,14 +94,18 @@ final class EngineHarness {
     int circuitBreakerThreshold = GraphEngine.defaultCircuitBreakerThreshold,
     Duration cancelGracePeriod = const Duration(seconds: 1),
     ChildRunPort Function()? childRuns,
+    void Function(NodeRegistry registry)? registerNodes,
+    bool registerFakeCommand = true,
   }) {
     snapshots.clock = tick;
     final registry = NodeRegistry()
-      ..register(NodeDescriptors.command, () => FakeNode(script))
       ..register(
         NodeDescriptors.humanApproval,
         () => HumanApprovalNode(approvalPort: approvalPort),
       );
+    if (registerFakeCommand) {
+      registry.register(NodeDescriptors.command, () => FakeNode(script));
+    }
     if (childRuns != null) {
       registry.register(
         NodeDescriptors.fanOut,
@@ -111,6 +115,7 @@ final class EngineHarness {
         ),
       );
     }
+    registerNodes?.call(registry);
     recovery = RunRecoveryService(
       runs: runs,
       checkpoints: checkpoints,
