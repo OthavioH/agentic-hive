@@ -15,10 +15,13 @@ import 'package:material_ui/material_ui.dart';
 /// runs beside the navigation rail.
 class SideRailTree extends ConsumerWidget {
   /// Creates a [SideRailTree].
-  const new({required this.currentLocation, super.key});
+  const new({required this.currentLocation, this.onRunSelected, super.key});
 
   /// Current router path used to highlight the selected run item.
   final String currentLocation;
+
+  /// Called when the user selects a run to navigate to.
+  final VoidCallback? onRunSelected;
 
   Future<void> _startRunFromTree(
     BuildContext context,
@@ -119,81 +122,52 @@ class SideRailTree extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final spacing = context.hiveSpacing;
     final colors = context.hiveColors;
-    final typography = context.hiveTypography;
     final stateAsync = ref.watch(sideRailTreeControllerProvider);
     final controller = ref.read(sideRailTreeControllerProvider.notifier);
-    final isRefreshing = stateAsync.asData?.value.isRefreshing ?? false;
 
     return Semantics(
       container: true,
       explicitChildNodes: true,
-      child: HiveCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Text(
-                    l10n.sideRailTreeTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: typography.titleSmall.copyWith(
-                      color: colors.onSurface,
-                    ),
-                  ),
-                ),
-                HiveIconButton(
-                  key: const Key('side_rail_tree_refresh_button'),
-                  icon: HiveIcons.refresh,
-                  size: HiveButtonSize.small,
-                  semanticLabel: l10n.sideRailTreeRefreshTooltip,
-                  loading: isRefreshing,
-                  onPressed: () => unawaited(controller.refresh()),
-                ),
-              ],
-            ),
-            SizedBox(height: spacing.space2),
-            Expanded(
-              child: switch (stateAsync) {
-                AsyncLoading<SideRailTreeState>() => Center(
-                  child: HiveSpinner(
-                    size: spacing.space4,
-                    color: colors.accent,
-                  ),
-                ),
-                AsyncError<SideRailTreeState>(:final error) => HiveEmptyState(
-                  icon: HiveIcons.alert,
-                  title: l10n.sideRailTreeLoadErrorTitle,
-                  message: RunL10n.localizeError(l10n, error),
-                  action: HiveButton(
-                    label: l10n.sideRailTreeRetryAction,
-                    size: HiveButtonSize.small,
-                    onPressed: () => unawaited(controller.refresh()),
-                  ),
-                ),
-                AsyncData<SideRailTreeState>(:final value) =>
-                  _SideRailTreeContent(
-                    state: value,
-                    currentLocation: currentLocation,
-                    onSelectWorkspace: (id) =>
-                        unawaited(controller.selectWorkspace(id)),
-                    onSelectGlobal: controller.selectGlobal,
-                    onToggleWorkspace: controller.toggleWorkspaceExpanded,
-                    onToggleWorktree: controller.toggleWorktreeExpanded,
-                    onToggleShowAllActive: controller.toggleShowAllActive,
-                    onToggleShowAllRecent: controller.toggleShowAllRecent,
-                    onStartRun: (ws, wt) =>
-                        unawaited(_startRunFromTree(context, ref, ws, wt)),
-                    onRemoveWorktree: (ws, wtNode) => unawaited(
-                      _removeWorktreeFromTree(context, ref, ws, wtNode),
-                    ),
-                    onOpenRun: (runId) => RunDetailRoute(id: runId).go(context),
-                  ),
-              },
-            ),
-          ],
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: spacing.space2,
+          right: spacing.space2,
+          bottom: spacing.space2,
         ),
+        child: switch (stateAsync) {
+          AsyncLoading<SideRailTreeState>() => Center(
+            child: HiveSpinner(size: spacing.space4, color: colors.accent),
+          ),
+          AsyncError<SideRailTreeState>(:final error) => HiveEmptyState(
+            icon: HiveIcons.alert,
+            title: l10n.sideRailTreeLoadErrorTitle,
+            message: RunL10n.localizeError(l10n, error),
+            action: HiveButton(
+              label: l10n.sideRailTreeRetryAction,
+              size: HiveButtonSize.small,
+              onPressed: () => unawaited(controller.refresh()),
+            ),
+          ),
+          AsyncData<SideRailTreeState>(:final value) => _SideRailTreeContent(
+            state: value,
+            currentLocation: currentLocation,
+            onSelectWorkspace: (id) =>
+                unawaited(controller.selectWorkspace(id)),
+            onSelectGlobal: controller.selectGlobal,
+            onToggleWorkspace: controller.toggleWorkspaceExpanded,
+            onToggleWorktree: controller.toggleWorktreeExpanded,
+            onToggleShowAllActive: controller.toggleShowAllActive,
+            onToggleShowAllRecent: controller.toggleShowAllRecent,
+            onStartRun: (ws, wt) =>
+                unawaited(_startRunFromTree(context, ref, ws, wt)),
+            onRemoveWorktree: (ws, wtNode) =>
+                unawaited(_removeWorktreeFromTree(context, ref, ws, wtNode)),
+            onOpenRun: (runId) {
+              RunDetailRoute(id: runId).go(context);
+              onRunSelected?.call();
+            },
+          ),
+        },
       ),
     );
   }
