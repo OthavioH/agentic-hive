@@ -361,7 +361,7 @@ void main() {
       );
       expect(analysis.isAuthenticationError, isFalse);
       expect(analysis.isRateLimitError, isFalse);
-      expect(analysis.metadata['stdout'], verboseStreamJsonStdout);
+      expect(analysis.metadata, isEmpty);
     });
 
     test('injects the human answer into the prompt on a re-run', () async {
@@ -511,7 +511,7 @@ void main() {
       );
       expect(analysis.isAuthenticationError, isFalse);
       expect(analysis.isRateLimitError, isFalse);
-      expect(analysis.metadata['stdout'], streamJsonStdout);
+      expect(analysis.metadata, isEmpty);
     });
 
     test(
