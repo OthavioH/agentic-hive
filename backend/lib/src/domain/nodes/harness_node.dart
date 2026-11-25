@@ -286,18 +286,18 @@ abstract base class HarnessNode extends Node {
           ),
         );
       }
-      final rateLimit = analysis.isRateLimitError
-          ? HarnessRateLimitFailure(
-              analysis.errorMessage ??
-                  'Rate limit or quota exhausted for "$typeId".',
-              harnessType: typeId,
-            )
-          : null;
+      if (analysis.isRateLimitError &&
+          (await resultContract.readReport(context)).valueOrNull == null) {
+        return FailureResult(
+          HarnessRateLimitFailure(
+            analysis.errorMessage ??
+                'Rate limit or quota exhausted for "$typeId".',
+            harnessType: typeId,
+          ),
+        );
+      }
 
       if (processResult.timedOut) {
-        if (rateLimit != null) {
-          return FailureResult(rateLimit);
-        }
         await session.resolveOutcome(
           exitCode: processResult.exitCode,
           timedOut: true,
@@ -313,13 +313,6 @@ abstract base class HarnessNode extends Node {
         exitCode: processResult.exitCode,
         timedOut: processResult.timedOut,
       );
-      if (outcomeResult case Success<ResultContractReport>(:final value)) {
-        return Success(outcomeFromReport(value, extraData: analysis.metadata));
-      }
-      if (rateLimit != null &&
-          (await resultContract.readReport(context)).valueOrNull == null) {
-        return FailureResult(rateLimit);
-      }
       return switch (outcomeResult) {
         Success<ResultContractReport>(:final value) => Success(
           outcomeFromReport(value, extraData: analysis.metadata),

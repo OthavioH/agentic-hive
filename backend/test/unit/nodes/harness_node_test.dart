@@ -1459,6 +1459,21 @@ void main() {
         );
 
         test(
+          'timedOut + matching text + report set -> NodeExecutionFailure',
+          () async {
+            processRunner.result = ProcessExecutionResult(
+              exitCode: -1,
+              timedOut: true,
+              stderr: entry.rateLimitLine,
+            );
+
+            final result = await entry.execute(_context());
+            expect(result.failureOrNull, isA<NodeExecutionFailure>());
+            expect(result.failureOrNull, isNot(isA<HarnessRateLimitFailure>()));
+          },
+        );
+
+        test(
           'exit 1 + auth and rate limit + null report -> auth wins',
           () async {
             resultContract.report = null;
