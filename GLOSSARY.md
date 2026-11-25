@@ -55,7 +55,7 @@ One execution of a workflow, with its own state and history, belonging to one wo
 _Avoid_: job, instance, execution
 
 **Pinned workflow**:
-The copy of a workflow that a run takes when it starts and executes until it ends. Editing the workflow never changes the pinned workflow of a run that is active or already finished; only runs started after the edit use the new version.
+The copy of a workflow that a run takes when it starts and executes until it ends. Editing the workflow never changes the pinned workflow of a run that is active or already finished; only runs started after the edit use the new version. Unrelated to a pinned side-rail panel, which is only a display preference.
 _Avoid_: snapshot (which is about files), version, run workflow
 
 **Run input**:
