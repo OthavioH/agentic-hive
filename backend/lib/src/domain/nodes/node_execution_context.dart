@@ -3,6 +3,18 @@ import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 /// Callback receiving streamed stdout/stderr lines from a running node.
 typedef NodeOutputCallback = void Function(String stream, String line);
 
+/// A stored Run attachment as a node sees it (ADR 0030).
+final class RunAttachmentFile {
+  /// Creates a stored Run attachment reference.
+  const new({required this.path, required this.fileName});
+
+  /// Absolute path of the stored file.
+  final String path;
+
+  /// Display name the user gave the file.
+  final String fileName;
+}
+
 /// Execution inputs passed to `Node.execute`.
 final class NodeExecutionContext {
   /// Creates a node execution context.
@@ -24,6 +36,7 @@ final class NodeExecutionContext {
     this.resultJsonPath,
     this.humanAnswer,
     this.runInput,
+    this.runAttachments = const <RunAttachmentFile>[],
     this.onOutput,
   });
 
@@ -72,6 +85,9 @@ final class NodeExecutionContext {
 
   /// Optional free-text run input passed only to the workflow's entry node.
   final String? runInput;
+
+  /// Stored Run attachments of the run, all in one folder; empty when none.
+  final List<RunAttachmentFile> runAttachments;
 
   /// Optional callback for streamed output lines.
   final NodeOutputCallback? onOutput;

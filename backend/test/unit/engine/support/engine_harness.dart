@@ -188,6 +188,7 @@ final class EngineHarness {
     Workflow workflow, {
     RunStatus status = RunStatus.running,
     String? input,
+    List<RunAttachment>? attachments,
   }) async {
     final run = Run(
       id: runId,
@@ -197,6 +198,7 @@ final class EngineHarness {
       status: status,
       startedAt: DateTime.utc(2026),
       input: input,
+      attachments: attachments,
     );
     await runs.create(run);
     return run;

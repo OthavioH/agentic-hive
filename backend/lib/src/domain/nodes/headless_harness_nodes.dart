@@ -39,6 +39,7 @@ final class ClaudeCodeNode extends HeadlessHarnessNode {
   List<String> buildPermissionArgs({
     required WorkspaceIsolationMode isolationMode,
     String? resultsDir,
+    String? attachmentsDir,
     List<String> allowedTools = const <String>[],
     List<String> deniedTools = const <String>[],
     String? runId,
@@ -60,6 +61,10 @@ final class ClaudeCodeNode extends HeadlessHarnessNode {
       if (resultsDir != null && resultsDir.isNotEmpty) ...<String>[
         '--add-dir',
         resultsDir,
+      ],
+      if (attachmentsDir != null && attachmentsDir.isNotEmpty) ...<String>[
+        '--add-dir',
+        attachmentsDir,
       ],
       '--allowedTools',
       allowed.join(','),
@@ -88,6 +93,7 @@ final class ClaudeCodeNode extends HeadlessHarnessNode {
     Map<String, String> environment = const <String, String>{},
     WorkspaceIsolationMode isolationMode = WorkspaceIsolationMode.direct,
     String? resultsDir,
+    String? attachmentsDir,
     List<String> allowedTools = const <String>[],
     List<String> deniedTools = const <String>[],
     String? runId,
@@ -102,6 +108,7 @@ final class ClaudeCodeNode extends HeadlessHarnessNode {
       ...buildPermissionArgs(
         isolationMode: isolationMode,
         resultsDir: resultsDir,
+        attachmentsDir: attachmentsDir,
         allowedTools: allowedTools,
         deniedTools: deniedTools,
         runId: runId,
@@ -156,6 +163,7 @@ final class CodexNode extends HeadlessHarnessNode {
   List<String> buildPermissionArgs({
     required WorkspaceIsolationMode isolationMode,
     String? resultsDir,
+    String? attachmentsDir,
     List<String> allowedTools = const <String>[],
     List<String> deniedTools = const <String>[],
     String? runId,
@@ -191,6 +199,10 @@ final class CodexNode extends HeadlessHarnessNode {
         '--add-dir',
         resultsDir,
       ],
+      if (attachmentsDir != null && attachmentsDir.isNotEmpty) ...<String>[
+        '--add-dir',
+        attachmentsDir,
+      ],
     ];
   }
 
@@ -219,6 +231,7 @@ final class CodexNode extends HeadlessHarnessNode {
     Map<String, String> environment = const <String, String>{},
     WorkspaceIsolationMode isolationMode = WorkspaceIsolationMode.direct,
     String? resultsDir,
+    String? attachmentsDir,
     List<String> allowedTools = const <String>[],
     List<String> deniedTools = const <String>[],
     String? runId,
@@ -230,6 +243,7 @@ final class CodexNode extends HeadlessHarnessNode {
       ...buildPermissionArgs(
         isolationMode: isolationMode,
         resultsDir: resultsDir,
+        attachmentsDir: attachmentsDir,
         allowedTools: allowedTools,
         deniedTools: deniedTools,
         runId: runId,
@@ -285,6 +299,7 @@ final class GeminiCliNode extends HeadlessHarnessNode {
   List<String> buildPermissionArgs({
     required WorkspaceIsolationMode isolationMode,
     String? resultsDir,
+    String? attachmentsDir,
     List<String> allowedTools = const <String>[],
     List<String> deniedTools = const <String>[],
     String? runId,
@@ -316,6 +331,10 @@ final class GeminiCliNode extends HeadlessHarnessNode {
         '--include-directories',
         resultsDir,
       ],
+      if (attachmentsDir != null && attachmentsDir.isNotEmpty) ...<String>[
+        '--include-directories',
+        attachmentsDir,
+      ],
       if (resolved.allowed.isNotEmpty) ...<String>[
         '--allowed-tools',
         ...resolved.allowed,
@@ -335,6 +354,7 @@ final class GeminiCliNode extends HeadlessHarnessNode {
     Map<String, String> environment = const <String, String>{},
     WorkspaceIsolationMode isolationMode = WorkspaceIsolationMode.direct,
     String? resultsDir,
+    String? attachmentsDir,
     List<String> allowedTools = const <String>[],
     List<String> deniedTools = const <String>[],
     String? runId,
@@ -348,6 +368,7 @@ final class GeminiCliNode extends HeadlessHarnessNode {
       ...buildPermissionArgs(
         isolationMode: isolationMode,
         resultsDir: resultsDir,
+        attachmentsDir: attachmentsDir,
         allowedTools: allowedTools,
         deniedTools: deniedTools,
         runId: runId,
@@ -403,6 +424,7 @@ final class AntigravityNode extends HeadlessHarnessNode {
   List<String> buildPermissionArgs({
     required WorkspaceIsolationMode isolationMode,
     String? resultsDir,
+    String? attachmentsDir,
     List<String> allowedTools = const <String>[],
     List<String> deniedTools = const <String>[],
     String? runId,
@@ -438,6 +460,10 @@ final class AntigravityNode extends HeadlessHarnessNode {
         '--add-dir',
         resultsDir,
       ],
+      if (attachmentsDir != null && attachmentsDir.isNotEmpty) ...<String>[
+        '--add-dir',
+        attachmentsDir,
+      ],
     ];
   }
 
@@ -459,6 +485,7 @@ final class AntigravityNode extends HeadlessHarnessNode {
     Map<String, String> environment = const <String, String>{},
     WorkspaceIsolationMode isolationMode = WorkspaceIsolationMode.direct,
     String? resultsDir,
+    String? attachmentsDir,
     List<String> allowedTools = const <String>[],
     List<String> deniedTools = const <String>[],
     String? runId,
@@ -472,6 +499,7 @@ final class AntigravityNode extends HeadlessHarnessNode {
       ...buildPermissionArgs(
         isolationMode: isolationMode,
         resultsDir: resultsDir,
+        attachmentsDir: attachmentsDir,
         allowedTools: allowedTools,
         deniedTools: deniedTools,
         runId: runId,

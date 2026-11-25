@@ -4,6 +4,7 @@ import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_attachment_store.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_attachment_validator.dart';
+import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:path/path.dart' as p;
 
 /// Filesystem-backed [RunAttachmentStore] under `<runsDir>/<runId>/attachments`.
@@ -15,9 +16,17 @@ final class FileRunAttachmentStore implements RunAttachmentStore {
   final String _runsDir;
   final p.Context _path;
 
+  String _fileName(int index, String ext) => '${index + 1}.$ext';
+
   @override
   String attachmentsDir(String runId) =>
       _path.join(_runsDir, runId, 'attachments');
+
+  @override
+  String filePath(String runId, int index, RunAttachment attachment) {
+    final ext = runAttachmentExtensions[attachment.mimeType] ?? 'bin';
+    return _path.join(attachmentsDir(runId), _fileName(index, ext));
+  }
 
   @override
   Future<Result<void>> write(
@@ -29,7 +38,7 @@ final class FileRunAttachmentStore implements RunAttachmentStore {
       await Directory(dirPath).create(recursive: true);
       for (var i = 0; i < files.length; i++) {
         final f = files[i];
-        final filePath = _path.join(dirPath, '${i + 1}.${f.extension}');
+        final filePath = _path.join(dirPath, _fileName(i, f.extension));
         await File(filePath).writeAsBytes(f.bytes, flush: true);
       }
       return const Success<void>(null);

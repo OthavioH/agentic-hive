@@ -1294,6 +1294,7 @@ final class GraphEngine implements RunCanceller {
           runInput: id == x.run.workflowDefinition.entryNodeId
               ? x.run.input
               : null,
+          runAttachments: _attachmentFilesOf(x.run),
           onOutput: _logStore == null
               ? null
               : (stream, line) => _recordNodeOutput(
@@ -1306,6 +1307,19 @@ final class GraphEngine implements RunCanceller {
         ),
       );
     }
+  }
+
+  List<RunAttachmentFile> _attachmentFilesOf(Run run) {
+    final store = _attachments;
+    final list = run.attachments;
+    if (store == null || list == null || list.isEmpty) return const [];
+    return [
+      for (final (i, a) in list.indexed)
+        RunAttachmentFile(
+          path: store.filePath(run.id, i, a),
+          fileName: a.fileName,
+        ),
+    ];
   }
 
   void _recordNodeOutput({

@@ -9,6 +9,9 @@ abstract interface class RunAttachmentStore {
   /// Returns `<runsDir>/<runId>/attachments`.
   String attachmentsDir(String runId);
 
+  /// Absolute path of the [index]-th (0-based) stored file of [attachment].
+  String filePath(String runId, int index, RunAttachment attachment);
+
   /// Writes files as `1.<ext>`, `2.<ext>`, ...
   ///
   /// On failure, deletes what it wrote and returns a [FailureResult].

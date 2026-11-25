@@ -86,6 +86,19 @@ abstract base class HarnessNode extends Node {
       sections.add('## Run input\n$runInput');
     }
 
+    if (context.runAttachments.isNotEmpty) {
+      final b = StringBuffer()
+        ..writeln('## Run attachments')
+        ..writeln(
+          'The user attached these files to the run. '
+          'Open them with your file-reading tool:',
+        );
+      for (final a in context.runAttachments) {
+        b.writeln('- ${a.path} (${a.fileName})');
+      }
+      sections.add(b.toString().trimRight());
+    }
+
     final contextBuffer = StringBuffer()
       ..writeln('## Execution Context')
       ..writeln('- Run ID: ${context.runId}')
@@ -386,6 +399,7 @@ abstract base class HeadlessHarnessNode extends HarnessNode {
   List<String> buildPermissionArgs({
     required WorkspaceIsolationMode isolationMode,
     String? resultsDir,
+    String? attachmentsDir,
     List<String> allowedTools = const <String>[],
     List<String> deniedTools = const <String>[],
     String? runId,
@@ -420,6 +434,7 @@ abstract base class HeadlessHarnessNode extends HarnessNode {
     Map<String, String> environment = const <String, String>{},
     WorkspaceIsolationMode isolationMode = WorkspaceIsolationMode.direct,
     String? resultsDir,
+    String? attachmentsDir,
     List<String> allowedTools = const <String>[],
     List<String> deniedTools = const <String>[],
     String? runId,
@@ -443,6 +458,9 @@ abstract base class HeadlessHarnessNode extends HarnessNode {
         effectiveResultPath != null && effectiveResultPath.isNotEmpty
         ? p.dirname(effectiveResultPath)
         : null;
+    final attachmentsDir = context.runAttachments.isEmpty
+        ? null
+        : p.dirname(context.runAttachments.first.path);
     final invocation = buildInvocation(
       config: config,
       workingDirectory: workingDirectory,
@@ -451,6 +469,7 @@ abstract base class HeadlessHarnessNode extends HarnessNode {
       environment: environment,
       isolationMode: context.isolationMode,
       resultsDir: resultsDir,
+      attachmentsDir: attachmentsDir,
       allowedTools: allowedTools,
       deniedTools: deniedTools,
       runId: context.runId,

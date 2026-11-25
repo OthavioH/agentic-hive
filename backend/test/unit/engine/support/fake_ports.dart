@@ -10,6 +10,7 @@ import 'package:agentic_hive_backend/src/domain/runs/run_attachment_store.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_attachment_validator.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/snapshot_service.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+import 'package:path/path.dart' as p;
 
 /// Scripted behavior of a fake node execution.
 typedef NodeBehavior = Future<Result<NodeOutcome>> Function(
@@ -223,6 +224,12 @@ final class FakeRunAttachmentStore implements RunAttachmentStore {
 
   @override
   String attachmentsDir(String runId) => '/runs/$runId/attachments';
+
+  @override
+  String filePath(String runId, int index, RunAttachment attachment) {
+    final extension = runAttachmentExtensions[attachment.mimeType] ?? 'bin';
+    return p.posix.join(attachmentsDir(runId), '${index + 1}.$extension');
+  }
 
   @override
   Future<Result<void>> write(

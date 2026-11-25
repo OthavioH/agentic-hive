@@ -5,6 +5,14 @@ import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
+/// File extension stored for each allowed Run attachment MIME type.
+const runAttachmentExtensions = <String, String>{
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+};
+
 /// One validated Run attachment: decoded bytes plus the detected type.
 final class DecodedRunAttachment {
   /// Creates a decoded Run attachment.
