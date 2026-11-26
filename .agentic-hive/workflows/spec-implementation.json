@@ -104,9 +104,11 @@
         "y": 220.0
       },
       "config": {
-        "instructions": "One or more Ticket Implementation runs failed (see the child runs). Fix what blocks them if needed, then approve to re-run only the failed tickets, or reject to stop the spec run.",
+        "instructions": "Approve to merge every green ticket PR and continue the spec (tickets with no PR run again). Reject to stop the spec run.",
         "allowFeedback": true,
-        "title": "Some tickets of this wave failed"
+        "title": "Some tickets of this wave failed",
+        "proposalNodeId": "tickets",
+        "proposalPath": "children"
       }
     },
     {
@@ -136,7 +138,7 @@
         "y": 220.0
       },
       "config": {
-        "instructions": "Tickets remain but none can start, or a ticket PR could not be merged into the spec branch (see the output of node next_wave or merge_wave). Resolve it (merge or close the PR, fix a dependency), then approve to plan the next wave again, or reject to stop.",
+        "instructions": "Approve to merge every green ticket PR and continue the spec (tickets with no PR run again). Reject to stop the spec run.",
         "allowFeedback": true,
         "title": "The spec cannot advance"
       }
@@ -227,6 +229,24 @@
         "effort": "medium",
         "timeoutSeconds": 900
       }
+    },
+    {
+      "id": "rerun_ci",
+      "type": "command",
+      "label": "Re-run CI",
+      "position": {
+        "x": 1300.0,
+        "y": 220.0
+      },
+      "config": {
+        "command": "C:/Users/Ots/fvm/default/bin/cache/dart-sdk/bin/dart.exe",
+        "args": [
+          "run",
+          "tool/hive/rerun_ci.dart"
+        ],
+        "env": {},
+        "timeoutSeconds": 300
+      }
     }
   ],
   "edges": [
@@ -273,13 +293,6 @@
       "targetNodeId": "children_failed"
     },
     {
-      "id": "edge_8",
-      "sourceNodeId": "children_failed",
-      "sourceOutput": "approved",
-      "targetNodeId": "tickets",
-      "maxRetries": 2
-    },
-    {
       "id": "edge_9",
       "sourceNodeId": "merge_wave",
       "sourceOutput": "onSuccess",
@@ -290,13 +303,6 @@
       "sourceNodeId": "merge_wave",
       "sourceOutput": "onFailure",
       "targetNodeId": "stuck"
-    },
-    {
-      "id": "edge_11",
-      "sourceNodeId": "stuck",
-      "sourceOutput": "approved",
-      "targetNodeId": "sync",
-      "maxRetries": 3
     },
     {
       "id": "edge_12",
@@ -335,10 +341,37 @@
       "sourceOutput": "onSuccess",
       "targetNodeId": "ready_ci",
       "maxRetries": 3
+    },
+    {
+      "id": "edge_18",
+      "sourceNodeId": "children_failed",
+      "sourceOutput": "approved",
+      "targetNodeId": "merge_wave",
+      "maxRetries": 2
+    },
+    {
+      "id": "edge_19",
+      "sourceNodeId": "stuck",
+      "sourceOutput": "approved",
+      "targetNodeId": "merge_wave",
+      "maxRetries": 3
+    },
+    {
+      "id": "edge_20",
+      "sourceNodeId": "investigate_ci",
+      "sourceOutput": "onFailure",
+      "targetNodeId": "rerun_ci"
+    },
+    {
+      "id": "edge_21",
+      "sourceNodeId": "rerun_ci",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "ready_ci",
+      "maxRetries": 2
     }
   ],
   "createdAt": "2026-11-24T19:53:09.443552Z",
-  "updatedAt": "2026-11-26T15:41:08.279652Z",
+  "updatedAt": "2026-11-26T20:24:54.604461Z",
   "description": "Implements every sub-issue of a spec in dependency waves. Run input: the spec issue number (for example \"100\"). Start it in a NEW worktree based on development. Setup pushes spec/<n> and opens a draft spec PR; each wave fans out Ticket Implementation (2 at a time) with PRs into spec/<n>, merges the green ones, and loops until every ticket is done; then the spec PR leaves draft and waits for CI, with an investigate/fix loop. Humans are asked only when tickets fail or no ticket can start. Requires the sub-issues to carry GitHub blocked-by dependencies.",
   "entryNodeId": "setup",
   "schemaVersion": 1
