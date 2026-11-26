@@ -189,6 +189,8 @@ void main() {
         onUpdateMetadata: ({name, description}) {},
         onUpdateNodeLabel: (_, _) {},
         onUpdateNodeConfig: (_, config) => latestConfig = config,
+        onChangeNodeType: (_, _) async =>
+            const FailureResult<WorkflowResponse>(UnexpectedFailure('unused')),
         onToggleEntryNode: (_, {required isEntry}) {},
         onDeleteNode: (_) {},
         onUpdateEdge: (
@@ -242,6 +244,10 @@ void main() {
           onUpdateMetadata: ({name, description}) {},
           onUpdateNodeLabel: (_, _) {},
           onUpdateNodeConfig: (_, config) => latestConfig = config,
+          onChangeNodeType: (_, _) async =>
+              const FailureResult<WorkflowResponse>(
+                UnexpectedFailure('unused'),
+              ),
           onToggleEntryNode: (_, {required isEntry}) {},
           onDeleteNode: (_) {},
           onUpdateEdge: (
@@ -292,6 +298,8 @@ void main() {
         onUpdateMetadata: ({name, description}) {},
         onUpdateNodeLabel: (_, _) {},
         onUpdateNodeConfig: (_, config) => latestConfig = config,
+        onChangeNodeType: (_, _) async =>
+            const FailureResult<WorkflowResponse>(UnexpectedFailure('unused')),
         onToggleEntryNode: (_, {required isEntry}) {},
         onDeleteNode: (_) {},
         onUpdateEdge: (
@@ -343,6 +351,8 @@ void main() {
         onUpdateMetadata: ({name, description}) {},
         onUpdateNodeLabel: (_, _) {},
         onUpdateNodeConfig: (_, config) => latestConfig = config,
+        onChangeNodeType: (_, _) async =>
+            const FailureResult<WorkflowResponse>(UnexpectedFailure('unused')),
         onToggleEntryNode: (_, {required isEntry}) {},
         onDeleteNode: (_) {},
         onUpdateEdge: (
@@ -409,6 +419,10 @@ void main() {
           onUpdateMetadata: ({name, description}) {},
           onUpdateNodeLabel: (_, _) {},
           onUpdateNodeConfig: (_, config) => latestConfig = config,
+          onChangeNodeType: (_, _) async =>
+              const FailureResult<WorkflowResponse>(
+                UnexpectedFailure('unused'),
+              ),
           onToggleEntryNode: (_, {required isEntry}) {},
           onDeleteNode: (_) {},
           onUpdateEdge: (
@@ -458,6 +472,10 @@ void main() {
           onUpdateMetadata: ({name, description}) {},
           onUpdateNodeLabel: (_, _) {},
           onUpdateNodeConfig: (_, config) => latestConfig = config,
+          onChangeNodeType: (_, _) async =>
+              const FailureResult<WorkflowResponse>(
+                UnexpectedFailure('unused'),
+              ),
           onToggleEntryNode: (_, {required isEntry}) {},
           onDeleteNode: (_) {},
           onUpdateEdge: (
@@ -536,6 +554,10 @@ void main() {
               onUpdateMetadata: ({name, description}) {},
               onUpdateNodeLabel: (_, _) {},
               onUpdateNodeConfig: (_, _) {},
+              onChangeNodeType: (_, _) async =>
+                  const FailureResult<WorkflowResponse>(
+                    UnexpectedFailure('unused'),
+                  ),
               onToggleEntryNode: (_, {required isEntry}) {},
               onDeleteNode: (_) {},
               onUpdateEdge: (
@@ -599,6 +621,10 @@ void main() {
           onUpdateMetadata: ({name, description}) {},
           onUpdateNodeLabel: (_, _) {},
           onUpdateNodeConfig: (_, config) => latestConfig = config,
+          onChangeNodeType: (_, _) async =>
+              const FailureResult<WorkflowResponse>(
+                UnexpectedFailure('unused'),
+              ),
           onToggleEntryNode: (_, {required isEntry}) {},
           onDeleteNode: (_) {},
           onUpdateEdge: (
@@ -663,6 +689,8 @@ void main() {
         onUpdateMetadata: ({name, description}) {},
         onUpdateNodeLabel: (_, _) {},
         onUpdateNodeConfig: (_, config) => latestConfig = config,
+        onChangeNodeType: (_, _) async =>
+            const FailureResult<WorkflowResponse>(UnexpectedFailure('unused')),
         onToggleEntryNode: (_, {required isEntry}) {},
         onDeleteNode: (_) {},
         onUpdateEdge: (
@@ -712,6 +740,10 @@ void main() {
             onUpdateMetadata: ({name, description}) {},
             onUpdateNodeLabel: (_, _) {},
             onUpdateNodeConfig: (_, config) => onConfigChanged?.call(config),
+            onChangeNodeType: (_, _) async =>
+                const FailureResult<WorkflowResponse>(
+                  UnexpectedFailure('unused'),
+                ),
             onToggleEntryNode: (_, {required isEntry}) {},
             onDeleteNode: (_) {},
             onUpdateEdge: (
@@ -1073,6 +1105,10 @@ void main() {
           onUpdateMetadata: ({name, description}) {},
           onUpdateNodeLabel: (_, _) {},
           onUpdateNodeConfig: (_, c) => onConfig?.call(c),
+          onChangeNodeType: (_, _) async =>
+              const FailureResult<WorkflowResponse>(
+                UnexpectedFailure('unused'),
+              ),
           onToggleEntryNode: (_, {required isEntry}) {},
           onDeleteNode: (_) {},
           onUpdateEdge: (
@@ -1462,6 +1498,10 @@ void main() {
           onUpdateMetadata: ({name, description}) {},
           onUpdateNodeLabel: (_, _) {},
           onUpdateNodeConfig: (_, c) => onConfig?.call(c),
+          onChangeNodeType: (_, _) async =>
+              const FailureResult<WorkflowResponse>(
+                UnexpectedFailure('unused'),
+              ),
           onToggleEntryNode: (_, {required isEntry}) {},
           onDeleteNode: (_) {},
           onUpdateEdge: (

@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflow_editor_controller.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
@@ -16,6 +19,7 @@ class WorkflowInspectorPanel extends StatefulWidget {
     required this.onUpdateMetadata,
     required this.onUpdateNodeLabel,
     required this.onUpdateNodeConfig,
+    required this.onChangeNodeType,
     required this.onToggleEntryNode,
     required this.onDeleteNode,
     required this.onUpdateEdge,
@@ -36,6 +40,10 @@ class WorkflowInspectorPanel extends StatefulWidget {
 
   /// Called when the selected node's typed configuration changes.
   final void Function(String nodeId, JsonMap config) onUpdateNodeConfig;
+
+  /// Called when the user switches a headless harness node to a new type.
+  final Future<Result<WorkflowResponse>> Function(String nodeId, String newType)
+  onChangeNodeType;
 
   /// Called when the selected node's entry-node switch changes.
   final void Function(String nodeId, {required bool isEntry}) onToggleEntryNode;
@@ -84,6 +92,7 @@ class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
   String? _syncedNodeId;
   String? _syncedEdgeId;
   bool _useCustomOutput = false;
+  bool _pickingHarness = false;
 
   @override
   void initState() {
@@ -130,8 +139,10 @@ class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
       _syncedNodeId = node.id;
       _nodeLabelController.text = node.label;
       _nodeTypeController.text = node.type;
+      _pickingHarness = false;
     } else if (node == null) {
       _syncedNodeId = null;
+      _pickingHarness = false;
     }
 
     final edge = widget.state.selectedEdge;
@@ -301,6 +312,36 @@ class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
           controller: _nodeTypeController,
           readOnly: true,
         ),
+        if (headlessHarnessTypeIds.contains(node.type)) ...<Widget>[
+          SizedBox(height: spacing.space2),
+          HiveButton(
+            key: const Key('inspector_change_harness'),
+            label: l10n.editorChangeHarnessAction,
+            variant: HiveButtonVariant.secondary,
+            onPressed: widget.state.isSaving
+                ? null
+                : () => setState(() => _pickingHarness = true),
+          ),
+          if (_pickingHarness) ...<Widget>[
+            SizedBox(height: spacing.space2),
+            HiveSelect<String>(
+              key: const Key('inspector_change_harness_select'),
+              label: l10n.editorChangeHarnessSelectLabel,
+              value: null,
+              options: <HiveSelectOption<String>>[
+                for (final typeId in headlessHarnessTypeIds)
+                  if (typeId != node.type)
+                    HiveSelectOption<String>(
+                      value: typeId,
+                      label: resolveNodeTypeLabel(context, l10n, typeId),
+                    ),
+              ],
+              onChanged: widget.state.isSaving
+                  ? null
+                  : (newType) => unawaited(_changeHarness(node, newType)),
+            ),
+          ],
+        ],
         SizedBox(height: spacing.space2),
         HiveSwitch(
           key: const Key('inspector_node_entry_switch'),
@@ -337,6 +378,37 @@ class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
         ),
       ],
     );
+  }
+
+  Future<void> _changeHarness(WorkflowNode node, String newType) async {
+    final l10n = AppLocalizations.of(context)!;
+    final dropped = NodeTypeChange.droppedFields(node.config, newType);
+    if (dropped.isNotEmpty) {
+      final harnessLabel = resolveNodeTypeLabel(context, l10n, newType);
+      final choice = await showHiveConfirmDialog(
+        context,
+        title: l10n.editorChangeHarnessConfirmTitle(harnessLabel),
+        message: l10n.editorChangeHarnessConfirmMessage(dropped.join(', ')),
+        confirmLabel: l10n.editorChangeHarnessConfirmAction,
+        cancelLabel: l10n.editorChangeHarnessCancelAction,
+      );
+      if (!mounted) return;
+      if (choice != HiveConfirmChoice.confirm) {
+        setState(() => _pickingHarness = false);
+        return;
+      }
+    }
+
+    setState(() => _pickingHarness = false);
+    final result = await widget.onChangeNodeType(node.id, newType);
+    if (!mounted) return;
+    if (result case FailureResult(:final failure)) {
+      HiveToast.show(
+        context,
+        tone: HiveToastTone.danger,
+        message: WorkflowL10n.localizeFailure(l10n, failure),
+      );
+    }
   }
 
   Widget _buildEdgeInspector(
