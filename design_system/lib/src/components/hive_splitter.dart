@@ -99,16 +99,25 @@ class _HiveSplitterState extends State<HiveSplitter> {
     if (mounted) setState(() {});
   }
 
-  void _applyExtent(
-    double targetExtent, {
+  void _applyDelta(
+    double delta, {
     required double available,
     required double minFirst,
     required double minSecond,
   }) {
-    if (available <= 0) return;
-    final hi = available - minSecond;
-    if (hi < minFirst) return;
-    final clamped = targetExtent.clamp(minFirst, hi);
+    final current = _effectiveFirstExtent(
+      available: available,
+      fraction: _fraction,
+      minFirst: minFirst,
+      minSecond: minSecond,
+    );
+    final clamped = _clampExtent(
+      current + delta,
+      available: available,
+      minFirst: minFirst,
+      minSecond: minSecond,
+    );
+    if (clamped == null) return;
     final nextFraction = clamped / available;
     if (nextFraction == _fraction) return;
     setState(() => _fraction = nextFraction);
@@ -161,20 +170,22 @@ class _HiveSplitterState extends State<HiveSplitter> {
           child: FocusTraversalGroup(child: widget.second),
         );
 
-        final increasedExtent = _clampedTarget(
-          extent + step,
-          current: extent,
-          available: available,
-          minFirst: minFirst,
-          minSecond: minSecond,
-        );
-        final decreasedExtent = _clampedTarget(
-          extent - step,
-          current: extent,
-          available: available,
-          minFirst: minFirst,
-          minSecond: minSecond,
-        );
+        final increasedExtent =
+            _clampExtent(
+              extent + step,
+              available: available,
+              minFirst: minFirst,
+              minSecond: minSecond,
+            ) ??
+            extent;
+        final decreasedExtent =
+            _clampExtent(
+              extent - step,
+              available: available,
+              minFirst: minFirst,
+              minSecond: minSecond,
+            ) ??
+            extent;
 
         final handleBand = FocusTraversalOrder(
           order: const NumericFocusOrder(2),
@@ -186,14 +197,14 @@ class _HiveSplitterState extends State<HiveSplitter> {
             value: '${_percent(extent, available)}%',
             increasedValue: '${_percent(increasedExtent, available)}%',
             decreasedValue: '${_percent(decreasedExtent, available)}%',
-            onIncrease: () => _applyExtent(
-              extent + step,
+            onIncrease: () => _applyDelta(
+              step,
               available: available,
               minFirst: minFirst,
               minSecond: minSecond,
             ),
-            onDecrease: () => _applyExtent(
-              extent - step,
+            onDecrease: () => _applyDelta(
+              -step,
               available: available,
               minFirst: minFirst,
               minSecond: minSecond,
@@ -219,8 +230,8 @@ class _HiveSplitterState extends State<HiveSplitter> {
                 actions: <Type, Action<Intent>>{
                   _NudgeIntent: CallbackAction<_NudgeIntent>(
                     onInvoke: (intent) {
-                      _applyExtent(
-                        extent + intent.sign * step,
+                      _applyDelta(
+                        intent.sign * step,
                         available: available,
                         minFirst: minFirst,
                         minSecond: minSecond,
@@ -239,8 +250,8 @@ class _HiveSplitterState extends State<HiveSplitter> {
                       ? (_) => _controller.update(WidgetState.pressed, true)
                       : null,
                   onHorizontalDragUpdate: horizontal
-                      ? (details) => _applyExtent(
-                          extent + (details.primaryDelta ?? 0),
+                      ? (details) => _applyDelta(
+                          details.primaryDelta ?? 0,
                           available: available,
                           minFirst: minFirst,
                           minSecond: minSecond,
@@ -257,8 +268,8 @@ class _HiveSplitterState extends State<HiveSplitter> {
                       : (_) => _controller.update(WidgetState.pressed, true),
                   onVerticalDragUpdate: horizontal
                       ? null
-                      : (details) => _applyExtent(
-                          extent + (details.primaryDelta ?? 0),
+                      : (details) => _applyDelta(
+                          details.primaryDelta ?? 0,
                           available: available,
                           minFirst: minFirst,
                           minSecond: minSecond,
@@ -366,21 +377,18 @@ double _effectiveFirstExtent({
   if (hi >= minFirst) {
     return (fraction * available).clamp(minFirst, hi);
   }
-  final totalMin = minFirst + minSecond;
-  if (totalMin <= 0) return available * fraction;
-  return available * minFirst / totalMin;
+  return available * minFirst / (minFirst + minSecond);
 }
 
-double _clampedTarget(
+double? _clampExtent(
   double target, {
-  required double current,
   required double available,
   required double minFirst,
   required double minSecond,
 }) {
-  if (available <= 0) return 0;
+  if (available <= 0) return null;
   final hi = available - minSecond;
-  if (hi < minFirst) return current;
+  if (hi < minFirst) return null;
   return target.clamp(minFirst, hi);
 }
 

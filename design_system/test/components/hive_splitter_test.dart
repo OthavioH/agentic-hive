@@ -99,6 +99,28 @@ void main() {
       expect(firstWidth, closeTo(reported! * 784, 1e-4));
     });
 
+    testWidgets('multiple drag updates in the same frame accumulate deltas', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_buildSplitter());
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(_handleFinder()),
+      );
+      await gesture.moveBy(const Offset(24, 0));
+      await tester.pump();
+
+      final before = tester.getSize(find.byKey(_firstKey)).width;
+      for (var i = 0; i < 5; i++) {
+        await gesture.moveBy(const Offset(10, 0));
+      }
+      await tester.pump();
+
+      expect(tester.getSize(find.byKey(_firstKey)).width, before + 50);
+      await gesture.up();
+      await tester.pump();
+    });
+
     testWidgets('clamps drag to minFirst and minSecond', (tester) async {
       await tester.pumpWidget(_buildSplitter());
 

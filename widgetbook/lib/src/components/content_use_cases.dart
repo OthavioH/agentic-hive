@@ -397,7 +397,7 @@ WidgetbookComponent splitterComponent() {
         builder: (context) => _Page(
           child: Center(
             child: SizedBox(
-              width: context.hiveSpacing.space8 * 8,
+              width: context.hiveSpacing.space8 * 9,
               child: HiveSplitter(
                 initialPosition: 0.95,
                 semanticLabel: 'Resize graph and inspector',
