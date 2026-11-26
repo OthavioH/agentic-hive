@@ -64,7 +64,7 @@ void main() {
     workflowId: workflowId,
     workflowName: sampleWorkflow.name,
     workflowDefinition: sampleWorkflow,
-    workspacePath: '/tmp/ws',
+    workspaceRoot: '/tmp/ws',
     status: status,
     startedAt: startedAt,
     finishedAt: finishedAt,
@@ -578,6 +578,35 @@ void main() {
     final loaded = (await runsRepo.getById('r-new')).valueOrNull!;
     expect(loaded.input, 'New run input after migration');
   });
+
+  test(
+    'persists workspaceRoot in the existing workspace_path SQLite column',
+    () async {
+      final db = AppDatabase.open(dbFile);
+      addTearDown(db.close);
+
+      final runsRepo = DriftRunRepository(db);
+      final run = Run(
+        id: 'run-col-check',
+        workflowId: 'wf-1',
+        workflowName: sampleWorkflow.name,
+        workflowDefinition: sampleWorkflow,
+        workspaceRoot: '/tmp/ws-root',
+        status: RunStatus.running,
+        startedAt: DateTime.utc(2026, 11, 20, 10),
+      );
+
+      expect((await runsRepo.create(run)).isSuccess, isTrue);
+
+      final row = await db
+          .customSelect(
+            'SELECT workspace_path FROM runs WHERE id = ?',
+            variables: [Variable.withString('run-col-check')],
+          )
+          .getSingle();
+      expect(row.read<String>('workspace_path'), '/tmp/ws-root');
+    },
+  );
 }
 
 final class _V2SeedUser implements QueryExecutorUser {

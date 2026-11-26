@@ -409,7 +409,7 @@ void main() {
       await h.createRun(askFlow(), status: RunStatus.paused);
       await h.snapshots.captureSnapshot(
         runId: runId,
-        workspaceDir: '/workspace',
+        targetFolder: '/workspace',
         nodeId: 'plan',
       );
       await h.checkpoints.append(
@@ -424,7 +424,7 @@ void main() {
       );
       await h.snapshots.captureSnapshot(
         runId: runId,
-        workspaceDir: '/workspace',
+        targetFolder: '/workspace',
         nodeId: 'ask',
       );
       if (siblingCompletedAfter) {
@@ -781,7 +781,7 @@ void main() {
           workflowId: wf.id,
           workflowName: wf.name,
           workflowDefinition: wf,
-          workspacePath: '.',
+          workspaceRoot: '.',
           status: RunStatus.running,
           startedAt: DateTime.utc(2026),
           parentRunId: 'parent-1',
@@ -824,7 +824,7 @@ void main() {
           workflowId: wf.id,
           workflowName: wf.name,
           workflowDefinition: wf,
-          workspacePath: '.',
+          workspaceRoot: '.',
           status: RunStatus.running,
           startedAt: DateTime.utc(2026),
         ),

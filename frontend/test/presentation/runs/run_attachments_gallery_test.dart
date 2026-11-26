@@ -178,7 +178,7 @@ final class _GalleryRunRepository implements RunRepository {
       createdAt: _baseTime,
       updatedAt: _baseTime,
     ),
-    workspacePath: '/projects/hive',
+    workspaceRoot: '/projects/hive',
     status: status,
     startedAt: _baseTime,
     finishedAt: status.isActive ? null : DateTime.utc(2026, 11, 21, 10, 2),

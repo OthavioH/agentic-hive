@@ -343,7 +343,7 @@ Run _parentRun() => Run(
   workflowId: 'wf-parent',
   workflowName: 'Parent Flow',
   workflowDefinition: _fanOutWorkflow(),
-  workspacePath: '/projects/hive',
+  workspaceRoot: '/projects/hive',
   status: RunStatus.running,
   startedAt: _baseTime,
 );
@@ -366,7 +366,7 @@ Run _childRun({
     createdAt: _baseTime,
     updatedAt: _baseTime,
   ),
-  workspacePath: '/projects/hive',
+  workspaceRoot: '/projects/hive',
   status: status,
   startedAt: startedAt ?? _baseTime,
   parentRunId: 'run-parent',

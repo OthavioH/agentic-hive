@@ -55,7 +55,7 @@ void main() {
           id: 'run-http',
           workflowName: workflow.name,
           workflowDefinition: workflow,
-          workspacePath: workspaceDir.path,
+          workspaceRoot: workspaceDir.path,
           status: RunStatus.paused,
           startedAt: DateTime.utc(2026, 11, 21, 10),
         ),
@@ -65,7 +65,7 @@ void main() {
           id: 'run-active',
           workflowName: workflow.name,
           workflowDefinition: workflow,
-          workspacePath: workspaceDir.path,
+          workspaceRoot: workspaceDir.path,
           status: RunStatus.running,
           startedAt: DateTime.utc(2026, 11, 21, 10),
         ),
@@ -84,7 +84,7 @@ void main() {
           .writeAsString('before\n');
       final snapRes = await snapService.captureSnapshot(
         runId: 'run-http',
-        workspaceDir: workspaceDir.path,
+        targetFolder: workspaceDir.path,
         nodeId: 'n1',
       );
       snapshotId = (snapRes as Success<Snapshot>).value.id;

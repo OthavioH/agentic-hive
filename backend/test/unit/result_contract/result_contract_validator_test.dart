@@ -9,13 +9,13 @@ import 'package:test/test.dart';
 
 void main() {
   late Directory tempDir;
-  late String workspacePath;
+  late String targetFolder;
   late ResultContractValidator validator;
 
   setUp(() async {
     tempDir = await Directory.systemTemp.createTemp('rc_val_');
-    workspacePath = p.join(tempDir.path, 'workspace');
-    await Directory(workspacePath).create(recursive: true);
+    targetFolder = p.join(tempDir.path, 'workspace');
+    await Directory(targetFolder).create(recursive: true);
     validator = ResultContractValidator();
   });
 
@@ -34,7 +34,7 @@ void main() {
           'data': <String, Object?>{'filesChanged': 2},
           'artifacts': <String>['lib/main.dart', 'test/main_test.dart'],
         },
-        workspacePath: workspacePath,
+        targetFolder: targetFolder,
         availableOutputs: const <String>[
           NodeOutput.onSuccess,
           NodeOutput.onFailure,
@@ -58,7 +58,7 @@ void main() {
           'status': 'approved',
           'summary': 'All criteria satisfied.',
         },
-        workspacePath: workspacePath,
+        targetFolder: targetFolder,
         availableOutputs: const <String>[
           NodeOutput.approved,
           NodeOutput.changesRequested,
@@ -71,7 +71,7 @@ void main() {
           'status': 'changesRequested',
           'summary': 'Missing unit tests.',
         },
-        workspacePath: workspacePath,
+        targetFolder: targetFolder,
         availableOutputs: const <String>[
           NodeOutput.approved,
           NodeOutput.changesRequested,
@@ -86,7 +86,7 @@ void main() {
     test('rejects status outside declared availableOutputs', () {
       final result = validator.validate(
         const <String, Object?>{'status': 'approved', 'summary': 'Looks good.'},
-        workspacePath: workspacePath,
+        targetFolder: targetFolder,
         availableOutputs: const <String>[
           NodeOutput.onSuccess,
           NodeOutput.onFailure,
@@ -100,14 +100,14 @@ void main() {
     test('rejects missing or blank summary', () {
       final missing = validator.validate(
         const <String, Object?>{'status': 'onSuccess'},
-        workspacePath: workspacePath,
+        targetFolder: targetFolder,
         availableOutputs: const <String>[NodeOutput.onSuccess],
       );
       expect(missing.failureOrNull, isA<ValidationFailure>());
 
       final blank = validator.validate(
         const <String, Object?>{'status': 'onSuccess', 'summary': '   '},
-        workspacePath: workspacePath,
+        targetFolder: targetFolder,
         availableOutputs: const <String>[NodeOutput.onSuccess],
       );
       expect(blank.failureOrNull, isA<ValidationFailure>());
@@ -120,7 +120,7 @@ void main() {
           'summary': 'Done.',
           'data': 'not-an-object',
         },
-        workspacePath: workspacePath,
+        targetFolder: targetFolder,
         availableOutputs: const <String>[NodeOutput.onSuccess],
       );
 
@@ -134,7 +134,7 @@ void main() {
           'summary': 'Done.',
           'artifacts': <String>['../secret.txt'],
         },
-        workspacePath: workspacePath,
+        targetFolder: targetFolder,
         availableOutputs: const <String>[NodeOutput.onSuccess],
       );
       expect(traversal.failureOrNull, isA<ValidationFailure>());
@@ -145,7 +145,7 @@ void main() {
           'summary': 'Done.',
           'artifacts': <String>[p.join(tempDir.path, 'outside.txt')],
         },
-        workspacePath: workspacePath,
+        targetFolder: targetFolder,
         availableOutputs: const <String>[NodeOutput.onSuccess],
       );
       expect(absolute.failureOrNull, isA<ValidationFailure>());
@@ -156,7 +156,7 @@ void main() {
           'summary': 'Done.',
           'artifacts': <String>['  '],
         },
-        workspacePath: workspacePath,
+        targetFolder: targetFolder,
         availableOutputs: const <String>[NodeOutput.onSuccess],
       );
       expect(emptyItem.failureOrNull, isA<ValidationFailure>());
@@ -167,7 +167,7 @@ void main() {
       () async {
         final outsideDir = Directory(p.join(tempDir.path, 'outside'));
         await outsideDir.create(recursive: true);
-        final linkPath = p.join(workspacePath, 'escape_link');
+        final linkPath = p.join(targetFolder, 'escape_link');
         try {
           await Link(linkPath).create(outsideDir.path);
         } on FileSystemException {
@@ -181,7 +181,7 @@ void main() {
             'summary': 'Done.',
             'artifacts': <String>['escape_link/secret.txt'],
           },
-          workspacePath: workspacePath,
+          targetFolder: targetFolder,
           availableOutputs: const <String>[NodeOutput.onSuccess],
         );
 
@@ -197,7 +197,7 @@ void main() {
             'summary': 'Done.',
             'artifacts': <String>[rootPath],
           },
-          workspacePath: workspacePath,
+          targetFolder: targetFolder,
           availableOutputs: const <String>[NodeOutput.onSuccess],
         );
         expect(
@@ -210,8 +210,8 @@ void main() {
 
     test('rejects cyclic dangling symlinks without hanging when links are '
         'supported', () async {
-      final linkA = p.join(workspacePath, 'cycle_a');
-      final linkB = p.join(workspacePath, 'cycle_b');
+      final linkA = p.join(targetFolder, 'cycle_a');
+      final linkB = p.join(targetFolder, 'cycle_b');
       try {
         await Link(linkA).create('cycle_b');
         await Link(linkB).create('cycle_a');
@@ -226,7 +226,7 @@ void main() {
           'summary': 'Done.',
           'artifacts': <String>['cycle_a'],
         },
-        workspacePath: workspacePath,
+        targetFolder: targetFolder,
         availableOutputs: const <String>[NodeOutput.onSuccess],
       );
 

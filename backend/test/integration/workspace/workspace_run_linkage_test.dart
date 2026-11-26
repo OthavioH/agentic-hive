@@ -114,7 +114,7 @@ void main() {
     expect(response.statusCode, 201);
     final run = Run.fromJson(response.json);
     expect(run.workspaceId, workspace.id);
-    expect(run.workspacePath, workspace.rootPath);
+    expect(run.workspaceRoot, workspace.rootPath);
   });
 
   test('a run started with an unknown workspaceId returns 404', () async {

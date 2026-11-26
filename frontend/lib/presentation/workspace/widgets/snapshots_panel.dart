@@ -18,7 +18,7 @@ class SnapshotsPanel extends ConsumerStatefulWidget {
   /// Creates the panel for run [runId].
   const new({
     required this.runId,
-    required this.workspacePath,
+    required this.workspaceRoot,
     required this.runStatus,
     required this.nodeLabels,
     super.key,
@@ -27,8 +27,8 @@ class SnapshotsPanel extends ConsumerStatefulWidget {
   /// ID of the run whose snapshots are shown.
   final String runId;
 
-  /// Workspace folder of the run, used for the git capability check.
-  final String workspacePath;
+  /// Root folder of the run's workspace, used for the git capability check.
+  final String workspaceRoot;
 
   /// Current status of the run; restore is unavailable while `running`.
   final RunStatus runStatus;
@@ -44,7 +44,7 @@ class _SnapshotsPanelState extends ConsumerState<SnapshotsPanel> {
   bool _showRestored = false;
 
   SnapshotsControllerProvider get _provider =>
-      snapshotsControllerProvider(widget.runId, widget.workspacePath);
+      snapshotsControllerProvider(widget.runId, widget.workspaceRoot);
 
   String _nodeLabel(AppLocalizations l10n, Snapshot snapshot) {
     final nodeId = snapshot.nodeId;

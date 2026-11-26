@@ -117,7 +117,7 @@ void main() {
       final context = NodeExecutionContext(
         runId: 'run-1',
         nodeId: 'node-1',
-        workspacePath: tempDir.path,
+        targetFolder: tempDir.path,
         config: const <String, Object?>{'agentId': 'codebase-sweeper'},
       );
 
@@ -161,7 +161,7 @@ void main() {
       NodeExecutionContext(
         runId: 'run-1',
         nodeId: 'node-1',
-        workspacePath: tempDir.path,
+        targetFolder: tempDir.path,
         config: const <String, Object?>{'agentId': 'broken'},
       ),
     );

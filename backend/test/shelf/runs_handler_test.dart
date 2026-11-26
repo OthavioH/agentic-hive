@@ -311,7 +311,7 @@ void main() {
     workflowId: workflowId,
     workflowName: 'Build Flow',
     workflowDefinition: workflow,
-    workspacePath: '/tmp/ws',
+    workspaceRoot: '/tmp/ws',
     status: status,
     startedAt: startedAt,
   );
