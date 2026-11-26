@@ -47,17 +47,17 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
       builder: (dialogContext) => _CreateWorkflowDialog(
         workspaceName: workspace?.name,
         onCreate: (name, description, global) async {
-          final workspaceId = global ? null : workspace?.id;
+          final scope = global
+              ? const GlobalScope()
+              : DefinitionScope.ofWorkspaceId(workspace?.id);
           final result = await ref
               .read(workflowsListControllerProvider.notifier)
               .createWorkflow(
                 name: name,
                 description: description,
-                workspaceId: workspaceId,
+                scope: scope,
               );
-          return result.map(
-            (workflow) => (workflow: workflow, workspaceId: workspaceId),
-          );
+          return result.map((workflow) => (workflow: workflow, scope: scope));
         },
       ),
     );
@@ -65,7 +65,7 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
     if (created != null && context.mounted) {
       WorkflowEditorRoute(
         id: created.workflow.id,
-        workspaceId: created.workspaceId,
+        workspaceId: created.scope.workspaceIdOrNull,
       ).go(context);
     }
   }
@@ -89,7 +89,7 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
   ) async {
     final refs = await ref
         .read(getWorkflowReferencesProvider)
-        .call(workflow.id, workspaceId: workflow.workspaceId);
+        .call(workflow.id, scope: workflow.scope);
     if (!context.mounted) return;
     final l10n = AppLocalizations.of(context)!;
     final names = switch (refs) {
@@ -160,8 +160,7 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
         .workflows;
     final fresh = listed?.where(
       (candidate) =>
-          candidate.id == workflow.id &&
-          candidate.workspaceId == workflow.workspaceId,
+          candidate.id == workflow.id && candidate.scope == workflow.scope,
     );
     if (fresh == null || fresh.isEmpty) return;
     await _confirmDelete(context, fresh.first);
@@ -338,7 +337,7 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
                                       .format(summary.updatedAt.toLocal());
                                   final hasErrors = summary.hasValidationErrors;
                                   final isWorkspaceScope =
-                                      summary.scope == WorkflowScope.workspace;
+                                      summary.scope is WorkspaceScope;
                                   final scopeLabel = isWorkspaceScope
                                       ? l10n.workflowsScopeWorkspaceBadge
                                       : l10n.workflowsScopeGlobalBadge;
@@ -363,7 +362,8 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
                                         ? null
                                         : () => WorkflowEditorRoute(
                                             id: summary.id,
-                                            workspaceId: summary.workspaceId,
+                                            workspaceId:
+                                                summary.scope.workspaceIdOrNull,
                                           ).go(context),
                                     child: Row(
                                       children: <Widget>[
@@ -510,8 +510,7 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
                                               : () => unawaited(
                                                   controller.duplicateWorkflow(
                                                     summary.id,
-                                                    workspaceId:
-                                                        summary.workspaceId,
+                                                    scope: summary.scope,
                                                   ),
                                                 ),
                                         ),
@@ -551,7 +550,7 @@ class _WorkflowsPageState extends ConsumerState<WorkflowsPage> {
   }
 }
 
-typedef _CreatedWorkflow = ({Workflow workflow, String? workspaceId});
+typedef _CreatedWorkflow = ({Workflow workflow, DefinitionScope scope});
 
 class _CreateWorkflowDialog extends StatefulWidget {
   const new({required this.onCreate, this.workspaceName});

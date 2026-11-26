@@ -1258,7 +1258,7 @@ final class GraphEngine implements RunCanceller {
   Future<void> _captureSnapshot(_RunExecution x, String nodeId) async {
     final captured = await _snapshots.captureSnapshot(
       runId: x.run.id,
-      workspaceDir: _workspaceOf(x.run),
+      targetFolder: _targetFolderOf(x.run),
       nodeId: nodeId,
     );
     if (captured case FailureResult<Snapshot>(:final failure)) {
@@ -1271,11 +1271,11 @@ final class GraphEngine implements RunCanceller {
     }
   }
 
-  String _workspaceOf(Run run) =>
+  String _targetFolderOf(Run run) =>
       run.isolationMode == WorkspaceIsolationMode.worktree &&
           run.worktreePath != null
       ? run.worktreePath!
-      : run.workspacePath;
+      : run.workspaceRoot;
 
   void _startNode(_RunExecution x, WorkflowNode workflowNode, Node node) {
     final id = workflowNode.id;
@@ -1300,8 +1300,8 @@ final class GraphEngine implements RunCanceller {
           runId: x.run.id,
           nodeId: id,
           nodeLabel: workflowNode.label,
-          workspacePath: _workspaceOf(x.run),
-          workspaceRoot: x.run.workspacePath,
+          targetFolder: _targetFolderOf(x.run),
+          workspaceRoot: x.run.workspaceRoot,
           workspaceId: x.run.workspaceId,
           attempt: attempt,
           availableOutputs: node.availableOutputs,

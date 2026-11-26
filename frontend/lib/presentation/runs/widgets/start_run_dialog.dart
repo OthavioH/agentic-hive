@@ -245,7 +245,9 @@ class _StartRunDialogState extends ConsumerState<StartRunDialog> {
 
   /// Global workflows plus those of [workspaceId].
   Future<List<WorkflowSummary>> _fetchWorkflows(String? workspaceId) async =>
-      (await ref.read(listWorkflowsProvider).call(workspaceId: workspaceId))
+      (await ref
+              .read(listWorkflowsProvider)
+              .call(scope: DefinitionScope.ofWorkspaceId(workspaceId)))
           .valueOrNull ??
       const <WorkflowSummary>[];
 

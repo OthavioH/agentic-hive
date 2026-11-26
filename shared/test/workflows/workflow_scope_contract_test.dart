@@ -9,14 +9,6 @@ JsonMap _overTheWire(JsonMap json) =>
 void main() {
   final timestamp = DateTime.utc(2026, 11, 23, 9);
 
-  group('WorkflowScope', () {
-    test('parses by name and rejects unknown names', () {
-      expect(WorkflowScope.fromName('global'), WorkflowScope.global);
-      expect(WorkflowScope.fromName('workspace'), WorkflowScope.workspace);
-      expect(() => WorkflowScope.fromName('team'), throwsFormatException);
-    });
-  });
-
   group('WorkflowSummary scope', () {
     test('defaults to global without a workspace id', () {
       final summary = WorkflowSummary.fromJson({
@@ -27,8 +19,7 @@ void main() {
         'hasValidationErrors': false,
         'updatedAt': timestamp.toIso8601String(),
       });
-      expect(summary.scope, WorkflowScope.global);
-      expect(summary.workspaceId, isNull);
+      expect(summary.scope, const GlobalScope());
     });
 
     test('round-trips a workspace scope', () {
@@ -39,13 +30,11 @@ void main() {
         edgeCount: 0,
         hasValidationErrors: false,
         updatedAt: timestamp,
-        scope: WorkflowScope.workspace,
-        workspaceId: 'ws-1',
+        scope: const WorkspaceScope('ws-1'),
       );
       final decoded = WorkflowSummary.fromJson(_overTheWire(summary.toJson()));
       expect(decoded, summary);
-      expect(decoded.scope, WorkflowScope.workspace);
-      expect(decoded.workspaceId, 'ws-1');
+      expect(decoded.scope, const WorkspaceScope('ws-1'));
     });
   });
 
@@ -74,19 +63,17 @@ void main() {
       final response = WorkflowResponse(
         workflow: workflow,
         validation: validation,
-        scope: WorkflowScope.workspace,
-        workspaceId: 'ws-1',
+        scope: const WorkspaceScope('ws-1'),
       );
       final decoded = WorkflowResponse.fromJson(
         _overTheWire(response.toJson()),
       );
-      expect(decoded.scope, WorkflowScope.workspace);
-      expect(decoded.workspaceId, 'ws-1');
+      expect(decoded.scope, const WorkspaceScope('ws-1'));
       final bare = WorkflowResponse.fromJson({
         'workflow': workflow.toJson(),
         'validation': validation.toJson(),
       });
-      expect(bare.scope, WorkflowScope.global);
+      expect(bare.scope, const GlobalScope());
     });
   });
 
@@ -103,8 +90,7 @@ void main() {
           edgeCount: 1,
           hasValidationErrors: false,
           updatedAt: timestamp,
-          scope: WorkflowScope.workspace,
-          workspaceId: 'ws-1',
+          scope: const WorkspaceScope('ws-1'),
         ),
       );
       expect(

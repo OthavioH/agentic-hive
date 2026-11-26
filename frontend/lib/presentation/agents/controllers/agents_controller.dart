@@ -23,15 +23,17 @@ class AgentsController extends _$AgentsController {
   String? get _currentWorkspaceId =>
       ref.read(workspaceRegistryControllerProvider).value?.currentWorkspaceId;
 
-  /// Workspace passed to list and create calls: `null` in the Global view.
-  String? get _viewWorkspaceId => state.globalOnly ? null : _currentWorkspaceId;
+  /// Scope passed to list and create calls: [GlobalScope] in the Global view.
+  DefinitionScope get _viewScope => state.globalOnly
+      ? const GlobalScope()
+      : DefinitionScope.ofWorkspaceId(_currentWorkspaceId);
 
-  /// Workspace passed to calls on the open agent: only workspace-scoped files
-  /// are addressed through the workspace folder.
-  String? get _openAgentWorkspaceId =>
-      state.detail.value?.scope == AgentScope.workspace
-      ? _currentWorkspaceId
-      : null;
+  /// Scope passed to calls on the open agent: workspace-scoped files are
+  /// addressed through their workspace folder.
+  DefinitionScope get _openAgentScope => switch (state.detail.value?.scope) {
+    final WorkspaceScope scope => scope,
+    GlobalScope() || null => const GlobalScope(),
+  };
 
   @override
   AgentsState build() {
@@ -62,9 +64,7 @@ class AgentsController extends _$AgentsController {
   /// Loads or refreshes the list of agents from the backend.
   Future<void> loadAgents() async {
     state = state.copyWith(agents: const AsyncLoading<List<AgentSummary>>());
-    final result = await ref.read(listAgentsUseCaseProvider)(
-      workspaceId: _viewWorkspaceId,
-    );
+    final result = await ref.read(listAgentsUseCaseProvider)(scope: _viewScope);
     if (!ref.mounted) return;
     switch (result) {
       case Success<List<AgentSummary>>(:final value):
@@ -107,10 +107,9 @@ class AgentsController extends _$AgentsController {
 
   /// Selects an existing agent by [id] and loads its full detail.
   ///
-  /// With [scope] [AgentScope.global] the global file is loaded even when a
-  /// workspace agent overrides it; otherwise the workspace folder is searched
-  /// first.
-  Future<void> selectAgent(String id, {AgentScope? scope}) async {
+  /// With [scope] [GlobalScope] the global file is loaded even when a
+  /// workspace agent overrides it; otherwise [_viewScope] is searched first.
+  Future<void> selectAgent(String id, {DefinitionScope? scope}) async {
     state = state.copyWith(
       selectedAgentId: () => id,
       isCreating: false,
@@ -124,7 +123,10 @@ class AgentsController extends _$AgentsController {
 
     final result = await ref.read(getAgentUseCaseProvider)(
       id,
-      workspaceId: scope == AgentScope.global ? null : _viewWorkspaceId,
+      scope: switch (scope) {
+        GlobalScope() => const GlobalScope(),
+        _ => _viewScope,
+      },
     );
     if (!ref.mounted || state.selectedAgentId != id) return;
     switch (result) {
@@ -337,7 +339,7 @@ class AgentsController extends _$AgentsController {
           deniedTools: current.deniedTools,
           prompt: current.prompt,
         ),
-        workspaceId: _viewWorkspaceId,
+        scope: _viewScope,
       );
       if (!ref.mounted) {
         return const SaveAgentFailure(
@@ -360,7 +362,7 @@ class AgentsController extends _$AgentsController {
         deniedTools: current.deniedTools,
         prompt: current.prompt,
       ),
-      workspaceId: _openAgentWorkspaceId,
+      scope: _openAgentScope,
     );
     if (!ref.mounted) {
       return const SaveAgentFailure(
@@ -381,10 +383,10 @@ class AgentsController extends _$AgentsController {
     }
 
     state = state.copyWith(isSaving: true, saveError: () => null);
-    final scopedWorkspaceId = _openAgentWorkspaceId;
+    final scoped = _openAgentScope;
     final latestResult = await ref.read(getAgentUseCaseProvider)(
       current.id,
-      workspaceId: scopedWorkspaceId,
+      scope: scoped,
     );
     if (!ref.mounted) {
       return const SaveAgentFailure(
@@ -407,7 +409,7 @@ class AgentsController extends _$AgentsController {
             deniedTools: current.deniedTools,
             prompt: current.prompt,
           ),
-          workspaceId: scopedWorkspaceId,
+          scope: scoped,
         );
         if (!ref.mounted) {
           return const SaveAgentFailure(
@@ -429,7 +431,7 @@ class AgentsController extends _$AgentsController {
               deniedTools: current.deniedTools,
               prompt: current.prompt,
             ),
-            workspaceId: scopedWorkspaceId,
+            scope: scoped,
           );
           if (!ref.mounted) {
             return const SaveAgentFailure(
@@ -457,11 +459,11 @@ class AgentsController extends _$AgentsController {
     if (id == null) {
       return const FailureResult(ValidationFailure('No agent selected.'));
     }
-    final deletedScope = state.detail.value?.scope ?? AgentScope.global;
+    final deletedScope = state.detail.value?.scope ?? const GlobalScope();
     state = state.copyWith(isDeleting: true, saveError: () => null);
     final result = await ref.read(deleteAgentUseCaseProvider)(
       id,
-      workspaceId: _openAgentWorkspaceId,
+      scope: _openAgentScope,
     );
     if (!ref.mounted) {
       return const FailureResult(UnexpectedFailure('Controller disposed.'));
@@ -545,13 +547,12 @@ class AgentsController extends _$AgentsController {
   void _handleExternalChange(AgentsChangedPayload payload) {
     if (!ref.mounted) return;
     final changedWorkspaceId = payload.workspaceId;
-    if (changedWorkspaceId != null && changedWorkspaceId != _viewWorkspaceId) {
+    if (changedWorkspaceId != null &&
+        changedWorkspaceId != _viewScope.workspaceIdOrNull) {
       // Another workspace, or a workspace edit while the Global view is open.
       return;
     }
-    final changedScope = changedWorkspaceId == null
-        ? AgentScope.global
-        : AgentScope.workspace;
+    final changedScope = DefinitionScope.ofWorkspaceId(changedWorkspaceId);
     final currentList = state.agents.value;
     if (currentList != null) {
       switch (payload.kind) {
@@ -640,12 +641,12 @@ class AgentsController extends _$AgentsController {
   List<AgentSummary> _withOverrides(List<AgentSummary> items) {
     final workspaceNames = <String>{
       for (final item in items)
-        if (item.scope == AgentScope.workspace && item.parseError == null)
+        if (item.scope is WorkspaceScope && item.parseError == null)
           item.name.trim(),
     };
     return <AgentSummary>[
       for (final item in items)
-        if (item.scope == AgentScope.global)
+        if (item.scope is GlobalScope)
           item.copyWith(
             overridden:
                 item.parseError == null &&
@@ -662,7 +663,12 @@ class AgentsController extends _$AgentsController {
       if (byName != 0) return byName;
       final byId = a.id.compareTo(b.id);
       if (byId != 0) return byId;
-      return a.scope.index.compareTo(b.scope.index);
+      return _scopeRank(a.scope).compareTo(_scopeRank(b.scope));
     });
   }
+
+  static int _scopeRank(DefinitionScope scope) => switch (scope) {
+    GlobalScope() => 0,
+    WorkspaceScope() => 1,
+  };
 }

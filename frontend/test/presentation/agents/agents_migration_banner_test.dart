@@ -17,33 +17,38 @@ import 'package:material_ui/material_ui.dart';
 
 final class _EmptyAgentRepository implements AgentRepository {
   @override
-  Future<Result<List<AgentSummary>>> listAgents({String? workspaceId}) async =>
-      const Success(<AgentSummary>[]);
+  Future<Result<List<AgentSummary>>> listAgents({
+    DefinitionScope scope = const GlobalScope(),
+  }) async => const Success(<AgentSummary>[]);
 
   @override
   Stream<AgentsChangedPayload> watchAgentChanges() =>
       const Stream<AgentsChangedPayload>.empty();
 
   @override
-  Future<Result<AgentDetail>> getAgent(String id, {String? workspaceId}) =>
-      throw UnimplementedError();
+  Future<Result<AgentDetail>> getAgent(
+    String id, {
+    DefinitionScope scope = const GlobalScope(),
+  }) => throw UnimplementedError();
 
   @override
   Future<Result<AgentDetail>> createAgent(
     CreateAgentRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) => throw UnimplementedError();
 
   @override
   Future<Result<AgentDetail>> updateAgent(
     String id,
     UpdateAgentRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) => throw UnimplementedError();
 
   @override
-  Future<Result<void>> deleteAgent(String id, {String? workspaceId}) =>
-      throw UnimplementedError();
+  Future<Result<void>> deleteAgent(
+    String id, {
+    DefinitionScope scope = const GlobalScope(),
+  }) => throw UnimplementedError();
 }
 
 final class _FakeMigrationRepository implements AgentsMigrationRepository {

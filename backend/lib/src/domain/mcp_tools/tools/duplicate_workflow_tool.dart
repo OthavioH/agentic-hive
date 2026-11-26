@@ -49,7 +49,7 @@ final class DuplicateWorkflowTool extends ScopedMcpTool {
     final duplicated = await workflows.duplicateWorkflow(
       id,
       name: name,
-      workspaceId: scope.workspaceId,
+      scope: scope.definitionScope,
     );
     return switch (duplicated) {
       FailureResult(failure: NotFoundFailure()) => FailureResult(
@@ -76,7 +76,7 @@ final class DuplicateWorkflowTool extends ScopedMcpTool {
     events.workflowChanged(
       WorkflowChangeKind.created,
       response.workflow.id,
-      workspaceId: response.workspaceId,
+      scope: response.scope,
       workflow: workflowSummaryOf(response),
     );
     final suffix = response.validation.isValid

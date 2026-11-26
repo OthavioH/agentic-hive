@@ -10,11 +10,11 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'workflow_delete_controller.g.dart';
 
 /// Identifies a listed workflow: ids are unique only inside a scope.
-typedef WorkflowKey = ({String id, String? workspaceId});
+typedef WorkflowKey = ({String id, DefinitionScope scope});
 
 /// The key of [workflow].
 WorkflowKey workflowKeyOf(WorkflowSummary workflow) =>
-    (id: workflow.id, workspaceId: workflow.workspaceId);
+    (id: workflow.id, scope: workflow.scope);
 
 /// Progress of a followed deletion, shown on its row.
 @immutable
@@ -179,7 +179,7 @@ class WorkflowDeleteController extends _$WorkflowDeleteController {
     subscription = deleteWorkflow
         .call(
           workflow.id,
-          workspaceId: workflow.workspaceId,
+          scope: workflow.scope,
           revision: revision ?? workflow.revision,
           force: force,
         )

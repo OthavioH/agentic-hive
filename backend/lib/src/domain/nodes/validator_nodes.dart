@@ -39,7 +39,7 @@ final class TestsValidatorNode extends ValidatorNode {
 
     final config = TestsValidatorNodeConfig.fromJson(context.config);
     final workingDirResult = resolveWorkspacePath(
-      context.workspacePath,
+      context.targetFolder,
       config.workingDirectory,
     );
     if (workingDirResult case FailureResult<String>(:final failure)) {
@@ -147,7 +147,7 @@ final class ChecklistValidatorNode extends ValidatorNode {
     switch (rule.kind) {
       case ChecklistRuleKind.fileExists:
         final pathResult = resolveWorkspacePath(
-          context.workspacePath,
+          context.targetFolder,
           rule.path,
           fieldName: 'path',
         );
@@ -163,7 +163,7 @@ final class ChecklistValidatorNode extends ValidatorNode {
       case ChecklistRuleKind.commandSucceeds:
       case ChecklistRuleKind.outputMatchesRegex:
         final workingDirResult = resolveWorkspacePath(
-          context.workspacePath,
+          context.targetFolder,
           rule.workingDirectory,
         );
         if (workingDirResult case FailureResult<String>(:final failure)) {
@@ -268,7 +268,7 @@ final class ReviewValidatorNode extends ValidatorNode {
       NodeExecutionContext(
         runId: context.runId,
         nodeId: context.nodeId,
-        workspacePath: context.workspacePath,
+        targetFolder: context.targetFolder,
         workspaceRoot: context.workspaceRoot,
         workspaceId: context.workspaceId,
         attempt: context.attempt,

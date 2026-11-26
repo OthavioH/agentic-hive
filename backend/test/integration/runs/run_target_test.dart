@@ -238,6 +238,21 @@ Future<void> main() => Future<void>.delayed(const Duration(seconds: 60));
     expect((await startRun(workspaceId, target)).statusCode, 201);
   });
 
+  test('worktree target for the primary checkout runs direct and shares its '
+      'lock', () async {
+    final res = await startRun(
+      workspaceId,
+      const RunTarget.worktree(worktreeId: primaryWorktreeId),
+    );
+    expect(res.statusCode, 201);
+    final run = Run.fromJson(res.json);
+    expect(run.isolationMode, WorkspaceIsolationMode.direct);
+    expect(run.worktreePath, isNull);
+
+    final second = await startRun(workspaceId, const RunTarget.primary());
+    expect(second.statusCode, 409);
+  });
+
   test('an unknown worktree id returns 404', () async {
     final res = await startRun(
       workspaceId,

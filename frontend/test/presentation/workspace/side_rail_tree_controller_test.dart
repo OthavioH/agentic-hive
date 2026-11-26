@@ -33,20 +33,26 @@ final class _FakeRunsRepo implements RunRepository {
   List<RunSummary> runs = <RunSummary>[];
   Failure? listFailure;
   int listCalls = 0;
+  final List<String?> recordedWorkspaceIds = <String?>[];
 
   @override
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   }) async {
     listCalls++;
+    recordedWorkspaceIds.add(workspaceId);
     final failure = listFailure;
     if (failure != null) return FailureResult<RunsListResponse>(failure);
-    final filtered = status == null
-        ? runs
-        : runs.where((r) => r.status == status).toList();
+    final filtered = runs.where((r) {
+      if (status != null && r.status != status) return false;
+      if (workflowId != null && r.workflowId != workflowId) return false;
+      if (workspaceId != null && r.workspaceId != workspaceId) return false;
+      return true;
+    }).toList();
     final start = offset ?? 0;
     final page = limit == null
         ? filtered.skip(start).toList()
@@ -688,5 +694,52 @@ void main() {
         ]);
       },
     );
+
+    test('fetches runs per workspace with workspaceId filter', () async {
+      workspaceRepo
+        ..workspaces = <Workspace>[
+          makeWorkspace(name: 'Workspace 1', rootPath: '/ws-1'),
+          makeWorkspace(id: 'ws-2', name: 'Workspace 2', rootPath: '/ws-2'),
+        ]
+        ..worktreesByWorkspaceId['ws-1'] = <Worktree>[
+          makeWorktree(path: '/ws-1'),
+        ]
+        ..worktreesByWorkspaceId['ws-2'] = <Worktree>[
+          makeWorktree(path: '/ws-2'),
+        ];
+      runsRepo.runs = <RunSummary>[
+        _makeRun(
+          id: 'run-ws1',
+          workspaceId: 'ws-1',
+          startedAt: DateTime.utc(2026, 11, 22, 11, 55),
+          worktreePath: '/ws-1',
+        ),
+        _makeRun(
+          id: 'run-ws2',
+          workspaceId: 'ws-2',
+          startedAt: DateTime.utc(2026, 11, 22, 11, 56),
+          worktreePath: '/ws-2',
+        ),
+      ];
+
+      final container = createContainer();
+      final tree = await container.read(sideRailTreeControllerProvider.future);
+
+      expect(tree.workspaces, hasLength(2));
+      expect(
+        tree.workspaces[0].worktrees.single.activeRuns.map((r) => r.id),
+        <String>['run-ws1'],
+      );
+      expect(
+        tree.workspaces[1].worktrees.single.activeRuns.map((r) => r.id),
+        <String>['run-ws2'],
+      );
+      expect(runsRepo.recordedWorkspaceIds, isNotEmpty);
+      expect(runsRepo.recordedWorkspaceIds.every((id) => id != null), isTrue);
+      expect(
+        runsRepo.recordedWorkspaceIds,
+        containsAll(<String>['ws-1', 'ws-2']),
+      );
+    });
   });
 }

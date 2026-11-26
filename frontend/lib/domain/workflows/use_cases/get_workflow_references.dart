@@ -9,9 +9,9 @@ final class GetWorkflowReferences {
 
   final WorkflowReferenceRepository _repository;
 
-  /// Returns workflows referencing [workflowId], scoped to [workspaceId].
+  /// Returns workflows referencing [workflowId] in [scope].
   Future<Result<List<WorkflowReference>>> call(
     String workflowId, {
-    String? workspaceId,
-  }) => _repository.getReferences(workflowId, workspaceId: workspaceId);
+    DefinitionScope scope = const GlobalScope(),
+  }) => _repository.getReferences(workflowId, scope: scope);
 }

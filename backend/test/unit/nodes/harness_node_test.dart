@@ -205,7 +205,7 @@ NodeExecutionContext _context({
 }) => NodeExecutionContext(
   runId: runId,
   nodeId: 'node-1',
-  workspacePath: '/tmp/workspace',
+  targetFolder: '/tmp/workspace',
   config: config,
   humanAnswer: humanAnswer,
   runInput: runInput,
@@ -1059,7 +1059,7 @@ void main() {
         NodeExecutionContext(
           runId: 'run-rc',
           nodeId: 'node-rc',
-          workspacePath: workspaceDir,
+          targetFolder: workspaceDir,
           config: const <String, Object?>{'additionalInstructions': 'Do work.'},
         ),
       );

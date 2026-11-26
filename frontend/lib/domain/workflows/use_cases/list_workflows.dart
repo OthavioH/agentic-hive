@@ -9,7 +9,8 @@ final class ListWorkflows {
 
   final WorkflowRepository _repository;
 
-  /// Executes the use case: global workflows, plus those of [workspaceId].
-  Future<Result<List<WorkflowSummary>>> call({String? workspaceId}) =>
-      _repository.listWorkflows(workspaceId: workspaceId);
+  /// Executes the use case for [scope].
+  Future<Result<List<WorkflowSummary>>> call({
+    DefinitionScope scope = const GlobalScope(),
+  }) => _repository.listWorkflows(scope: scope);
 }

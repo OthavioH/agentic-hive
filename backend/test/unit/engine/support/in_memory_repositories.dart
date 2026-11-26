@@ -46,6 +46,7 @@ final class InMemoryRunRepository implements RunRepository {
   Future<Result<({List<RunSummary> items, int total})>> list({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int limit = 50,
     int offset = 0,
   }) async => const Success((items: <RunSummary>[], total: 0));

@@ -40,11 +40,11 @@ final class ResultContractValidator {
     return allowed.toList(growable: false);
   }
 
-  /// Validates [payload] for an attempt running in [workspacePath] with
+  /// Validates [payload] for an attempt running in [targetFolder] with
   /// declared [availableOutputs].
   Result<ResultContractReport> validate(
     Map<String, Object?> payload, {
-    required String workspacePath,
+    required String targetFolder,
     required List<String> availableOutputs,
   }) {
     final statusResult = _parseStatus(
@@ -67,7 +67,7 @@ final class ResultContractValidator {
 
     final artifactsResult = _parseArtifacts(
       payload['artifacts'],
-      workspacePath: workspacePath,
+      targetFolder: targetFolder,
     );
     if (artifactsResult case FailureResult<List<String>>(:final failure)) {
       return FailureResult(failure);
@@ -152,7 +152,7 @@ final class ResultContractValidator {
 
   Result<List<String>> _parseArtifacts(
     Object? rawArtifacts, {
-    required String workspacePath,
+    required String targetFolder,
   }) {
     if (rawArtifacts == null) {
       return const Success(<String>[]);
@@ -165,7 +165,7 @@ final class ResultContractValidator {
       );
     }
 
-    final normalizedRoot = _path.normalize(_path.absolute(workspacePath));
+    final normalizedRoot = _path.normalize(_path.absolute(targetFolder));
     final canonicalRootResult = _resolveCanonicalPath(normalizedRoot);
     if (canonicalRootResult case FailureResult<String>(:final failure)) {
       return FailureResult(failure);

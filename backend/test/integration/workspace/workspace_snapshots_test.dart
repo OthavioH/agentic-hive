@@ -138,7 +138,7 @@ void main() {
       workflowId: 'wf-1',
       workflowName: sampleWorkflow.name,
       workflowDefinition: sampleWorkflow,
-      workspacePath: wsPath,
+      workspaceRoot: wsPath,
       status: status,
       startedAt: DateTime.utc(2026, 11, 21, 10),
       isolationMode: isolationMode,
@@ -221,7 +221,7 @@ void main() {
       // Snapshot 1: initial 2 added files.
       final snap1 = (await snapshotService.captureSnapshot(
         runId: 'run-1',
-        workspaceDir: workspaceDir.path,
+        targetFolder: workspaceDir.path,
         nodeId: 'n1',
       ) as Success<Snapshot>).value;
       expect(snap1.kind, SnapshotKind.preNode);
@@ -244,7 +244,7 @@ void main() {
       // Snapshot 2: unchanged working tree reuses commitHash with +0 ~0 -0.
       final snap2 = (await snapshotService.captureSnapshot(
         runId: 'run-1',
-        workspaceDir: workspaceDir.path,
+        targetFolder: workspaceDir.path,
         nodeId: 'n2',
       ) as Success<Snapshot>).value;
       expect(snap2.commitHash, snap1.commitHash);
@@ -265,7 +265,7 @@ void main() {
 
       final snap3 = (await snapshotService.captureSnapshot(
         runId: 'run-1',
-        workspaceDir: workspaceDir.path,
+        targetFolder: workspaceDir.path,
         nodeId: 'n3',
       ) as Success<Snapshot>).value;
       expect(snap3.commitHash, isNot(snap1.commitHash));
@@ -304,7 +304,7 @@ void main() {
 
       final snap = (await snapshotService.captureSnapshot(
         runId: 'run-excl',
-        workspaceDir: workspaceDir.path,
+        targetFolder: workspaceDir.path,
         extraExclusions: const ['*.tmp'],
         maxFileSizeBytes: 100,
       ) as Success<Snapshot>).value;
@@ -359,7 +359,7 @@ void main() {
 
       final snap1 = (await snapshotService.captureSnapshot(
         runId: 'run-restore',
-        workspaceDir: workspaceDir.path,
+        targetFolder: workspaceDir.path,
         nodeId: 'n1',
       ) as Success<Snapshot>).value;
 
@@ -442,7 +442,7 @@ void main() {
         expect(
           await service.captureSnapshot(
             runId: 'run-cfg',
-            workspaceDir: workspaceDir.path,
+            targetFolder: workspaceDir.path,
           ),
           isA<Success<Snapshot>>(),
         );
@@ -474,7 +474,7 @@ void main() {
       await File(p.join(workspaceDir.path, 'a.txt')).writeAsString('1\n');
       final first = (await snapshotService.captureSnapshot(
         runId: 'run-pin',
-        workspaceDir: workspaceDir.path,
+        targetFolder: workspaceDir.path,
       ) as Success<Snapshot>).value;
 
       final shadow = snapshotService.shadowRepoPath('run-pin');
@@ -482,7 +482,7 @@ void main() {
       await File(p.join(workspaceDir.path, 'a.txt')).writeAsString('2\n');
       final second = (await snapshotService.captureSnapshot(
         runId: 'run-pin',
-        workspaceDir: workspaceDir.path,
+        targetFolder: workspaceDir.path,
       ) as Success<Snapshot>).value;
       expect(second.commitHash, isNot(first.commitHash));
       expect(File(p.join(shadow, 'index.lock')).existsSync(), isFalse);
@@ -508,7 +508,7 @@ void main() {
       // First capture without a limit tracks the files.
       await snapshotService.captureSnapshot(
         runId: 'run-grow',
-        workspaceDir: workspaceDir.path,
+        targetFolder: workspaceDir.path,
         maxFileSizeBytes: null,
       );
 
@@ -521,7 +521,7 @@ void main() {
 
       final snap = (await snapshotService.captureSnapshot(
         runId: 'run-grow',
-        workspaceDir: workspaceDir.path,
+        targetFolder: workspaceDir.path,
         maxFileSizeBytes: 100,
       ) as Success<Snapshot>).value;
       final shadow = snapshotService.shadowRepoPath('run-grow');
@@ -562,7 +562,7 @@ void main() {
         await File(p.join(workspaceDir.path, 'keep.txt')).writeAsString('k\n');
         final snap = (await snapshotService.captureSnapshot(
           runId: 'run-opts',
-          workspaceDir: workspaceDir.path,
+          targetFolder: workspaceDir.path,
           extraExclusions: const ['*.cache'],
         ) as Success<Snapshot>).value;
         await File(p.join(workspaceDir.path, 'x.cache')).writeAsString('c\n');
@@ -587,7 +587,7 @@ void main() {
         for (var i = 0; i < 4; i++)
           snapshotService.captureSnapshot(
             runId: 'run-lock',
-            workspaceDir: workspaceDir.path,
+            targetFolder: workspaceDir.path,
           ),
       ]);
       expect(results, everyElement(isA<Success<Snapshot>>()));
@@ -629,7 +629,7 @@ void main() {
           'HEAD',
         ]);
         final prepared = PreparedWorkspace(
-          effectiveWorkspacePath: worktreePath,
+          targetFolder: worktreePath,
           isolationMode: WorkspaceIsolationMode.worktree,
           worktreePath: worktreePath,
           worktreeBranch: 'hive/run-wt',
@@ -661,7 +661,7 @@ void main() {
         // Capture a snapshot in the worktree.
         await snapshotService.captureSnapshot(
           runId: 'run-wt',
-          workspaceDir: prepared.effectiveWorkspacePath,
+          targetFolder: prepared.targetFolder,
         );
         expect(
           Directory(snapshotService.shadowRepoPath('run-wt')).existsSync(),

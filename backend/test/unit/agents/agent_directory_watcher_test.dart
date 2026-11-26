@@ -92,7 +92,7 @@ void main() {
       agentsDir: workspaceDir.path,
       repository: LocalAgentRepository(
         agentsDir: workspaceDir.path,
-        scope: AgentScope.workspace,
+        scope: const WorkspaceScope('ws-1'),
       ),
       registry: registry,
       workspaceId: 'ws-1',
@@ -115,7 +115,7 @@ void main() {
     await _waitFor(() => events.isNotEmpty);
 
     expect(events.single.workspaceId, 'ws-1');
-    expect(events.single.agent?.scope, AgentScope.workspace);
+    expect(events.single.agent?.scope, const WorkspaceScope('ws-1'));
   });
 
   test('global events carry no workspaceId', () async {
@@ -131,7 +131,7 @@ void main() {
         .writeAsString('---\nname: A\n---\nx');
     await _waitFor(() => events.isNotEmpty);
     expect(events.single.workspaceId, isNull);
-    expect(events.single.agent?.scope, AgentScope.global);
+    expect(events.single.agent?.scope, const GlobalScope());
   });
 
   test('ignores non-md files and subdirectories', () async {

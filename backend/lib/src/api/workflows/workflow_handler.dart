@@ -30,9 +30,7 @@ final class WorkflowHandler {
   Future<Response> call(Request request) => _router.call(request);
 
   Future<Response> _list(Request request) async {
-    final result = await _service.listWorkflows(
-      workspaceId: _workspaceId(request),
-    );
+    final result = await _service.listWorkflows(scope: _scope(request));
     return _mapResult(request, result, 200);
   }
 
@@ -54,18 +52,12 @@ final class WorkflowHandler {
   }
 
   Future<Response> _getById(Request request, String id) async {
-    final result = await _service.getWorkflow(
-      id,
-      workspaceId: _workspaceId(request),
-    );
+    final result = await _service.getWorkflow(id, scope: _scope(request));
     return _mapResult(request, result, 200);
   }
 
   Future<Response> _references(Request request, String id) async {
-    final result = await _service.getReferences(
-      id,
-      workspaceId: _workspaceId(request),
-    );
+    final result = await _service.getReferences(id, scope: _scope(request));
     return _mapResult(request, result, 200);
   }
 
@@ -75,7 +67,7 @@ final class WorkflowHandler {
     final result = await _service.updateWorkflow(
       id,
       parsed.value!,
-      workspaceId: _workspaceId(request),
+      scope: _scope(request),
     );
     return _mapResult(request, result, 200);
   }
@@ -97,7 +89,7 @@ final class WorkflowHandler {
     }
     final result = await _service.deleteWorkflow(
       id,
-      workspaceId: _workspaceId(request),
+      scope: _scope(request),
       expectedRevision: _revision(request),
       force: force,
     );
@@ -119,15 +111,17 @@ final class WorkflowHandler {
     final result = await _service.duplicateWorkflow(
       id,
       name: name,
-      workspaceId: _workspaceId(request),
+      scope: _scope(request),
     );
     return _mapResult(request, result, 201);
   }
 
-  /// The `workspaceId` query parameter; absent or blank means the global scope.
-  String? _workspaceId(Request request) {
+  /// The `workspaceId` query parameter; absent or blank means [GlobalScope].
+  DefinitionScope _scope(Request request) {
     final value = request.url.queryParameters['workspaceId']?.trim();
-    return value == null || value.isEmpty ? null : value;
+    return DefinitionScope.ofWorkspaceId(
+      value == null || value.isEmpty ? null : value,
+    );
   }
 
   /// The `revision` query parameter; absent or blank means no check.

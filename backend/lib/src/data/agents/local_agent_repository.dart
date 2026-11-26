@@ -14,12 +14,12 @@ final class LocalAgentRepository implements AgentRepository {
   /// Creates a repository rooted at [agentsDir] using [pathContext].
   new({
     required this.agentsDir,
-    this.scope = AgentScope.global,
+    this.scope = const GlobalScope(),
     p.Context? pathContext,
   }) : _path = pathContext ?? p.context;
 
   /// Scope stamped on every agent this repository returns.
-  final AgentScope scope;
+  final DefinitionScope scope;
 
   /// Directory containing flat `<id>.md` agent files.
   String agentsDir;
