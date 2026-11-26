@@ -68,6 +68,9 @@ final class PullRequest {
   ).hasMatch('$title\n$body');
 }
 
+/// Label applied to a `[Wireframe]` ticket once the owner approves it.
+const wireframeApprovedLabel = 'ui:wireframe-approved';
+
 /// Where a ticket stands in the spec.
 enum TicketStatus {
   /// Closed, or a PR that closes it was merged into the spec branch.
@@ -76,8 +79,13 @@ enum TicketStatus {
   /// A PR that closes it is open against the spec branch.
   inFlight,
 
-  /// Not done, not in flight, and every blocker is done.
+  /// Not done, not in flight, every blocker is done and, for a styling
+  /// ticket, its wireframe is approved.
   startable,
+
+  /// A styling ticket whose wireframe ticket is done but lacks
+  /// [wireframeApprovedLabel].
+  awaitingApproval,
 
   /// Waiting for a blocker that is not done.
   blocked,
@@ -101,10 +109,29 @@ final class WavePlan {
   /// Whether every ticket is done.
   bool get allDone => tickets.every((t) => statuses[t.number] == .done);
 
+  /// Wireframe tickets the owner must approve before an awaiting styling
+  /// ticket can start, in spec order, each listed once.
+  List<Ticket> get wireframesToApprove {
+    final awaiting = withStatus(.awaitingApproval);
+    return tickets
+        .where(
+          (w) =>
+              awaiting.any((s) => _wireframeOf(s, tickets)?.number == w.number),
+        )
+        .toList();
+  }
+
   /// One line per ticket, for logs and summaries.
   String describe() => tickets
       .map((t) => '#${t.number} ${statuses[t.number]!.name}: ${t.title}')
       .join('\n');
+}
+
+Ticket? _wireframeOf(Ticket t, List<Ticket> tickets) {
+  const styling = '[Styling] ';
+  if (!t.title.startsWith(styling)) return null;
+  final title = '[Wireframe] ${t.title.substring(styling.length)}';
+  return tickets.where((w) => w.title == title).firstOrNull;
 }
 
 /// Computes the status of each of [tickets] from the [pullRequests] into the
@@ -124,15 +151,25 @@ WavePlan planWave(List<Ticket> tickets, List<PullRequest> pullRequests) {
   bool resolved(Blocker b) =>
       inSpec.contains(b.number) ? done.contains(b.number) : !b.isOpen;
 
+  TicketStatus waiting(Ticket t) {
+    final w = _wireframeOf(t, tickets);
+    if (!t.blockedBy.every(resolved) ||
+        (w != null && !done.contains(w.number))) {
+      return .blocked;
+    }
+    if (w != null && !w.labels.contains(wireframeApprovedLabel)) {
+      return .awaitingApproval;
+    }
+    return .startable;
+  }
+
   return WavePlan(tickets, {
     for (final t in tickets)
       t.number: done.contains(t.number)
           ? .done
           : hasPr(t.number, 'OPEN')
           ? .inFlight
-          : t.blockedBy.every(resolved)
-          ? .startable
-          : .blocked,
+          : waiting(t),
   });
 }
 
