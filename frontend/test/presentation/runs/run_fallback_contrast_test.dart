@@ -36,6 +36,24 @@ void main() {
           reason: '$name onWarning/warning: ${ratio.toStringAsFixed(2)}',
         );
       });
+
+      test('events column header onSurface on surface2 meets AA', () {
+        final ratio = HiveContrast.ratio(c.onSurface, c.surface2);
+        expect(
+          ratio,
+          greaterThanOrEqualTo(4.5),
+          reason: '$name onSurface/surface2: ${ratio.toStringAsFixed(2)}',
+        );
+      });
+
+      test('events row metadata onSurfaceMuted on surface1 meets AA', () {
+        final ratio = HiveContrast.ratio(c.onSurfaceMuted, c.surface1);
+        expect(
+          ratio,
+          greaterThanOrEqualTo(4.5),
+          reason: '$name onSurfaceMuted/surface1: ${ratio.toStringAsFixed(2)}',
+        );
+      });
     });
   }
 }

@@ -557,6 +557,21 @@ WidgetbookComponent emptyStateComponent() {
           ),
         ),
       ),
+      WidgetbookUseCase(
+        name: 'Compact',
+        builder: (context) => const HiveEmptyState(
+          icon: HiveIcons.harnesses,
+          title: 'Fallback harnesses',
+          message: 'No fallback. The node fails on a rate limit.',
+          compact: true,
+          action: HiveButton(
+            label: 'Add fallback',
+            icon: HiveIcons.add,
+            variant: HiveButtonVariant.secondary,
+            onPressed: _noop,
+          ),
+        ),
+      ),
     ],
   );
 }

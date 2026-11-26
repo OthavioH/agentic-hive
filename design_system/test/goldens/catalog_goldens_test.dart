@@ -243,6 +243,26 @@ void main() {
         );
       });
 
+      testWidgets('HiveEmptyState compact', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_empty_state_compact',
+          HiveEmptyState(
+            icon: HiveIcons.harnesses,
+            title: 'Fallback harnesses',
+            message: 'No fallback. The node fails on a rate limit.',
+            compact: true,
+            action: HiveButton(
+              label: 'Add fallback',
+              icon: HiveIcons.add,
+              variant: HiveButtonVariant.secondary,
+              onPressed: () {},
+            ),
+          ),
+          size: const Size(360, 200),
+        );
+      });
+
       testWidgets('HiveButton', (tester) async {
         await pumpAndMatch(
           tester,

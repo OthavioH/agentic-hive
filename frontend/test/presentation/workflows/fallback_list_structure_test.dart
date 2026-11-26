@@ -12,6 +12,8 @@ import 'package:material_ui/material_ui.dart';
 Widget _buildHost({
   required List<FallbackEntry> entries,
   Map<String, HarnessStatus>? statuses,
+  double textScale = 1.0,
+  double? width,
 }) {
   return UncontrolledProviderScope(
     container: ProviderContainer.test(
@@ -21,16 +23,19 @@ Widget _buildHost({
       theme: HiveTheme.dark(),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      home: NodeVisualScope(
-        registry: createNodeVisualRegistry(),
-        child: Scaffold(
-          body: SizedBox(
-            width: HiveSpacing.standard.space8 * 6,
-            child: SingleChildScrollView(
-              child: FallbackListEditor(
-                nodeType: NodeTypeId.claudeCode,
-                entries: entries,
-                onChanged: (_) {},
+      home: MediaQuery(
+        data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+        child: NodeVisualScope(
+          registry: createNodeVisualRegistry(),
+          child: Scaffold(
+            body: SizedBox(
+              width: width ?? HiveSpacing.standard.space8 * 6,
+              child: SingleChildScrollView(
+                child: FallbackListEditor(
+                  nodeType: NodeTypeId.claudeCode,
+                  entries: entries,
+                  onChanged: (_) {},
+                ),
               ),
             ),
           ),
@@ -152,4 +157,134 @@ void main() {
     expect(primary, same(focusNode));
     expect(focusNode.hasFocus, isTrue);
   });
+
+  testWidgets('empty state renders compact HiveEmptyState', (tester) async {
+    await tester.pumpWidget(_buildHost(entries: const <FallbackEntry>[]));
+    await tester.pumpAndSettle();
+
+    final emptyState = tester.widget<HiveEmptyState>(
+      find.byType(HiveEmptyState),
+    );
+    expect(emptyState.compact, isTrue);
+  });
+
+  testWidgets(
+    'populated list at text scale 2.0 has no overflow and meets guidelines',
+    (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        _buildHost(
+          width: 360,
+          textScale: 2,
+          entries: const <FallbackEntry>[
+            FallbackEntry(
+              harness: NodeTypeId.codex,
+              model:
+                  'gpt-5-turbo-preview-very-long-model-name-that-must-not-'
+                  'overflow',
+              effort: 'high',
+            ),
+          ],
+          statuses: const <String, HarnessStatus>{
+            NodeTypeId.codex: HarnessStatus.authError,
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+      await expectLater(tester, meetsGuideline(textContrastGuideline));
+      handle.dispose();
+    },
+  );
+
+  testWidgets(
+    'Tab traverses focus order harness -> model -> effort -> up -> down -> '
+    'remove -> Add',
+    (tester) async {
+      await tester.pumpWidget(
+        _buildHost(
+          entries: const <FallbackEntry>[
+            FallbackEntry(harness: NodeTypeId.claudeCode),
+            FallbackEntry(harness: NodeTypeId.codex, effort: 'high'),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      bool focusIsInside(Key key) {
+        final primary = FocusManager.instance.primaryFocus;
+        final ctx = primary?.context;
+        if (ctx == null) return false;
+        return find
+            .ancestor(
+              of: find.byElementPredicate((e) => e == ctx),
+              matching: find.byKey(key),
+            )
+            .evaluate()
+            .isNotEmpty;
+      }
+
+      // Focus row 1's harness select and Tab through row 1 -> Add.
+      final harnessFinder = find.byKey(const Key('config_fallback_1_harness'));
+      Focus.of(
+        tester.element(
+          find.descendant(of: harnessFinder, matching: find.byType(Text)).first,
+        ),
+      ).requestFocus();
+      await tester.pumpAndSettle();
+      expect(focusIsInside(const Key('config_fallback_1_harness')), isTrue);
+
+      final expectedKeys = <Key>[
+        const Key('config_fallback_1_model'),
+        const Key('config_fallback_1_effort'),
+        const Key('config_fallback_1_up'),
+        // Row 1 is last, so down is disabled and skipped; remove is next.
+        const Key('config_fallback_1_remove'),
+        const Key('config_fallback_add'),
+      ];
+      for (final key in expectedKeys) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        expect(focusIsInside(key), isTrue, reason: 'Expected focus on $key');
+      }
+    },
+  );
+
+  testWidgets(
+    'moving row 2 up to index 0 with keyboard leaves focus on down button',
+    (tester) async {
+      await tester.pumpWidget(
+        _buildHost(
+          entries: const <FallbackEntry>[
+            FallbackEntry(harness: NodeTypeId.codex),
+            FallbackEntry(harness: NodeTypeId.geminiCli),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final upButton = find.byKey(const Key('config_fallback_1_up'));
+      Focus.of(
+        tester.element(
+          find.descendant(of: upButton, matching: find.byType(HiveIcon)).first,
+        ),
+      ).requestFocus();
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      final downButton = find.byKey(const Key('config_fallback_1_down'));
+      final downFocus = Focus.of(
+        tester.element(
+          find
+              .descendant(of: downButton, matching: find.byType(HiveIcon))
+              .first,
+        ),
+      );
+      expect(downFocus.hasFocus, isTrue);
+    },
+  );
 }
