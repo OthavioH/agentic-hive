@@ -24,6 +24,7 @@ final class _FakeRunRepository implements RunRepository {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   }) async => const Success(RunsListResponse(items: <RunSummary>[], total: 0));
@@ -141,7 +142,7 @@ void main() {
       workflowId: 'wf-1',
       workflowName: 'Fallback Flow',
       workflowDefinition: workflow,
-      workspacePath: '/tmp/repo',
+      workspaceRoot: '/tmp/repo',
       status: RunStatus.succeeded,
       startedAt: now,
       finishedAt: DateTime.utc(2026, 11, 25, 12, 0, 5),

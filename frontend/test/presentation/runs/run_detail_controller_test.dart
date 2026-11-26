@@ -677,7 +677,7 @@ void main() {
             createdAt: now,
             updatedAt: now,
           ),
-          workspacePath: '/tmp/repo',
+          workspaceRoot: '/tmp/repo',
           status: RunStatus.succeeded,
           startedAt: now,
         ),

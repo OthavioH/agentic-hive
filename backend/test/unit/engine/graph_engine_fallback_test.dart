@@ -120,7 +120,7 @@ void main() {
         id: id,
         workflowName: wf.name,
         workflowDefinition: wf,
-        workspacePath: '/workspace',
+        workspaceRoot: '/workspace',
         status: RunStatus.running,
         startedAt: DateTime.utc(2026),
         parentRunId: parentRunId,
