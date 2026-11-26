@@ -24,6 +24,8 @@ import 'package:agentic_hive_backend/src/util/ids.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:logging/logging.dart';
 
+const int _maxSummaryLength = 500;
+
 /// A node that stopped the run until a human answers.
 final class _PausedNode {
   const new({
@@ -1515,11 +1517,14 @@ final class GraphEngine implements RunCanceller {
     if (matching.isEmpty) {
       final endsBranch = outgoing.isEmpty && _isPositive(label);
       if (!endsBranch) {
-        x.failReason = outgoing.isEmpty
-            ? 'Node "${_labelOf(x, nodeId)}" ended with "$label" and has no '
-                  'outgoing edge.'
-            : 'Node "${_labelOf(x, nodeId)}" emitted "$label" but no edge '
-                  'leaves it for that output.';
+        x.failReason = _withSummary(
+          outgoing.isEmpty
+              ? 'Node "${_labelOf(x, nodeId)}" ended with "$label" and has no '
+                    'outgoing edge.'
+              : 'Node "${_labelOf(x, nodeId)}" emitted "$label" but no edge '
+                    'leaves it for that output.',
+          outcome,
+        );
         return;
       }
     }
@@ -1557,6 +1562,17 @@ final class GraphEngine implements RunCanceller {
 
   bool _isPositive(String label) =>
       label == NodeOutput.onSuccess || label == NodeOutput.approved;
+
+  String _withSummary(String reason, NodeOutcome outcome) {
+    final raw = outcome.data['summary'];
+    if (raw is! String) return reason;
+    final text = raw.trim();
+    if (text.isEmpty) return reason;
+    final shown = text.length > _maxSummaryLength
+        ? '${text.substring(0, _maxSummaryLength)}…'
+        : text;
+    return '$reason Summary: $shown';
+  }
 
   String _labelOf(_RunExecution x, String nodeId) =>
       x.graph.node(nodeId)?.label ?? nodeId;
