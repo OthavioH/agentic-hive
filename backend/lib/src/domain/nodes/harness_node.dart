@@ -113,6 +113,21 @@ abstract base class HarnessNode extends Node {
     }
     sections.add(contextBuffer.toString().trimRight());
 
+    final stopped = context.stoppedAttempt;
+    if (stopped != null) {
+      final model = stopped.model?.trim();
+      final modelPart = model != null && model.isNotEmpty
+          ? ' with model "$model"'
+          : '';
+      sections.add(
+        '## Previous attempt\n'
+        'A rate limit stopped the previous attempt on harness '
+        '"${stopped.harness}"$modelPart. The workspace folder may contain '
+        'its partial work; inspect it and continue from it instead of '
+        'starting over.',
+      );
+    }
+
     final humanAnswer = context.humanAnswer?.trim();
     if (humanAnswer != null && humanAnswer.isNotEmpty) {
       sections.add(
@@ -286,7 +301,8 @@ abstract base class HarnessNode extends Node {
           ),
         );
       }
-      if (analysis.isRateLimitError) {
+      if (analysis.isRateLimitError &&
+          (await resultContract.readReport(context)).valueOrNull == null) {
         return FailureResult(
           HarnessRateLimitFailure(
             analysis.errorMessage ??
@@ -496,15 +512,27 @@ abstract base class HeadlessHarnessNode extends HarnessNode {
 
 /// Shared pattern-based auth/quota detector for CLI output.
 ///
-/// Only classifies authentication or rate-limit errors when the process failed
-/// (`exitCode != 0`), so normal agent output mentioning status codes or terms
-/// like `401` or `429` never overrides a successful run.
+/// Classifies authentication errors only when the process failed
+/// (`exitCode != 0` or `timedOut`), so normal agent output mentioning status
+/// codes or terms like `401` never overrides a successful run. When
+/// [rateLimitOnCleanExit] is `true`, rate-limit patterns are also reported on
+/// exit 0, and [HarnessNode] applies them only when no report was accepted.
 HarnessOutputAnalysis analyzeCliOutput(
   ProcessExecutionResult result, {
   required RegExp authPattern,
   required RegExp rateLimitPattern,
+  bool rateLimitOnCleanExit = false,
 }) {
   if (result.exitCode == 0 && !result.timedOut) {
+    if (rateLimitOnCleanExit) {
+      final combined = '${result.stderr}\n${result.stdout}'.trim();
+      if (rateLimitPattern.hasMatch(combined)) {
+        return HarnessOutputAnalysis(
+          isRateLimitError: true,
+          errorMessage: _firstMatchingLine(combined, rateLimitPattern),
+        );
+      }
+    }
     return const HarnessOutputAnalysis();
   }
 

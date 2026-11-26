@@ -168,6 +168,88 @@ void main() {
       );
     });
 
+    test('FallbackEntry round-trips and validates', () {
+      const config = HarnessNodeConfig(
+        additionalInstructions: 'x',
+        fallback: [
+          FallbackEntry(
+            harness: NodeTypeId.codex,
+            model: 'm',
+            effort: 'medium',
+          ),
+        ],
+      );
+      final json = config.toJson();
+      expect(json['fallback'], [
+        {'harness': 'harness.codex', 'model': 'm', 'effort': 'medium'},
+      ]);
+      final decoded = HarnessNodeConfig.fromJson(_overTheWire(json));
+      expect(decoded, config);
+
+      final legacy = HarnessNodeConfig.fromJson(const {
+        'additionalInstructions': 'x',
+      });
+      expect(legacy.fallback, isEmpty);
+
+      expect(
+        NodeDescriptors.claudeCode.validateConfig(const {
+          'additionalInstructions': 'x',
+          'model': 'sonnet',
+          'fallback': [
+            {'harness': NodeTypeId.claudeCode, 'model': 'sonnet'},
+            {'harness': NodeTypeId.codex, 'model': 'm', 'effort': 'high'},
+            {'harness': NodeTypeId.codex, 'model': 'm', 'effort': 'high'},
+          ],
+        }),
+        isEmpty,
+      );
+
+      final badHarness = NodeDescriptors.claudeCode.validateConfig(const {
+        'additionalInstructions': 'x',
+        'fallback': [
+          {'harness': NodeTypeId.terminal},
+          {'harness': 'x'},
+        ],
+      });
+      expect(badHarness.map((i) => i.field), [
+        'fallback[0].harness',
+        'fallback[1].harness',
+      ]);
+      expect(
+        badHarness.first.message,
+        'Must be one of the headless harness types: '
+        '${headlessHarnessTypeIds.join(', ')}.',
+      );
+
+      final badFields = NodeDescriptors.claudeCode.validateConfig(const {
+        'additionalInstructions': 'x',
+        'fallback': [
+          {'harness': NodeTypeId.codex, 'model': '-p', 'effort': 'huge'},
+          {'harness': NodeTypeId.codex, 'model': ' -x'},
+        ],
+      });
+      expect(badFields.map((i) => i.field), [
+        'fallback[0].model',
+        'fallback[0].effort',
+        'fallback[1].model',
+      ]);
+
+      final unsupportedEffort = NodeDescriptors.claudeCode.validateConfig(
+        const {
+          'additionalInstructions': 'x',
+          'fallback': [
+            {'harness': NodeTypeId.geminiCli, 'effort': 'high'},
+          ],
+        },
+      );
+      expect(unsupportedEffort, hasLength(1));
+      expect(unsupportedEffort.first.field, 'fallback[0].effort');
+      expect(
+        unsupportedEffort.first.message,
+        'harness.gemini_cli does not support choosing an effort.',
+      );
+    });
+
     test('T-S6 harnessEffortIds mirrors HarnessEffort', () {
       expect(harnessEffortIds, HarnessEffort.values.map((e) => e.name).toSet());
     });
@@ -478,6 +560,17 @@ void main() {
             _field(descriptor, 'rules').itemFields.map((f) => f.name).toSet(),
           );
         }
+        if (headlessHarnessTypeIds.contains(descriptor.typeId)) {
+          final fallback = roundTrip['fallback']! as List<Object?>;
+          final firstEntry = fallback.first! as JsonMap;
+          expect(
+            firstEntry.keys.toSet(),
+            _field(
+              descriptor,
+              'fallback',
+            ).itemFields.map((f) => f.name).toSet(),
+          );
+        }
         expect(
           descriptor.validateConfig(sampleJson),
           isEmpty,
@@ -492,6 +585,13 @@ void main() {
             .where((f) => f.required)
             .map((f) => f.name),
         isEmpty,
+      );
+      expect(
+        _field(
+          NodeDescriptors.claudeCode,
+          'fallback',
+        ).itemFields.where((f) => f.required).map((f) => f.name),
+        ['harness'],
       );
       expect(
         NodeDescriptors.terminal.configFields
@@ -554,6 +654,18 @@ void main() {
         'rules',
       ).itemFields.singleWhere((f) => f.name == 'kind');
       expect(kind.values, ChecklistRuleKind.values.map((k) => k.name).toSet());
+      final fallbackFields = _field(
+        NodeDescriptors.claudeCode,
+        'fallback',
+      ).itemFields;
+      expect(
+        fallbackFields.singleWhere((f) => f.name == 'harness').values,
+        headlessHarnessTypeIds,
+      );
+      expect(
+        fallbackFields.singleWhere((f) => f.name == 'effort').values,
+        harnessEffortIds,
+      );
     });
 
     test('T-S5 requiredOneOf mirrors validate()', () {
@@ -592,6 +704,7 @@ void main() {
           'model',
           'effort',
           'extraArgs',
+          'fallback',
         ]);
       }
 
@@ -604,6 +717,7 @@ void main() {
           'timeoutSeconds',
           'model',
           'extraArgs',
+          'fallback',
         ],
       );
 
@@ -612,6 +726,11 @@ void main() {
           .toSet();
       expect(terminalFieldNames.contains('model'), isFalse);
       expect(terminalFieldNames.contains('effort'), isFalse);
+      expect(terminalFieldNames.contains('fallback'), isFalse);
+      final reviewFieldNames = NodeDescriptors.reviewValidator.configFields
+          .map((f) => f.name)
+          .toSet();
+      expect(reviewFieldNames.contains('fallback'), isFalse);
     });
 
     test('T-S8 unsupported fields are refused', () {
@@ -635,6 +754,29 @@ void main() {
       expect(
         terminalIssues.first.message,
         'harness.terminal does not support choosing a model.',
+      );
+
+      final terminalFallbackIssues = NodeDescriptors.terminal.validateConfig(
+        const {
+          'command': 'x',
+          'fallback': [
+            {'harness': NodeTypeId.codex},
+          ],
+        },
+      );
+      expect(terminalFallbackIssues, hasLength(1));
+      expect(terminalFallbackIssues.first.field, 'fallback');
+      expect(
+        terminalFallbackIssues.first.message,
+        'harness.terminal does not support choosing a fallback.',
+      );
+
+      expect(
+        NodeDescriptors.terminal.validateConfig(const {
+          'command': 'x',
+          'fallback': <Object?>[],
+        }),
+        isEmpty,
       );
 
       expect(

@@ -230,6 +230,10 @@ Future<void> _pumpInspector(
           onUpdateMetadata: ({name, description}) {},
           onUpdateNodeLabel: (_, _) {},
           onUpdateNodeConfig: (_, config) => onConfigChanged?.call(config),
+          onChangeNodeType: (_, _) async =>
+              const FailureResult<WorkflowResponse>(
+                UnexpectedFailure('unused'),
+              ),
           onToggleEntryNode: (_, {required isEntry}) {},
           onDeleteNode: (_) {},
           onUpdateEdge: (

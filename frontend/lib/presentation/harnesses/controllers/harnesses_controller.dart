@@ -275,3 +275,18 @@ class HarnessesController extends _$HarnessesController {
     return next;
   }
 }
+
+/// Maps each headless harness node type ID (`harness.<wireName>`) to its
+/// latest detected [HarnessStatus], or `null` while loading or on error.
+@riverpod
+Map<String, HarnessStatus>? harnessStatusByTypeId(Ref ref) {
+  final harnesses = ref
+      .watch(harnessesControllerProvider)
+      .asData
+      ?.value
+      .harnesses;
+  if (harnesses == null) return null;
+  return <String, HarnessStatus>{
+    for (final info in harnesses) 'harness.${info.id.wireName}': info.status,
+  };
+}

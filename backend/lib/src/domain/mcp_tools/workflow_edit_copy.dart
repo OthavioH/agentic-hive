@@ -26,6 +26,9 @@ final class WorkflowEditTally {
   /// Whether metadata was changed.
   bool metaChanged = false;
 
+  /// Per-node type-change descriptions for the response.
+  final List<String> typeChanges = <String>[];
+
   /// The B10 parts joined by `, `, omitting zero counts.
   String describe() {
     final placed = autoPlaced > 0 ? ' ($autoPlaced auto-placed)' : '';

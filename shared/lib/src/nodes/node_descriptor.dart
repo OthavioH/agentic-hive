@@ -61,6 +61,19 @@ abstract final class NodeDescriptors {
     name: 'effort',
     values: harnessEffortIds,
   );
+  static const NodeConfigField _fallback = NodeConfigField(
+    name: 'fallback',
+    kind: NodeConfigFieldKind.objectList,
+    itemFields: [
+      NodeConfigField(
+        name: 'harness',
+        required: true,
+        values: headlessHarnessTypeIds,
+      ),
+      _model,
+      _effort,
+    ],
+  );
   static const NodeConfigField _args = NodeConfigField(
     name: 'args',
     kind: NodeConfigFieldKind.stringList,
@@ -74,6 +87,7 @@ abstract final class NodeDescriptors {
     _model,
     _effort,
     NodeConfigField(name: 'extraArgs', kind: NodeConfigFieldKind.stringList),
+    _fallback,
   ];
   static const List<NodeConfigField> _codexFields = _claudeCodeFields;
   static const List<NodeConfigField> _antigravityFields = _claudeCodeFields;
@@ -84,6 +98,7 @@ abstract final class NodeDescriptors {
     _timeoutSeconds,
     _model,
     NodeConfigField(name: 'extraArgs', kind: NodeConfigFieldKind.stringList),
+    _fallback,
   ];
   static const List<NodeConfigField> _terminalFields = [
     NodeConfigField(name: 'agentId'),

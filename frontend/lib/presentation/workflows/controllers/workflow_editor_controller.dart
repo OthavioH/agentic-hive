@@ -370,6 +370,44 @@ class WorkflowEditorController extends _$WorkflowEditorController {
     _applyDraft(current, current.workflow.copyWith(entryNodeId: nextEntry));
   }
 
+  /// Switches [nodeId] to the headless harness [newType], drops the config
+  /// fields it does not support, and saves through [save].
+  Future<Result<WorkflowResponse>> changeNodeType(
+    String nodeId,
+    String newType,
+  ) async {
+    final current = state.asData?.value;
+    if (current == null) {
+      return const FailureResult<WorkflowResponse>(
+        UnexpectedFailure('Workflow editor is not loaded.'),
+      );
+    }
+    final node = current.workflow.nodes
+        .where((n) => n.id == nodeId)
+        .firstOrNull;
+    if (node == null || !NodeTypeChange.isAllowed(node.type, newType)) {
+      return const FailureResult<WorkflowResponse>(
+        ValidationFailure('Harness type change is not allowed.'),
+      );
+    }
+    final dropped = NodeTypeChange.droppedFields(node.config, newType);
+    final config = <String, dynamic>{...node.config}
+      ..removeWhere((key, _) => dropped.contains(key));
+    _applyDraft(
+      current,
+      current.workflow.copyWith(
+        nodes: <WorkflowNode>[
+          for (final n in current.workflow.nodes)
+            if (n.id == nodeId)
+              n.copyWith(type: newType, config: config)
+            else
+              n,
+        ],
+      ),
+    );
+    return await save();
+  }
+
   /// Deletes [nodeId] and all edges connected to it.
   void deleteNode(String nodeId) {
     final current = state.asData?.value;

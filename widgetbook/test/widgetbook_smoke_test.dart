@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 const Map<String, String> _useCases = <String, String>{
   'Colors': 'Color roles',
   'Typography': 'Type scale',
+  'Icons': 'moveDown',
   'Motion': 'Page transition',
   'Primary · Default': 'Run workflow',
   'Collapsed (default)': '',

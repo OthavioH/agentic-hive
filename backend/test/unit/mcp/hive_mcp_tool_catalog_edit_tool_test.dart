@@ -33,6 +33,16 @@ void main() {
           },
           {'op': 'disconnect', 'from': 'review', 'to': 'plan'},
           {'op': 'update_node', 'id': 'plan', 'label': 'Plan the change'},
+          {'op': 'update_node', 'id': 'plan', 'type': 'harness.codex'},
+          {
+            'op': 'update_node',
+            'id': 'plan',
+            'config': {
+              'fallback': [
+                {'harness': 'harness.codex', 'model': 'gpt-5'},
+              ],
+            },
+          },
           {'op': 'set_meta', 'description': 'Plans, reviews and fixes.'},
         ],
         'workspace': 'global',

@@ -261,6 +261,7 @@ final class InMemoryCheckpointRepository implements CheckpointRepository {
     required int circuitBreakerCount,
     required Map<String, JsonMap> nodeOutputs,
     required DateTime createdAt,
+    Map<String, int> fallbackIndexByNodeId = const <String, int>{},
     String? completedNodeId,
     int? sequence,
   }) async {
@@ -274,6 +275,7 @@ final class InMemoryCheckpointRepository implements CheckpointRepository {
       nodeOutputs: Map<String, JsonMap>.of(nodeOutputs),
       createdAt: createdAt,
       completedNodeId: completedNodeId,
+      fallbackIndexByNodeId: Map<String, int>.of(fallbackIndexByNodeId),
     );
     checkpoints.add(checkpoint);
     return Success(checkpoint);

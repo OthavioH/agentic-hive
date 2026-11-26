@@ -64,6 +64,19 @@ void main() {
         )
       ''');
     await v10.runCustom('''
+        CREATE TABLE checkpoints (
+          id TEXT NOT NULL PRIMARY KEY,
+          run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+          sequence INTEGER NOT NULL,
+          completed_node_id TEXT,
+          pending_node_ids_json TEXT NOT NULL,
+          attempts_by_edge_json TEXT NOT NULL,
+          circuit_breaker_count INTEGER NOT NULL,
+          node_outputs_json TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        )
+      ''');
+    await v10.runCustom('''
         CREATE TABLE pauses (
           id TEXT NOT NULL PRIMARY KEY,
           run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
@@ -103,7 +116,7 @@ void main() {
     addTearDown(db.close);
 
     final tableInfo = await db.customSelect('PRAGMA table_info(pauses)').get();
-    expect(await readUserVersion(dbFile), 12);
+    expect(await readUserVersion(dbFile), 13);
     final columnNames = tableInfo
         .map((row) => row.read<String>('name'))
         .toSet();

@@ -52,7 +52,7 @@ void main() {
       await db.customSelect('SELECT 1').get();
       await db.close();
 
-      expect(expectedVersion, 12);
+      expect(expectedVersion, 13);
       expect(await readUserVersion(dbFile), expectedVersion);
     });
 
@@ -85,7 +85,7 @@ void main() {
       final secondRows = await readMetadataRows(dbFile);
       expect(secondRows, firstRows);
       expect(secondRows, hasLength(1));
-      expect(await readUserVersion(dbFile), 12);
+      expect(await readUserVersion(dbFile), 13);
     });
   });
 

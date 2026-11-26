@@ -158,10 +158,14 @@ final class EditWorkflowTool extends ScopedMcpTool {
     final suffix = response.validation.isValid
         ? ''
         : '\n${CreateWorkflowTool.draftLine}';
+    final typeChangeLines = patch.tally.typeChanges
+        .map((entry) => 'Type changed $entry\n')
+        .join();
     return Success(
       'Edited workflow ${response.workflow.id} "${response.workflow.name}" '
       'revision ${response.revision} (was $revision)\n'
       'Applied ${patch.operationCount} operations: ${patch.tally.describe()}.\n'
+      '$typeChangeLines'
       'Now ${response.workflow.nodes.length} nodes, '
       '${response.workflow.edges.length} edges, entry '
       '${response.workflow.entryNodeId ?? 'none'}\n'

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/domain/engine/fallback_config.dart';
 import 'package:agentic_hive_backend/src/domain/engine/resume_input.dart';
 import 'package:agentic_hive_backend/src/domain/engine/workflow_graph.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node.dart';
@@ -104,6 +105,7 @@ final class _RunExecution {
     required this.attemptsByEdge,
     required this.circuitBreakerCount,
     required this.nodeOutputs,
+    required this.fallbackIndexByNodeId,
   });
 
   Run run;
@@ -112,6 +114,12 @@ final class _RunExecution {
   final Map<String, int> attemptsByEdge;
   int circuitBreakerCount;
   final Map<String, JsonMap> nodeOutputs;
+  final Map<String, int> fallbackIndexByNodeId;
+
+  // shortcut: not persisted: lost on restart or when a pause releases the run;
+  // upgrade if users report confusion.
+  final Map<String, StoppedAttempt> stoppedAttempts =
+      <String, StoppedAttempt>{};
 
   final Map<String, _ActiveNode> running = <String, _ActiveNode>{};
 
@@ -177,6 +185,7 @@ final class _WakeUp {
 
 /// Executes a frozen workflow from its entry node to a terminal state, a
 /// pause, or a cancellation (ADR 0001, 0003, 0004, 0006, 0007).
+/// A rate limit moves the node to its next fallback entry.
 ///
 /// The engine talks to nodes only through `Node.execute`; it never inspects a
 /// concrete node type and never assumes the workspace is code. Everything it
@@ -697,6 +706,7 @@ final class GraphEngine implements RunCanceller {
     attemptsByEdge: Map<String, int>.of(point.attemptsByEdge),
     circuitBreakerCount: circuitBreakerCount,
     nodeOutputs: Map<String, JsonMap>.of(point.nodeOutputs),
+    fallbackIndexByNodeId: Map<String, int>.of(point.fallbackIndexByNodeId),
   );
 
   Future<Result<_RunExecution>> _preparePausedResume(
@@ -1205,7 +1215,11 @@ final class GraphEngine implements RunCanceller {
         x.failReason = 'Node "$id" does not exist in the workflow.';
         return;
       }
-      final created = _registry.create(workflowNode.type);
+      final (type, _) = FallbackConfig.effective(
+        workflowNode,
+        x.fallbackIndexByNodeId[id],
+      );
+      final created = _registry.create(type);
       if (created case FailureResult<Node>(:final failure)) {
         x.failReason =
             'Node "${workflowNode.label}" cannot run: ${failure.message}';
@@ -1268,6 +1282,10 @@ final class GraphEngine implements RunCanceller {
     final attempt = (x.executionsByNode[id] ?? 0) + 1;
     final resolved = x.resolved.remove(id);
 
+    final (_, config) = FallbackConfig.effective(
+      workflowNode,
+      x.fallbackIndexByNodeId[id],
+    );
     final active = _ActiveNode(nodeId: id, attempt: attempt);
     x.running[id] = active;
     if (resolved != null) {
@@ -1287,13 +1305,14 @@ final class GraphEngine implements RunCanceller {
           workspaceId: x.run.workspaceId,
           attempt: attempt,
           availableOutputs: node.availableOutputs,
-          config: workflowNode.config,
+          config: config,
           inputs: _inputsFor(x, id),
           isolationMode: x.run.isolationMode,
           humanAnswer: x.humanAnswers.remove(id),
           runInput: id == x.run.workflowDefinition.entryNodeId
               ? x.run.input
               : null,
+          stoppedAttempt: x.stoppedAttempts.remove(id),
           runAttachments: _attachmentFilesOf(x.run),
           onOutput: _logStore == null
               ? null
@@ -1448,6 +1467,11 @@ final class GraphEngine implements RunCanceller {
       return;
     }
 
+    if (failure is HarnessRateLimitFailure &&
+        await _switchToFallback(x, id, failure)) {
+      return;
+    }
+
     if (failure is NodeExecutionFailure) {
       // Infrastructure failure: no outcome was reported. Retry the node in
       // place until a normal outcome arrives or the breaker trips.
@@ -1485,6 +1509,53 @@ final class GraphEngine implements RunCanceller {
       },
     );
     x.failReason = 'Node "${_labelOf(x, id)}" failed: ${failure.message}';
+  }
+
+  Future<bool> _switchToFallback(
+    _RunExecution x,
+    String id,
+    HarnessRateLimitFailure failure,
+  ) async {
+    final workflowNode = x.graph.node(id);
+    if (workflowNode == null) return false;
+    final entries = FallbackConfig.entriesOf(workflowNode);
+    final current = x.fallbackIndexByNodeId[id];
+    final next = current == null ? 0 : current + 1;
+    if (next >= entries.length) return false;
+
+    final (fromHarness, fromConfig) = FallbackConfig.effective(
+      workflowNode,
+      current,
+    );
+    final rawFromModel = (fromConfig['model'] as String?)?.trim();
+    final fromModel = rawFromModel != null && rawFromModel.isNotEmpty
+        ? rawFromModel
+        : null;
+    final toEntry = entries[next];
+    final rawToModel = toEntry.model?.trim();
+    final toModel = rawToModel != null && rawToModel.isNotEmpty
+        ? rawToModel
+        : null;
+
+    await _emit(
+      x.run.id,
+      RunEventType.nodeFallback,
+      nodeId: id,
+      payload: <String, Object?>{
+        'from': <String, Object?>{'harness': fromHarness, 'model': ?fromModel},
+        'to': <String, Object?>{'harness': toEntry.harness, 'model': ?toModel},
+        'reason': failure.message,
+      },
+    );
+
+    x.fallbackIndexByNodeId[id] = next;
+    x.stoppedAttempts[id] = StoppedAttempt(
+      harness: fromHarness,
+      model: fromModel,
+    );
+    x.pending.insert(0, id);
+    await _saveCheckpoint(x);
+    return true;
   }
 
   Future<void> _onOutcome(
@@ -1585,6 +1656,7 @@ final class GraphEngine implements RunCanceller {
       circuitBreakerCount: x.circuitBreakerCount,
       nodeOutputs: Map<String, JsonMap>.of(x.nodeOutputs),
       createdAt: _now(),
+      fallbackIndexByNodeId: Map<String, int>.of(x.fallbackIndexByNodeId),
       completedNodeId: completedNodeId,
     );
     switch (saved) {

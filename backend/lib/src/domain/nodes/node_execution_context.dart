@@ -15,6 +15,18 @@ final class RunAttachmentFile {
   final String fileName;
 }
 
+/// Identifies a harness attempt stopped by a rate limit before a fallback.
+final class StoppedAttempt {
+  /// Creates a stopped-attempt descriptor.
+  const new({required this.harness, this.model});
+
+  /// Canonical `WorkflowNode.type` of the harness that hit the rate limit.
+  final String harness;
+
+  /// Optional model name used on that attempt.
+  final String? model;
+}
+
 /// Execution inputs passed to `Node.execute`.
 final class NodeExecutionContext {
   /// Creates a node execution context.
@@ -36,6 +48,7 @@ final class NodeExecutionContext {
     this.resultJsonPath,
     this.humanAnswer,
     this.runInput,
+    this.stoppedAttempt,
     this.runAttachments = const <RunAttachmentFile>[],
     this.onOutput,
   });
@@ -86,6 +99,9 @@ final class NodeExecutionContext {
 
   /// Optional free-text run input passed only to the workflow's entry node.
   final String? runInput;
+
+  /// The harness attempt a rate limit stopped just before this one.
+  final StoppedAttempt? stoppedAttempt;
 
   /// Stored Run attachments of the run, all in one folder; empty when none.
   final List<RunAttachmentFile> runAttachments;

@@ -402,6 +402,7 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
                           onUpdateMetadata: controller.updateWorkflowMetadata,
                           onUpdateNodeLabel: controller.updateNodeLabel,
                           onUpdateNodeConfig: controller.updateNodeConfig,
+                          onChangeNodeType: controller.changeNodeType,
                           onToggleEntryNode: controller.setEntryNode,
                           onDeleteNode: controller.deleteNode,
                           onUpdateEdge: controller.updateEdge,

@@ -12,7 +12,9 @@ final _canonicalBlocks = <String>[
     '  config: agentId, additionalInstructions, ',
     'workingDirectory, timeoutSeconds:int, model, ',
     'effort=low|medium|high|max, ',
-    'extraArgs:[string]; set at least one of ',
+    'extraArgs:[string], ',
+    'fallback:[{harness*=${headlessHarnessTypeIds.join('|')}, ',
+    'model, effort=low|medium|high|max}]; set at least one of ',
     'agentId|additionalInstructions',
   ].join(),
   [
@@ -105,8 +107,8 @@ void main() {
       expect(
         blockFor(NodeTypeId.geminiCli),
         allOf(
-          contains(', model, extraArgs:[string]'),
-          isNot(contains('effort')),
+          contains(', model, extraArgs:[string], fallback:'),
+          isNot(contains('effort=low|medium|high|max, extraArgs')),
         ),
       );
       expect(

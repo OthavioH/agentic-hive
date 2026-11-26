@@ -92,7 +92,7 @@ final class AddNodeOperation extends WorkflowEditOperation {
   }
 }
 
-/// Updates a node label and/or shallow config values.
+/// Updates a node label, shallow config values and/or headless harness type.
 final class UpdateNodeOperation extends WorkflowEditOperation {
   /// Creates an update operation.
   const new();
@@ -106,25 +106,34 @@ final class UpdateNodeOperation extends WorkflowEditOperation {
     if (id is! String) return _reason('id must be a node id.');
     final index = copy.indexOfNode(id);
     if (index < 0) return _reason('node "$id" does not exist.');
-    if (args.containsKey('type')) {
-      return _reason(
-        'the type of a node cannot change; use remove_node and add_node.',
-      );
-    }
     final hasLabel = args.containsKey('label') && args['label'] != null;
     final hasConfig = args.containsKey('config') && args['config'] != null;
-    if (!hasLabel && !hasConfig) {
-      return _reason('pass label or config.');
+    final hasType = args.containsKey('type') && args['type'] != null;
+    if (!hasLabel && !hasConfig && !hasType) {
+      return _reason('pass label, config or type.');
     }
     final label = args['label'];
     if (hasLabel && (label is! String || label.trim().isEmpty)) {
       return _reason('label must be a non-blank string.');
+    }
+    final rawType = args['type'];
+    if (hasType && (rawType is! String || rawType.trim().isEmpty)) {
+      return _reason('type must be a non-blank string.');
     }
     final rawConfig = args['config'];
     if (hasConfig && rawConfig is! Map) {
       return _reason('config must be an object.');
     }
     final node = copy.nodes[index];
+    final newType = hasType ? (rawType! as String).trim() : node.type;
+    final changesType = newType != node.type;
+    if (changesType && !NodeTypeChange.isAllowed(node.type, newType)) {
+      return _reason(
+        'cannot change type from ${node.type} to $newType: only the headless '
+        'harnesses (${headlessHarnessTypeIds.join(', ')}) can change into one '
+        'another; use remove_node and add_node.',
+      );
+    }
     final merged = <String, Object?>{...node.config};
     if (hasConfig) {
       for (final entry in Map<String, Object?>.from(
@@ -137,7 +146,16 @@ final class UpdateNodeOperation extends WorkflowEditOperation {
         }
       }
     }
+    if (changesType) {
+      final dropped = NodeTypeChange.droppedFields(merged, newType)
+        ..forEach(merged.remove);
+      final droppedText = dropped.isEmpty ? 'none' : dropped.join(', ');
+      copy.tally.typeChanges.add(
+        '$id: ${node.type} -> $newType, dropped config fields: $droppedText',
+      );
+    }
     copy.nodes[index] = node.copyWith(
+      type: newType,
       label: hasLabel ? (label! as String).trim() : node.label,
       config: merged,
     );

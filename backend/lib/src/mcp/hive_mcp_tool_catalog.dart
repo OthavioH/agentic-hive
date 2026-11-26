@@ -122,8 +122,15 @@ abstract final class HiveMcpToolCatalog {
             description:
                 'Applied in order; if one fails none is applied. '
                 'add_node {id, type, label, config?, position?}; '
-                'update_node {id, label?, config?} (config merges, null '
-                'removes a key); remove_node {id} (also its edges); '
+                'update_node {id, label?, config?, type?} (config merges, null '
+                'removes a key; type switches a headless harness '
+                '(harness.claude_code, harness.codex, harness.gemini_cli, '
+                'harness.antigravity) to another one, keeping id, edges and '
+                'supported config; dropped config fields are named in the '
+                'answer; a headless harness config may hold fallback: '
+                '[{harness, model?, effort?}], the harnesses tried in order '
+                'when the node hits a rate limit (effort only on harnesses '
+                'that have one)); remove_node {id} (also its edges); '
                 'connect {from, to, output, maxRetries?}; '
                 'disconnect {from, to, output?}; set_entry {id}; '
                 'set_meta {name?, description?}.',
