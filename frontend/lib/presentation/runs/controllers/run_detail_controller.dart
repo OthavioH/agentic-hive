@@ -94,6 +94,47 @@ final class RunDetailState {
     return checkpoints.last;
   }
 
+  /// Effective `{harness, model}` each node ran on after a `node.fallback`
+  /// event, omitting entries that match the node's own configured target.
+  Map<String, FallbackEntry> get ranOnByNodeId {
+    final latestByNodeId = <String, FallbackEntry>{};
+    for (final event in events) {
+      if (event.type != RunEventType.nodeFallback) continue;
+      final nodeId = event.nodeId;
+      if (nodeId == null) continue;
+      final to = event.payload['to'];
+      if (to is! Map<Object?, Object?>) continue;
+      final harness = to['harness'];
+      if (harness is! String || harness.isEmpty) continue;
+      final rawModel = to['model'];
+      final trimmedModel = rawModel is String ? rawModel.trim() : '';
+      latestByNodeId[nodeId] = FallbackEntry(
+        harness: harness,
+        model: trimmedModel.isEmpty ? null : trimmedModel,
+      );
+    }
+    if (latestByNodeId.isEmpty) return const <String, FallbackEntry>{};
+
+    final nodesById = <String, WorkflowNode>{
+      for (final node in run.workflowDefinition.nodes) node.id: node,
+    };
+    final result = <String, FallbackEntry>{};
+    for (final entry in latestByNodeId.entries) {
+      final node = nodesById[entry.key];
+      if (node == null) continue;
+      final rawNodeModel = node.config['model'];
+      final trimmedNodeModel = rawNodeModel is String
+          ? rawNodeModel.trim()
+          : '';
+      final nodeModel = trimmedNodeModel.isEmpty ? null : trimmedNodeModel;
+      if (node.type == entry.value.harness && nodeModel == entry.value.model) {
+        continue;
+      }
+      result[entry.key] = entry.value;
+    }
+    return result;
+  }
+
   /// Returns a copy with updated fields.
   RunDetailState copyWith({
     Run? run,

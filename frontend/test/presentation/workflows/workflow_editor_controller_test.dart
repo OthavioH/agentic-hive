@@ -521,5 +521,43 @@ void main() {
       expect(state.isSaving, isFalse);
       expect(state.workflow.nodes.single.type, NodeTypeId.geminiCli);
     });
+
+    test(
+      'updateNodeConfig with fallback list saves through revision-checked path',
+      () async {
+        final repo = _FakeWorkflowRepository();
+        const node = WorkflowNode(
+          id: 'n1',
+          type: NodeTypeId.claudeCode,
+          label: 'Coder',
+          position: WorkflowPosition(x: 0, y: 0),
+        );
+        repo.stored = repo.stored.copyWith(nodes: <WorkflowNode>[node]);
+        final container = ProviderContainer.test(
+          overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+        );
+
+        final provider = workflowEditorControllerProvider('wf-1');
+        await container.read(provider.future);
+        final notifier = container.read(provider.notifier);
+
+        final updatedConfig = const HarnessNodeConfig(
+          fallback: <FallbackEntry>[
+            FallbackEntry(harness: NodeTypeId.codex, model: 'gpt-x'),
+          ],
+        ).toJson();
+        notifier.updateNodeConfig('n1', updatedConfig);
+
+        final result = await notifier.save();
+        expect(result, isA<Success<WorkflowResponse>>());
+        expect(repo.lastUpdateRequest?.revision, 'rev-1');
+        expect(
+          repo.lastUpdateRequest?.nodes.single.config['fallback'],
+          <JsonMap>[
+            <String, dynamic>{'harness': NodeTypeId.codex, 'model': 'gpt-x'},
+          ],
+        );
+      },
+    );
   });
 }

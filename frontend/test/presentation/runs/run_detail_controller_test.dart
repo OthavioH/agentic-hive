@@ -655,6 +655,167 @@ void main() {
       ]);
     });
   });
+
+  group('RunDetailState.ranOnByNodeId', () {
+    final now = DateTime.utc(2026, 11, 25, 12);
+
+    RunDetailState makeState({
+      required List<WorkflowNode> nodes,
+      required List<RunEvent> events,
+    }) {
+      return RunDetailState(
+        run: Run(
+          id: 'run-1',
+          workflowId: 'wf-1',
+          workflowName: 'Test',
+          workflowDefinition: Workflow(
+            id: 'wf-1',
+            name: 'Test',
+            nodes: nodes,
+            edges: const <WorkflowEdge>[],
+            createdAt: now,
+            updatedAt: now,
+          ),
+          workspacePath: '/tmp/repo',
+          status: RunStatus.succeeded,
+          startedAt: now,
+        ),
+        events: events,
+        checkpoints: const <Checkpoint>[],
+      );
+    }
+
+    RunEvent fallbackEvent(
+      String id,
+      int seq,
+      String? nodeId,
+      Map<String, Object?> payload,
+    ) => RunEvent(
+      id: id,
+      runId: 'run-1',
+      sequence: seq,
+      type: RunEventType.nodeFallback,
+      nodeId: nodeId,
+      createdAt: now,
+      payload: payload,
+    );
+
+    test('returns latest fallback target per node', () {
+      final state = makeState(
+        nodes: const <WorkflowNode>[
+          WorkflowNode(
+            id: 'n1',
+            type: NodeTypeId.claudeCode,
+            label: 'Coder',
+            position: WorkflowPosition(x: 0, y: 0),
+          ),
+        ],
+        events: <RunEvent>[
+          fallbackEvent('e1', 1, 'n1', const <String, Object?>{
+            'from': <String, Object?>{'harness': NodeTypeId.claudeCode},
+            'to': <String, Object?>{'harness': NodeTypeId.geminiCli},
+            'reason': 'rate limit',
+          }),
+          fallbackEvent('e2', 2, 'n1', const <String, Object?>{
+            'from': <String, Object?>{'harness': NodeTypeId.geminiCli},
+            'to': <String, Object?>{
+              'harness': NodeTypeId.codex,
+              'model': 'gpt-x',
+            },
+            'reason': 'rate limit',
+          }),
+        ],
+      );
+
+      expect(state.ranOnByNodeId, <String, FallbackEntry>{
+        'n1': const FallbackEntry(harness: NodeTypeId.codex, model: 'gpt-x'),
+      });
+    });
+
+    test('omits entry when target equals node own type and model', () {
+      final state = makeState(
+        nodes: const <WorkflowNode>[
+          WorkflowNode(
+            id: 'n1',
+            type: NodeTypeId.claudeCode,
+            label: 'Coder',
+            position: WorkflowPosition(x: 0, y: 0),
+            config: <String, dynamic>{'model': '  sonnet  '},
+          ),
+        ],
+        events: <RunEvent>[
+          fallbackEvent('e1', 1, 'n1', const <String, Object?>{
+            'from': <String, Object?>{'harness': NodeTypeId.codex},
+            'to': <String, Object?>{
+              'harness': NodeTypeId.claudeCode,
+              'model': 'sonnet',
+            },
+            'reason': 'switched',
+          }),
+        ],
+      );
+
+      expect(state.ranOnByNodeId, isEmpty);
+    });
+
+    test('includes entry when same harness has a different model', () {
+      final state = makeState(
+        nodes: const <WorkflowNode>[
+          WorkflowNode(
+            id: 'n1',
+            type: NodeTypeId.claudeCode,
+            label: 'Coder',
+            position: WorkflowPosition(x: 0, y: 0),
+            config: <String, dynamic>{'model': 'opus'},
+          ),
+        ],
+        events: <RunEvent>[
+          fallbackEvent('e1', 1, 'n1', const <String, Object?>{
+            'from': <String, Object?>{
+              'harness': NodeTypeId.claudeCode,
+              'model': 'opus',
+            },
+            'to': <String, Object?>{
+              'harness': NodeTypeId.claudeCode,
+              'model': 'sonnet',
+            },
+            'reason': 'rate limit',
+          }),
+        ],
+      );
+
+      expect(state.ranOnByNodeId, <String, FallbackEntry>{
+        'n1': const FallbackEntry(
+          harness: NodeTypeId.claudeCode,
+          model: 'sonnet',
+        ),
+      });
+    });
+
+    test('returns empty map when no events or payload is malformed', () {
+      final state = makeState(
+        nodes: const <WorkflowNode>[
+          WorkflowNode(
+            id: 'n1',
+            type: NodeTypeId.claudeCode,
+            label: 'Coder',
+            position: WorkflowPosition(x: 0, y: 0),
+          ),
+        ],
+        events: <RunEvent>[
+          fallbackEvent('e1', 1, 'n1', const <String, Object?>{'to': 'bad'}),
+          fallbackEvent('e2', 2, 'n1', const <String, Object?>{
+            'to': <String, Object?>{'model': 'no-harness'},
+          }),
+          fallbackEvent('e3', 3, 'missing-node', const <String, Object?>{
+            'to': <String, Object?>{'harness': NodeTypeId.codex},
+          }),
+        ],
+      );
+
+      expect(state.ranOnByNodeId, isEmpty);
+    });
+  });
 }
 
 final class _LiveFakeRunRepository extends _FakeRunRepository {

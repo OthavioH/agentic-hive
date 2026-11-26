@@ -6,6 +6,7 @@ import 'package:agentic_hive_frontend/domain/agents/agent_repository.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflow_editor_controller.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/harness_config_form.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/node_config_form_registry.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_palette.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/workflow_inspector_panel.dart';
@@ -1674,6 +1675,218 @@ void main() {
       await tester.tap(find.byKey(nodeSelectKey));
       await tester.pumpAndSettle();
       expect(find.text('Planner'), findsWidgets);
+    });
+  });
+
+  group('HarnessConfigForm fallback list', () {
+    WorkflowNode makeHarnessNode(
+      String type, [
+      JsonMap config = const <String, dynamic>{},
+    ]) => WorkflowNode(
+      id: 'n-fallback',
+      type: type,
+      label: 'Coder',
+      position: const WorkflowPosition(x: 0, y: 0),
+      config: config,
+    );
+
+    Future<void> pumpFallbackForm(
+      WidgetTester tester,
+      WorkflowNode node, {
+      ValueChanged<JsonMap>? onConfig,
+    }) {
+      tester.view.physicalSize = const Size(900, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      return _pumpWithHost(
+        tester,
+        SingleChildScrollView(
+          child: HarnessConfigForm(
+            node: node,
+            includeTerminalFields: node.type == NodeTypeId.terminal,
+            onConfigChanged: onConfig ?? (_) {},
+          ),
+        ),
+      );
+    }
+
+    testWidgets('empty state copy and add button emits default fallback', (
+      tester,
+    ) async {
+      JsonMap? latest;
+      await pumpFallbackForm(
+        tester,
+        makeHarnessNode(NodeTypeId.claudeCode),
+        onConfig: (c) => latest = c,
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('No fallback. The node fails on a rate limit.'),
+        findsOneWidget,
+      );
+
+      final addFinder = find.byKey(const Key('config_fallback_add'));
+      await tester.ensureVisible(addFinder);
+      await tester.tap(addFinder);
+      await tester.pumpAndSettle();
+
+      expect(latest?['fallback'], <JsonMap>[
+        <String, dynamic>{'harness': NodeTypeId.codex},
+      ]);
+      expect(
+        find.text('No fallback. The node fails on a rate limit.'),
+        findsNothing,
+      );
+    });
+
+    testWidgets('move up/down swaps order and keeps model text with its row', (
+      tester,
+    ) async {
+      JsonMap? latest;
+      await pumpFallbackForm(
+        tester,
+        makeHarnessNode(NodeTypeId.claudeCode, const <String, dynamic>{
+          'fallback': <JsonMap>[
+            <String, dynamic>{
+              'harness': NodeTypeId.codex,
+              'model': 'gpt-first',
+            },
+            <String, dynamic>{
+              'harness': NodeTypeId.geminiCli,
+              'model': 'gemini-second',
+            },
+          ],
+        }),
+        onConfig: (c) => latest = c,
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<HiveIconButton>(
+              find.byKey(const Key('config_fallback_0_up')),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<HiveIconButton>(
+              find.byKey(const Key('config_fallback_1_down')),
+            )
+            .onPressed,
+        isNull,
+      );
+
+      final moveDown0 = find.byKey(const Key('config_fallback_0_down'));
+      await tester.ensureVisible(moveDown0);
+      await tester.tap(moveDown0);
+      await tester.pumpAndSettle();
+
+      expect(latest?['fallback'], <JsonMap>[
+        <String, dynamic>{
+          'harness': NodeTypeId.geminiCli,
+          'model': 'gemini-second',
+        },
+        <String, dynamic>{'harness': NodeTypeId.codex, 'model': 'gpt-first'},
+      ]);
+      expect(
+        tester
+            .widget<HiveTextField>(
+              find.byKey(const Key('config_fallback_0_model')),
+            )
+            .controller!
+            .text,
+        'gemini-second',
+      );
+      expect(
+        tester
+            .widget<HiveTextField>(
+              find.byKey(const Key('config_fallback_1_model')),
+            )
+            .controller!
+            .text,
+        'gpt-first',
+      );
+
+      final moveUp1 = find.byKey(const Key('config_fallback_1_up'));
+      await tester.ensureVisible(moveUp1);
+      await tester.tap(moveUp1);
+      await tester.pumpAndSettle();
+
+      expect(latest?['fallback'], <JsonMap>[
+        <String, dynamic>{'harness': NodeTypeId.codex, 'model': 'gpt-first'},
+        <String, dynamic>{
+          'harness': NodeTypeId.geminiCli,
+          'model': 'gemini-second',
+        },
+      ]);
+    });
+
+    testWidgets('remove drops row and picking gemini hides effort when null', (
+      tester,
+    ) async {
+      JsonMap? latest;
+      await pumpFallbackForm(
+        tester,
+        makeHarnessNode(NodeTypeId.claudeCode, const <String, dynamic>{
+          'fallback': <JsonMap>[
+            <String, dynamic>{'harness': NodeTypeId.codex},
+            <String, dynamic>{'harness': NodeTypeId.antigravity},
+          ],
+        }),
+        onConfig: (c) => latest = c,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('config_fallback_0_effort')), findsOneWidget);
+
+      final harness0 = find.byKey(const Key('config_fallback_0_harness'));
+      await tester.ensureVisible(harness0);
+      await tester.tap(harness0);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Gemini CLI').last);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('config_fallback_0_effort')), findsNothing);
+      expect((latest!['fallback']! as List<dynamic>).first, <String, dynamic>{
+        'harness': NodeTypeId.geminiCli,
+      });
+
+      final remove0 = find.byKey(const Key('config_fallback_0_remove'));
+      await tester.ensureVisible(remove0);
+      await tester.tap(remove0);
+      await tester.pumpAndSettle();
+
+      expect(latest?['fallback'], <JsonMap>[
+        <String, dynamic>{'harness': NodeTypeId.antigravity},
+      ]);
+    });
+
+    testWidgets('model starting with dash shows error', (tester) async {
+      await pumpFallbackForm(
+        tester,
+        makeHarnessNode(NodeTypeId.claudeCode, const <String, dynamic>{
+          'fallback': <JsonMap>[
+            <String, dynamic>{'harness': NodeTypeId.codex, 'model': '-bad'},
+          ],
+        }),
+      );
+      await tester.pumpAndSettle();
+
+      final modelField = tester.widget<HiveTextField>(
+        find.byKey(const Key('config_fallback_0_model')),
+      );
+      expect(modelField.errorText, 'Model must not start with "-".');
+    });
+
+    testWidgets('section is absent for harness.terminal', (tester) async {
+      await pumpFallbackForm(tester, makeHarnessNode(NodeTypeId.terminal));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('config_fallback_add')), findsNothing);
+      expect(find.text('Fallback'), findsNothing);
     });
   });
 }
