@@ -281,6 +281,50 @@ void main() {
     expect(result.failureOrNull, isA<StaleRevisionFailure>());
   });
 
+  test('a type change reports dropped fields and keeps edges', () async {
+    final before = await seed();
+    final result = await call(before.workflow.id, before.revision!, [
+      {
+        'op': 'update_node',
+        'id': 'plan',
+        'type': NodeTypeId.geminiCli,
+        'config': {'effort': 'high', 'model': 'gemini-2.5-pro'},
+      },
+    ]);
+    final text = (result as Success<String>).value;
+    expect(
+      text.split('\n'),
+      contains(
+        'Type changed plan: ${NodeTypeId.claudeCode} -> '
+        '${NodeTypeId.geminiCli}, dropped config fields: effort',
+      ),
+    );
+    final saved = global.store[before.workflow.id]!;
+    expect(saved.nodes.first.type, NodeTypeId.geminiCli);
+    expect(saved.edges, before.workflow.edges);
+  });
+
+  test('a stale revision refuses a type change and nothing changes', () async {
+    final before = await seed();
+    final result = await call(before.workflow.id, '0000000000000000', [
+      {'op': 'update_node', 'id': 'plan', 'type': NodeTypeId.codex},
+    ]);
+    expect(result.failureOrNull, isA<StaleRevisionFailure>());
+    expect(
+      global.store[before.workflow.id]!.nodes.first.type,
+      NodeTypeId.claudeCode,
+    );
+  });
+
+  test('a refused type change leaves the stored workflow unchanged', () async {
+    final before = await seed();
+    final result = await call(before.workflow.id, before.revision!, [
+      {'op': 'update_node', 'id': 'plan', 'type': NodeTypeId.terminal},
+    ]);
+    expect(result, isA<FailureResult<String>>());
+    expect(global.store[before.workflow.id], before.workflow);
+  });
+
   test(
     'an invalid operation in the middle leaves the workflow unchanged and is '
     'named',

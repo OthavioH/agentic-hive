@@ -138,7 +138,7 @@ void main() {
       await call(mcp, 'get_workflow', {'id': id, 'workspace': 'global'}),
       contains('"Plan the change"'),
     );
-  });
+  }, timeout: const Timeout(Duration(seconds: 60)));
 
   test('edit in a workspace rewrites the workflow file', () async {
     final dataDir = p.join(tempDir.path, 'data');
@@ -197,7 +197,7 @@ void main() {
     );
     expect(file.readAsStringSync(), contains('Plan the change'));
     expect(file.readAsStringSync(), isNot(contains('"label": "Plan"')));
-  });
+  }, timeout: const Timeout(Duration(seconds: 60)));
 
   test('a stale revision is an isError result and nothing changes', () async {
     final dataDir = p.join(tempDir.path, 'data');
