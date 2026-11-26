@@ -198,6 +198,7 @@ NodeExecutionContext _context({
   JsonMap config = const {'additionalInstructions': 'Implement feature X'},
   String? humanAnswer,
   String? runInput,
+  StoppedAttempt? stoppedAttempt,
   List<RunAttachmentFile> runAttachments = const <RunAttachmentFile>[],
   WorkspaceIsolationMode isolationMode = WorkspaceIsolationMode.direct,
   String? resultJsonPath,
@@ -208,6 +209,7 @@ NodeExecutionContext _context({
   config: config,
   humanAnswer: humanAnswer,
   runInput: runInput,
+  stoppedAttempt: stoppedAttempt,
   runAttachments: runAttachments,
   isolationMode: isolationMode,
   resultJsonPath: resultJsonPath,
@@ -1565,6 +1567,37 @@ void main() {
       );
       expect(failedResult.failureOrNull, isA<HarnessRateLimitFailure>());
     });
+
+    test(
+      'buildPrompt includes previous attempt note when stoppedAttempt is set',
+      () async {
+        final node = ClaudeCodeNode(
+          processRunner: processRunner,
+          resultContract: resultContract,
+          agentPromptResolver: agentResolver,
+        );
+
+        final withNote = (await node.buildPrompt(
+          _context(
+            stoppedAttempt: const StoppedAttempt(
+              harness: 'harness.codex',
+              model: 'gpt-x',
+            ),
+          ),
+          additionalInstructions: 'Do X',
+        )).valueOrNull!;
+        expect(withNote, contains('## Previous attempt'));
+        expect(withNote, contains('harness.codex'));
+        expect(withNote, contains('gpt-x'));
+        expect(withNote, contains('partial work'));
+
+        final withoutNote = (await node.buildPrompt(
+          _context(),
+          additionalInstructions: 'Do X',
+        )).valueOrNull!;
+        expect(withoutNote, isNot(contains('## Previous attempt')));
+      },
+    );
   });
 }
 

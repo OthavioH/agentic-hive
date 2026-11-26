@@ -178,6 +178,10 @@ class Checkpoints extends Table {
   /// JSON-encoded map of node ID to structured output map.
   TextColumn get nodeOutputsJson => text()();
 
+  /// JSON-encoded map of node ID to 0-based fallback index.
+  TextColumn get fallbackIndexByNodeIdJson =>
+      text().withDefault(const Constant('{}'))();
+
   /// UTC ISO-8601 creation timestamp.
   TextColumn get createdAt => text()();
 
@@ -390,7 +394,7 @@ class AppDatabase extends _$AppDatabase {
   static const installedAtKey = 'installed_at';
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -472,11 +476,26 @@ class AppDatabase extends _$AppDatabase {
           await m.addColumn(runs, runs.attachmentsJson);
         }
       }
+      if (from < 13) {
+        if (from >= 3 &&
+            await _needsColumn(
+              'checkpoints',
+              'fallback_index_by_node_id_json',
+            )) {
+          await m.addColumn(checkpoints, checkpoints.fallbackIndexByNodeIdJson);
+        }
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
+
+  Future<bool> _needsColumn(String table, String column) async {
+    final rows = await customSelect('PRAGMA table_info("$table")').get();
+    return rows.isNotEmpty &&
+        rows.every((r) => r.read<String>('name') != column);
+  }
 
   /// Migration 7 to 8: creates one workspace per distinct run
   /// `workspace_path` (named after the folder) and attaches those runs to it

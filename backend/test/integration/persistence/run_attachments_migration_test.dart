@@ -109,7 +109,7 @@ void main() {
       );
 
       await reopened.close();
-      expect(await readUserVersion(dbFile), 12);
+      expect(await readUserVersion(dbFile), 13);
     },
   );
 }
