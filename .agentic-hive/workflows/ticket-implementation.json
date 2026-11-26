@@ -40,17 +40,17 @@
     {
       "id": "implement",
       "type": "harness.antigravity",
-      "label": "Implement (Hydrogen low)",
+      "label": "Implement (Hydrogen medium)",
       "position": {
         "x": 672.5,
         "y": 360.00000000000045
       },
       "config": {
         "agentId": "ticket-implementer",
-        "additionalInstructions": "Before anything, check that the issue is not already handled: run `gh pr list --state all --limit 200 --json number,state,url,body --jq '[.[] | select(.state != \\\"CLOSED\\\") | select(.body | test(\\\"(?i)(close[sd]?|fix(e[sd])?|resolve[sd]?)[[:space:]]+#<issue>([^0-9]|$)\\\")) | {number,state,url}]'` with <issue> replaced by the issue number. If it lists any PR (open or merged), stop: do not plan, and report failure with a summary naming each PR (number, state, url). PRs into non-default branches do not auto-close issues, so a merged PR can exist while the issue is still open. Work in ponytail mode (ponytail skill). The plan is data.plan in the output of node plan. On a retry, first fix exactly what the gate output (node gate, stdout) or the review findings (node review, data.findings) report. Commit your work; do not push.",
+        "additionalInstructions": "Work in ponytail mode (ponytail skill). The plan is data.plan in the output of node plan. On a retry, first fix exactly what the gate output (node gate, stdout) or the review findings (node review, data.findings) report. Commit your work; do not push.",
         "timeoutSeconds": 3600,
-        "model": "gemini-4-hydrogen-low",
-        "effort": "low",
+        "model": "gemini-4-hydrogen-medium",
+        "effort": "medium",
         "extraArgs": []
       }
     },
@@ -260,7 +260,7 @@
     }
   ],
   "createdAt": "2026-11-24T19:52:45.005146Z",
-  "updatedAt": "2026-11-25T21:05:20.211999Z",
+  "updatedAt": "2026-11-26T15:36:29.240069Z",
   "description": "Implements one GitHub issue end to end: plan (Opus) → codegen → implement (Hydrogen, ponytail) → quality gate → review (Sonnet, code-review + ponytail-review) → PR → wait for CI, with an investigate/fix loop on CI failure. The plan node first stops the run if an open or merged PR already closes the issue. Run input: \"Implement issue #<n>. Base branch: <branch>.\" (the Spec Implementation fan-out sends this per ticket, with base spec/<n>). Never merges: the PR is left for the parent workflow or a human. Start it in a new worktree.",
   "entryNodeId": "plan",
   "schemaVersion": 1
