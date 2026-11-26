@@ -9,6 +9,7 @@ import 'package:agentic_hive_frontend/presentation/workspace/widgets/workspace_r
 import 'package:agentic_hive_frontend/presentation/workspace/widgets/workspace_switcher_bar.dart';
 import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:design_system/design_system.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart'
     show GlobalWidgetsLocalizations;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -347,5 +348,39 @@ void main() {
       tester.getCenter(emptyText).dy,
       moreOrLessEquals(buttonCenterY, epsilon: 0.5),
     );
+  });
+
+  testWidgets('WorkspaceSwitcherBar preserves Workspaces button focus when '
+      'workspaces become available', (tester) async {
+    await tester.pumpWidget(
+      _wrap(
+        child: const WorkspaceSwitcherBar(),
+        repo: repo,
+        selectionStore: selectionStore,
+        filePicker: filePicker,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+
+    final button = find.byKey(const Key('workspace_manage_button'));
+    final buttonLabel = find.descendant(
+      of: button,
+      matching: find.text('Workspaces'),
+    );
+    expect(Focus.of(tester.element(buttonLabel)).hasPrimaryFocus, isTrue);
+
+    repo.workspaces = [makeWorkspace(name: 'Alpha')];
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(WorkspaceSwitcherBar)),
+    );
+    await container
+        .read(workspaceRegistryControllerProvider.notifier)
+        .refresh();
+    await tester.pumpAndSettle();
+
+    expect(Focus.of(tester.element(buttonLabel)).hasPrimaryFocus, isTrue);
   });
 }

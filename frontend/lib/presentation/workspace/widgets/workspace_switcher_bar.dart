@@ -26,12 +26,10 @@ class WorkspaceSwitcherBar extends ConsumerWidget {
       _ => false,
     };
 
-    Widget fieldAligned(Widget child) => showsSelect
-        ? SizedBox(
-            height: spacing.space5,
-            child: Center(child: child),
-          )
-        : child;
+    Widget fieldAligned(Widget child) => SizedBox(
+      height: showsSelect ? spacing.space5 : null,
+      child: Center(heightFactor: 1, child: child),
+    );
 
     return HiveCard(
       child: Row(
