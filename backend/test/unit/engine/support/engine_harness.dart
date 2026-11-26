@@ -199,7 +199,7 @@ final class EngineHarness {
       id: runId,
       workflowName: workflow.name,
       workflowDefinition: workflow,
-      workspacePath: '/workspace',
+      workspaceRoot: '/workspace',
       status: status,
       startedAt: DateTime.utc(2026),
       input: input,
@@ -216,6 +216,11 @@ final class EngineHarness {
   List<RunEventType> get eventTypes => events.typesOf(runId);
 
   /// Waits until all queued microtasks and timers at the current time ran.
-  Future<void> settle() =>
-      Future<void>.delayed(const Duration(milliseconds: 5));
+  Future<void> settle() async {
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    // A stalled runner can fire the delay above before chained zero timers ran.
+    for (var i = 0; i < 50; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+  }
 }

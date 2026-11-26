@@ -406,6 +406,30 @@ void main() {
       expect(find.bySemanticsLabel('Restore'), findsOneWidget);
     });
 
+    testWidgets('move icons render and are listed in interface', (
+      tester,
+    ) async {
+      expect(HiveIcons.interface['moveUp'], HiveIcons.moveUp);
+      expect(HiveIcons.interface['moveDown'], HiveIcons.moveDown);
+
+      await tester.pumpWidget(
+        hiveTestApp(
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              HiveIcon(HiveIcons.moveUp, semanticLabel: 'Move up'),
+              HiveIcon(HiveIcons.moveDown, semanticLabel: 'Move down'),
+            ],
+          ),
+        ),
+      );
+
+      expect(find.byType(HiveIcon), findsNWidgets(2));
+      expect(find.bySemanticsLabel('Move up'), findsOneWidget);
+      expect(find.bySemanticsLabel('Move down'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('disabled button announces disabledReason as its hint', (
       tester,
     ) async {

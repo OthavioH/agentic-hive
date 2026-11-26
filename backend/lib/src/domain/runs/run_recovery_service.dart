@@ -19,6 +19,7 @@ final class ResumePoint {
     required this.attemptsByEdge,
     required this.circuitBreakerCount,
     required this.nodeOutputs,
+    this.fallbackIndexByNodeId = const <String, int>{},
   });
 
   /// The run being resumed.
@@ -41,6 +42,9 @@ final class ResumePoint {
 
   /// Outputs recorded by completed nodes.
   final Map<String, JsonMap> nodeOutputs;
+
+  /// Per-node fallback index from the latest checkpoint.
+  final Map<String, int> fallbackIndexByNodeId;
 }
 
 /// Handles startup orphan-run recovery and checkpoint resume resolution.
@@ -198,6 +202,7 @@ final class RunRecoveryService {
           attemptsByEdge: latest.attemptsByEdge,
           circuitBreakerCount: latest.circuitBreakerCount,
           nodeOutputs: latest.nodeOutputs,
+          fallbackIndexByNodeId: latest.fallbackIndexByNodeId,
         ),
       );
     }

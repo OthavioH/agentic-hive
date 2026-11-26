@@ -40,31 +40,34 @@ final class _FakeSelectionStore implements WorkspaceSelectionStore {
 
 final class _FakeAgentRepository implements AgentRepository {
   @override
-  Future<Result<List<AgentSummary>>> listAgents({String? workspaceId}) async =>
-      const Success(<AgentSummary>[]);
+  Future<Result<List<AgentSummary>>> listAgents({
+    DefinitionScope scope = const GlobalScope(),
+  }) async => const Success(<AgentSummary>[]);
 
   @override
   Future<Result<AgentDetail>> getAgent(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Future<Result<AgentDetail>> createAgent(
     CreateAgentRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Future<Result<AgentDetail>> updateAgent(
     String id,
     UpdateAgentRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
-  Future<Result<void>> deleteAgent(String id, {String? workspaceId}) async =>
-      const Success<void>(null);
+  Future<Result<void>> deleteAgent(
+    String id, {
+    DefinitionScope scope = const GlobalScope(),
+  }) async => const Success<void>(null);
 
   @override
   Stream<AgentsChangedPayload> watchAgentChanges() =>
@@ -78,7 +81,9 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   final DateTime now = DateTime.utc(2026, 11, 21);
 
   @override
-  Future<Result<List<WorkflowSummary>>> listWorkflows({String? workspaceId}) {
+  Future<Result<List<WorkflowSummary>>> listWorkflows({
+    DefinitionScope scope = const GlobalScope(),
+  }) {
     if (onListWorkflows != null) return onListWorkflows!();
     return Future<Result<List<WorkflowSummary>>>.value(
       Success<List<WorkflowSummary>>(<WorkflowSummary>[
@@ -105,7 +110,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   @override
   Future<Result<WorkflowResponse>> getWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
@@ -117,20 +122,20 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
     UpdateWorkflowRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Stream<WorkflowDeletionUpdate> deleteWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
     String? revision,
     bool force = false,
   }) => const Stream<WorkflowDeletionUpdate>.empty();
@@ -150,7 +155,7 @@ final class _FakeWorkflowReferenceRepository
   @override
   Future<Result<List<WorkflowReference>>> getReferences(
     String workflowId, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => nextResult;
 }
 
@@ -250,6 +255,10 @@ Future<void> _pumpInspector(
           onUpdateMetadata: ({name, description}) {},
           onUpdateNodeLabel: (_, _) {},
           onUpdateNodeConfig: (_, _) {},
+          onChangeNodeType: (_, _) async =>
+              const FailureResult<WorkflowResponse>(
+                UnexpectedFailure('unused'),
+              ),
           onToggleEntryNode: (_, {required isEntry}) {},
           onDeleteNode: (_) {},
           onUpdateEdge: (
@@ -496,13 +505,11 @@ void main() {
           WorkflowReference(
             workflowId: 'wf-p',
             workflowName: 'Planner',
-            scope: WorkflowScope.global,
             nodeIds: <String>['n1'],
           ),
           WorkflowReference(
             workflowId: 'wf-r',
             workflowName: 'Release',
-            scope: WorkflowScope.global,
             nodeIds: <String>['n2'],
           ),
         ]);

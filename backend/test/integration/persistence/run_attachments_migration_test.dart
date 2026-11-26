@@ -53,7 +53,7 @@ void main() {
           workflowId: 'wf-1',
           workflowName: 'Flow',
           workflowDefinition: workflow,
-          workspacePath: dir.path,
+          workspaceRoot: dir.path,
           workspaceId: 'ws-1',
           status: RunStatus.succeeded,
           startedAt: DateTime.utc(2026, 11, 25),
@@ -63,6 +63,9 @@ void main() {
 
       await fresh.customStatement(
         'ALTER TABLE runs DROP COLUMN attachments_json',
+      );
+      await fresh.customStatement(
+        'ALTER TABLE checkpoints DROP COLUMN fallback_index_by_node_id_json',
       );
       await fresh.customStatement('PRAGMA user_version = 11');
       await fresh.close();
@@ -81,7 +84,7 @@ void main() {
           workflowId: 'wf-1',
           workflowName: 'Flow',
           workflowDefinition: workflow,
-          workspacePath: dir.path,
+          workspaceRoot: dir.path,
           workspaceId: 'ws-1',
           status: RunStatus.running,
           startedAt: DateTime.utc(2026, 11, 25, 1),
@@ -109,7 +112,7 @@ void main() {
       );
 
       await reopened.close();
-      expect(await readUserVersion(dbFile), 12);
+      expect(await readUserVersion(dbFile), 13);
     },
   );
 }

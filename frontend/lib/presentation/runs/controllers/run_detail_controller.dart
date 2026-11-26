@@ -94,6 +94,53 @@ final class RunDetailState {
     return checkpoints.last;
   }
 
+  /// Parses a `{harness, model?}` map from a `node.fallback` event payload.
+  static FallbackEntry? parseFallbackEndpoint(Object? raw) {
+    if (raw is! Map<Object?, Object?>) return null;
+    final harness = raw['harness'];
+    if (harness is! String || harness.isEmpty) return null;
+    final rawModel = raw['model'];
+    final trimmedModel = rawModel is String ? rawModel.trim() : '';
+    return FallbackEntry(
+      harness: harness,
+      model: trimmedModel.isEmpty ? null : trimmedModel,
+    );
+  }
+
+  /// Effective `{harness, model}` each node ran on after a `node.fallback`
+  /// event, omitting entries that match the node's own configured target.
+  Map<String, FallbackEntry> get ranOnByNodeId {
+    final latestByNodeId = <String, FallbackEntry>{};
+    for (final event in events) {
+      if (event.type != RunEventType.nodeFallback) continue;
+      final nodeId = event.nodeId;
+      if (nodeId == null) continue;
+      final entry = parseFallbackEndpoint(event.payload['to']);
+      if (entry == null) continue;
+      latestByNodeId[nodeId] = entry;
+    }
+    if (latestByNodeId.isEmpty) return const <String, FallbackEntry>{};
+
+    final nodesById = <String, WorkflowNode>{
+      for (final node in run.workflowDefinition.nodes) node.id: node,
+    };
+    final result = <String, FallbackEntry>{};
+    for (final entry in latestByNodeId.entries) {
+      final node = nodesById[entry.key];
+      if (node == null) continue;
+      final rawNodeModel = node.config['model'];
+      final trimmedNodeModel = rawNodeModel is String
+          ? rawNodeModel.trim()
+          : '';
+      final nodeModel = trimmedNodeModel.isEmpty ? null : trimmedNodeModel;
+      if (node.type == entry.value.harness && nodeModel == entry.value.model) {
+        continue;
+      }
+      result[entry.key] = entry.value;
+    }
+    return result;
+  }
+
   /// Returns a copy with updated fields.
   RunDetailState copyWith({
     Run? run,
@@ -973,6 +1020,7 @@ class RunDetailController extends _$RunDetailController {
       RunEventType.nodeCompleted ||
       RunEventType.nodeFailed ||
       RunEventType.nodeRetried ||
+      RunEventType.nodeFallback ||
       RunEventType.checkpointSaved ||
       RunEventType.snapshotCaptured ||
       RunEventType.snapshotRestored ||
@@ -1101,6 +1149,7 @@ class RunDetailController extends _$RunDetailController {
       case RunEventType.runStarted:
       case RunEventType.runSucceeded:
       case RunEventType.runFailed:
+      case RunEventType.nodeFallback:
       case RunEventType.checkpointSaved:
       case RunEventType.snapshotCaptured:
       case RunEventType.snapshotRestored:

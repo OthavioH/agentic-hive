@@ -25,9 +25,9 @@ final class _FakeWorkflowReferenceRepository
   @override
   Future<Result<List<WorkflowReference>>> getReferences(
     String workflowId, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
-    calls.add((workflowId: workflowId, workspaceId: workspaceId));
+    calls.add((workflowId: workflowId, workspaceId: scope.workspaceIdOrNull));
     return nextResult;
   }
 }
@@ -35,13 +35,11 @@ final class _FakeWorkflowReferenceRepository
 WorkflowSummary _workflow({
   String id = 'wf-1',
   String name = 'Child Flow',
-  WorkflowScope scope = WorkflowScope.global,
-  String? workspaceId,
+  DefinitionScope scope = const GlobalScope(),
 }) => WorkflowSummary(
   id: id,
   name: name,
   scope: scope,
-  workspaceId: workspaceId,
   nodeCount: 2,
   edgeCount: 1,
   hasValidationErrors: false,
@@ -103,13 +101,11 @@ void main() {
         WorkflowReference(
           workflowId: 'wf-p',
           workflowName: 'Planner',
-          scope: WorkflowScope.global,
           nodeIds: <String>['n1'],
         ),
         WorkflowReference(
           workflowId: 'wf-r',
           workflowName: 'Release',
-          scope: WorkflowScope.global,
           nodeIds: <String>['n2'],
         ),
       ]);
@@ -136,14 +132,12 @@ void main() {
         WorkflowReference(
           workflowId: 'wf-p1',
           workflowName: 'Planner',
-          scope: WorkflowScope.global,
           nodeIds: <String>['n1'],
         ),
         WorkflowReference(
           workflowId: 'wf-p2',
           workflowName: 'Planner',
-          scope: WorkflowScope.workspace,
-          workspaceId: 'ws-1',
+          scope: WorkspaceScope('ws-1'),
           nodeIds: <String>['n2'],
         ),
       ]);
@@ -211,9 +205,7 @@ void main() {
     tester,
   ) async {
     final repo = ScriptedWorkflowRepository()
-      ..items.add(
-        _workflow(scope: WorkflowScope.workspace, workspaceId: 'ws-42'),
-      );
+      ..items.add(_workflow(scope: const WorkspaceScope('ws-42')));
     final refRepo = _FakeWorkflowReferenceRepository();
     await _pump(tester, repo, refRepo);
 

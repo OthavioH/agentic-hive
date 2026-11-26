@@ -21,7 +21,7 @@ sealed class Run with _$Run {
     required String id,
     required String workflowName,
     required Workflow workflowDefinition,
-    required String workspacePath,
+    required String workspaceRoot,
     required RunStatus status,
     required DateTime startedAt,
     @Default(WorkspaceIsolationMode.direct)

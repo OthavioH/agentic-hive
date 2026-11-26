@@ -98,7 +98,7 @@ final class BuildingBlocksTextFormatter {
   String _agentLine(AgentSummary agent) {
     final description = agent.description.trim();
     final suffix = description.isEmpty ? '' : ': ${_truncate(description)}';
-    return '- ${agent.id} "${agent.name}" (${agent.scope.name})$suffix';
+    return '- ${agent.id} "${agent.name}" (${agent.scope.wireName})$suffix';
   }
 
   String _truncate(String text) => text.length > _maxDescriptionLength

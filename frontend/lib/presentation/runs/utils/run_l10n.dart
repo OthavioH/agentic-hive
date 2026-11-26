@@ -2,9 +2,11 @@ import 'dart:convert';
 
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
 import 'package:intl/intl.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Localization, formatting, and visual status mapping helpers for Runs UI.
 abstract final class RunL10n {
@@ -109,6 +111,7 @@ abstract final class RunL10n {
       RunEventType.runCancelling ||
       RunEventType.runInterrupted ||
       RunEventType.nodeRetried ||
+      RunEventType.nodeFallback ||
       RunEventType.snapshotWarning ||
       RunEventType.warning => HiveBadgeTone.warning,
       RunEventType.runSucceeded ||
@@ -166,5 +169,18 @@ abstract final class RunL10n {
   static String prettyJsonMap(JsonMap value) {
     if (value.isEmpty) return '';
     return _prettyJsonEncoder.convert(value);
+  }
+
+  /// Formats [entry] as `<Harness>` or `<Harness> · <model>` when a non-blank
+  /// model is present.
+  static String fallbackEntryLabel(
+    BuildContext context,
+    AppLocalizations l10n,
+    FallbackEntry entry,
+  ) {
+    final harnessLabel = resolveNodeTypeLabel(context, l10n, entry.harness);
+    final model = entry.model?.trim();
+    if (model == null || model.isEmpty) return harnessLabel;
+    return l10n.runDetailFallbackEntry(harnessLabel, model);
   }
 }

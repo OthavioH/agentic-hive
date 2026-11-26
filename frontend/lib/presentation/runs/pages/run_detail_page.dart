@@ -190,6 +190,7 @@ class _RunDetailBodyState extends ConsumerState<_RunDetailBody> {
       nodeStatuses: detailState.nodeStatuses,
       selectedNodeId: detailState.inspectedNodeId,
       fanOutProgress: progressByNode,
+      ranOn: detailState.ranOnByNodeId,
       onSelectNode: (nodeId) => unawaited(controller.selectNode(nodeId)),
     );
     final inspector = _InspectorColumn(
@@ -211,7 +212,7 @@ class _RunDetailBodyState extends ConsumerState<_RunDetailBody> {
       children: <Widget>[
         _HeaderRow(
           title: run.workflowName,
-          subtitle: run.workspacePath,
+          subtitle: run.workspaceRoot,
           onBack: onBack,
           actions: <Widget>[
             Row(
@@ -294,7 +295,7 @@ class _RunDetailBodyState extends ConsumerState<_RunDetailBody> {
             children: <Widget>[
               _MetadataItem(
                 label: l10n.runDetailWorkspaceLabel,
-                value: run.workspacePath,
+                value: run.workspaceRoot,
                 mono: true,
               ),
               _MetadataItem(
@@ -580,6 +581,15 @@ class _EventTimelineColumn extends ConsumerWidget {
                                 ],
                               ),
                             ],
+                            if (event.type == RunEventType.nodeFallback)
+                              ..._buildFallbackSummary(
+                                context,
+                                l10n,
+                                spacing,
+                                typography,
+                                colors,
+                                event,
+                              ),
                             if (isExpanded) ...<Widget>[
                               SizedBox(height: spacing.space2),
                               HiveCodeBlock(
@@ -600,6 +610,56 @@ class _EventTimelineColumn extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  List<Widget> _buildFallbackSummary(
+    BuildContext context,
+    AppLocalizations l10n,
+    HiveSpacing spacing,
+    HiveTypography typography,
+    HiveColors colors,
+    RunEvent event,
+  ) {
+    final from = RunDetailState.parseFallbackEndpoint(event.payload['from']);
+    final to = RunDetailState.parseFallbackEndpoint(event.payload['to']);
+    if (from == null || to == null) return const <Widget>[];
+    final rawReason = event.payload['reason'];
+    final reason = rawReason is String ? rawReason : '';
+    final summary = l10n.runDetailFallbackSummary(
+      RunL10n.fallbackEntryLabel(context, l10n, from),
+      RunL10n.fallbackEntryLabel(context, l10n, to),
+      reason,
+    );
+    final motion = context.hiveMotion;
+    final elevation = context.hiveElevation;
+    return <Widget>[
+      SizedBox(height: spacing.space1),
+      Tooltip(
+        message: summary,
+        excludeFromSemantics: true,
+        waitDuration: motion.resolve(context, motion.long),
+        exitDuration: motion.resolve(context, motion.short),
+        padding: EdgeInsets.all(spacing.space2),
+        decoration: ShapeDecoration(
+          color: colors.surface3,
+          shape: RoundedRectangleBorder(
+            borderRadius: context.hiveRadii.card,
+            side: BorderSide(
+              color: colors.borderSubtle,
+              width: elevation.hairline,
+            ),
+          ),
+        ),
+        textStyle: typography.bodySmall.copyWith(color: colors.onSurface),
+        child: Text(
+          summary,
+          key: Key('run_event_fallback_summary_${event.id}'),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: typography.bodySmall.copyWith(color: colors.onSurface),
+        ),
+      ),
+    ];
   }
 }
 
@@ -671,7 +731,7 @@ class _InspectorColumn extends StatelessWidget {
             ),
             RunInspectorTab.snapshots => SnapshotsPanel(
               runId: runId,
-              workspacePath: run.workspacePath,
+              workspaceRoot: run.workspaceRoot,
               runStatus: run.status,
               nodeLabels: <String, String>{
                 for (final node in run.workflowDefinition.nodes)

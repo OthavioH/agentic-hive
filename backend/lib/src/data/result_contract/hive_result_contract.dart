@@ -153,7 +153,7 @@ final class HiveResultContract implements ResultContract {
       runId: context.runId,
       nodeId: context.nodeId,
       attempt: context.attempt,
-      workspacePath: context.workspacePath,
+      targetFolder: context.targetFolder,
       availableOutputs: context.availableOutputs,
     );
     if (registration case FailureResult<void>(:final failure)) {
@@ -370,7 +370,7 @@ Write a JSON object with the exact same schema (`status`, `summary`, optional `d
 
     final validation = _validator.validate(
       decoded,
-      workspacePath: context.workspacePath,
+      targetFolder: context.targetFolder,
       availableOutputs: context.availableOutputs,
     );
     return switch (validation) {

@@ -34,7 +34,7 @@ void main() {
       global: LocalAgentRepository(agentsDir: globalDir.path),
       workspace: LocalAgentRepository(
         agentsDir: workspaceDir.path,
-        scope: AgentScope.workspace,
+        scope: const WorkspaceScope('ws-1'),
       ),
     );
   });
@@ -46,10 +46,10 @@ void main() {
     final list = (await layered.list()).valueOrNull!;
     expect(
       {for (final s in list) s.id: s.scope},
-      {'a': AgentScope.global, 'b': AgentScope.workspace},
+      {'a': const GlobalScope(), 'b': const WorkspaceScope('ws-1')},
     );
     final detail = (await layered.getById('b')).valueOrNull!;
-    expect(detail.scope, AgentScope.workspace);
+    expect(detail.scope, const WorkspaceScope('ws-1'));
   });
 
   test('workspace agent overrides a global agent with the same name, '
@@ -59,7 +59,7 @@ void main() {
 
     // The global id now resolves to the workspace agent with the same name.
     final detail = (await layered.getById('reviewer')).valueOrNull!;
-    expect(detail.scope, AgentScope.workspace);
+    expect(detail.scope, const WorkspaceScope('ws-1'));
     expect(detail.prompt, 'workspace prompt');
 
     final list = (await layered.list()).valueOrNull!;
@@ -81,7 +81,7 @@ void main() {
   test('falls back to global when the workspace has no such agent', () async {
     await _write(globalDir, 'planner', 'Planner', 'plan');
     final detail = (await layered.getById('planner')).valueOrNull!;
-    expect(detail.scope, AgentScope.global);
+    expect(detail.scope, const GlobalScope());
   });
 
   test('unknown id is NotFound', () async {

@@ -73,7 +73,7 @@ final class EditWorkflowTool extends ScopedMcpTool {
     }
     final loaded = await workflows.getWorkflow(
       id,
-      workspaceId: scope.workspaceId,
+      scope: scope.definitionScope,
     );
     if (loaded case FailureResult(failure: NotFoundFailure())) {
       return FailureResult(_notFound(id, scope));
@@ -110,7 +110,7 @@ final class EditWorkflowTool extends ScopedMcpTool {
         schemaVersion: response.workflow.schemaVersion,
         revision: revision,
       ),
-      workspaceId: scope.workspaceId,
+      scope: scope.definitionScope,
     );
     return switch (saved) {
       FailureResult(failure: StaleRevisionFailure(:final currentRevision)) =>
@@ -152,16 +152,20 @@ final class EditWorkflowTool extends ScopedMcpTool {
     events.workflowChanged(
       WorkflowChangeKind.updated,
       response.workflow.id,
-      workspaceId: response.workspaceId,
+      scope: response.scope,
       workflow: workflowSummaryOf(response),
     );
     final suffix = response.validation.isValid
         ? ''
         : '\n${CreateWorkflowTool.draftLine}';
+    final typeChangeLines = patch.tally.typeChanges
+        .map((entry) => 'Type changed $entry\n')
+        .join();
     return Success(
       'Edited workflow ${response.workflow.id} "${response.workflow.name}" '
       'revision ${response.revision} (was $revision)\n'
       'Applied ${patch.operationCount} operations: ${patch.tally.describe()}.\n'
+      '$typeChangeLines'
       'Now ${response.workflow.nodes.length} nodes, '
       '${response.workflow.edges.length} edges, entry '
       '${response.workflow.entryNodeId ?? 'none'}\n'

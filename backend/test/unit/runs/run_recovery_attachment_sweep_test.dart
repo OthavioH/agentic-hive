@@ -35,7 +35,7 @@ void main() {
           workflowName: wf.name,
           workflowDefinition: wf,
           workspaceId: 'ws-1',
-          workspacePath: '/ws',
+          workspaceRoot: '/ws',
           status: status,
           startedAt: DateTime.utc(2026),
         ),

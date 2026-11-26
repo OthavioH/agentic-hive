@@ -95,6 +95,134 @@ void main() {
     ]);
     expect(patch.nodes.first.config, {'new': true});
   });
+
+  test('update_node type changes a headless harness and keeps id, label, '
+      'position, edges and supported config', () {
+    final patch = apply([
+      {
+        'op': 'add_node',
+        'id': 'h1',
+        'type': NodeTypeId.claudeCode,
+        'label': 'Agent',
+        'position': {'x': 10, 'y': 20},
+        'config': {
+          'agentId': 'a',
+          'model': 'm',
+          'effort': 'high',
+          'extraArgs': ['--x'],
+        },
+      },
+      {'op': 'update_node', 'id': 'h1', 'type': NodeTypeId.codex},
+    ]);
+    final h1 = patch.nodes.firstWhere((n) => n.id == 'h1');
+    expect(h1.type, NodeTypeId.codex);
+    expect(h1.label, 'Agent');
+    expect(h1.position, const WorkflowPosition(x: 10, y: 20));
+    expect(h1.config, {
+      'additionalInstructions': '',
+      'agentId': 'a',
+      'model': 'm',
+      'effort': 'high',
+      'extraArgs': ['--x'],
+      'fallback': <Object?>[],
+    });
+    expect(patch.edges, hasLength(2));
+    expect(
+      patch.tally.typeChanges.single,
+      'h1: ${NodeTypeId.claudeCode} -> ${NodeTypeId.codex}, '
+      'dropped config fields: none',
+    );
+  });
+
+  test('update_node type to gemini_cli drops effort and names it in tally', () {
+    final patch = apply([
+      {
+        'op': 'add_node',
+        'id': 'h1',
+        'type': NodeTypeId.claudeCode,
+        'label': 'Agent',
+        'config': {'agentId': 'a', 'effort': 'high'},
+      },
+      {'op': 'update_node', 'id': 'h1', 'type': NodeTypeId.geminiCli},
+    ]);
+    final h1 = patch.nodes.firstWhere((n) => n.id == 'h1');
+    expect(h1.type, NodeTypeId.geminiCli);
+    expect(h1.config, {
+      'additionalInstructions': '',
+      'extraArgs': <Object?>[],
+      'fallback': <Object?>[],
+      'agentId': 'a',
+    });
+    expect(
+      patch.tally.typeChanges.single,
+      'h1: ${NodeTypeId.claudeCode} -> ${NodeTypeId.geminiCli}, '
+      'dropped config fields: effort',
+    );
+  });
+
+  test('update_node config sets fallback', () {
+    const fallback = [
+      {'harness': NodeTypeId.codex, 'model': 'gpt-5'},
+    ];
+    final patch = apply([
+      {
+        'op': 'update_node',
+        'id': 'plan',
+        'config': {'fallback': fallback},
+      },
+    ]);
+    expect(patch.nodes.first.config['fallback'], fallback);
+  });
+
+  test('update_node type to gemini_cli keeps fallback', () {
+    const fallback = [
+      {'harness': NodeTypeId.codex, 'model': 'gpt-5'},
+    ];
+    final patch = apply([
+      {
+        'op': 'add_node',
+        'id': 'h1',
+        'type': NodeTypeId.claudeCode,
+        'label': 'Agent',
+        'config': {'agentId': 'a', 'effort': 'high', 'fallback': fallback},
+      },
+      {'op': 'update_node', 'id': 'h1', 'type': NodeTypeId.geminiCli},
+    ]);
+    final h1 = patch.nodes.firstWhere((n) => n.id == 'h1');
+    expect(h1.config['fallback'], fallback);
+    expect(
+      patch.tally.typeChanges.single,
+      'h1: ${NodeTypeId.claudeCode} -> ${NodeTypeId.geminiCli}, '
+      'dropped config fields: effort',
+    );
+  });
+
+  test('update_node with same type is a no-op for type and config', () {
+    final patch = apply([
+      {'op': 'update_node', 'id': 'plan', 'type': NodeTypeId.claudeCode},
+    ]);
+    expect(patch.nodes.first.type, NodeTypeId.claudeCode);
+    expect(patch.nodes.first.config, {'old': true});
+    expect(patch.tally.typeChanges, isEmpty);
+  });
+
+  test('update_node type plus config in one op drops unsupported config', () {
+    final patch = apply([
+      {
+        'op': 'update_node',
+        'id': 'plan',
+        'type': NodeTypeId.geminiCli,
+        'config': {'old': null, 'effort': 'low', 'model': 'gemini-2.5-pro'},
+      },
+    ]);
+    expect(patch.nodes.first.type, NodeTypeId.geminiCli);
+    expect(patch.nodes.first.config, {'model': 'gemini-2.5-pro'});
+    expect(
+      patch.tally.typeChanges.single,
+      'plan: ${NodeTypeId.claudeCode} -> ${NodeTypeId.geminiCli}, '
+      'dropped config fields: effort',
+    );
+  });
   test('remove_node removes the node and its edges', () {
     final patch = apply([
       {'op': 'remove_node', 'id': 'review'},
@@ -321,10 +449,31 @@ void main() {
         'operations[0] update_node: node "ghost" does not exist. '
         'Nothing was applied.',
     'update_node nothing to change':
-        'operations[0] update_node: pass label or config. Nothing was applied.',
-    'update_node type is refused':
-        'operations[0] update_node: the type of a node cannot change; '
+        'operations[0] update_node: pass label, config or type. '
+        'Nothing was applied.',
+    'update_node type to terminal is refused':
+        'operations[0] update_node: cannot change type from '
+        '${NodeTypeId.claudeCode} to ${NodeTypeId.terminal}: only the headless '
+        'harnesses (${headlessHarnessTypeIds.join(', ')}) can change into one '
+        'another; use remove_node and add_node. Nothing was applied.',
+    'update_node type from review validator is refused':
+        'operations[0] update_node: cannot change type from '
+        '${NodeTypeId.reviewValidator} to ${NodeTypeId.codex}: only the '
+        'headless harnesses (${headlessHarnessTypeIds.join(', ')}) can change '
+        'into one another; use remove_node and add_node. Nothing was applied.',
+    'update_node type to command is refused':
+        'operations[0] update_node: cannot change type from '
+        '${NodeTypeId.claudeCode} to ${NodeTypeId.command}: only the headless '
+        'harnesses (${headlessHarnessTypeIds.join(', ')}) can change into one '
+        'another; use remove_node and add_node. Nothing was applied.',
+    'update_node unknown type is refused':
+        'operations[0] update_node: cannot change type from '
+        '${NodeTypeId.claudeCode} to x: only the headless harnesses '
+        '(${headlessHarnessTypeIds.join(', ')}) can change into one another; '
         'use remove_node and add_node. Nothing was applied.',
+    'update_node non-string type':
+        'operations[0] update_node: type must be a non-blank string. '
+        'Nothing was applied.',
     'update_node blank label':
         'operations[0] update_node: label must be a non-blank string. '
         'Nothing was applied.',
@@ -417,8 +566,20 @@ void main() {
     'update_node nothing to change': [
       {'op': 'update_node', 'id': 'plan'},
     ],
-    'update_node type is refused': [
+    'update_node type to terminal is refused': [
+      {'op': 'update_node', 'id': 'plan', 'type': NodeTypeId.terminal},
+    ],
+    'update_node type from review validator is refused': [
+      {'op': 'update_node', 'id': 'review', 'type': NodeTypeId.codex},
+    ],
+    'update_node type to command is refused': [
+      {'op': 'update_node', 'id': 'plan', 'type': NodeTypeId.command},
+    ],
+    'update_node unknown type is refused': [
       {'op': 'update_node', 'id': 'plan', 'type': 'x'},
+    ],
+    'update_node non-string type': [
+      {'op': 'update_node', 'id': 'plan', 'type': 1},
     ],
     'update_node blank label': [
       {'op': 'update_node', 'id': 'plan', 'label': ' '},

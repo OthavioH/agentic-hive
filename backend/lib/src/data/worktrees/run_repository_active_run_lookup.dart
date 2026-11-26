@@ -27,7 +27,7 @@ final class RunRepositoryActiveRunLookup implements ActiveRunLookup {
         case Success<List<Run>>(:final value):
           for (final run in value) {
             if (run.workspaceId == workspaceId) {
-              folders.add(run.worktreePath ?? run.workspacePath);
+              folders.add(run.worktreePath ?? run.workspaceRoot);
             }
           }
       }

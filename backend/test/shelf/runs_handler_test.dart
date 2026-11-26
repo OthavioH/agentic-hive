@@ -110,12 +110,14 @@ final class _FakeRunRepository implements RunRepository {
   Future<Result<({List<RunSummary> items, int total})>> list({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int limit = 50,
     int offset = 0,
   }) async {
     final filtered = store.values.where((run) {
       if (status != null && run.status != status) return false;
       if (workflowId != null && run.workflowId != workflowId) return false;
+      if (workspaceId != null && run.workspaceId != workspaceId) return false;
       return true;
     }).toList()..sort((a, b) => b.startedAt.compareTo(a.startedAt));
 
@@ -124,6 +126,7 @@ final class _FakeRunRepository implements RunRepository {
         id: run.id,
         workflowId: run.workflowId,
         workflowName: run.workflowName,
+        workspaceId: run.workspaceId,
         status: run.status,
         startedAt: run.startedAt,
         finishedAt: run.finishedAt,
@@ -184,6 +187,7 @@ final class _FakeCheckpointRepository implements CheckpointRepository {
     required int circuitBreakerCount,
     required Map<String, JsonMap> nodeOutputs,
     required DateTime createdAt,
+    Map<String, int> fallbackIndexByNodeId = const <String, int>{},
     String? completedNodeId,
     int? sequence,
   }) async {
@@ -198,6 +202,7 @@ final class _FakeCheckpointRepository implements CheckpointRepository {
       circuitBreakerCount: circuitBreakerCount,
       nodeOutputs: nodeOutputs,
       createdAt: createdAt,
+      fallbackIndexByNodeId: fallbackIndexByNodeId,
     );
     items.add(cp);
     return Success(cp);
@@ -306,12 +311,14 @@ void main() {
     required RunStatus status,
     required DateTime startedAt,
     String? workflowId = 'wf-1',
+    String? workspaceId = 'ws-1',
   }) => Run(
     id: id,
     workflowId: workflowId,
     workflowName: 'Build Flow',
     workflowDefinition: workflow,
-    workspacePath: '/tmp/ws',
+    workspaceRoot: '/tmp/ws',
+    workspaceId: workspaceId,
     status: status,
     startedAt: startedAt,
   );
@@ -384,6 +391,125 @@ void main() {
       );
       expect(filteredDto.total, 2);
       expect(filteredDto.items.map((r) => r.id), ['r1']);
+    });
+
+    test('lists all workspaces when workspaceId is omitted', () async {
+      await runsRepo.create(
+        makeRun(
+          id: 'r1',
+          status: RunStatus.succeeded,
+          startedAt: DateTime.utc(2026, 11, 20, 10),
+        ),
+      );
+      await runsRepo.create(
+        makeRun(
+          id: 'r2',
+          status: RunStatus.succeeded,
+          startedAt: DateTime.utc(2026, 11, 20, 11),
+          workspaceId: 'ws-2',
+        ),
+      );
+
+      final resp = await handler(buildRequest('/api/v1/runs'));
+      expect(resp.statusCode, 200);
+      final dto = RunsListResponse.fromJson(await readJson(resp));
+      expect(dto.total, 2);
+      expect(dto.items.map((r) => r.id), ['r2', 'r1']);
+    });
+
+    test('filters runs by workspaceId', () async {
+      await runsRepo.create(
+        makeRun(
+          id: 'r1',
+          status: RunStatus.succeeded,
+          startedAt: DateTime.utc(2026, 11, 20, 10),
+        ),
+      );
+      await runsRepo.create(
+        makeRun(
+          id: 'r2',
+          status: RunStatus.running,
+          startedAt: DateTime.utc(2026, 11, 20, 11),
+          workspaceId: 'ws-2',
+        ),
+      );
+      await runsRepo.create(
+        makeRun(
+          id: 'r3',
+          status: RunStatus.succeeded,
+          startedAt: DateTime.utc(2026, 11, 20, 12),
+        ),
+      );
+
+      final resp = await handler(buildRequest('/api/v1/runs?workspaceId=ws-1'));
+      expect(resp.statusCode, 200);
+      final dto = RunsListResponse.fromJson(await readJson(resp));
+      expect(dto.total, 2);
+      expect(dto.items.map((r) => r.id), ['r3', 'r1']);
+    });
+
+    test('returns 200 with empty list for unknown workspaceId', () async {
+      await runsRepo.create(
+        makeRun(
+          id: 'r1',
+          status: RunStatus.succeeded,
+          startedAt: DateTime.utc(2026, 11, 20, 10),
+        ),
+      );
+
+      final resp = await handler(buildRequest('/api/v1/runs?workspaceId=nope'));
+      expect(resp.statusCode, 200);
+      final dto = RunsListResponse.fromJson(await readJson(resp));
+      expect(dto.total, 0);
+      expect(dto.items, isEmpty);
+    });
+
+    test('combines workspaceId filter with pagination', () async {
+      await runsRepo.create(
+        makeRun(
+          id: 'r1',
+          status: RunStatus.succeeded,
+          startedAt: DateTime.utc(2026, 11, 20, 10),
+        ),
+      );
+      await runsRepo.create(
+        makeRun(
+          id: 'r2',
+          status: RunStatus.succeeded,
+          startedAt: DateTime.utc(2026, 11, 20, 11),
+          workspaceId: 'ws-2',
+        ),
+      );
+      await runsRepo.create(
+        makeRun(
+          id: 'r3',
+          status: RunStatus.succeeded,
+          startedAt: DateTime.utc(2026, 11, 20, 12),
+        ),
+      );
+      await runsRepo.create(
+        makeRun(
+          id: 'r4',
+          status: RunStatus.succeeded,
+          startedAt: DateTime.utc(2026, 11, 20, 13),
+          workspaceId: 'ws-2',
+        ),
+      );
+      await runsRepo.create(
+        makeRun(
+          id: 'r5',
+          status: RunStatus.succeeded,
+          startedAt: DateTime.utc(2026, 11, 20, 14),
+        ),
+      );
+
+      final resp = await handler(
+        buildRequest('/api/v1/runs?workspaceId=ws-1&limit=1&offset=1'),
+      );
+      expect(resp.statusCode, 200);
+      final dto = RunsListResponse.fromJson(await readJson(resp));
+      expect(dto.total, 3);
+      expect(dto.items.map((r) => r.id), ['r3']);
     });
 
     test('rejects invalid query parameters with 400 bad_request', () async {

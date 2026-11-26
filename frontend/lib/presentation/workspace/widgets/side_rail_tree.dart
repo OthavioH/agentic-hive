@@ -347,6 +347,9 @@ class _SideRailTreeContent extends ConsumerWidget {
         indentLevel: 1,
         label: wtLabel,
         subtitle: wtSubtitle,
+        semanticLabel: wt.isBroken
+            ? '$wtLabel, ${l10n.sideRailTreeBrokenBadgeSemantic}'
+            : null,
         leading: HiveIcon(
           wtNode.isFallback
               ? HiveIcons.clock
@@ -371,11 +374,19 @@ class _SideRailTreeContent extends ConsumerWidget {
                       label: l10n.sideRailTreePrimaryBadge,
                       tone: HiveBadgeTone.accentMuted,
                     ),
+                  if (wt.isBroken)
+                    HiveBadge(
+                      key: Key('tree_worktree_broken_${workspace.id}_${wt.id}'),
+                      label: l10n.sideRailTreeBrokenBadge,
+                      tone: HiveBadgeTone.danger,
+                      semanticLabel: l10n.sideRailTreeBrokenBadgeSemantic,
+                    ),
                   if (wt.isPrimary &&
                       workspace.isGit &&
-                      wt.hasUncommittedChanges)
+                      wt.hasUncommittedChanges &&
+                      !wt.isBroken)
                     SizedBox(width: spacing.spaceHalf),
-                  if (wt.hasUncommittedChanges)
+                  if (wt.hasUncommittedChanges && !wt.isBroken)
                     HiveIcon(
                       HiveIcons.edit,
                       key: Key('tree_worktree_dirty_${workspace.id}_${wt.id}'),

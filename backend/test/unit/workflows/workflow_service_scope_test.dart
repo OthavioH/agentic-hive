@@ -150,8 +150,7 @@ void main() {
       const CreateWorkflowRequest(name: 'Build & Verify', workspaceId: 'ws-1'),
     )).valueOrNull!;
 
-    expect(response.scope, WorkflowScope.workspace);
-    expect(response.workspaceId, 'ws-1');
+    expect(response.scope, const WorkspaceScope('ws-1'));
     expect(response.workflow.id, 'build-verify');
     expect(fileRepository.store.keys, ['/repo|build-verify']);
     expect(globalRepository.store, isEmpty);
@@ -184,8 +183,7 @@ void main() {
       const CreateWorkflowRequest(name: 'Deploy'),
     )).valueOrNull!;
 
-    expect(response.scope, WorkflowScope.global);
-    expect(response.workspaceId, isNull);
+    expect(response.scope, const GlobalScope());
     expect(globalRepository.store.keys, ['wf-1']);
   });
 
@@ -197,6 +195,20 @@ void main() {
     expect(result.failureOrNull, isA<NotFoundFailure>());
   });
 
+  test(
+    'create with a blank workspace id fails and writes nothing to global',
+    () async {
+      for (final blank in ['', '  ']) {
+        final result = await service.createWorkflow(
+          CreateWorkflowRequest(name: 'Deploy', workspaceId: blank),
+        );
+
+        expect(result.failureOrNull, isA<NotFoundFailure>());
+        expect(globalRepository.store, isEmpty);
+      }
+    },
+  );
+
   test('same name in both scopes lists both with their scope', () async {
     await service.createWorkflow(const CreateWorkflowRequest(name: 'Deploy'));
     now = now.add(const Duration(minutes: 1));
@@ -204,13 +216,13 @@ void main() {
       const CreateWorkflowRequest(name: 'Deploy', workspaceId: 'ws-1'),
     );
 
-    final list = (await service.listWorkflows(workspaceId: 'ws-1'))
-        .valueOrNull!
-        .workflows;
+    final list = (await service.listWorkflows(
+      scope: const WorkspaceScope('ws-1'),
+    )).valueOrNull!.workflows;
 
-    expect(list.map((w) => (w.name, w.scope, w.workspaceId)), [
-      ('Deploy', WorkflowScope.workspace, 'ws-1'),
-      ('Deploy', WorkflowScope.global, null),
+    expect(list.map((w) => (w.name, w.scope)), [
+      ('Deploy', const WorkspaceScope('ws-1')),
+      ('Deploy', const GlobalScope()),
     ]);
   });
 
@@ -233,15 +245,15 @@ void main() {
 
     final fetched = (await service.getWorkflow(
       'deploy',
-      workspaceId: 'ws-1',
+      scope: const WorkspaceScope('ws-1'),
     )).valueOrNull!;
-    expect(fetched.scope, WorkflowScope.workspace);
+    expect(fetched.scope, const WorkspaceScope('ws-1'));
 
     now = now.add(const Duration(hours: 1));
     final updated = (await service.updateWorkflow(
       'deploy',
       const UpdateWorkflowRequest(name: 'Deploy v2'),
-      workspaceId: 'ws-1',
+      scope: const WorkspaceScope('ws-1'),
     )).valueOrNull!;
     expect(updated.workflow.name, 'Deploy v2');
     expect(updated.workflow.id, 'deploy');
@@ -249,7 +261,7 @@ void main() {
 
     final deletion = (await service.deleteWorkflow(
       'deploy',
-      workspaceId: 'ws-1',
+      scope: const WorkspaceScope('ws-1'),
     )).valueOrNull!;
     await service.whenDeletionFinished(deletion.operationId);
     expect(fileRepository.store, isEmpty);
@@ -257,7 +269,10 @@ void main() {
   });
 
   test('an unregistered workspace id fails with NotFound', () async {
-    final result = await service.getWorkflow('x', workspaceId: 'nope');
+    final result = await service.getWorkflow(
+      'x',
+      scope: const WorkspaceScope('nope'),
+    );
 
     expect(result.failureOrNull, isA<NotFoundFailure>());
   });
@@ -269,10 +284,10 @@ void main() {
 
     final copy = (await service.duplicateWorkflow(
       'deploy',
-      workspaceId: 'ws-1',
+      scope: const WorkspaceScope('ws-1'),
     )).valueOrNull!;
 
-    expect(copy.scope, WorkflowScope.workspace);
+    expect(copy.scope, const WorkspaceScope('ws-1'));
     expect(copy.workflow.name, 'Deploy (Copy)');
     expect(copy.workflow.id, 'deploy-copy');
     expect(globalRepository.store, isEmpty);
@@ -289,19 +304,20 @@ void main() {
       final updated = (await service.updateWorkflow(
         'deploy',
         UpdateWorkflowRequest(name: 'Deploy v2', revision: r0),
-        workspaceId: 'ws-1',
+        scope: const WorkspaceScope('ws-1'),
       )).valueOrNull!;
       expect(updated.revision, workflowRevision(updated.workflow));
 
       final stale = await service.updateWorkflow(
         'deploy',
         UpdateWorkflowRequest(name: 'Deploy v3', revision: r0),
-        workspaceId: 'ws-1',
+        scope: const WorkspaceScope('ws-1'),
       );
       expect(stale.failureOrNull, isA<StaleRevisionFailure>());
 
-      final list = (await service.listWorkflows(workspaceId: 'ws-1'))
-          .valueOrNull!;
+      final list = (await service.listWorkflows(
+        scope: const WorkspaceScope('ws-1'),
+      )).valueOrNull!;
       expect(
         list.workflows.single.revision,
         workflowRevision(updated.workflow),
@@ -316,7 +332,7 @@ void main() {
 
     final result = await service.deleteWorkflow(
       'deploy',
-      workspaceId: 'ws-1',
+      scope: const WorkspaceScope('ws-1'),
       expectedRevision: '0000000000000000',
     );
     expect(result.failureOrNull, isA<StaleRevisionFailure>());
@@ -367,7 +383,7 @@ void main() {
 
       final result = await cascadingService.deleteWorkflow(
         'review',
-        workspaceId: 'ws-1',
+        scope: const WorkspaceScope('ws-1'),
       );
 
       expect(result.valueOrNull, isA<WorkflowDeletionAccepted>());

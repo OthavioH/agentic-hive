@@ -198,16 +198,18 @@ NodeExecutionContext _context({
   JsonMap config = const {'additionalInstructions': 'Implement feature X'},
   String? humanAnswer,
   String? runInput,
+  StoppedAttempt? stoppedAttempt,
   List<RunAttachmentFile> runAttachments = const <RunAttachmentFile>[],
   WorkspaceIsolationMode isolationMode = WorkspaceIsolationMode.direct,
   String? resultJsonPath,
 }) => NodeExecutionContext(
   runId: runId,
   nodeId: 'node-1',
-  workspacePath: '/tmp/workspace',
+  targetFolder: '/tmp/workspace',
   config: config,
   humanAnswer: humanAnswer,
   runInput: runInput,
+  stoppedAttempt: stoppedAttempt,
   runAttachments: runAttachments,
   isolationMode: isolationMode,
   resultJsonPath: resultJsonPath,
@@ -563,6 +565,7 @@ void main() {
     });
 
     test('maps rate limit errors to HarnessRateLimitFailure', () async {
+      resultContract.report = null;
       processRunner.result = const ProcessExecutionResult(
         exitCode: 1,
         stderr: 'RESOURCE_EXHAUSTED: Quota exceeded (429)',
@@ -1056,7 +1059,7 @@ void main() {
         NodeExecutionContext(
           runId: 'run-rc',
           nodeId: 'node-rc',
-          workspacePath: workspaceDir,
+          targetFolder: workspaceDir,
           config: const <String, Object?>{'additionalInstructions': 'Do work.'},
         ),
       );
@@ -1321,6 +1324,298 @@ void main() {
       },
     );
   });
+
+  group('Rate limit after the result contract', () {
+    late _FakeProcessRunner processRunner;
+    late _FakeResultContract resultContract;
+    late _FakeAgentPromptResolver agentResolver;
+
+    setUp(() {
+      processRunner = _FakeProcessRunner(
+        const ProcessExecutionResult(exitCode: 0),
+      );
+      resultContract = _FakeResultContract()
+        ..report = const ResultContractReport(
+          status: ResultContractStatus.success,
+          summary: 'Done',
+        );
+      agentResolver = _FakeAgentPromptResolver(const <String, String>{});
+    });
+
+    final headlessCases =
+        <
+          ({
+            String name,
+            String typeId,
+            Future<Result<Object>> Function(NodeExecutionContext) execute,
+            String rateLimitLine,
+            String authLine,
+          })
+        >[
+          (
+            name: 'ClaudeCodeNode',
+            typeId: 'harness.claude_code',
+            execute: (ctx) => ClaudeCodeNode(
+              processRunner: processRunner,
+              resultContract: resultContract,
+              agentPromptResolver: agentResolver,
+            ).execute(ctx),
+            rateLimitLine: 'Error: 429 Too Many Requests',
+            authLine: 'Please run `claude login` (401 Unauthorized)',
+          ),
+          (
+            name: 'CodexNode',
+            typeId: 'harness.codex',
+            execute: (ctx) => CodexNode(
+              processRunner: processRunner,
+              resultContract: resultContract,
+              agentPromptResolver: agentResolver,
+            ).execute(ctx),
+            rateLimitLine: 'Error: usage limit reached',
+            authLine: '401 Unauthorized',
+          ),
+          (
+            name: 'GeminiCliNode',
+            typeId: 'harness.gemini_cli',
+            execute: (ctx) => GeminiCliNode(
+              processRunner: processRunner,
+              resultContract: resultContract,
+              agentPromptResolver: agentResolver,
+            ).execute(ctx),
+            rateLimitLine: 'RESOURCE_EXHAUSTED: quota exceeded',
+            authLine: '401 Unauthorized',
+          ),
+          (
+            name: 'AntigravityNode',
+            typeId: 'harness.antigravity',
+            execute: (ctx) => AntigravityNode(
+              processRunner: processRunner,
+              resultContract: resultContract,
+              agentPromptResolver: agentResolver,
+            ).execute(ctx),
+            rateLimitLine: 'Error: model is at capacity',
+            authLine: '401 Unauthorized',
+          ),
+        ];
+
+    for (final entry in headlessCases) {
+      group(entry.name, () {
+        test(
+          'exit 1 + matching stderr + null report -> HarnessRateLimitFailure',
+          () async {
+            resultContract.report = null;
+            processRunner.result = ProcessExecutionResult(
+              exitCode: 1,
+              stderr: entry.rateLimitLine,
+            );
+
+            final result = await entry.execute(_context());
+            final failure = result.failureOrNull;
+            expect(failure, isA<HarnessRateLimitFailure>());
+            expect(
+              (failure! as HarnessRateLimitFailure).harnessType,
+              entry.typeId,
+            );
+          },
+        );
+
+        test(
+          'exit 0 + matching stdout + null report -> HarnessRateLimitFailure',
+          () async {
+            resultContract.report = null;
+            processRunner.result = ProcessExecutionResult(
+              exitCode: 0,
+              stdout: entry.rateLimitLine,
+            );
+
+            final result = await entry.execute(_context());
+            expect(result.failureOrNull, isA<HarnessRateLimitFailure>());
+          },
+        );
+
+        test(
+          'exit 0 + matching stdout + report set -> NodeOutput.onSuccess',
+          () async {
+            processRunner.result = ProcessExecutionResult(
+              exitCode: 0,
+              stdout: entry.rateLimitLine,
+            );
+
+            final result = await entry.execute(_context());
+            expect(result.isSuccess, isTrue);
+          },
+        );
+
+        test(
+          'exit 1 + matching stderr + report set -> NodeExecutionFailure',
+          () async {
+            processRunner.result = ProcessExecutionResult(
+              exitCode: 1,
+              stderr: entry.rateLimitLine,
+            );
+
+            final result = await entry.execute(_context());
+            expect(result.failureOrNull, isA<NodeExecutionFailure>());
+            expect(result.failureOrNull, isNot(isA<HarnessRateLimitFailure>()));
+          },
+        );
+
+        test(
+          'timedOut + matching text + report set -> NodeExecutionFailure',
+          () async {
+            processRunner.result = ProcessExecutionResult(
+              exitCode: -1,
+              timedOut: true,
+              stderr: entry.rateLimitLine,
+            );
+
+            final result = await entry.execute(_context());
+            expect(result.failureOrNull, isA<NodeExecutionFailure>());
+            expect(result.failureOrNull, isNot(isA<HarnessRateLimitFailure>()));
+          },
+        );
+
+        test(
+          'exit 1 + auth and rate limit + null report -> auth wins',
+          () async {
+            resultContract.report = null;
+            processRunner.result = ProcessExecutionResult(
+              exitCode: 1,
+              stderr: '${entry.authLine}\n${entry.rateLimitLine}',
+            );
+
+            final result = await entry.execute(_context());
+            expect(result.failureOrNull, isA<HarnessAuthenticationFailure>());
+          },
+        );
+
+        test(
+          'exit 0 + auth text only + null report -> NodeExecutionFailure',
+          () async {
+            resultContract.report = null;
+            processRunner.result = ProcessExecutionResult(
+              exitCode: 0,
+              stdout: entry.authLine,
+            );
+
+            final result = await entry.execute(_context());
+            expect(result.failureOrNull, isA<NodeExecutionFailure>());
+            expect(
+              result.failureOrNull,
+              isNot(isA<HarnessAuthenticationFailure>()),
+            );
+          },
+        );
+
+        test(
+          'timedOut + null report + no match -> NodeExecutionFailure',
+          () async {
+            resultContract.report = null;
+            processRunner.result = const ProcessExecutionResult(
+              exitCode: -1,
+              timedOut: true,
+            );
+
+            final result = await entry.execute(_context());
+            expect(result.failureOrNull, isA<NodeExecutionFailure>());
+          },
+        );
+
+        test('exit 0 + matching text + malformed report -> '
+            'HarnessRateLimitFailure', () async {
+          resultContract.readFailure = const ValidationFailure(
+            'Invalid JSON in fallback result.json.',
+          );
+          processRunner.result = ProcessExecutionResult(
+            exitCode: 0,
+            stdout: entry.rateLimitLine,
+          );
+
+          final result = await entry.execute(_context());
+          expect(result.failureOrNull, isA<HarnessRateLimitFailure>());
+        });
+      });
+    }
+
+    test('TerminalHarnessNode: exit 0 + rate limit + null report stays '
+        'NodeExecutionFailure; exit 1 -> HarnessRateLimitFailure', () async {
+      resultContract.report = null;
+      final ptyRunner = _RateLimitFakePtyRunner();
+      final node = TerminalHarnessNode(
+        ptyRunner: ptyRunner,
+        defaultShellProvider: const _RateLimitFakeShellProvider('/bin/zsh'),
+        resultContract: resultContract,
+        agentPromptResolver: agentResolver,
+      );
+
+      ptyRunner.result = const ProcessExecutionResult(
+        exitCode: 0,
+        stdout: 'rate limit',
+      );
+      final cleanResult = await node.execute(
+        _context(config: const <String, Object?>{'command': 'my-cli'}),
+      );
+      expect(cleanResult.failureOrNull, isA<NodeExecutionFailure>());
+      expect(cleanResult.failureOrNull, isNot(isA<HarnessRateLimitFailure>()));
+
+      ptyRunner.result = const ProcessExecutionResult(
+        exitCode: 1,
+        stderr: 'rate limit',
+      );
+      final failedResult = await node.execute(
+        _context(config: const <String, Object?>{'command': 'my-cli'}),
+      );
+      expect(failedResult.failureOrNull, isA<HarnessRateLimitFailure>());
+    });
+
+    test(
+      'buildPrompt includes previous attempt note when stoppedAttempt is set',
+      () async {
+        final node = ClaudeCodeNode(
+          processRunner: processRunner,
+          resultContract: resultContract,
+          agentPromptResolver: agentResolver,
+        );
+
+        final withNote = (await node.buildPrompt(
+          _context(
+            stoppedAttempt: const StoppedAttempt(
+              harness: 'harness.codex',
+              model: 'gpt-x',
+            ),
+          ),
+          additionalInstructions: 'Do X',
+        )).valueOrNull!;
+        expect(withNote, contains('## Previous attempt'));
+        expect(withNote, contains('harness.codex'));
+        expect(withNote, contains('gpt-x'));
+        expect(withNote, contains('partial work'));
+
+        final withoutNote = (await node.buildPrompt(
+          _context(),
+          additionalInstructions: 'Do X',
+        )).valueOrNull!;
+        expect(withoutNote, isNot(contains('## Previous attempt')));
+      },
+    );
+  });
+}
+
+final class _RateLimitFakePtyRunner implements PtyRunner {
+  ProcessExecutionResult result = const ProcessExecutionResult(exitCode: 0);
+
+  @override
+  Future<Result<ProcessExecutionResult>> run(
+    PtyInvocation invocation, {
+    NodeOutputCallback? onOutput,
+  }) async => Success(result);
+}
+
+final class _RateLimitFakeShellProvider implements DefaultShellProvider {
+  const new(this.defaultShell);
+
+  @override
+  final String defaultShell;
 }
 
 final class _CallbackProcessRunner implements NodeProcessRunner {

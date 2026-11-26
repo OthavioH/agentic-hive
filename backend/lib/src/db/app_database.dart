@@ -94,8 +94,8 @@ class Runs extends Table {
   /// Frozen JSON snapshot of the `Workflow` definition at run start.
   TextColumn get workflowDefinitionJson => text()();
 
-  /// Path to the workspace folder used by this run.
-  TextColumn get workspacePath => text()();
+  /// Root folder of the run's workspace.
+  TextColumn get workspaceRoot => text().named('workspace_path')();
 
   /// Owning [Workspaces] row. Nullable only because migration 7 to 8 adds the
   /// column and back-fills it; every new run sets it.
@@ -177,6 +177,10 @@ class Checkpoints extends Table {
 
   /// JSON-encoded map of node ID to structured output map.
   TextColumn get nodeOutputsJson => text()();
+
+  /// JSON-encoded map of node ID to 0-based fallback index.
+  TextColumn get fallbackIndexByNodeIdJson =>
+      text().withDefault(const Constant('{}'))();
 
   /// UTC ISO-8601 creation timestamp.
   TextColumn get createdAt => text()();
@@ -390,7 +394,7 @@ class AppDatabase extends _$AppDatabase {
   static const installedAtKey = 'installed_at';
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -470,6 +474,11 @@ class AppDatabase extends _$AppDatabase {
       if (from < 12) {
         if (from >= 3) {
           await m.addColumn(runs, runs.attachmentsJson);
+        }
+      }
+      if (from < 13) {
+        if (from >= 3) {
+          await m.addColumn(checkpoints, checkpoints.fallbackIndexByNodeIdJson);
         }
       }
     },

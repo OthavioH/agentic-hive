@@ -42,7 +42,6 @@ void main() {
         WorkflowReference(
           workflowId: 'wf-parent',
           workflowName: 'Parent',
-          scope: WorkflowScope.global,
           nodeIds: ['n1'],
         ),
       ],
@@ -55,8 +54,7 @@ void main() {
     const ref = WorkflowReference(
       workflowId: 'wf-parent',
       workflowName: 'Parent',
-      scope: WorkflowScope.workspace,
-      workspaceId: 'ws-1',
+      scope: WorkspaceScope('ws-1'),
       nodeIds: ['n1', 'n2'],
     );
     final json = _overTheWire(ref.toJson());

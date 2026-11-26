@@ -9,9 +9,9 @@ import 'package:agentic_hive_backend/src/domain/result_contract/result_contract_
 typedef ResultContractAttemptKey = ({String runId, String nodeId, int attempt});
 
 final class _AttemptState {
-  new({required this.workspacePath, required this.availableOutputs});
+  new({required this.targetFolder, required this.availableOutputs});
 
-  final String workspacePath;
+  final String targetFolder;
   final List<String> availableOutputs;
   final Completer<ResultContractReport> reportCompleter =
       Completer<ResultContractReport>();
@@ -34,14 +34,14 @@ final class ResultContractCoordinator {
       <ResultContractAttemptKey, _AttemptState>{};
 
   /// Registers an active attempt so MCP `report_result` calls can be validated
-  /// and locked against its [workspacePath] and [availableOutputs].
+  /// and locked against its [targetFolder] and [availableOutputs].
   ///
   /// Returns [ConflictFailure] if the attempt already has a locked report.
   Result<void> registerAttempt({
     required String runId,
     required String nodeId,
     required int attempt,
-    required String workspacePath,
+    required String targetFolder,
     required List<String> availableOutputs,
   }) {
     final key = (runId: runId, nodeId: nodeId, attempt: attempt);
@@ -55,7 +55,7 @@ final class ResultContractCoordinator {
       );
     }
     _attempts[key] = _AttemptState(
-      workspacePath: workspacePath,
+      targetFolder: targetFolder,
       availableOutputs: List<String>.unmodifiable(availableOutputs),
     );
     return const Success(null);
@@ -105,7 +105,7 @@ final class ResultContractCoordinator {
 
     final validation = _validator.validate(
       payload,
-      workspacePath: state.workspacePath,
+      targetFolder: state.targetFolder,
       availableOutputs: state.availableOutputs,
     );
     if (validation case FailureResult<ResultContractReport>(:final failure)) {

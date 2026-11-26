@@ -27,7 +27,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
 
   @override
   Future<Result<List<WorkflowSummary>>> listWorkflows({
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
     calls.add('list');
     return Success(<WorkflowSummary>[
@@ -45,7 +45,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   @override
   Future<Result<WorkflowResponse>> getWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
     calls.add('get:$id');
     return Success(
@@ -70,7 +70,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
     UpdateWorkflowRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
     calls.add('update:$id:${request.name}');
     return Success(
@@ -85,7 +85,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
     calls.add('duplicate:$id:$name');
     return Success(
@@ -105,7 +105,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   @override
   Stream<WorkflowDeletionUpdate> deleteWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
     String? revision,
     bool force = false,
   }) {

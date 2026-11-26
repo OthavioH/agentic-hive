@@ -54,6 +54,7 @@ final class _FakeRunRepository implements RunRepository {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   }) async => const Success(RunsListResponse(items: <RunSummary>[], total: 0));
@@ -72,7 +73,7 @@ final class _FakeRunRepository implements RunRepository {
         createdAt: now,
         updatedAt: now,
       ),
-      workspacePath: '/projects/hive',
+      workspaceRoot: '/projects/hive',
       status: RunStatus.failed,
       startedAt: now,
       finishedAt: DateTime.utc(2026, 11, 21, 4, 30, 15),
@@ -604,7 +605,7 @@ final class _LiveMonitorRunRepository extends _FakeRunRepository {
         createdAt: now,
         updatedAt: now,
       ),
-      workspacePath: '/projects/hive',
+      workspaceRoot: '/projects/hive',
       status: RunStatus.running,
       startedAt: now,
     ),

@@ -87,7 +87,7 @@ void main() {
     final file = File(
       p.join(workspaceDir.path, '.agentic-hive', 'workflows', 'quick.json'),
     );
-    expect(created.scope, WorkflowScope.workspace);
+    expect(created.scope, WorkspaceScope(workspace.id));
     expect(file.existsSync(), isTrue);
 
     final updated = await http.put(
@@ -123,10 +123,10 @@ void main() {
 
     expect(both.map((w) => w.name), ['Quick', 'Quick']);
     expect(both.map((w) => w.scope).toSet(), {
-      WorkflowScope.global,
-      WorkflowScope.workspace,
+      const GlobalScope(),
+      WorkspaceScope(workspace.id),
     });
-    expect(globalOnly.single.scope, WorkflowScope.global);
+    expect(globalOnly.single.scope, const GlobalScope());
   });
 
   test('a run can start from a workspace workflow', () async {

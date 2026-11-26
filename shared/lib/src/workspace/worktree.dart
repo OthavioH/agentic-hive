@@ -14,7 +14,10 @@ const primaryWorktreeId = 'primary';
 /// [id] is the worktree [name] (the last segment of its directory); the
 /// primary checkout uses the fixed id [primaryWorktreeId]. [branch] is null
 /// when the checkout has a detached `HEAD`. [hasUncommittedChanges] is true
-/// when the checkout has staged, unstaged or untracked changes.
+/// when the checkout has staged, unstaged or untracked changes. [isBroken] is
+/// true for a broken worktree: its folder exists but git can no longer read it.
+/// Its changes can't be inspected, so [hasUncommittedChanges] is then reported
+/// as true.
 @freezed
 sealed class Worktree with _$Worktree {
   /// Creates a worktree.
@@ -24,6 +27,7 @@ sealed class Worktree with _$Worktree {
     required String path,
     required bool isPrimary,
     required bool hasUncommittedChanges,
+    @Default(false) bool isBroken,
     String? branch,
   }) = _Worktree;
 

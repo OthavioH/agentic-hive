@@ -198,7 +198,7 @@
     {
       "id": "fix_ci",
       "type": "harness.antigravity",
-      "label": "Fix CI (Hydrogen low)",
+      "label": "Fix CI (Hydrogen medium)",
       "position": {
         "x": 1820.0,
         "y": 220.0
@@ -207,8 +207,8 @@
         "additionalInstructions": "Work in ponytail mode (ponytail skill). The plan is data.plan in the output of node investigate_ci. Commit and push to the current branch (it tracks the spec branch).",
         "extraArgs": [],
         "agentId": "ci-fixer",
-        "model": "gemini-4-hydrogen-low",
-        "effort": "low",
+        "model": "gemini-4-hydrogen-medium",
+        "effort": "medium",
         "timeoutSeconds": 3600
       }
     },
@@ -338,7 +338,7 @@
     }
   ],
   "createdAt": "2026-11-24T19:53:09.443552Z",
-  "updatedAt": "2026-11-24T19:53:09.443552Z",
+  "updatedAt": "2026-11-26T15:41:08.279652Z",
   "description": "Implements every sub-issue of a spec in dependency waves. Run input: the spec issue number (for example \"100\"). Start it in a NEW worktree based on development. Setup pushes spec/<n> and opens a draft spec PR; each wave fans out Ticket Implementation (2 at a time) with PRs into spec/<n>, merges the green ones, and loops until every ticket is done; then the spec PR leaves draft and waits for CI, with an investigate/fix loop. Humans are asked only when tickets fail or no ticket can start. Requires the sub-issues to carry GitHub blocked-by dependencies.",
   "entryNodeId": "setup",
   "schemaVersion": 1

@@ -114,7 +114,7 @@ void main() {
         id: id,
         workflowName: workflow.name,
         workflowDefinition: workflow,
-        workspacePath: '/x',
+        workspaceRoot: '/x',
         workspaceId: workspaceId,
         status: status,
         startedAt: DateTime.utc(2026, 11, 22, 10),

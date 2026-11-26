@@ -136,7 +136,7 @@ NodeExecutionContext _context({
 }) => NodeExecutionContext(
   runId: 'run-1',
   nodeId: 'node-1',
-  workspacePath: '/tmp/workspace',
+  targetFolder: '/tmp/workspace',
   config: config,
 );
 

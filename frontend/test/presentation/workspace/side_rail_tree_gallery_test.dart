@@ -60,11 +60,20 @@ final class _FakeRunsRepo implements RunRepository {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
-  }) async => Success<RunsListResponse>(
-    RunsListResponse(items: runs, total: runs.length),
-  );
+  }) async {
+    final filtered = runs.where((r) {
+      if (status != null && r.status != status) return false;
+      if (workflowId != null && r.workflowId != workflowId) return false;
+      if (workspaceId != null && r.workspaceId != workspaceId) return false;
+      return true;
+    }).toList();
+    return Success<RunsListResponse>(
+      RunsListResponse(items: filtered, total: filtered.length),
+    );
+  }
 
   @override
   Future<Result<Run>> cancelRun(String id) => throw UnimplementedError();
@@ -400,6 +409,44 @@ void main() {
       selectionStore: selectionStore,
       runsRepo: populatedRunsRepo,
       pauseRepo: populatedPauseRepo,
+      fixedNow: fixedNow,
+    );
+
+    // 7. Broken worktree row
+    final brokenWsRepo = FakeWorkspaceRepository()
+      ..workspaces = <Workspace>[
+        makeWorkspace(name: 'Agentic Hive', rootPath: '/repos/hive'),
+      ]
+      ..worktreesByWorkspaceId['ws-1'] = <Worktree>[
+        makeWorktree(path: '/repos/hive'),
+        makeWorktree(
+          id: 'feat-ui',
+          name: 'feat-ui',
+          path: '/data/worktrees/ws-1/feat-ui',
+          isPrimary: false,
+          branch: 'feature/side-rail-tree',
+          hasUncommittedChanges: true,
+        ),
+        makeWorktree(
+          id: 'run-leftover',
+          name: 'run-leftover',
+          path: '/data/worktrees/ws-1/run-leftover',
+          isPrimary: false,
+          branch: 'hive/run-leftover',
+          hasUncommittedChanges: true,
+          isBroken: true,
+        ),
+      ];
+
+    await _capture(
+      tester,
+      name: '07_broken_row_desktop',
+      size: const Size(360, 720),
+      child: const SideRailTree(currentLocation: '/overview'),
+      workspaceRepo: brokenWsRepo,
+      selectionStore: selectionStore,
+      runsRepo: _FakeRunsRepo(),
+      pauseRepo: _FakePauseRepo(),
       fixedNow: fixedNow,
     );
   });

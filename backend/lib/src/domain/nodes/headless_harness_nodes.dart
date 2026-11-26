@@ -130,6 +130,7 @@ final class ClaudeCodeNode extends HeadlessHarnessNode {
         result,
         authPattern: _authPattern,
         rateLimitPattern: _rateLimitPattern,
+        rateLimitOnCleanExit: true,
       );
 }
 
@@ -265,6 +266,7 @@ final class CodexNode extends HeadlessHarnessNode {
         result,
         authPattern: _authPattern,
         rateLimitPattern: _rateLimitPattern,
+        rateLimitOnCleanExit: true,
       );
 }
 
@@ -390,6 +392,7 @@ final class GeminiCliNode extends HeadlessHarnessNode {
         result,
         authPattern: _authPattern,
         rateLimitPattern: _rateLimitPattern,
+        rateLimitOnCleanExit: true,
       );
 }
 
@@ -525,5 +528,6 @@ final class AntigravityNode extends HeadlessHarnessNode {
         result,
         authPattern: _authPattern,
         rateLimitPattern: _rateLimitPattern,
+        rateLimitOnCleanExit: true,
       );
 }

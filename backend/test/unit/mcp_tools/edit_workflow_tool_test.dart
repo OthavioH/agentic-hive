@@ -32,10 +32,10 @@ final class _Events implements WorkflowEvents {
   void workflowChanged(
     WorkflowChangeKind kind,
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
     WorkflowSummary? workflow,
   }) {
-    calls.add((kind, id, workspaceId, workflow));
+    calls.add((kind, id, scope.workspaceIdOrNull, workflow));
   }
 }
 
@@ -281,6 +281,50 @@ void main() {
     expect(result.failureOrNull, isA<StaleRevisionFailure>());
   });
 
+  test('a type change reports dropped fields and keeps edges', () async {
+    final before = await seed();
+    final result = await call(before.workflow.id, before.revision!, [
+      {
+        'op': 'update_node',
+        'id': 'plan',
+        'type': NodeTypeId.geminiCli,
+        'config': {'effort': 'high', 'model': 'gemini-2.5-pro'},
+      },
+    ]);
+    final text = (result as Success<String>).value;
+    expect(
+      text.split('\n'),
+      contains(
+        'Type changed plan: ${NodeTypeId.claudeCode} -> '
+        '${NodeTypeId.geminiCli}, dropped config fields: effort',
+      ),
+    );
+    final saved = global.store[before.workflow.id]!;
+    expect(saved.nodes.first.type, NodeTypeId.geminiCli);
+    expect(saved.edges, before.workflow.edges);
+  });
+
+  test('a stale revision refuses a type change and nothing changes', () async {
+    final before = await seed();
+    final result = await call(before.workflow.id, '0000000000000000', [
+      {'op': 'update_node', 'id': 'plan', 'type': NodeTypeId.codex},
+    ]);
+    expect(result.failureOrNull, isA<StaleRevisionFailure>());
+    expect(
+      global.store[before.workflow.id]!.nodes.first.type,
+      NodeTypeId.claudeCode,
+    );
+  });
+
+  test('a refused type change leaves the stored workflow unchanged', () async {
+    final before = await seed();
+    final result = await call(before.workflow.id, before.revision!, [
+      {'op': 'update_node', 'id': 'plan', 'type': NodeTypeId.terminal},
+    ]);
+    expect(result, isA<FailureResult<String>>());
+    expect(global.store[before.workflow.id], before.workflow);
+  });
+
   test(
     'an invalid operation in the middle leaves the workflow unchanged and is '
     'named',
@@ -417,6 +461,60 @@ void main() {
         {'op': 'update_node', 'id': 'plan', 'label': 'Changed'},
       ]);
       expect(result, isA<Success<String>>());
+    },
+  );
+
+  test('update_node sets valid fallback and keeps it on type change', () async {
+    final before = await seed();
+    const fallback = [
+      {'harness': NodeTypeId.codex, 'model': 'gpt-5', 'effort': 'high'},
+    ];
+    final setResult = await call(before.workflow.id, before.revision!, [
+      {
+        'op': 'update_node',
+        'id': 'plan',
+        'config': {'fallback': fallback},
+      },
+    ]);
+    final setText = (setResult as Success<String>).value;
+    expect(setText, contains('Validation: ok'));
+    final afterSet = (await service.getWorkflow(
+      before.workflow.id,
+    ) as Success<WorkflowResponse>).value;
+    expect(afterSet.workflow.nodes.first.config['fallback'], fallback);
+
+    final typeResult = await call(before.workflow.id, afterSet.revision!, [
+      {'op': 'update_node', 'id': 'plan', 'type': NodeTypeId.geminiCli},
+    ]);
+    expect(typeResult, isA<Success<String>>());
+    final afterType = (await service.getWorkflow(
+      before.workflow.id,
+    ) as Success<WorkflowResponse>).value;
+    expect(afterType.workflow.nodes.first.config['fallback'], fallback);
+  });
+
+  test(
+    'invalid fallback saves as draft and reports validation issues',
+    () async {
+      final before = await seed();
+      final result = await call(before.workflow.id, before.revision!, [
+        {
+          'op': 'update_node',
+          'id': 'plan',
+          'config': {
+            'fallback': [
+              {'harness': NodeTypeId.terminal},
+              {'harness': NodeTypeId.geminiCli, 'effort': 'high'},
+              {'harness': NodeTypeId.codex, 'model': '-x'},
+            ],
+          },
+        },
+      ]);
+      final text = (result as Success<String>).value;
+      expect(text, endsWith(CreateWorkflowTool.draftLine));
+      expect(text, contains('fallback[0].harness'));
+      expect(text, contains('does not support choosing an effort'));
+      expect(text, contains('fallback[2].model'));
     },
   );
 }

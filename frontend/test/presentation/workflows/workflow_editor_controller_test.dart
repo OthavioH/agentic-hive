@@ -13,6 +13,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   int updateCalls = 0;
   String revision = 'rev-1';
   String? lastRequestRevision;
+  UpdateWorkflowRequest? lastUpdateRequest;
   Result<WorkflowResponse>? saveOverride;
 
   WorkflowValidationResult nextValidation = const WorkflowValidationResult(
@@ -32,7 +33,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   @override
   Future<Result<WorkflowResponse>> getWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
     return Success(
       WorkflowResponse(
@@ -47,10 +48,11 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
     UpdateWorkflowRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
     updateCalls++;
     lastRequestRevision = request.revision;
+    lastUpdateRequest = request;
     if (saveOverride != null) return saveOverride!;
     stored = stored.copyWith(
       name: request.name,
@@ -79,7 +81,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
 
   @override
   Future<Result<List<WorkflowSummary>>> listWorkflows({
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const Success(<WorkflowSummary>[]);
 
   @override
@@ -91,13 +93,13 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Stream<WorkflowDeletionUpdate> deleteWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
     String? revision,
     bool force = false,
   }) => Stream.value(const WorkflowDeletionSucceeded());
@@ -372,5 +374,190 @@ void main() {
       expect(reloaded.isDirty, isFalse);
       expect(reloaded.saveFailure, isNull);
     });
+  });
+
+  group('changeNodeType', () {
+    test(
+      'confirm with drops switches type, drops unsupported fields, and saves',
+      () async {
+        final repo = _FakeWorkflowRepository();
+        const node = WorkflowNode(
+          id: 'n1',
+          type: NodeTypeId.claudeCode,
+          label: 'Coder',
+          position: WorkflowPosition(x: 10, y: 20),
+          config: <String, dynamic>{
+            'effort': 'high',
+            'model': 'm',
+            'agentId': 'a1',
+          },
+        );
+        const edge = WorkflowEdge(
+          id: 'e1',
+          sourceNodeId: 'n1',
+          sourceOutput: NodeOutput.onSuccess,
+          targetNodeId: 'n2',
+        );
+        repo.stored = repo.stored.copyWith(
+          nodes: <WorkflowNode>[node],
+          edges: <WorkflowEdge>[edge],
+          entryNodeId: 'n1',
+        );
+        final container = ProviderContainer.test(
+          overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+        );
+
+        final provider = workflowEditorControllerProvider('wf-1');
+        await container.read(provider.future);
+        final notifier = container.read(provider.notifier);
+
+        final result = await notifier.changeNodeType(
+          'n1',
+          NodeTypeId.geminiCli,
+        );
+        expect(result, isA<Success<WorkflowResponse>>());
+
+        final savedNodes = repo.lastUpdateRequest!.nodes;
+        expect(savedNodes, hasLength(1));
+        final saved = savedNodes.single;
+        expect(saved.id, 'n1');
+        expect(saved.type, NodeTypeId.geminiCli);
+        expect(saved.label, 'Coder');
+        expect(saved.position, const WorkflowPosition(x: 10, y: 20));
+        expect(saved.config.containsKey('effort'), isFalse);
+        expect(saved.config['model'], 'm');
+        expect(saved.config['agentId'], 'a1');
+        expect(repo.lastUpdateRequest!.edges, <WorkflowEdge>[edge]);
+        expect(repo.lastUpdateRequest!.entryNodeId, 'n1');
+
+        final state = container.read(provider).requireValue;
+        expect(state.isDirty, isFalse);
+        expect(state.isSaving, isFalse);
+      },
+    );
+
+    test('no drops keeps whole config and saves', () async {
+      final repo = _FakeWorkflowRepository();
+      const node = WorkflowNode(
+        id: 'n1',
+        type: NodeTypeId.claudeCode,
+        label: 'Coder',
+        position: WorkflowPosition(x: 0, y: 0),
+        config: <String, dynamic>{'effort': 'high', 'model': 'm'},
+      );
+      repo.stored = repo.stored.copyWith(nodes: <WorkflowNode>[node]);
+      final container = ProviderContainer.test(
+        overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+      );
+
+      final provider = workflowEditorControllerProvider('wf-1');
+      await container.read(provider.future);
+      final notifier = container.read(provider.notifier);
+
+      final result = await notifier.changeNodeType('n1', NodeTypeId.codex);
+      expect(result, isA<Success<WorkflowResponse>>());
+      final saved = repo.lastUpdateRequest!.nodes.single;
+      expect(saved.type, NodeTypeId.codex);
+      expect(saved.config, <String, dynamic>{'effort': 'high', 'model': 'm'});
+    });
+
+    test('refused on terminal node or same type without saving', () async {
+      final repo = _FakeWorkflowRepository();
+      const terminal = WorkflowNode(
+        id: 't1',
+        type: NodeTypeId.terminal,
+        label: 'Done',
+        position: WorkflowPosition(x: 0, y: 0),
+      );
+      const claude = WorkflowNode(
+        id: 'n1',
+        type: NodeTypeId.claudeCode,
+        label: 'Coder',
+        position: WorkflowPosition(x: 10, y: 0),
+      );
+      repo.stored = repo.stored.copyWith(
+        nodes: <WorkflowNode>[terminal, claude],
+      );
+      final container = ProviderContainer.test(
+        overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+      );
+
+      final provider = workflowEditorControllerProvider('wf-1');
+      await container.read(provider.future);
+      final notifier = container.read(provider.notifier);
+
+      final r1 = await notifier.changeNodeType('t1', NodeTypeId.geminiCli);
+      expect(r1, isA<FailureResult<WorkflowResponse>>());
+      expect(repo.lastUpdateRequest, isNull);
+
+      final r2 = await notifier.changeNodeType('n1', NodeTypeId.claudeCode);
+      expect(r2, isA<FailureResult<WorkflowResponse>>());
+      expect(repo.lastUpdateRequest, isNull);
+    });
+
+    test('save error sets saveFailure and keeps new type in draft', () async {
+      final repo = _FakeWorkflowRepository();
+      const node = WorkflowNode(
+        id: 'n1',
+        type: NodeTypeId.claudeCode,
+        label: 'Coder',
+        position: WorkflowPosition(x: 0, y: 0),
+      );
+      repo.stored = repo.stored.copyWith(nodes: <WorkflowNode>[node]);
+      final container = ProviderContainer.test(
+        overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+      );
+
+      final provider = workflowEditorControllerProvider('wf-1');
+      await container.read(provider.future);
+      final notifier = container.read(provider.notifier);
+      repo.saveOverride = const FailureResult(NetworkFailure('offline'));
+
+      final result = await notifier.changeNodeType('n1', NodeTypeId.geminiCli);
+      expect(result, isA<FailureResult<WorkflowResponse>>());
+
+      final state = container.read(provider).requireValue;
+      expect(state.saveFailure, isA<NetworkFailure>());
+      expect(state.isSaving, isFalse);
+      expect(state.workflow.nodes.single.type, NodeTypeId.geminiCli);
+    });
+
+    test(
+      'updateNodeConfig with fallback list saves through revision-checked path',
+      () async {
+        final repo = _FakeWorkflowRepository();
+        const node = WorkflowNode(
+          id: 'n1',
+          type: NodeTypeId.claudeCode,
+          label: 'Coder',
+          position: WorkflowPosition(x: 0, y: 0),
+        );
+        repo.stored = repo.stored.copyWith(nodes: <WorkflowNode>[node]);
+        final container = ProviderContainer.test(
+          overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+        );
+
+        final provider = workflowEditorControllerProvider('wf-1');
+        await container.read(provider.future);
+        final notifier = container.read(provider.notifier);
+
+        final updatedConfig = const HarnessNodeConfig(
+          fallback: <FallbackEntry>[
+            FallbackEntry(harness: NodeTypeId.codex, model: 'gpt-x'),
+          ],
+        ).toJson();
+        notifier.updateNodeConfig('n1', updatedConfig);
+
+        final result = await notifier.save();
+        expect(result, isA<Success<WorkflowResponse>>());
+        expect(repo.lastUpdateRequest?.revision, 'rev-1');
+        expect(
+          repo.lastUpdateRequest?.nodes.single.config['fallback'],
+          <JsonMap>[
+            <String, dynamic>{'harness': NodeTypeId.codex, 'model': 'gpt-x'},
+          ],
+        );
+      },
+    );
   });
 }

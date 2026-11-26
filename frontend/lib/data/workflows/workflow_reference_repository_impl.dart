@@ -15,11 +15,11 @@ final class WorkflowReferenceRepositoryImpl
   @override
   Future<Result<List<WorkflowReference>>> getReferences(
     String workflowId, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
     final result = await _remoteDataSource.getReferences(
       workflowId,
-      workspaceId: workspaceId,
+      scope: scope,
     );
     return result.map((response) => response.references);
   }

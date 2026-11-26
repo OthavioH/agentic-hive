@@ -3264,6 +3264,14 @@
   "@sideRailTreeDirtyBadge": {
     "description": "Badge label when a worktree has uncommitted changes."
   },
+  "sideRailTreeBrokenBadge": "Broken",
+  "@sideRailTreeBrokenBadge": {
+    "description": "Badge label on a worktree row whose folder exists but git can no longer read it (broken worktree)."
+  },
+  "sideRailTreeBrokenBadgeSemantic": "Broken worktree",
+  "@sideRailTreeBrokenBadgeSemantic": {
+    "description": "Screen reader label for the broken worktree badge."
+  },
   "sideRailTreeDetachedHead": "detached HEAD",
   "@sideRailTreeDetachedHead": {
     "description": "Subtitle shown when a git worktree has a detached HEAD."
@@ -4010,6 +4018,149 @@
     "description": "Accessibility label for opening the parent run from a pause detail pane.",
     "placeholders": {
       "runId": {
+        "type": "String"
+      }
+    }
+  },
+  "editorChangeHarnessAction": "Change harness",
+  "@editorChangeHarnessAction": {
+    "description": "Button label in the node inspector to switch a headless harness node to another harness."
+  },
+  "editorChangeHarnessSelectLabel": "New harness",
+  "@editorChangeHarnessSelectLabel": {
+    "description": "Label for the harness picker shown when changing a node's harness in the inspector."
+  },
+  "editorChangeHarnessConfirmTitle": "Switch to {harness}?",
+  "@editorChangeHarnessConfirmTitle": {
+    "description": "Confirmation dialog title when switching to a harness that drops unsupported config fields.",
+    "placeholders": {
+      "harness": {
+        "type": "String"
+      }
+    }
+  },
+  "editorChangeHarnessConfirmMessage": "These settings will be removed: {fields}",
+  "@editorChangeHarnessConfirmMessage": {
+    "description": "Confirmation dialog message listing config keys that will be dropped when switching harnesses.",
+    "placeholders": {
+      "fields": {
+        "type": "String"
+      }
+    }
+  },
+  "editorChangeHarnessConfirmAction": "Switch",
+  "@editorChangeHarnessConfirmAction": {
+    "description": "Confirm button label in the change-harness confirmation dialog."
+  },
+  "editorChangeHarnessCancelAction": "Cancel",
+  "@editorChangeHarnessCancelAction": {
+    "description": "Cancel button label in the change-harness confirmation dialog."
+  },
+  "nodeConfigFallbackTitle": "Fallback",
+  "@nodeConfigFallbackTitle": {
+    "description": "Section title for the harness node fallback list editor."
+  },
+  "nodeConfigFallbackEmpty": "No fallback. The node fails on a rate limit.",
+  "@nodeConfigFallbackEmpty": {
+    "description": "Empty state message shown when a harness node has no fallback entries."
+  },
+  "nodeConfigFallbackAdd": "Add fallback",
+  "@nodeConfigFallbackAdd": {
+    "description": "Button label to add a new fallback entry."
+  },
+  "nodeConfigFallbackHarnessLabel": "Harness",
+  "@nodeConfigFallbackHarnessLabel": {
+    "description": "Select label for the harness of a fallback entry."
+  },
+  "nodeConfigFallbackModelLabel": "Model (optional)",
+  "@nodeConfigFallbackModelLabel": {
+    "description": "Text field label for the optional model of a fallback entry."
+  },
+  "nodeConfigFallbackEffortLabel": "Effort (optional)",
+  "@nodeConfigFallbackEffortLabel": {
+    "description": "Select label for the optional effort of a fallback entry."
+  },
+  "nodeConfigFallbackModelDashError": "Model must not start with \"-\".",
+  "@nodeConfigFallbackModelDashError": {
+    "description": "Validation error shown when a fallback model starts with a hyphen."
+  },
+  "nodeConfigFallbackMoveUp": "Move fallback {n} up",
+  "@nodeConfigFallbackMoveUp": {
+    "description": "Accessible label for moving a fallback entry up.",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "nodeConfigFallbackMoveDown": "Move fallback {n} down",
+  "@nodeConfigFallbackMoveDown": {
+    "description": "Accessible label for moving a fallback entry down.",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "nodeConfigFallbackRemove": "Remove fallback {n}",
+  "@nodeConfigFallbackRemove": {
+    "description": "Accessible label for removing a fallback entry.",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "nodeConfigFallbackNotInstalled": "{harness} is not installed",
+  "@nodeConfigFallbackNotInstalled": {
+    "description": "Warning badge label when a fallback harness is not installed.",
+    "placeholders": {
+      "harness": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeConfigFallbackNotSignedIn": "{harness} is not signed in",
+  "@nodeConfigFallbackNotSignedIn": {
+    "description": "Warning badge label when a fallback harness is not signed in.",
+    "placeholders": {
+      "harness": {
+        "type": "String"
+      }
+    }
+  },
+  "runDetailFallbackEntry": "{harness} · {model}",
+  "@runDetailFallbackEntry": {
+    "description": "Formatted harness and model label for a fallback entry.",
+    "placeholders": {
+      "harness": {
+        "type": "String"
+      },
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "runDetailRanOn": "Ran on {entry}",
+  "@runDetailRanOn": {
+    "description": "Chip label on a run graph node card showing which harness/model it fell back to.",
+    "placeholders": {
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "runDetailFallbackSummary": "Switched from {from} to {to}: {reason}",
+  "@runDetailFallbackSummary": {
+    "description": "Summary line on a node.fallback event in the run Events tab.",
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      },
+      "reason": {
         "type": "String"
       }
     }

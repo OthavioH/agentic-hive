@@ -269,7 +269,7 @@ void main() {
       expect(context.runId, runId);
       expect(context.nodeId, 'a');
       expect(context.attempt, 1);
-      expect(context.workspacePath, '/workspace');
+      expect(context.targetFolder, '/workspace');
       expect(context.availableOutputs, contains(NodeOutput.onSuccess));
     });
 
@@ -283,7 +283,7 @@ void main() {
 
       await h.engine.start(runId);
 
-      expect(h.script.executions.single.workspacePath, '/worktree');
+      expect(h.script.executions.single.targetFolder, '/worktree');
     });
 
     test('saves a checkpoint and checkpoint.saved after every node', () async {

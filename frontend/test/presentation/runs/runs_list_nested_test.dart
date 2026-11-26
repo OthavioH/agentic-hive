@@ -47,17 +47,21 @@ final class _FakeRunRepository implements RunRepository {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   }) async {
+    final filtered = workspaceId == null
+        ? items
+        : items.where((r) => r.workspaceId == workspaceId).toList();
     final start = offset ?? 0;
     final page = limit == null
-        ? items.skip(start).toList()
-        : items.skip(start).take(limit).toList();
+        ? filtered.skip(start).toList()
+        : filtered.skip(start).take(limit).toList();
     return Success(
       RunsListResponse(
         items: page,
-        total: backendTotalOverride ?? items.length,
+        total: backendTotalOverride ?? filtered.length,
       ),
     );
   }
@@ -108,13 +112,13 @@ final class _FakeRunRepository implements RunRepository {
 final class _FakeWorkflowRepository implements WorkflowRepository {
   @override
   Future<Result<List<WorkflowSummary>>> listWorkflows({
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const Success(<WorkflowSummary>[]);
 
   @override
   Future<Result<WorkflowResponse>> getWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
@@ -126,20 +130,20 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
     UpdateWorkflowRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Stream<WorkflowDeletionUpdate> deleteWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
     String? revision,
     bool force = false,
   }) => const Stream<WorkflowDeletionUpdate>.empty();

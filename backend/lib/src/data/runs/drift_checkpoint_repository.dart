@@ -23,6 +23,7 @@ final class DriftCheckpointRepository implements CheckpointRepository {
     required int circuitBreakerCount,
     required Map<String, JsonMap> nodeOutputs,
     required DateTime createdAt,
+    Map<String, int> fallbackIndexByNodeId = const <String, int>{},
     String? completedNodeId,
     int? sequence,
   }) async {
@@ -66,6 +67,9 @@ final class DriftCheckpointRepository implements CheckpointRepository {
                 attemptsByEdgeJson: jsonEncode(attemptsByEdge),
                 circuitBreakerCount: circuitBreakerCount,
                 nodeOutputsJson: jsonEncode(nodeOutputs),
+                fallbackIndexByNodeIdJson: Value(
+                  jsonEncode(fallbackIndexByNodeId),
+                ),
                 createdAt: utcCreatedAt.toIso8601String(),
               ),
             );
@@ -81,6 +85,7 @@ final class DriftCheckpointRepository implements CheckpointRepository {
             circuitBreakerCount: circuitBreakerCount,
             nodeOutputs: nodeOutputs,
             createdAt: utcCreatedAt,
+            fallbackIndexByNodeId: fallbackIndexByNodeId,
           ),
         );
       });
@@ -135,6 +140,7 @@ final class DriftCheckpointRepository implements CheckpointRepository {
     final rawPending = jsonDecode(row.pendingNodeIdsJson) as List<Object?>;
     final rawAttempts = jsonDecode(row.attemptsByEdgeJson) as JsonMap;
     final rawOutputs = jsonDecode(row.nodeOutputsJson) as JsonMap;
+    final rawFallback = jsonDecode(row.fallbackIndexByNodeIdJson) as JsonMap;
 
     return Checkpoint(
       id: row.id,
@@ -152,6 +158,10 @@ final class DriftCheckpointRepository implements CheckpointRepository {
           entry.key: (entry.value! as Map).cast<String, Object?>(),
       },
       createdAt: DateTime.parse(row.createdAt).toUtc(),
+      fallbackIndexByNodeId: {
+        for (final entry in rawFallback.entries)
+          entry.key: (entry.value! as num).toInt(),
+      },
     );
   }
 }

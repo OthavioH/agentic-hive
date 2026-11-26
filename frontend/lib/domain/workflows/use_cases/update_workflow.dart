@@ -9,11 +9,10 @@ final class UpdateWorkflow {
 
   final WorkflowRepository _repository;
 
-  /// Executes the use case for [id] with [request] in the scope of
-  /// [workspaceId].
+  /// Executes the use case for [id] with [request] in [scope].
   Future<Result<WorkflowResponse>> call(
     String id,
     UpdateWorkflowRequest request, {
-    String? workspaceId,
-  }) => _repository.updateWorkflow(id, request, workspaceId: workspaceId);
+    DefinitionScope scope = const GlobalScope(),
+  }) => _repository.updateWorkflow(id, request, scope: scope);
 }

@@ -40,7 +40,7 @@ void main() {
     workflowId: 'wf-1',
     workflowName: sampleWorkflow.name,
     workflowDefinition: sampleWorkflow,
-    workspacePath: '/tmp/ws',
+    workspaceRoot: '/tmp/ws',
     status: RunStatus.paused,
     startedAt: DateTime.utc(2026, 11, 21, 10),
   );
@@ -97,7 +97,7 @@ void main() {
     final db = AppDatabase.open(dbFile);
     addTearDown(db.close);
 
-    expect(db.schemaVersion, 12);
+    expect(db.schemaVersion, 13);
     final tables = await db
         .customSelect(
           "SELECT name FROM sqlite_master WHERE type='table' AND name='pauses'",

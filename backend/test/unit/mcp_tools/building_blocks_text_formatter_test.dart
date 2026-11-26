@@ -12,7 +12,9 @@ final _canonicalBlocks = <String>[
     '  config: agentId, additionalInstructions, ',
     'workingDirectory, timeoutSeconds:int, model, ',
     'effort=low|medium|high|max, ',
-    'extraArgs:[string]; set at least one of ',
+    'extraArgs:[string], ',
+    'fallback:[{harness*=${headlessHarnessTypeIds.join('|')}, ',
+    'model, effort=low|medium|high|max}]; set at least one of ',
     'agentId|additionalInstructions',
   ].join(),
   [
@@ -62,7 +64,7 @@ final _canonicalBlocks = <String>[
 AgentSummary _agent({
   required String id,
   required String name,
-  AgentScope scope = AgentScope.global,
+  DefinitionScope scope = const GlobalScope(),
   String description = '',
 }) => AgentSummary(
   id: id,
@@ -105,8 +107,8 @@ void main() {
       expect(
         blockFor(NodeTypeId.geminiCli),
         allOf(
-          contains(', model, extraArgs:[string]'),
-          isNot(contains('effort')),
+          contains(', model, extraArgs:[string], fallback:'),
+          isNot(contains('effort=low|medium|high|max, extraArgs')),
         ),
       );
       expect(
@@ -150,7 +152,7 @@ void main() {
           _agent(
             id: 'a',
             name: 'A',
-            scope: AgentScope.workspace,
+            scope: const WorkspaceScope('ws-1'),
             description: long,
           ),
           _agent(id: 'b', name: 'B'),

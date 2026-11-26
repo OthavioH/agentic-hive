@@ -56,6 +56,7 @@ void main() {
     required RunStatus status,
     required DateTime startedAt,
     String? workflowId = 'wf-1',
+    String? workspaceId,
     DateTime? finishedAt,
     String? errorMessage,
     String? input,
@@ -64,7 +65,8 @@ void main() {
     workflowId: workflowId,
     workflowName: sampleWorkflow.name,
     workflowDefinition: sampleWorkflow,
-    workspacePath: '/tmp/ws',
+    workspaceRoot: '/tmp/ws',
+    workspaceId: workspaceId,
     status: status,
     startedAt: startedAt,
     finishedAt: finishedAt,
@@ -121,7 +123,7 @@ void main() {
         await db.close();
       }
 
-      expect(await readUserVersion(dbFile), 12);
+      expect(await readUserVersion(dbFile), 13);
       final metadata = await readMetadataRows(dbFile);
       expect(metadata['installed_at'], '2026-11-20T00:00:00.000Z');
       final indexes = await selectFromFile(
@@ -562,7 +564,7 @@ void main() {
     final db = AppDatabase.open(dbFile);
     addTearDown(db.close);
 
-    expect(db.schemaVersion, 12);
+    expect(db.schemaVersion, 13);
     final runsRepo = DriftRunRepository(db);
     final legacy = (await runsRepo.getById('legacy-r1')).valueOrNull!;
     expect(legacy.input, isNull);
@@ -577,6 +579,175 @@ void main() {
     );
     final loaded = (await runsRepo.getById('r-new')).valueOrNull!;
     expect(loaded.input, 'New run input after migration');
+  });
+
+  test(
+    'persists fallbackIndexByNodeId through checkpoints and ResumePoint',
+    () async {
+      final db = AppDatabase.open(dbFile);
+      addTearDown(db.close);
+
+      final runsRepo = DriftRunRepository(db);
+      final cpRepo = DriftCheckpointRepository(db);
+      final recovery = RunRecoveryService(runs: runsRepo, checkpoints: cpRepo);
+
+      await runsRepo.create(
+        makeRun(
+          id: 'r-fb',
+          status: RunStatus.interrupted,
+          startedAt: DateTime.utc(2026, 11, 20, 10),
+        ),
+      );
+
+      final cpWithout = (await cpRepo.append(
+        id: 'cp-fb-1',
+        runId: 'r-fb',
+        pendingNodeIds: const ['a'],
+        attemptsByEdge: const {},
+        circuitBreakerCount: 0,
+        nodeOutputs: const {},
+        createdAt: DateTime.utc(2026, 11, 20, 10, 1),
+      )).valueOrNull!;
+      expect(cpWithout.fallbackIndexByNodeId, isEmpty);
+
+      final cpWith = (await cpRepo.append(
+        id: 'cp-fb-2',
+        runId: 'r-fb',
+        pendingNodeIds: const ['a'],
+        attemptsByEdge: const {},
+        circuitBreakerCount: 0,
+        nodeOutputs: const {},
+        fallbackIndexByNodeId: const {'a': 1},
+        createdAt: DateTime.utc(2026, 11, 20, 10, 2),
+      )).valueOrNull!;
+      expect(cpWith.fallbackIndexByNodeId, {'a': 1});
+
+      final latest = (await cpRepo.getLatestForRun('r-fb')).valueOrNull!;
+      expect(latest.fallbackIndexByNodeId, {'a': 1});
+
+      final listed = (await cpRepo.listForRun('r-fb')).valueOrNull!;
+      expect(listed.first.fallbackIndexByNodeId, isEmpty);
+      expect(listed.last.fallbackIndexByNodeId, {'a': 1});
+
+      final resume = (await recovery.resolveResumePoint('r-fb')).valueOrNull!;
+      expect(resume.fallbackIndexByNodeId, {'a': 1});
+    },
+  );
+
+  test(
+    'persists workspaceRoot in the existing workspace_path SQLite column',
+    () async {
+      final db = AppDatabase.open(dbFile);
+      addTearDown(db.close);
+
+      final runsRepo = DriftRunRepository(db);
+      final run = Run(
+        id: 'run-col-check',
+        workflowId: 'wf-1',
+        workflowName: sampleWorkflow.name,
+        workflowDefinition: sampleWorkflow,
+        workspaceRoot: '/tmp/ws-root',
+        status: RunStatus.running,
+        startedAt: DateTime.utc(2026, 11, 20, 10),
+      );
+
+      expect((await runsRepo.create(run)).isSuccess, isTrue);
+
+      final row = await db
+          .customSelect(
+            'SELECT workspace_path FROM runs WHERE id = ?',
+            variables: [Variable.withString('run-col-check')],
+          )
+          .getSingle();
+      expect(row.read<String>('workspace_path'), '/tmp/ws-root');
+    },
+  );
+
+  test('DriftRunRepository.list filters by workspaceId in SQL', () async {
+    final db = AppDatabase.open(dbFile);
+    addTearDown(db.close);
+
+    final runsRepo = DriftRunRepository(db);
+    await db
+        .into(db.workspaces)
+        .insert(
+          WorkspacesCompanion.insert(
+            id: 'ws-1',
+            name: 'Workspace 1',
+            rootPath: '/tmp/ws-1',
+            isGit: false,
+            createdAt: '2026-11-20T09:00:00.000Z',
+            updatedAt: '2026-11-20T09:00:00.000Z',
+          ),
+        );
+    await db
+        .into(db.workspaces)
+        .insert(
+          WorkspacesCompanion.insert(
+            id: 'ws-2',
+            name: 'Workspace 2',
+            rootPath: '/tmp/ws-2',
+            isGit: false,
+            createdAt: '2026-11-20T09:00:00.000Z',
+            updatedAt: '2026-11-20T09:00:00.000Z',
+          ),
+        );
+
+    await runsRepo.create(
+      makeRun(
+        id: 'r-ws1-1',
+        status: RunStatus.succeeded,
+        startedAt: DateTime.utc(2026, 11, 20, 10),
+        workspaceId: 'ws-1',
+      ),
+    );
+    await runsRepo.create(
+      makeRun(
+        id: 'r-ws2-1',
+        status: RunStatus.succeeded,
+        startedAt: DateTime.utc(2026, 11, 20, 11),
+        workspaceId: 'ws-2',
+      ),
+    );
+    await runsRepo.create(
+      makeRun(
+        id: 'r-ws1-2',
+        status: RunStatus.succeeded,
+        startedAt: DateTime.utc(2026, 11, 20, 12),
+        workspaceId: 'ws-1',
+      ),
+    );
+    await runsRepo.create(
+      makeRun(
+        id: 'r-ws1-3',
+        status: RunStatus.succeeded,
+        startedAt: DateTime.utc(2026, 11, 20, 13),
+        workspaceId: 'ws-1',
+      ),
+    );
+    await runsRepo.create(
+      makeRun(
+        id: 'r-legacy',
+        status: RunStatus.succeeded,
+        startedAt: DateTime.utc(2026, 11, 20, 14),
+      ),
+    );
+
+    final ws1 = (await runsRepo.list(workspaceId: 'ws-1')).valueOrNull!;
+    expect(ws1.total, 3);
+    expect(ws1.items.map((r) => r.id), ['r-ws1-3', 'r-ws1-2', 'r-ws1-1']);
+
+    final unknown = (await runsRepo.list(workspaceId: 'unknown')).valueOrNull!;
+    expect(unknown.total, 0);
+    expect(unknown.items, isEmpty);
+
+    final paged = (await runsRepo.list(
+      workspaceId: 'ws-1',
+      limit: 1,
+      offset: 1,
+    )).valueOrNull!;
+    expect(paged.total, 3);
+    expect(paged.items.map((r) => r.id), ['r-ws1-2']);
   });
 }
 

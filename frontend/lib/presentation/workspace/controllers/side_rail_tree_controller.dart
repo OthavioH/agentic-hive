@@ -346,7 +346,8 @@ class SideRailTreeController extends _$SideRailTreeController {
       ref.read(workspaceRegistryControllerProvider.notifier).selectGlobal();
 
   /// Removes non-primary worktree [worktreeId] of [workspaceId] and refreshes
-  /// the tree on success.
+  /// the tree after every attempt, since a failed removal may still have
+  /// changed what is on disk (ADR 0030).
   Future<Result<RemoveWorktreeResponse>> removeWorktree(
     String workspaceId,
     String worktreeId, {
@@ -358,9 +359,7 @@ class SideRailTreeController extends _$SideRailTreeController {
       force: force,
     );
     if (!ref.mounted) return result;
-    if (result is Success<RemoveWorktreeResponse>) {
-      await refresh();
-    }
+    await refresh();
     return result;
   }
 
@@ -454,17 +453,23 @@ class SideRailTreeController extends _$SideRailTreeController {
     final worktreeFutures = <Future<Result<List<Worktree>>>>[
       for (final ws in workspaces) listWorktrees(ws.id),
     ];
-    final (worktreeResults, runsResult, pausesResult) = await (
+    final runsFutures = <Future<Result<List<RunSummary>>>>[
+      for (final ws in workspaces) _fetchTreeRuns(ws.id, now),
+    ];
+    final (worktreeResults, runsResults, pausesResult) = await (
       Future.wait<Result<List<Worktree>>>(worktreeFutures),
-      _fetchTreeRuns(now),
+      Future.wait<Result<List<RunSummary>>>(runsFutures),
       listPauses(),
     ).wait;
 
-    final allRuns = switch (runsResult) {
-      Success<List<RunSummary>>(:final value) => value,
-      FailureResult<List<RunSummary>>(:final failure) =>
-        Error.throwWithStackTrace(failure, StackTrace.current),
-    };
+    final runsByWorkspace = <List<RunSummary>>[
+      for (final result in runsResults)
+        switch (result) {
+          Success<List<RunSummary>>(:final value) => value,
+          FailureResult<List<RunSummary>>(:final failure) =>
+            Error.throwWithStackTrace(failure, StackTrace.current),
+        },
+    ];
 
     final pendingPauseRunIds = <String>{
       if (pausesResult case Success<List<Pause>>(:final value))
@@ -492,7 +497,7 @@ class SideRailTreeController extends _$SideRailTreeController {
               ),
             ];
 
-      final wsRuns = allRuns.where((r) => r.workspaceId == ws.id).toList();
+      final wsRuns = runsByWorkspace[i];
       var wsPendingPauseCount = 0;
       for (final run in wsRuns) {
         if (pendingPauseRunIds.contains(run.id)) {
@@ -534,7 +539,10 @@ class SideRailTreeController extends _$SideRailTreeController {
     );
   }
 
-  Future<Result<List<RunSummary>>> _fetchTreeRuns(DateTime now) async {
+  Future<Result<List<RunSummary>>> _fetchTreeRuns(
+    String workspaceId,
+    DateTime now,
+  ) async {
     final listRuns = ref.read(listRunsProvider);
     final byId = <String, RunSummary>{};
 
@@ -545,6 +553,7 @@ class SideRailTreeController extends _$SideRailTreeController {
       while (true) {
         final result = await listRuns(
           status: status,
+          workspaceId: workspaceId,
           limit: _runsFetchLimit,
           offset: offset,
         );
@@ -565,10 +574,14 @@ class SideRailTreeController extends _$SideRailTreeController {
       }
     }
 
-    // Fetch recent runs (last 24h) via client-side paging.
+    // Fetch recent runs (last 24h) via server-filtered paging.
     var offset = 0;
     while (true) {
-      final result = await listRuns(limit: _runsFetchLimit, offset: offset);
+      final result = await listRuns(
+        workspaceId: workspaceId,
+        limit: _runsFetchLimit,
+        offset: offset,
+      );
       switch (result) {
         case FailureResult<RunsListResponse>(:final failure):
           return FailureResult<List<RunSummary>>(failure);

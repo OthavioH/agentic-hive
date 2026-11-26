@@ -6,6 +6,7 @@ import 'package:agentic_hive_frontend/domain/agents/agent_repository.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflow_editor_controller.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/harness_config_form.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/node_config_form_registry.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_palette.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/workflow_inspector_panel.dart';
@@ -27,7 +28,9 @@ final class _FakeAgentRepository implements AgentRepository {
   Future<void> dispose() => _changes.close();
 
   @override
-  Future<Result<List<AgentSummary>>> listAgents({String? workspaceId}) {
+  Future<Result<List<AgentSummary>>> listAgents({
+    DefinitionScope scope = const GlobalScope(),
+  }) {
     if (onListAgents != null) return onListAgents!();
     return Future<Result<List<AgentSummary>>>.value(
       Success<List<AgentSummary>>(<AgentSummary>[
@@ -50,25 +53,27 @@ final class _FakeAgentRepository implements AgentRepository {
   @override
   Future<Result<AgentDetail>> getAgent(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Future<Result<AgentDetail>> createAgent(
     CreateAgentRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Future<Result<AgentDetail>> updateAgent(
     String id,
     UpdateAgentRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
-  Future<Result<void>> deleteAgent(String id, {String? workspaceId}) async =>
-      const Success<void>(null);
+  Future<Result<void>> deleteAgent(
+    String id, {
+    DefinitionScope scope = const GlobalScope(),
+  }) async => const Success<void>(null);
 
   @override
   Stream<AgentsChangedPayload> watchAgentChanges() => _changes.stream;
@@ -189,6 +194,8 @@ void main() {
         onUpdateMetadata: ({name, description}) {},
         onUpdateNodeLabel: (_, _) {},
         onUpdateNodeConfig: (_, config) => latestConfig = config,
+        onChangeNodeType: (_, _) async =>
+            const FailureResult<WorkflowResponse>(UnexpectedFailure('unused')),
         onToggleEntryNode: (_, {required isEntry}) {},
         onDeleteNode: (_) {},
         onUpdateEdge: (
@@ -242,6 +249,10 @@ void main() {
           onUpdateMetadata: ({name, description}) {},
           onUpdateNodeLabel: (_, _) {},
           onUpdateNodeConfig: (_, config) => latestConfig = config,
+          onChangeNodeType: (_, _) async =>
+              const FailureResult<WorkflowResponse>(
+                UnexpectedFailure('unused'),
+              ),
           onToggleEntryNode: (_, {required isEntry}) {},
           onDeleteNode: (_) {},
           onUpdateEdge: (
@@ -292,6 +303,8 @@ void main() {
         onUpdateMetadata: ({name, description}) {},
         onUpdateNodeLabel: (_, _) {},
         onUpdateNodeConfig: (_, config) => latestConfig = config,
+        onChangeNodeType: (_, _) async =>
+            const FailureResult<WorkflowResponse>(UnexpectedFailure('unused')),
         onToggleEntryNode: (_, {required isEntry}) {},
         onDeleteNode: (_) {},
         onUpdateEdge: (
@@ -343,6 +356,8 @@ void main() {
         onUpdateMetadata: ({name, description}) {},
         onUpdateNodeLabel: (_, _) {},
         onUpdateNodeConfig: (_, config) => latestConfig = config,
+        onChangeNodeType: (_, _) async =>
+            const FailureResult<WorkflowResponse>(UnexpectedFailure('unused')),
         onToggleEntryNode: (_, {required isEntry}) {},
         onDeleteNode: (_) {},
         onUpdateEdge: (
@@ -409,6 +424,10 @@ void main() {
           onUpdateMetadata: ({name, description}) {},
           onUpdateNodeLabel: (_, _) {},
           onUpdateNodeConfig: (_, config) => latestConfig = config,
+          onChangeNodeType: (_, _) async =>
+              const FailureResult<WorkflowResponse>(
+                UnexpectedFailure('unused'),
+              ),
           onToggleEntryNode: (_, {required isEntry}) {},
           onDeleteNode: (_) {},
           onUpdateEdge: (
@@ -458,6 +477,10 @@ void main() {
           onUpdateMetadata: ({name, description}) {},
           onUpdateNodeLabel: (_, _) {},
           onUpdateNodeConfig: (_, config) => latestConfig = config,
+          onChangeNodeType: (_, _) async =>
+              const FailureResult<WorkflowResponse>(
+                UnexpectedFailure('unused'),
+              ),
           onToggleEntryNode: (_, {required isEntry}) {},
           onDeleteNode: (_) {},
           onUpdateEdge: (
@@ -536,6 +559,10 @@ void main() {
               onUpdateMetadata: ({name, description}) {},
               onUpdateNodeLabel: (_, _) {},
               onUpdateNodeConfig: (_, _) {},
+              onChangeNodeType: (_, _) async =>
+                  const FailureResult<WorkflowResponse>(
+                    UnexpectedFailure('unused'),
+                  ),
               onToggleEntryNode: (_, {required isEntry}) {},
               onDeleteNode: (_) {},
               onUpdateEdge: (
@@ -599,6 +626,10 @@ void main() {
           onUpdateMetadata: ({name, description}) {},
           onUpdateNodeLabel: (_, _) {},
           onUpdateNodeConfig: (_, config) => latestConfig = config,
+          onChangeNodeType: (_, _) async =>
+              const FailureResult<WorkflowResponse>(
+                UnexpectedFailure('unused'),
+              ),
           onToggleEntryNode: (_, {required isEntry}) {},
           onDeleteNode: (_) {},
           onUpdateEdge: (
@@ -663,6 +694,8 @@ void main() {
         onUpdateMetadata: ({name, description}) {},
         onUpdateNodeLabel: (_, _) {},
         onUpdateNodeConfig: (_, config) => latestConfig = config,
+        onChangeNodeType: (_, _) async =>
+            const FailureResult<WorkflowResponse>(UnexpectedFailure('unused')),
         onToggleEntryNode: (_, {required isEntry}) {},
         onDeleteNode: (_) {},
         onUpdateEdge: (
@@ -712,6 +745,10 @@ void main() {
             onUpdateMetadata: ({name, description}) {},
             onUpdateNodeLabel: (_, _) {},
             onUpdateNodeConfig: (_, config) => onConfigChanged?.call(config),
+            onChangeNodeType: (_, _) async =>
+                const FailureResult<WorkflowResponse>(
+                  UnexpectedFailure('unused'),
+                ),
             onToggleEntryNode: (_, {required isEntry}) {},
             onDeleteNode: (_) {},
             onUpdateEdge: (
@@ -1073,6 +1110,10 @@ void main() {
           onUpdateMetadata: ({name, description}) {},
           onUpdateNodeLabel: (_, _) {},
           onUpdateNodeConfig: (_, c) => onConfig?.call(c),
+          onChangeNodeType: (_, _) async =>
+              const FailureResult<WorkflowResponse>(
+                UnexpectedFailure('unused'),
+              ),
           onToggleEntryNode: (_, {required isEntry}) {},
           onDeleteNode: (_) {},
           onUpdateEdge: (
@@ -1193,6 +1234,28 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(HarnessNodeConfig.fromJson(latest!).model, isNull);
+    });
+
+    testWidgets('preserves existing fallback list when editing other fields', (
+      tester,
+    ) async {
+      const fallback = <Map<String, Object?>>[
+        {'harness': NodeTypeId.codex, 'model': 'gpt-5', 'effort': 'high'},
+      ];
+      JsonMap? latest;
+      await pumpHarness(
+        tester,
+        nodeOf(NodeTypeId.claudeCode, const {'fallback': fallback}),
+        onConfig: (c) => latest = c,
+      );
+      await tester.pumpAndSettle();
+
+      final modelFinder = find.byKey(modelKey);
+      await tester.ensureVisible(modelFinder);
+      await tester.enterText(modelFinder, 'opus');
+      await tester.pumpAndSettle();
+
+      expect(latest?['fallback'], fallback);
     });
 
     testWidgets('effort select lists options and emits picked value or null', (
@@ -1462,6 +1525,10 @@ void main() {
           onUpdateMetadata: ({name, description}) {},
           onUpdateNodeLabel: (_, _) {},
           onUpdateNodeConfig: (_, c) => onConfig?.call(c),
+          onChangeNodeType: (_, _) async =>
+              const FailureResult<WorkflowResponse>(
+                UnexpectedFailure('unused'),
+              ),
           onToggleEntryNode: (_, {required isEntry}) {},
           onDeleteNode: (_) {},
           onUpdateEdge: (
@@ -1613,5 +1680,263 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Planner'), findsWidgets);
     });
+  });
+
+  group('HarnessConfigForm fallback list', () {
+    WorkflowNode makeHarnessNode(
+      String type, [
+      JsonMap config = const <String, dynamic>{},
+    ]) => WorkflowNode(
+      id: 'n-fallback',
+      type: type,
+      label: 'Coder',
+      position: const WorkflowPosition(x: 0, y: 0),
+      config: config,
+    );
+
+    Future<void> pumpFallbackForm(
+      WidgetTester tester,
+      WorkflowNode node, {
+      ValueChanged<JsonMap>? onConfig,
+    }) {
+      tester.view.physicalSize = const Size(900, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      return _pumpWithHost(
+        tester,
+        SingleChildScrollView(
+          child: HarnessConfigForm(
+            node: node,
+            includeTerminalFields: node.type == NodeTypeId.terminal,
+            onConfigChanged: onConfig ?? (_) {},
+          ),
+        ),
+      );
+    }
+
+    testWidgets('empty state copy and add button emits default fallback', (
+      tester,
+    ) async {
+      JsonMap? latest;
+      await pumpFallbackForm(
+        tester,
+        makeHarnessNode(NodeTypeId.claudeCode),
+        onConfig: (c) => latest = c,
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('No fallback. The node fails on a rate limit.'),
+        findsOneWidget,
+      );
+
+      final addFinder = find.byKey(const Key('config_fallback_add'));
+      await tester.ensureVisible(addFinder);
+      await tester.tap(addFinder);
+      await tester.pumpAndSettle();
+
+      expect(latest?['fallback'], <JsonMap>[
+        <String, dynamic>{'harness': NodeTypeId.codex},
+      ]);
+      expect(
+        find.text('No fallback. The node fails on a rate limit.'),
+        findsNothing,
+      );
+    });
+
+    testWidgets('move up/down swaps order and keeps model text with its row', (
+      tester,
+    ) async {
+      JsonMap? latest;
+      await pumpFallbackForm(
+        tester,
+        makeHarnessNode(NodeTypeId.claudeCode, const <String, dynamic>{
+          'fallback': <JsonMap>[
+            <String, dynamic>{
+              'harness': NodeTypeId.codex,
+              'model': 'gpt-first',
+            },
+            <String, dynamic>{
+              'harness': NodeTypeId.geminiCli,
+              'model': 'gemini-second',
+            },
+          ],
+        }),
+        onConfig: (c) => latest = c,
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<HiveIconButton>(
+              find.byKey(const Key('config_fallback_0_up')),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<HiveIconButton>(
+              find.byKey(const Key('config_fallback_1_down')),
+            )
+            .onPressed,
+        isNull,
+      );
+
+      final moveDown0 = find.byKey(const Key('config_fallback_0_down'));
+      await tester.ensureVisible(moveDown0);
+      await tester.tap(moveDown0);
+      await tester.pumpAndSettle();
+
+      expect(latest?['fallback'], <JsonMap>[
+        <String, dynamic>{
+          'harness': NodeTypeId.geminiCli,
+          'model': 'gemini-second',
+        },
+        <String, dynamic>{'harness': NodeTypeId.codex, 'model': 'gpt-first'},
+      ]);
+      final modelFields = tester
+          .widgetList<HiveTextField>(
+            find.byWidgetPredicate(
+              (w) =>
+                  w is HiveTextField &&
+                  w.key is ValueKey<String> &&
+                  (w.key! as ValueKey<String>).value.startsWith(
+                    'config_fallback_',
+                  ) &&
+                  (w.key! as ValueKey<String>).value.endsWith('_model'),
+            ),
+          )
+          .toList();
+      expect(modelFields[0].controller!.text, 'gemini-second');
+      expect(modelFields[1].controller!.text, 'gpt-first');
+
+      final moveUpSecond = find.bySemanticsLabel('Move fallback 2 up');
+      await tester.ensureVisible(moveUpSecond);
+      await tester.tap(moveUpSecond);
+      await tester.pumpAndSettle();
+
+      expect(latest?['fallback'], <JsonMap>[
+        <String, dynamic>{'harness': NodeTypeId.codex, 'model': 'gpt-first'},
+        <String, dynamic>{
+          'harness': NodeTypeId.geminiCli,
+          'model': 'gemini-second',
+        },
+      ]);
+    });
+
+    testWidgets('remove drops row and picking gemini hides effort when null', (
+      tester,
+    ) async {
+      JsonMap? latest;
+      await pumpFallbackForm(
+        tester,
+        makeHarnessNode(NodeTypeId.claudeCode, const <String, dynamic>{
+          'fallback': <JsonMap>[
+            <String, dynamic>{'harness': NodeTypeId.codex},
+            <String, dynamic>{'harness': NodeTypeId.antigravity},
+          ],
+        }),
+        onConfig: (c) => latest = c,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('config_fallback_0_effort')), findsOneWidget);
+
+      final harness0 = find.byKey(const Key('config_fallback_0_harness'));
+      await tester.ensureVisible(harness0);
+      await tester.tap(harness0);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Gemini CLI').last);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('config_fallback_0_effort')), findsNothing);
+      expect((latest!['fallback']! as List<dynamic>).first, <String, dynamic>{
+        'harness': NodeTypeId.geminiCli,
+      });
+
+      final remove0 = find.byKey(const Key('config_fallback_0_remove'));
+      await tester.ensureVisible(remove0);
+      await tester.tap(remove0);
+      await tester.pumpAndSettle();
+
+      expect(latest?['fallback'], <JsonMap>[
+        <String, dynamic>{'harness': NodeTypeId.antigravity},
+      ]);
+    });
+
+    testWidgets('model starting with dash shows error', (tester) async {
+      await pumpFallbackForm(
+        tester,
+        makeHarnessNode(NodeTypeId.claudeCode, const <String, dynamic>{
+          'fallback': <JsonMap>[
+            <String, dynamic>{'harness': NodeTypeId.codex, 'model': '-bad'},
+          ],
+        }),
+      );
+      await tester.pumpAndSettle();
+
+      final modelField = tester.widget<HiveTextField>(
+        find.byKey(const Key('config_fallback_0_model')),
+      );
+      expect(modelField.errorText, 'Model must not start with "-".');
+    });
+
+    testWidgets('section is absent for harness.terminal', (tester) async {
+      await pumpFallbackForm(tester, makeHarnessNode(NodeTypeId.terminal));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('config_fallback_add')), findsNothing);
+      expect(find.text('Fallback'), findsNothing);
+    });
+
+    testWidgets(
+      'external fallback update on same node syncs editor and preserves on '
+      'edit',
+      (tester) async {
+        JsonMap? latest;
+        await pumpFallbackForm(
+          tester,
+          makeHarnessNode(NodeTypeId.claudeCode),
+          onConfig: (c) => latest = c,
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text('No fallback. The node fails on a rate limit.'),
+          findsOneWidget,
+        );
+
+        await pumpFallbackForm(
+          tester,
+          makeHarnessNode(NodeTypeId.claudeCode, const <String, dynamic>{
+            'fallback': <JsonMap>[
+              <String, dynamic>{'harness': NodeTypeId.codex, 'model': 'gpt-5'},
+            ],
+          }),
+          onConfig: (c) => latest = c,
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text('No fallback. The node fails on a rate limit.'),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const Key('config_fallback_0_model')),
+          findsOneWidget,
+        );
+
+        await tester.enterText(
+          find.byKey(const Key('config_harness_additional_instructions')),
+          'Updated instructions',
+        );
+        await tester.pumpAndSettle();
+
+        expect(latest?['fallback'], <JsonMap>[
+          <String, dynamic>{'harness': NodeTypeId.codex, 'model': 'gpt-5'},
+        ]);
+      },
+    );
   });
 }
