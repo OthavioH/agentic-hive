@@ -556,7 +556,10 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
   ) {
     final deletions = _deletions;
     final deleting =
-        deletions?.runningFor(workflowId, workspaceId: workspaceId) ??
+        deletions?.runningFor(
+          workflowId,
+          scope: DefinitionScope.ofWorkspaceId(workspaceId),
+        ) ??
         deletions?.runningFor(workflowId);
     if (deleting == null) return null;
     return WorkflowDeletingFailure(

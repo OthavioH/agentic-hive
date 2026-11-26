@@ -224,7 +224,7 @@ void main() {
         updatedAt: updatedAt,
       );
 
-      expect(summary.scope, AgentScope.global);
+      expect(summary.scope, const GlobalScope());
       expect(summary.overridden, isFalse);
       expect(summary.toJson()['scope'], 'global');
     });
@@ -235,14 +235,14 @@ void main() {
         name: 'A',
         contentHash: 'h',
         updatedAt: updatedAt,
-        scope: AgentScope.workspace,
+        scope: const WorkspaceScope('ws-1'),
         overridden: true,
       );
 
       final decoded = AgentSummary.fromJson(_overTheWire(summary.toJson()));
 
       expect(decoded, summary);
-      expect(decoded.scope, AgentScope.workspace);
+      expect(decoded.scope, const WorkspaceScope('ws-1'));
     });
 
     test('summary without scope decodes as global', () {
@@ -253,7 +253,7 @@ void main() {
         'updatedAt': updatedAt.toIso8601String(),
       });
 
-      expect(decoded.scope, AgentScope.global);
+      expect(decoded.scope, const GlobalScope());
     });
 
     test('detail round-trips workspace scope', () {
@@ -262,12 +262,12 @@ void main() {
         name: 'A',
         contentHash: 'h',
         updatedAt: updatedAt,
-        scope: AgentScope.workspace,
+        scope: const WorkspaceScope('ws-1'),
       );
 
       final decoded = AgentDetail.fromJson(_overTheWire(detail.toJson()));
 
-      expect(decoded.scope, AgentScope.workspace);
+      expect(decoded.scope, const WorkspaceScope('ws-1'));
     });
 
     test('changed payload carries the workspace id, null meaning global', () {

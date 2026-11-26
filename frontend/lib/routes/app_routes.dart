@@ -13,6 +13,7 @@ import 'package:agentic_hive_frontend/presentation/shell/widgets/app_shell.dart'
 import 'package:agentic_hive_frontend/presentation/workflows/controllers/workflow_editor_controller.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/pages/workflow_editor_page.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/pages/workflows_page.dart';
+import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -100,7 +101,12 @@ class WorkflowEditorRoute extends GoRouteData with $WorkflowEditorRoute {
   FutureOr<bool> onExit(BuildContext context, GoRouterState state) {
     final container = ProviderScope.containerOf(context, listen: false);
     final editorState = container
-        .read(workflowEditorControllerProvider(id, workspaceId: workspaceId))
+        .read(
+          workflowEditorControllerProvider(
+            id,
+            scope: DefinitionScope.ofWorkspaceId(workspaceId),
+          ),
+        )
         .asData
         ?.value;
     if (editorState == null || !editorState.isDirty) {

@@ -385,7 +385,7 @@ class RunsListController extends _$RunsListController {
     );
     final workflowsFuture = ref
         .read(listWorkflowsProvider)
-        .call(workspaceId: workspaceId);
+        .call(scope: DefinitionScope.ofWorkspaceId(workspaceId));
 
     final runsResult = await runsFuture;
     final workflowsResult = await workflowsFuture;

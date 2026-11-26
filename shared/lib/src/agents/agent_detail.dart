@@ -1,4 +1,4 @@
-import 'package:agentic_hive_shared/src/agents/agent_scope.dart';
+import 'package:agentic_hive_shared/src/definitions/definition_scope.dart';
 import 'package:agentic_hive_shared/src/json_fields.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
@@ -6,9 +6,11 @@ part 'agent_detail.freezed.dart';
 part 'agent_detail.g.dart';
 
 /// Full representation of an agent `.md` file, including prompt and metadata.
-@freezed
+@Freezed(toJson: false)
 sealed class AgentDetail with _$AgentDetail {
   /// Creates an agent detail.
+  // ignore: invalid_annotation_target
+  @JsonSerializable(createToJson: true)
   const factory({
     required String id,
     required String name,
@@ -21,11 +23,26 @@ sealed class AgentDetail with _$AgentDetail {
     @Default(<String>[]) List<String> allowedTools,
     @Default(<String>[]) List<String> deniedTools,
     @Default('') String prompt,
-    @Default(AgentScope.global) AgentScope scope,
+    @Default(GlobalScope())
+    @JsonKey(
+      readValue: readWholeJson,
+      fromJson: DefinitionScope.fromJson,
+      includeToJson: false,
+    )
+    DefinitionScope scope,
     String? parseError,
     String? rawContent,
   }) = _AgentDetail;
 
+  const new _();
+
   /// Decodes an agent detail; throws a [FormatException] on a bad shape.
   factory fromJson(JsonMap json) => parseJson(json, _$AgentDetailFromJson);
+
+  /// Encodes this detail to JSON, flattening [scope] into `scope` and
+  /// optional `workspaceId`.
+  JsonMap toJson() => {
+    ..._$AgentDetailToJson(this as _AgentDetail),
+    ...scope.toJson(),
+  };
 }

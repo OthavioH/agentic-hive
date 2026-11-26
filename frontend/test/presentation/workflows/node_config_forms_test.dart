@@ -27,7 +27,9 @@ final class _FakeAgentRepository implements AgentRepository {
   Future<void> dispose() => _changes.close();
 
   @override
-  Future<Result<List<AgentSummary>>> listAgents({String? workspaceId}) {
+  Future<Result<List<AgentSummary>>> listAgents({
+    DefinitionScope scope = const GlobalScope(),
+  }) {
     if (onListAgents != null) return onListAgents!();
     return Future<Result<List<AgentSummary>>>.value(
       Success<List<AgentSummary>>(<AgentSummary>[
@@ -50,25 +52,27 @@ final class _FakeAgentRepository implements AgentRepository {
   @override
   Future<Result<AgentDetail>> getAgent(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Future<Result<AgentDetail>> createAgent(
     CreateAgentRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Future<Result<AgentDetail>> updateAgent(
     String id,
     UpdateAgentRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
-  Future<Result<void>> deleteAgent(String id, {String? workspaceId}) async =>
-      const Success<void>(null);
+  Future<Result<void>> deleteAgent(
+    String id, {
+    DefinitionScope scope = const GlobalScope(),
+  }) async => const Success<void>(null);
 
   @override
   Stream<AgentsChangedPayload> watchAgentChanges() => _changes.stream;

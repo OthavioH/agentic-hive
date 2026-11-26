@@ -214,15 +214,15 @@ void main() {
         await _json(await handler.call(_request('GET', '/?workspaceId=ws-1'))),
       ).workflows;
       expect(both.map((w) => w.scope).toSet(), {
-        WorkflowScope.global,
-        WorkflowScope.workspace,
+        const GlobalScope(),
+        const WorkspaceScope('ws-1'),
       });
       expect(both, hasLength(2));
 
       final globalOnly = WorkflowListResponse.fromJson(
         await _json(await handler.call(_request('GET', '/'))),
       ).workflows;
-      expect(globalOnly.map((w) => w.scope), [WorkflowScope.global]);
+      expect(globalOnly.map((w) => w.scope), [const GlobalScope()]);
     },
   );
 
@@ -243,6 +243,20 @@ void main() {
     final response = await handler.call(_request('GET', '/?workspaceId=nope'));
 
     expect(response.statusCode, 404);
+  });
+
+  test('trims padded workspaceId query parameter', () async {
+    await handler.call(
+      _request('POST', '/', {'name': 'Deploy', 'workspaceId': 'ws-1'}),
+    );
+
+    final response = await handler.call(
+      _request('GET', '/deploy?workspaceId=%20ws-1%20'),
+    );
+
+    expect(response.statusCode, 200);
+    final decoded = WorkflowResponse.fromJson(await _json(response));
+    expect(decoded.scope, const WorkspaceScope('ws-1'));
   });
 
   test(

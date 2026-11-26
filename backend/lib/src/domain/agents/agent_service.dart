@@ -57,35 +57,42 @@ final class AgentService {
     return result;
   }
 
-  /// Lists the global agents, or with [workspaceId] the workspace agents plus
-  /// the global ones.
-  Future<Result<List<AgentSummary>>> list({String? workspaceId}) {
-    if (workspaceId == null) return _global.list();
-    return _inWorkspace(
+  /// Lists the global agents, or with [WorkspaceScope] the workspace agents
+  /// plus the global ones.
+  Future<Result<List<AgentSummary>>> list({
+    DefinitionScope scope = const GlobalScope(),
+  }) => switch (scope) {
+    GlobalScope() => _global.list(),
+    WorkspaceScope(:final workspaceId) => _inWorkspace(
       workspaceId,
       (workspace) => _layer!(global: _global, workspace: workspace).list(),
-    );
-  }
+    ),
+  };
 
   /// Loads the agent with filename stem [id], resolving the workspace folder
-  /// first when [workspaceId] is given.
-  Future<Result<AgentDetail>> getById(String id, {String? workspaceId}) {
+  /// first when [scope] is [WorkspaceScope].
+  Future<Result<AgentDetail>> getById(
+    String id, {
+    DefinitionScope scope = const GlobalScope(),
+  }) {
     final validId = validateAgentLookupId(id);
     if (validId case FailureResult(:final failure)) {
       return Future.value(FailureResult(failure));
     }
-    if (workspaceId == null) return _global.getById(id);
-    return _inWorkspace(
-      workspaceId,
-      (workspace) => _layer!(global: _global, workspace: workspace).getById(id),
-    );
+    return switch (scope) {
+      GlobalScope() => _global.getById(id),
+      WorkspaceScope(:final workspaceId) => _inWorkspace(
+        workspaceId,
+        (workspace) =>
+            _layer!(global: _global, workspace: workspace).getById(id),
+      ),
+    };
   }
 
-  /// Creates a new agent from [request] in the global library, or in the
-  /// workspace folder when [workspaceId] is given.
+  /// Creates a new agent from [request] in [scope].
   Future<Result<AgentDetail>> create(
     CreateAgentRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) {
     final slug = validateAgentSlug(request.id);
     if (slug case FailureResult(:final failure)) {
@@ -96,16 +103,20 @@ final class AgentService {
         const FailureResult(ValidationFailure('Agent name must not be empty.')),
       );
     }
-    if (workspaceId == null) return _global.create(request);
-    return _inWorkspace(workspaceId, (workspace) => workspace.create(request));
+    return switch (scope) {
+      GlobalScope() => _global.create(request),
+      WorkspaceScope(:final workspaceId) => _inWorkspace(
+        workspaceId,
+        (workspace) => workspace.create(request),
+      ),
+    };
   }
 
-  /// Updates an existing agent [id] from [request] in the global library, or
-  /// in the workspace folder when [workspaceId] is given.
+  /// Updates an existing agent [id] from [request] in [scope].
   Future<Result<AgentDetail>> update(
     String id,
     UpdateAgentRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) {
     final slug = validateAgentSlug(id);
     if (slug case FailureResult(:final failure)) {
@@ -123,21 +134,30 @@ final class AgentService {
         ),
       );
     }
-    if (workspaceId == null) return _global.update(id, request);
-    return _inWorkspace(
-      workspaceId,
-      (workspace) => workspace.update(id, request),
-    );
+    return switch (scope) {
+      GlobalScope() => _global.update(id, request),
+      WorkspaceScope(:final workspaceId) => _inWorkspace(
+        workspaceId,
+        (workspace) => workspace.update(id, request),
+      ),
+    };
   }
 
-  /// Deletes the agent with filename stem [id] from the global library, or
-  /// from the workspace folder when [workspaceId] is given.
-  Future<Result<void>> delete(String id, {String? workspaceId}) {
+  /// Deletes the agent with filename stem [id] from [scope].
+  Future<Result<void>> delete(
+    String id, {
+    DefinitionScope scope = const GlobalScope(),
+  }) {
     final validId = validateAgentLookupId(id);
     if (validId case FailureResult(:final failure)) {
       return Future.value(FailureResult(failure));
     }
-    if (workspaceId == null) return _global.delete(id);
-    return _inWorkspace(workspaceId, (workspace) => workspace.delete(id));
+    return switch (scope) {
+      GlobalScope() => _global.delete(id),
+      WorkspaceScope(:final workspaceId) => _inWorkspace(
+        workspaceId,
+        (workspace) => workspace.delete(id),
+      ),
+    };
   }
 }
