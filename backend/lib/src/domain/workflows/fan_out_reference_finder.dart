@@ -23,51 +23,46 @@ final class FanOutReferenceFinder {
   /// Registered workspaces repository.
   final WorkspaceRepository? workspaces;
 
-  /// References to workflow [workflowId] of scope [workspaceId] (`null` =
-  /// global), sorted by name (R13-R15).
+  /// References to workflow [workflowId] in [scope], sorted by name (R13-R15).
   Future<Result<List<WorkflowReference>>> find(
     String workflowId, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
-    final candidates =
-        <({Workflow workflow, WorkflowScope scope, String? workspaceId})>[];
+    final candidates = <({Workflow workflow, DefinitionScope scope})>[];
 
     final globalsResult = await repository.listAll();
     if (globalsResult case FailureResult<List<Workflow>>(:final failure)) {
       return FailureResult(failure);
     }
     for (final w in globalsResult.valueOrNull!) {
-      if (w.id == workflowId && workspaceId == null) continue;
-      candidates.add((
-        workflow: w,
-        scope: WorkflowScope.global,
-        workspaceId: null,
-      ));
+      if (w.id == workflowId && scope is GlobalScope) continue;
+      candidates.add((workflow: w, scope: const GlobalScope()));
     }
 
     final wsRepo = workspaces;
     final wsWorkflowsRepo = workspaceWorkflows;
     if (wsRepo != null && wsWorkflowsRepo != null) {
       final workspacesToScan = <Workspace>[];
-      if (workspaceId != null) {
-        final wsResult = await wsRepo.getById(workspaceId);
-        if (wsResult case FailureResult<Workspace>(:final failure)) {
-          return FailureResult(failure);
-        }
-        workspacesToScan.add(wsResult.valueOrNull!);
-      } else {
-        final listResult = await wsRepo.list();
-        if (listResult case FailureResult<List<Workspace>>(:final failure)) {
-          return FailureResult(failure);
-        }
-        for (final ws in listResult.valueOrNull!) {
-          final shadowCheck = await wsWorkflowsRepo.getById(
-            ws.rootPath,
-            workflowId,
-          );
-          if (shadowCheck is Success<Workflow>) continue;
-          workspacesToScan.add(ws);
-        }
+      switch (scope) {
+        case WorkspaceScope(:final workspaceId):
+          final wsResult = await wsRepo.getById(workspaceId);
+          if (wsResult case FailureResult<Workspace>(:final failure)) {
+            return FailureResult(failure);
+          }
+          workspacesToScan.add(wsResult.valueOrNull!);
+        case GlobalScope():
+          final listResult = await wsRepo.list();
+          if (listResult case FailureResult<List<Workspace>>(:final failure)) {
+            return FailureResult(failure);
+          }
+          for (final ws in listResult.valueOrNull!) {
+            final shadowCheck = await wsWorkflowsRepo.getById(
+              ws.rootPath,
+              workflowId,
+            );
+            if (shadowCheck is Success<Workflow>) continue;
+            workspacesToScan.add(ws);
+          }
       }
 
       for (final ws in workspacesToScan) {
@@ -76,12 +71,10 @@ final class FanOutReferenceFinder {
           return FailureResult(failure);
         }
         for (final w in wsListResult.valueOrNull!) {
-          if (w.id == workflowId && ws.id == workspaceId) continue;
-          candidates.add((
-            workflow: w,
-            scope: WorkflowScope.workspace,
-            workspaceId: ws.id,
-          ));
+          if (w.id == workflowId && scope.workspaceIdOrNull == ws.id) {
+            continue;
+          }
+          candidates.add((workflow: w, scope: WorkspaceScope(ws.id)));
         }
       }
     }
@@ -99,7 +92,6 @@ final class FanOutReferenceFinder {
             workflowId: c.workflow.id,
             workflowName: c.workflow.name,
             scope: c.scope,
-            workspaceId: c.workspaceId,
             nodeIds: nodeIds,
           ),
         );
@@ -111,14 +103,17 @@ final class FanOutReferenceFinder {
         b.workflowName.toLowerCase(),
       );
       if (byName != 0) return byName;
-      final aWs = a.workspaceId;
-      final bWs = b.workspaceId;
-      if (aWs == null && bWs != null) return -1;
-      if (aWs != null && bWs == null) return 1;
-      if (aWs != null && bWs != null) {
-        final byWs = aWs.compareTo(bWs);
-        if (byWs != 0) return byWs;
-      }
+      final byScope = switch ((a.scope, b.scope)) {
+        (GlobalScope(), WorkspaceScope()) => -1,
+        (WorkspaceScope(), GlobalScope()) => 1,
+        (
+          WorkspaceScope(workspaceId: final aWs),
+          WorkspaceScope(workspaceId: final bWs),
+        ) =>
+          aWs.compareTo(bWs),
+        (GlobalScope(), GlobalScope()) => 0,
+      };
+      if (byScope != 0) return byScope;
       return a.workflowId.compareTo(b.workflowId);
     });
 

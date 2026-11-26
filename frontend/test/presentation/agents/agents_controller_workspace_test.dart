@@ -23,11 +23,11 @@ final class _SelectionStore implements WorkspaceSelectionStore {
   Future<void> save(String? workspaceId) async => savedId = workspaceId;
 }
 
-AgentDetail _detail(String id, AgentScope scope, {String name = ''}) =>
+AgentDetail _detail(String id, DefinitionScope scope, {String name = ''}) =>
     AgentDetail(
       id: id,
       name: name.isEmpty ? id : name,
-      contentHash: 'hash-$id-${scope.name}',
+      contentHash: 'hash-$id-${scope.wireName}',
       updatedAt: DateTime.utc(2026, 11, 22),
       scope: scope,
     );
@@ -45,7 +45,10 @@ final class _ScopedRepository implements AgentRepository {
   final deleteCalls = <({String id, String? workspaceId})>[];
 
   @override
-  Future<Result<List<AgentSummary>>> listAgents({String? workspaceId}) async {
+  Future<Result<List<AgentSummary>>> listAgents({
+    DefinitionScope scope = const GlobalScope(),
+  }) async {
+    final workspaceId = scope.workspaceIdOrNull;
     listCalls.add(workspaceId);
     final workspaceItems = workspaceId == null
         ? const <AgentDetail>[]
@@ -67,7 +70,11 @@ final class _ScopedRepository implements AgentRepository {
   );
 
   @override
-  Future<Result<AgentDetail>> getAgent(String id, {String? workspaceId}) async {
+  Future<Result<AgentDetail>> getAgent(
+    String id, {
+    DefinitionScope scope = const GlobalScope(),
+  }) async {
+    final workspaceId = scope.workspaceIdOrNull;
     getCalls.add((id: id, workspaceId: workspaceId));
     final found = (workspaceId == null ? null : workspace[id]) ?? global[id];
     return found == null
@@ -78,12 +85,10 @@ final class _ScopedRepository implements AgentRepository {
   @override
   Future<Result<AgentDetail>> createAgent(
     CreateAgentRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
+    final workspaceId = scope.workspaceIdOrNull;
     createCalls.add(workspaceId);
-    final scope = workspaceId == null
-        ? AgentScope.global
-        : AgentScope.workspace;
     final created = _detail(request.id, scope, name: request.name);
     (workspaceId == null ? global : workspace)[request.id] = created;
     return Success(created);
@@ -93,8 +98,9 @@ final class _ScopedRepository implements AgentRepository {
   Future<Result<AgentDetail>> updateAgent(
     String id,
     UpdateAgentRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
+    final workspaceId = scope.workspaceIdOrNull;
     updateCalls.add((id: id, workspaceId: workspaceId));
     final store = workspaceId == null ? global : workspace;
     final updated = store[id]!.copyWith(name: request.name);
@@ -103,7 +109,11 @@ final class _ScopedRepository implements AgentRepository {
   }
 
   @override
-  Future<Result<void>> deleteAgent(String id, {String? workspaceId}) async {
+  Future<Result<void>> deleteAgent(
+    String id, {
+    DefinitionScope scope = const GlobalScope(),
+  }) async {
+    final workspaceId = scope.workspaceIdOrNull;
     deleteCalls.add((id: id, workspaceId: workspaceId));
     (workspaceId == null ? global : workspace).remove(id);
     return const Success(null);
@@ -149,33 +159,36 @@ void main() {
   });
 
   test('lists the current workspace plus global agents with scopes', () async {
-    agents.global['planner'] = _detail('planner', AgentScope.global);
-    agents.global['reviewer'] = _detail('reviewer', AgentScope.global);
-    agents.workspace['reviewer'] = _detail('reviewer', AgentScope.workspace);
+    agents.global['planner'] = _detail('planner', const GlobalScope());
+    agents.global['reviewer'] = _detail('reviewer', const GlobalScope());
+    agents.workspace['reviewer'] = _detail(
+      'reviewer',
+      const WorkspaceScope('ws-1'),
+    );
 
     final container = await boot();
 
     expect(agents.listCalls.last, 'ws-1');
     final list = container.read(agentsControllerProvider).agents.value!;
     expect(
-      [for (final a in list) '${a.id}:${a.scope.name}:${a.overridden}'],
-      unorderedEquals([
+      [for (final a in list) '${a.id}:${a.scope.wireName}:${a.overridden}'],
+      [
         'planner:global:false',
-        'reviewer:workspace:false',
         'reviewer:global:true',
-      ]),
+        'reviewer:workspace:false',
+      ],
     );
   });
 
   test('an override matches on the name, not on the file id', () async {
     agents.global['reviewer-global'] = _detail(
       'reviewer-global',
-      AgentScope.global,
+      const GlobalScope(),
       name: 'Reviewer',
     );
     agents.workspace['reviewer-ws'] = _detail(
       'reviewer-ws',
-      AgentScope.workspace,
+      const WorkspaceScope('ws-1'),
       name: 'Reviewer',
     );
     final container = await boot();
@@ -183,7 +196,7 @@ void main() {
 
     final list = container.read(agentsControllerProvider).agents.value!;
     expect(
-      [for (final a in list) '${a.id}:${a.scope.name}:${a.overridden}'],
+      [for (final a in list) '${a.id}:${a.scope.wireName}:${a.overridden}'],
       unorderedEquals([
         'reviewer-ws:workspace:false',
         'reviewer-global:global:true',
@@ -191,7 +204,7 @@ void main() {
     );
 
     // The global entry stays addressable by its own file id.
-    await controller.selectAgent('reviewer-global', scope: AgentScope.global);
+    await controller.selectAgent('reviewer-global', scope: const GlobalScope());
     expect(
       container.read(agentsControllerProvider).detail.value?.id,
       'reviewer-global',
@@ -203,7 +216,7 @@ void main() {
     () async {
       agents.global['reviewer-global'] = _detail(
         'reviewer-global',
-        AgentScope.global,
+        const GlobalScope(),
         name: 'Reviewer',
       );
       final container = await boot();
@@ -211,7 +224,7 @@ void main() {
           .read(agentsControllerProvider)
           .agents
           .value!
-          .singleWhere((a) => a.scope == AgentScope.global);
+          .singleWhere((a) => a.scope is GlobalScope);
       expect(globalEntry().overridden, isFalse);
 
       final workspaceSummary = AgentSummary(
@@ -219,7 +232,7 @@ void main() {
         name: ' Reviewer ',
         contentHash: 'h',
         updatedAt: DateTime.utc(2026, 11, 22),
-        scope: AgentScope.workspace,
+        scope: const WorkspaceScope('ws-1'),
       );
       agents.changes.add(
         AgentsChangedPayload(
@@ -245,8 +258,11 @@ void main() {
   );
 
   test('Global view lists and edits only global agents', () async {
-    agents.global['planner'] = _detail('planner', AgentScope.global);
-    agents.workspace['only-ws'] = _detail('only-ws', AgentScope.workspace);
+    agents.global['planner'] = _detail('planner', const GlobalScope());
+    agents.workspace['only-ws'] = _detail(
+      'only-ws',
+      const WorkspaceScope('ws-1'),
+    );
     final container = await boot();
     final controller = container.read(agentsControllerProvider.notifier);
 
@@ -277,16 +293,16 @@ void main() {
     expect(agents.createCalls.single, 'ws-1');
     expect(
       container.read(agentsControllerProvider).detail.value?.scope,
-      AgentScope.workspace,
+      const WorkspaceScope('ws-1'),
     );
   });
 
   test('editing a global agent from a workspace view targets global', () async {
-    agents.global['planner'] = _detail('planner', AgentScope.global);
+    agents.global['planner'] = _detail('planner', const GlobalScope());
     final container = await boot();
     final controller = container.read(agentsControllerProvider.notifier);
 
-    await controller.selectAgent('planner', scope: AgentScope.global);
+    await controller.selectAgent('planner', scope: const GlobalScope());
     expect(agents.getCalls.last.workspaceId, isNull);
     controller.updateName('Planner v2');
     await controller.save();
@@ -295,20 +311,26 @@ void main() {
   });
 
   test('selecting an overridden global entry loads the global file', () async {
-    agents.global['reviewer'] = _detail('reviewer', AgentScope.global);
-    agents.workspace['reviewer'] = _detail('reviewer', AgentScope.workspace);
+    agents.global['reviewer'] = _detail('reviewer', const GlobalScope());
+    agents.workspace['reviewer'] = _detail(
+      'reviewer',
+      const WorkspaceScope('ws-1'),
+    );
     final container = await boot();
     final controller = container.read(agentsControllerProvider.notifier);
 
-    await controller.selectAgent('reviewer', scope: AgentScope.workspace);
-    expect(
-      container.read(agentsControllerProvider).detail.value?.scope,
-      AgentScope.workspace,
+    await controller.selectAgent(
+      'reviewer',
+      scope: const WorkspaceScope('ws-1'),
     );
-    await controller.selectAgent('reviewer', scope: AgentScope.global);
     expect(
       container.read(agentsControllerProvider).detail.value?.scope,
-      AgentScope.global,
+      const WorkspaceScope('ws-1'),
+    );
+    await controller.selectAgent('reviewer', scope: const GlobalScope());
+    expect(
+      container.read(agentsControllerProvider).detail.value?.scope,
+      const GlobalScope(),
     );
 
     await controller.deleteSelected();
@@ -330,7 +352,7 @@ void main() {
           name: 'Pulled',
           contentHash: 'h',
           updatedAt: DateTime.utc(2026, 11, 22),
-          scope: AgentScope.workspace,
+          scope: const WorkspaceScope('ws-1'),
         ),
       ),
     );
@@ -338,7 +360,7 @@ void main() {
 
     final list = container.read(agentsControllerProvider).agents.value!;
     expect(list.map((a) => a.id), ['pulled']);
-    expect(list.single.scope, AgentScope.workspace);
+    expect(list.single.scope, const WorkspaceScope('ws-1'));
     expect(agents.listCalls.length, before);
   });
 
@@ -355,7 +377,7 @@ void main() {
           name: 'Elsewhere',
           contentHash: 'h',
           updatedAt: DateTime.utc(2026, 11, 22),
-          scope: AgentScope.workspace,
+          scope: const WorkspaceScope('ws-other'),
         ),
       ),
     );
@@ -378,7 +400,7 @@ void main() {
           name: 'Pulled',
           contentHash: 'h',
           updatedAt: DateTime.utc(2026, 11, 22),
-          scope: AgentScope.workspace,
+          scope: const WorkspaceScope('ws-1'),
         ),
       ),
     );
@@ -401,8 +423,11 @@ void main() {
   });
 
   test('selectGlobal reconciles AgentsController to globalOnly=true', () async {
-    agents.global['planner'] = _detail('planner', AgentScope.global);
-    agents.workspace['only-ws'] = _detail('only-ws', AgentScope.workspace);
+    agents.global['planner'] = _detail('planner', const GlobalScope());
+    agents.workspace['only-ws'] = _detail(
+      'only-ws',
+      const WorkspaceScope('ws-1'),
+    );
     final container = await boot();
 
     container.read(workspaceRegistryControllerProvider.notifier).selectGlobal();

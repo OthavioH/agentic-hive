@@ -36,6 +36,7 @@ final class _FakeRunRepository implements RunRepository {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   }) async => const Success(RunsListResponse(items: <RunSummary>[], total: 0));
@@ -72,7 +73,7 @@ final class _FakeRunRepository implements RunRepository {
           createdAt: now,
           updatedAt: now,
         ),
-        workspacePath: '/projects/hive',
+        workspaceRoot: '/projects/hive',
         workspaceId: request.workspaceId,
         status: RunStatus.running,
         startedAt: now,
@@ -110,8 +111,9 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
 
   @override
   Future<Result<List<WorkflowSummary>>> listWorkflows({
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
+    final workspaceId = scope.workspaceIdOrNull;
     listedWorkspaceIds.add(workspaceId);
     return Success(<WorkflowSummary>[
       WorkflowSummary(
@@ -137,7 +139,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   @override
   Future<Result<WorkflowResponse>> getWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
@@ -149,20 +151,20 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
     UpdateWorkflowRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Stream<WorkflowDeletionUpdate> deleteWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
     String? revision,
     bool force = false,
   }) => Stream.value(const WorkflowDeletionSucceeded());

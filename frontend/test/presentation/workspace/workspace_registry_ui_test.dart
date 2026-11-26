@@ -9,6 +9,7 @@ import 'package:agentic_hive_frontend/presentation/workspace/widgets/workspace_r
 import 'package:agentic_hive_frontend/presentation/workspace/widgets/workspace_switcher_bar.dart';
 import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:design_system/design_system.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart'
     show GlobalWidgetsLocalizations;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -274,4 +275,112 @@ void main() {
       );
     },
   );
+
+  testWidgets('WorkspaceSwitcherBar centers icon and Workspaces button '
+      'on the select field', (tester) async {
+    repo.workspaces = [makeWorkspace(name: 'Alpha')];
+    selectionStore.savedId = 'ws-1';
+
+    await tester.pumpWidget(
+      _wrap(
+        child: const WorkspaceSwitcherBar(),
+        repo: repo,
+        selectionStore: selectionStore,
+        filePicker: filePicker,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final select = find.byKey(const Key('workspace_switcher_select'));
+    final outerIcon = find.byElementPredicate(
+      (element) =>
+          element.widget is HiveIcon &&
+          (element.widget as HiveIcon).icon == HiveIcons.folder &&
+          element.findAncestorWidgetOfExactType<HiveSelect<String>>() == null,
+    );
+    final well = find.descendant(
+      of: select,
+      matching: find.byType(HiveFocusRing),
+    );
+    final button = find.byKey(const Key('workspace_manage_button'));
+
+    expect(outerIcon, findsOneWidget);
+    expect(well, findsOneWidget);
+    expect(button, findsOneWidget);
+
+    final wellCenterY = tester.getCenter(well).dy;
+    expect(
+      tester.getCenter(outerIcon).dy,
+      moreOrLessEquals(wellCenterY, epsilon: 0.5),
+    );
+    expect(
+      tester.getCenter(button).dy,
+      moreOrLessEquals(wellCenterY, epsilon: 0.5),
+    );
+  });
+
+  testWidgets('WorkspaceSwitcherBar centers icon, text and Workspaces button '
+      'in empty state', (tester) async {
+    await tester.pumpWidget(
+      _wrap(
+        child: const WorkspaceSwitcherBar(),
+        repo: repo,
+        selectionStore: selectionStore,
+        filePicker: filePicker,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final outerIcon = find.byElementPredicate(
+      (element) =>
+          element.widget is HiveIcon &&
+          (element.widget as HiveIcon).icon == HiveIcons.folder,
+    );
+    final emptyText = find.text('No workspace registered');
+    final button = find.byKey(const Key('workspace_manage_button'));
+
+    final buttonCenterY = tester.getCenter(button).dy;
+    expect(
+      tester.getCenter(outerIcon).dy,
+      moreOrLessEquals(buttonCenterY, epsilon: 0.5),
+    );
+    expect(
+      tester.getCenter(emptyText).dy,
+      moreOrLessEquals(buttonCenterY, epsilon: 0.5),
+    );
+  });
+
+  testWidgets('WorkspaceSwitcherBar preserves Workspaces button focus when '
+      'workspaces become available', (tester) async {
+    await tester.pumpWidget(
+      _wrap(
+        child: const WorkspaceSwitcherBar(),
+        repo: repo,
+        selectionStore: selectionStore,
+        filePicker: filePicker,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+
+    final button = find.byKey(const Key('workspace_manage_button'));
+    final buttonLabel = find.descendant(
+      of: button,
+      matching: find.text('Workspaces'),
+    );
+    expect(Focus.of(tester.element(buttonLabel)).hasPrimaryFocus, isTrue);
+
+    repo.workspaces = [makeWorkspace(name: 'Alpha')];
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(WorkspaceSwitcherBar)),
+    );
+    await container
+        .read(workspaceRegistryControllerProvider.notifier)
+        .refresh();
+    await tester.pumpAndSettle();
+
+    expect(Focus.of(tester.element(buttonLabel)).hasPrimaryFocus, isTrue);
+  });
 }

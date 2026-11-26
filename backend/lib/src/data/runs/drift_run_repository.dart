@@ -27,7 +27,7 @@ final class DriftRunRepository implements RunRepository {
               workflowDefinitionJson: jsonEncode(
                 run.workflowDefinition.toJson(),
               ),
-              workspacePath: run.workspacePath,
+              workspaceRoot: run.workspaceRoot,
               workspaceId: Value(run.workspaceId),
               status: run.status.name,
               startedAt: run.startedAt.toUtc().toIso8601String(),
@@ -96,6 +96,7 @@ final class DriftRunRepository implements RunRepository {
   Future<Result<({List<RunSummary> items, int total})>> list({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int limit = 50,
     int offset = 0,
   }) async {
@@ -107,6 +108,9 @@ final class DriftRunRepository implements RunRepository {
         }
         if (workflowId != null) {
           expr = expr & tbl.workflowId.equals(workflowId);
+        }
+        if (workspaceId != null) {
+          expr = expr & tbl.workspaceId.equals(workspaceId);
         }
         return expr;
       }
@@ -543,7 +547,7 @@ final class DriftRunRepository implements RunRepository {
       workflowId: row.workflowId,
       workflowName: row.workflowName,
       workflowDefinition: Workflow.fromJson(decodedWorkflow),
-      workspacePath: row.workspacePath,
+      workspaceRoot: row.workspaceRoot,
       workspaceId: row.workspaceId,
       status: RunStatus.fromName(row.status),
       startedAt: DateTime.parse(row.startedAt).toUtc(),

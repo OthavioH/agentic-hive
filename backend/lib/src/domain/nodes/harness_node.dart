@@ -105,7 +105,7 @@ abstract base class HarnessNode extends Node {
       ..writeln('## Execution Context')
       ..writeln('- Run ID: ${context.runId}')
       ..writeln('- Node ID: ${context.nodeId}')
-      ..writeln('- Workspace: ${context.workspacePath}');
+      ..writeln('- Workspace: ${context.targetFolder}');
     if (context.inputs.isNotEmpty) {
       contextBuffer.writeln(
         '- Inputs: ${jsonEncode(_formatPromptInputs(context.inputs))}',
@@ -230,7 +230,7 @@ abstract base class HarnessNode extends Node {
 
     final config = HarnessNodeConfig.fromJson(context.config);
     final workingDirResult = resolveWorkspacePath(
-      context.workspacePath,
+      context.targetFolder,
       config.workingDirectory,
     );
     if (workingDirResult case FailureResult<String>(:final failure)) {

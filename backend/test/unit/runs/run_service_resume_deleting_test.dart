@@ -16,7 +16,7 @@ WorkflowDeletionOperation op(
 }) => WorkflowDeletionOperation(
   id: id,
   workflowId: workflowId,
-  workspaceId: workspaceId,
+  scope: DefinitionScope.ofWorkspaceId(workspaceId),
   phase: WorkflowDeletionPhase.deletingRuns,
   startedAt: DateTime.utc(2026, 11, 23, 10),
 );
@@ -32,7 +32,7 @@ void main() {
       workflowId: 'wf-1',
       workflowName: 'Test workflow',
       workflowDefinition: buildWorkflow(nodeIds: ['a'], edges: const []),
-      workspacePath: '/workspace',
+      workspaceRoot: '/workspace',
       workspaceId: 'ws-1',
       status: status,
       startedAt: DateTime.utc(2026),
@@ -117,7 +117,7 @@ void main() {
           workflowId: 'wf-1',
           workflowName: workflow.name,
           workflowDefinition: workflow,
-          workspacePath: '/workspace',
+          workspaceRoot: '/workspace',
           workspaceId: 'ws-1',
           status: RunStatus.running,
           startedAt: DateTime.utc(2026),

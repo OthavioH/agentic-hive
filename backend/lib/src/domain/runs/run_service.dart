@@ -14,6 +14,7 @@ import 'package:agentic_hive_backend/src/domain/runs/run_canceller.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_log_store.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_target_preparer.dart';
 import 'package:agentic_hive_backend/src/domain/settings/execution_settings_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_registry.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
@@ -207,8 +208,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
       return FailureResult(failure);
     }
     final workspace = found.valueOrNull!;
-    final workspacePath = workspace.rootPath;
-    final workspaceRoot = workspacePath;
+    final workspaceRoot = workspace.rootPath;
 
     final rawInput = request.input?.trim();
     final runInput = (rawInput != null && rawInput.isNotEmpty)
@@ -263,8 +263,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     }
 
     String? reservedFolder;
-    String? createdWorktreePath;
-    String? createdWorktreeBranch;
+    RunTargetPreparer? preparer;
     void Function()? releaseLend;
     var launched = false;
 
@@ -329,93 +328,26 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
       final PreparedWorkspace prepared;
       if (lend) {
         prepared = PreparedWorkspace(
-          effectiveWorkspacePath: workspacePath,
+          targetFolder: workspaceRoot,
           isolationMode: WorkspaceIsolationMode.direct,
         );
       } else {
-        switch (target) {
-          case RunTargetPrimary():
-            final conflict = await claim(workspacePath);
-            if (conflict != null) return FailureResult(conflict);
-            prepared = PreparedWorkspace(
-              effectiveWorkspacePath: workspacePath,
-              isolationMode: WorkspaceIsolationMode.direct,
-            );
-          case RunTargetWorktree(:final worktreeId):
-            final worktrees = _worktrees;
-            if (worktrees == null) {
-              return const FailureResult(
-                UnexpectedFailure('Worktree service is not configured.'),
-              );
-            }
-            final listed = await worktrees.list(workspace);
-            if (listed case FailureResult<List<Worktree>>(:final failure)) {
-              return FailureResult(failure);
-            }
-            final existing = listed.valueOrNull!
-                .where((w) => w.id == worktreeId)
-                .firstOrNull;
-            if (existing == null) {
-              return FailureResult(
-                NotFoundFailure('Worktree "$worktreeId" was not found.'),
-              );
-            }
-            final conflict = await claim(
-              existing.isPrimary ? workspacePath : existing.path,
-            );
-            if (conflict != null) return FailureResult(conflict);
-            prepared = existing.isPrimary
-                ? PreparedWorkspace(
-                    effectiveWorkspacePath: workspacePath,
-                    isolationMode: WorkspaceIsolationMode.direct,
-                  )
-                : PreparedWorkspace(
-                    effectiveWorkspacePath: existing.path,
-                    isolationMode: WorkspaceIsolationMode.worktree,
-                    worktreePath: existing.path,
-                    worktreeBranch: existing.branch,
-                  );
-          case RunTargetNewWorktree(
-            :final name,
-            :final branch,
-            :final baseBranch,
-          ):
-            final worktrees = _worktrees;
-            if (worktrees == null) {
-              return const FailureResult(
-                UnexpectedFailure('Worktree service is not configured.'),
-              );
-            }
-            final created = await worktrees.create(
-              workspace,
-              CreateWorktreeRequest(
-                name: _nonBlank(name) ?? runId,
-                branch: _nonBlank(branch) ?? 'hive/$runId',
-                baseBranch: baseBranch,
-              ),
-            );
-            if (created case FailureResult<Worktree>(:final failure)) {
-              return FailureResult(failure);
-            }
-            final worktree = created.valueOrNull!;
-            createdWorktreePath = worktree.path;
-            createdWorktreeBranch = worktree.branch;
-            final conflict = await claim(worktree.path);
-            if (conflict != null) {
-              await workspacePreparation.cleanupWorktree(
-                workspacePath: workspacePath,
-                worktreePath: worktree.path,
-                branchName: worktree.branch,
-              );
-              return FailureResult(conflict);
-            }
-            prepared = PreparedWorkspace(
-              effectiveWorkspacePath: worktree.path,
-              isolationMode: WorkspaceIsolationMode.worktree,
-              worktreePath: worktree.path,
-              worktreeBranch: worktree.branch,
-            );
+        final targetPreparer = preparer = RunTargetPreparer.forTarget(
+          target,
+          worktrees: _worktrees,
+          workspacePreparation: workspacePreparation,
+        );
+        final preparedResult = await targetPreparer.prepare(
+          workspace: workspace,
+          runId: runId,
+          claim: claim,
+        );
+        if (preparedResult case FailureResult<PreparedWorkspace>(
+          :final failure,
+        )) {
+          return FailureResult(failure);
         }
+        prepared = preparedResult.valueOrNull!;
       }
 
       if (ignorePatterns != null && ignorePatterns.isNotEmpty) {
@@ -427,7 +359,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
         workflowId: workflow.id,
         workflowName: workflow.name,
         workflowDefinition: effectiveWorkflow,
-        workspacePath: workspacePath,
+        workspaceRoot: workspaceRoot,
         workspaceId: workspace.id,
         status: RunStatus.running,
         startedAt: _now().toUtc(),
@@ -447,13 +379,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
       var attachmentsWritten = false;
       Future<void> undo() async {
         _snapshots?.configureRunExclusions(runId, const []);
-        if (createdWorktreePath != null) {
-          await workspacePreparation.cleanupWorktree(
-            workspacePath: workspacePath,
-            worktreePath: createdWorktreePath,
-            branchName: createdWorktreeBranch,
-          );
-        }
+        await preparer?.discard(workspace, prepared);
         if (attachmentsWritten) {
           await _attachments?.deleteRun(runId);
         }
@@ -510,11 +436,6 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     }
   }
 
-  static String? _nonBlank(String? value) {
-    final trimmed = value?.trim();
-    return trimmed == null || trimmed.isEmpty ? null : trimmed;
-  }
-
   /// Initiates cancellation for an active run or retries cancellation for a
   /// `cancellationUncertain` run.
   Future<Result<Run>> cancelRun(String id) async {
@@ -556,7 +477,10 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
   ) {
     final deletions = _deletions;
     final deleting =
-        deletions?.runningFor(workflowId, workspaceId: workspaceId) ??
+        deletions?.runningFor(
+          workflowId,
+          scope: DefinitionScope.ofWorkspaceId(workspaceId),
+        ) ??
         deletions?.runningFor(workflowId);
     if (deleting == null) return null;
     return WorkflowDeletingFailure(
@@ -587,24 +511,24 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     final run = runResult.valueOrNull!;
 
     var reservedDirect = false;
-    String? normalizedWorkspace;
+    String? targetFolder;
     var launched = false;
     try {
       if (!engine.isExecuting(id)) {
-        normalizedWorkspace = canonicalFolder(_runFolder(run), _pathContext);
+        targetFolder = canonicalFolder(_targetFolder(run), _pathContext);
         if (!_isLentChildWithExecutingParent(run, engine)) {
-          if (!_reservedFolders.add(normalizedWorkspace)) {
+          if (!_reservedFolders.add(targetFolder)) {
             return FailureResult(
               ConflictFailure(
                 'An active run is already starting or executing in '
-                '"$normalizedWorkspace".',
+                '"$targetFolder".',
               ),
             );
           }
           reservedDirect = true;
         }
         final conflict = await _checkFolderConflict(
-          normalizedWorkspace,
+          targetFolder,
           excludeRunIds: _resumeConflictExclusions(run),
         );
         if (conflict != null) return FailureResult(conflict);
@@ -623,16 +547,16 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
           id,
           () => done,
           onSettled: () {
-            if (reservedDirect && normalizedWorkspace != null) {
-              _reservedFolders.remove(normalizedWorkspace);
+            if (reservedDirect && targetFolder != null) {
+              _reservedFolders.remove(targetFolder);
             }
           },
         );
       }
       return Success(resumedRun);
     } finally {
-      if (!launched && reservedDirect && normalizedWorkspace != null) {
-        _reservedFolders.remove(normalizedWorkspace);
+      if (!launched && reservedDirect && targetFolder != null) {
+        _reservedFolders.remove(targetFolder);
       }
     }
   }
@@ -656,7 +580,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     }
 
     var reservedDirect = false;
-    String? normalizedWorkspace;
+    String? targetFolder;
     void Function()? releaseLend;
     var launched = false;
     try {
@@ -677,20 +601,20 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
 
       {
         final parentExecuting = _isLentChildWithExecutingParent(run, engine);
-        normalizedWorkspace = canonicalFolder(_runFolder(run), _pathContext);
+        targetFolder = canonicalFolder(_targetFolder(run), _pathContext);
         if (!parentExecuting) {
-          if (!_reservedFolders.add(normalizedWorkspace)) {
+          if (!_reservedFolders.add(targetFolder)) {
             return FailureResult(
               ConflictFailure(
                 'An active run is already starting or executing in '
-                '"$normalizedWorkspace".',
+                '"$targetFolder".',
               ),
             );
           }
           reservedDirect = true;
         }
         final conflict = await _checkFolderConflict(
-          normalizedWorkspace,
+          targetFolder,
           excludeRunIds: _resumeConflictExclusions(run),
         );
         if (conflict != null) return FailureResult(conflict);
@@ -706,8 +630,8 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
         onSettled: () {
           releaseLend?.call();
           _resumingRunIds.remove(id);
-          if (reservedDirect && normalizedWorkspace != null) {
-            _reservedFolders.remove(normalizedWorkspace);
+          if (reservedDirect && targetFolder != null) {
+            _reservedFolders.remove(targetFolder);
           }
         },
       );
@@ -716,8 +640,8 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
       if (!launched) {
         releaseLend?.call();
         _resumingRunIds.remove(id);
-        if (reservedDirect && normalizedWorkspace != null) {
-          _reservedFolders.remove(normalizedWorkspace);
+        if (reservedDirect && targetFolder != null) {
+          _reservedFolders.remove(targetFolder);
         }
       }
     }
@@ -824,8 +748,8 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     }
   }
 
-  /// The folder a run executes in: its worktree, or the workspace root.
-  static String _runFolder(Run run) => run.worktreePath ?? run.workspacePath;
+  /// The run's target folder: its worktree, or the workspace root.
+  static String _targetFolder(Run run) => run.worktreePath ?? run.workspaceRoot;
 
   static bool _isLentChild(Run run) =>
       run.parentRunId != null &&
@@ -922,9 +846,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
         UnexpectedFailure('Worktree service is not configured.'),
       );
     }
-    final headResult = await worktrees.inspectHead(
-      run.worktreePath ?? run.workspacePath,
-    );
+    final headResult = await worktrees.inspectHead(_targetFolder(run));
     if (headResult case FailureResult<FolderHead>(:final failure)) {
       return FailureResult(failure);
     }
@@ -1009,7 +931,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
       if (listResult case FailureResult<List<Run>>()) continue;
       for (final active in listResult.valueOrNull!) {
         if (excludeRunIds.contains(active.id)) continue;
-        if (canonicalFolder(_runFolder(active), _pathContext) ==
+        if (canonicalFolder(_targetFolder(active), _pathContext) ==
             normalizedFolder) {
           return ConflictFailure(
             'An active run ("${active.id}") is already executing in '
@@ -1025,6 +947,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int limit = 50,
     int offset = 0,
   }) async {
@@ -1042,6 +965,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     final result = await _runs.list(
       status: status,
       workflowId: workflowId,
+      workspaceId: workspaceId,
       limit: limit,
       offset: offset,
     );

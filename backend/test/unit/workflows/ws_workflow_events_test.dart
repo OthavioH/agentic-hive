@@ -34,15 +34,14 @@ void main() {
       nodeCount: 2,
       edgeCount: 1,
       hasValidationErrors: false,
-      scope: WorkflowScope.workspace,
-      workspaceId: 'ws-1',
+      scope: const WorkspaceScope('ws-1'),
       revision: 'abc123',
       updatedAt: DateTime.utc(2026),
     );
     events.workflowChanged(
       WorkflowChangeKind.created,
       'wf-1',
-      workspaceId: 'ws-1',
+      scope: const WorkspaceScope('ws-1'),
       workflow: summary,
     );
     await Future<void>.delayed(Duration.zero);

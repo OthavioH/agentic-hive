@@ -55,6 +55,11 @@ final class RunsHandler {
         ? rawWorkflowId
         : null;
 
+    final rawWorkspaceId = params['workspaceId'];
+    final workspaceId = (rawWorkspaceId != null && rawWorkspaceId.isNotEmpty)
+        ? rawWorkspaceId
+        : null;
+
     final limitParsed = _parseOptionalInt(request, params['limit'], 'limit');
     if (limitParsed.error != null) return limitParsed.error!;
     final offsetParsed = _parseOptionalInt(request, params['offset'], 'offset');
@@ -63,6 +68,7 @@ final class RunsHandler {
     final result = await _service.listRuns(
       status: status,
       workflowId: workflowId,
+      workspaceId: workspaceId,
       limit: limitParsed.value ?? 50,
       offset: offsetParsed.value ?? 0,
     );

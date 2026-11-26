@@ -25,6 +25,9 @@ sealed class McpScope {
   /// Workspace id, or `null` for the Global scope.
   String? get workspaceId;
 
+  /// Typed definition scope for service calls.
+  DefinitionScope get definitionScope;
+
   /// Human-readable scope label for error messages (R9).
   String get label;
 
@@ -39,6 +42,9 @@ final class GlobalMcpScope extends McpScope {
 
   @override
   String? get workspaceId => null;
+
+  @override
+  DefinitionScope get definitionScope => const GlobalScope();
 
   @override
   String get label => 'the Global scope';
@@ -63,6 +69,9 @@ final class WorkspaceMcpScope extends McpScope {
 
   @override
   String? get workspaceId => workspace.id;
+
+  @override
+  DefinitionScope get definitionScope => WorkspaceScope(workspace.id);
 
   @override
   String get label => 'workspace "${workspace.name}"';

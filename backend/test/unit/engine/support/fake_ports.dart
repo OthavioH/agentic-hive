@@ -128,7 +128,7 @@ final class FakeSnapshotService implements SnapshotService {
   @override
   Future<Result<Snapshot>> captureSnapshot({
     required String runId,
-    required String workspaceDir,
+    required String targetFolder,
     String? nodeId,
     SnapshotKind kind = SnapshotKind.preNode,
   }) async {

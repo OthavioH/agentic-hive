@@ -112,7 +112,7 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
     _editorSubscription?.close();
     final provider = workflowEditorControllerProvider(
       widget.workflowId,
-      workspaceId: widget.workspaceId,
+      scope: DefinitionScope.ofWorkspaceId(widget.workspaceId),
     );
     _editorSubscription = ref.listenManual<AsyncValue<WorkflowEditorState>>(
       provider,
@@ -153,7 +153,7 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
         .read(
           workflowEditorControllerProvider(
             widget.workflowId,
-            workspaceId: widget.workspaceId,
+            scope: DefinitionScope.ofWorkspaceId(widget.workspaceId),
           ).notifier,
         )
         .reload();
@@ -164,7 +164,7 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
         .read(
           workflowEditorControllerProvider(
             widget.workflowId,
-            workspaceId: widget.workspaceId,
+            scope: DefinitionScope.ofWorkspaceId(widget.workspaceId),
           ),
         )
         .asData
@@ -264,7 +264,7 @@ class _WorkflowEditorPageState extends ConsumerState<WorkflowEditorPage>
     final elevation = context.hiveElevation;
     final editorProvider = workflowEditorControllerProvider(
       widget.workflowId,
-      workspaceId: widget.workspaceId,
+      scope: DefinitionScope.ofWorkspaceId(widget.workspaceId),
     );
     final stateAsync = ref.watch(editorProvider);
 

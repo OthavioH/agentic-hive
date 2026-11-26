@@ -10,7 +10,7 @@ WorkflowDeletionOperation op(
 }) => WorkflowDeletionOperation(
   id: id,
   workflowId: workflowId,
-  workspaceId: workspaceId,
+  scope: DefinitionScope.ofWorkspaceId(workspaceId),
   phase: WorkflowDeletionPhase.deletingRuns,
   startedAt: DateTime.utc(2026),
 );
@@ -37,8 +37,14 @@ void main() {
       ..start(op('ws', 'deploy', workspaceId: 'ws-1'));
 
     expect(registry.runningFor('deploy')!.id, 'global');
-    expect(registry.runningFor('deploy', workspaceId: 'ws-1')!.id, 'ws');
-    expect(registry.runningFor('deploy', workspaceId: 'ws-2'), isNull);
+    expect(
+      registry.runningFor('deploy', scope: const WorkspaceScope('ws-1'))!.id,
+      'ws',
+    );
+    expect(
+      registry.runningFor('deploy', scope: const WorkspaceScope('ws-2')),
+      isNull,
+    );
   });
 
   test('start throws StateError when the workflow already has a running '

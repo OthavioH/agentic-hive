@@ -7,10 +7,10 @@ import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 /// Implemented by `ShadowSnapshotService`; the engine depends on this seam so
 /// it can be tested without a shadow git repository.
 abstract interface class SnapshotService {
-  /// Captures a snapshot of [workspaceDir] for [runId], tagged with [nodeId].
+  /// Captures a snapshot of [targetFolder] for [runId], tagged with [nodeId].
   Future<Result<Snapshot>> captureSnapshot({
     required String runId,
-    required String workspaceDir,
+    required String targetFolder,
     String? nodeId,
     SnapshotKind kind = SnapshotKind.preNode,
   });

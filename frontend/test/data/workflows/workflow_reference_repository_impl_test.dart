@@ -88,7 +88,7 @@ void main() {
 
         await container
             .read(workflowReferenceRepositoryProvider)
-            .getReferences('wf-1', workspaceId: 'ws 1');
+            .getReferences('wf-1', scope: const WorkspaceScope('ws 1'));
 
         expect(client.calls, <String>[
           'GET /api/v1/workflows/wf-1/references?workspaceId=ws+1',
@@ -119,7 +119,6 @@ void main() {
           const WorkflowReference(
             workflowId: 'p',
             workflowName: 'Planner',
-            scope: WorkflowScope.global,
             nodeIds: <String>['n1'],
           ),
         ]);

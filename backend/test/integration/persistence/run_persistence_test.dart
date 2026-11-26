@@ -56,6 +56,7 @@ void main() {
     required RunStatus status,
     required DateTime startedAt,
     String? workflowId = 'wf-1',
+    String? workspaceId,
     DateTime? finishedAt,
     String? errorMessage,
     String? input,
@@ -64,7 +65,8 @@ void main() {
     workflowId: workflowId,
     workflowName: sampleWorkflow.name,
     workflowDefinition: sampleWorkflow,
-    workspacePath: '/tmp/ws',
+    workspaceRoot: '/tmp/ws',
+    workspaceId: workspaceId,
     status: status,
     startedAt: startedAt,
     finishedAt: finishedAt,
@@ -631,6 +633,122 @@ void main() {
       expect(resume.fallbackIndexByNodeId, {'a': 1});
     },
   );
+
+  test(
+    'persists workspaceRoot in the existing workspace_path SQLite column',
+    () async {
+      final db = AppDatabase.open(dbFile);
+      addTearDown(db.close);
+
+      final runsRepo = DriftRunRepository(db);
+      final run = Run(
+        id: 'run-col-check',
+        workflowId: 'wf-1',
+        workflowName: sampleWorkflow.name,
+        workflowDefinition: sampleWorkflow,
+        workspaceRoot: '/tmp/ws-root',
+        status: RunStatus.running,
+        startedAt: DateTime.utc(2026, 11, 20, 10),
+      );
+
+      expect((await runsRepo.create(run)).isSuccess, isTrue);
+
+      final row = await db
+          .customSelect(
+            'SELECT workspace_path FROM runs WHERE id = ?',
+            variables: [Variable.withString('run-col-check')],
+          )
+          .getSingle();
+      expect(row.read<String>('workspace_path'), '/tmp/ws-root');
+    },
+  );
+
+  test('DriftRunRepository.list filters by workspaceId in SQL', () async {
+    final db = AppDatabase.open(dbFile);
+    addTearDown(db.close);
+
+    final runsRepo = DriftRunRepository(db);
+    await db
+        .into(db.workspaces)
+        .insert(
+          WorkspacesCompanion.insert(
+            id: 'ws-1',
+            name: 'Workspace 1',
+            rootPath: '/tmp/ws-1',
+            isGit: false,
+            createdAt: '2026-11-20T09:00:00.000Z',
+            updatedAt: '2026-11-20T09:00:00.000Z',
+          ),
+        );
+    await db
+        .into(db.workspaces)
+        .insert(
+          WorkspacesCompanion.insert(
+            id: 'ws-2',
+            name: 'Workspace 2',
+            rootPath: '/tmp/ws-2',
+            isGit: false,
+            createdAt: '2026-11-20T09:00:00.000Z',
+            updatedAt: '2026-11-20T09:00:00.000Z',
+          ),
+        );
+
+    await runsRepo.create(
+      makeRun(
+        id: 'r-ws1-1',
+        status: RunStatus.succeeded,
+        startedAt: DateTime.utc(2026, 11, 20, 10),
+        workspaceId: 'ws-1',
+      ),
+    );
+    await runsRepo.create(
+      makeRun(
+        id: 'r-ws2-1',
+        status: RunStatus.succeeded,
+        startedAt: DateTime.utc(2026, 11, 20, 11),
+        workspaceId: 'ws-2',
+      ),
+    );
+    await runsRepo.create(
+      makeRun(
+        id: 'r-ws1-2',
+        status: RunStatus.succeeded,
+        startedAt: DateTime.utc(2026, 11, 20, 12),
+        workspaceId: 'ws-1',
+      ),
+    );
+    await runsRepo.create(
+      makeRun(
+        id: 'r-ws1-3',
+        status: RunStatus.succeeded,
+        startedAt: DateTime.utc(2026, 11, 20, 13),
+        workspaceId: 'ws-1',
+      ),
+    );
+    await runsRepo.create(
+      makeRun(
+        id: 'r-legacy',
+        status: RunStatus.succeeded,
+        startedAt: DateTime.utc(2026, 11, 20, 14),
+      ),
+    );
+
+    final ws1 = (await runsRepo.list(workspaceId: 'ws-1')).valueOrNull!;
+    expect(ws1.total, 3);
+    expect(ws1.items.map((r) => r.id), ['r-ws1-3', 'r-ws1-2', 'r-ws1-1']);
+
+    final unknown = (await runsRepo.list(workspaceId: 'unknown')).valueOrNull!;
+    expect(unknown.total, 0);
+    expect(unknown.items, isEmpty);
+
+    final paged = (await runsRepo.list(
+      workspaceId: 'ws-1',
+      limit: 1,
+      offset: 1,
+    )).valueOrNull!;
+    expect(paged.total, 3);
+    expect(paged.items.map((r) => r.id), ['r-ws1-2']);
+  });
 }
 
 final class _V2SeedUser implements QueryExecutorUser {

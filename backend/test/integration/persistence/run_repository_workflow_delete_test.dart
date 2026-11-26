@@ -48,7 +48,7 @@ void main() {
     workflowName: sampleWorkflow.name,
     workflowDefinition: sampleWorkflow,
     workspaceId: workspaceId,
-    workspacePath: '/tmp/ws',
+    workspaceRoot: '/tmp/ws',
     status: status,
     startedAt: startedAt,
     finishedAt: finishedAt,

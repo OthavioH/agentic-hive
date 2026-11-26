@@ -47,9 +47,9 @@ void main() {
     registered = [];
     watchers = WorkspaceAgentWatchers(
       listWorkspaces: () async => Success(registered),
-      repositoryFor: (root) => LocalAgentRepository(
+      repositoryFor: (root, {required workspaceId}) => LocalAgentRepository(
         agentsDir: p.join(root, '.agents', 'agents'),
-        scope: AgentScope.workspace,
+        scope: WorkspaceScope(workspaceId),
       ),
       registry: registry,
       debounceDuration: const Duration(milliseconds: 30),
@@ -69,7 +69,7 @@ void main() {
 
     expect(events.first.id, 'reviewer');
     expect(events.first.workspaceId, 'ws-1');
-    expect(events.first.agent?.scope, AgentScope.workspace);
+    expect(events.first.agent?.scope, const WorkspaceScope('ws-1'));
   });
 
   test(

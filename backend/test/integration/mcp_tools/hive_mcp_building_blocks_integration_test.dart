@@ -101,7 +101,7 @@ void main() {
         name: 'Reviewer',
         prompt: 'w',
       ),
-      workspaceId: workspace.id,
+      scope: WorkspaceScope(workspace.id),
     )) {
       case FailureResult(:final failure):
         fail('workspace agent: $failure');

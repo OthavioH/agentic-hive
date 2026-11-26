@@ -8,6 +8,7 @@ abstract interface class RunsRemoteDataSource {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   });
@@ -60,12 +61,15 @@ final class HttpRunsRemoteDataSource implements RunsRemoteDataSource {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   }) async {
     final queryParameters = <String, String>{
       if (status != null) 'status': status.name,
       if (workflowId != null && workflowId.isNotEmpty) 'workflowId': workflowId,
+      if (workspaceId != null && workspaceId.isNotEmpty)
+        'workspaceId': workspaceId,
       if (limit != null) 'limit': '$limit',
       if (offset != null) 'offset': '$offset',
     };

@@ -215,7 +215,7 @@ void main() {
           .read(workflowRepositoryProvider)
           .deleteWorkflow(
             'wf-1',
-            workspaceId: 'ws-1',
+            scope: const WorkspaceScope('ws-1'),
             revision: 'r1',
             force: true,
           )

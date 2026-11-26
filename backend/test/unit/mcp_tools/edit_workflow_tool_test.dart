@@ -32,10 +32,10 @@ final class _Events implements WorkflowEvents {
   void workflowChanged(
     WorkflowChangeKind kind,
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
     WorkflowSummary? workflow,
   }) {
-    calls.add((kind, id, workspaceId, workflow));
+    calls.add((kind, id, scope.workspaceIdOrNull, workflow));
   }
 }
 

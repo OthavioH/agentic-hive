@@ -50,13 +50,13 @@ List<Override> _workspaceOverrides() => <Override>[
 final class _FakeWorkflowRepository implements WorkflowRepository {
   @override
   Future<Result<List<WorkflowSummary>>> listWorkflows({
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const Success(<WorkflowSummary>[]);
 
   @override
   Future<Result<WorkflowResponse>> getWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
@@ -68,20 +68,20 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
     UpdateWorkflowRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Stream<WorkflowDeletionUpdate> deleteWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
     String? revision,
     bool force = false,
   }) => const Stream<WorkflowDeletionUpdate>.empty();
@@ -129,14 +129,18 @@ final class _FakeRunRepository implements RunRepository {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   }) async {
+    final filtered = workspaceId == null
+        ? items
+        : items.where((r) => r.workspaceId == workspaceId).toList();
     final start = offset ?? 0;
     final page = limit == null
-        ? items.skip(start).toList()
-        : items.skip(start).take(limit).toList();
-    return Success(RunsListResponse(items: page, total: items.length));
+        ? filtered.skip(start).toList()
+        : filtered.skip(start).take(limit).toList();
+    return Success(RunsListResponse(items: page, total: filtered.length));
   }
 
   @override
@@ -190,6 +194,7 @@ final class _FanOutRunRepository implements RunRepository {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   }) async {
@@ -343,7 +348,7 @@ Run _parentRun() => Run(
   workflowId: 'wf-parent',
   workflowName: 'Parent Flow',
   workflowDefinition: _fanOutWorkflow(),
-  workspacePath: '/projects/hive',
+  workspaceRoot: '/projects/hive',
   status: RunStatus.running,
   startedAt: _baseTime,
 );
@@ -366,7 +371,7 @@ Run _childRun({
     createdAt: _baseTime,
     updatedAt: _baseTime,
   ),
-  workspacePath: '/projects/hive',
+  workspaceRoot: '/projects/hive',
   status: status,
   startedAt: startedAt ?? _baseTime,
   parentRunId: 'run-parent',

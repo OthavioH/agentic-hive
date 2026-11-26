@@ -6,8 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 final class _FakeWorkflowReferenceRepository
     implements WorkflowReferenceRepository {
-  final List<({String workflowId, String? workspaceId})> calls =
-      <({String workflowId, String? workspaceId})>[];
+  final List<({String workflowId, DefinitionScope scope})> calls =
+      <({String workflowId, DefinitionScope scope})>[];
   Result<List<WorkflowReference>> nextResult = const Success(
     <WorkflowReference>[],
   );
@@ -15,9 +15,9 @@ final class _FakeWorkflowReferenceRepository
   @override
   Future<Result<List<WorkflowReference>>> getReferences(
     String workflowId, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
-    calls.add((workflowId: workflowId, workspaceId: workspaceId));
+    calls.add((workflowId: workflowId, scope: scope));
     return nextResult;
   }
 }
@@ -29,17 +29,19 @@ void main() {
     const ref = WorkflowReference(
       workflowId: 'parent-1',
       workflowName: 'Parent Flow',
-      scope: WorkflowScope.workspace,
-      workspaceId: 'ws-1',
+      scope: WorkspaceScope('ws-1'),
       nodeIds: <String>['n1'],
     );
     repo.nextResult = const Success(<WorkflowReference>[ref]);
 
     final useCase = GetWorkflowReferences(repo);
-    final success = await useCase('wf-child', workspaceId: 'ws-1');
+    final success = await useCase(
+      'wf-child',
+      scope: const WorkspaceScope('ws-1'),
+    );
 
-    expect(repo.calls, <({String workflowId, String? workspaceId})>[
-      (workflowId: 'wf-child', workspaceId: 'ws-1'),
+    expect(repo.calls, <({String workflowId, DefinitionScope scope})>[
+      (workflowId: 'wf-child', scope: const WorkspaceScope('ws-1')),
     ]);
     expect(success, isA<Success<List<WorkflowReference>>>());
     expect(success.valueOrNull, <WorkflowReference>[ref]);
@@ -50,7 +52,10 @@ void main() {
     repo.nextResult = failure;
     final failed = await useCase('wf-global');
 
-    expect(repo.calls.last, (workflowId: 'wf-global', workspaceId: null));
+    expect(repo.calls.last, (
+      workflowId: 'wf-global',
+      scope: const GlobalScope(),
+    ));
     expect(failed, failure);
   });
 }

@@ -5,7 +5,7 @@ import 'package:agentic_hive_backend/src/domain/agents/agent_repository.dart';
 /// (`<root>/.agents/agents`, ADR 0025).
 abstract interface class WorkspaceAgentRepositories {
   /// The agent repository of the workspace rooted at [workspaceRoot].
-  AgentRepository forRoot(String workspaceRoot);
+  AgentRepository forRoot(String workspaceRoot, {required String workspaceId});
 
   /// The agent repository of the registered workspace [workspaceId], or
   /// `NotFoundFailure` when no such workspace exists.
