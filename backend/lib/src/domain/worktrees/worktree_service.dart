@@ -63,7 +63,8 @@ final class WorktreeService {
       if (!isPrimary && !_isManaged(entry.path)) continue;
       if (!Directory(entry.path).existsSync()) continue;
       final dirty = await _hasUncommittedChanges(entry.path);
-      if (dirty case FailureResult<bool>(:final failure)) {
+      final isBroken = !isPrimary && dirty is FailureResult<bool>;
+      if (dirty case FailureResult<bool>(:final failure) when !isBroken) {
         return FailureResult(failure);
       }
       final name = _path.basename(entry.path);
@@ -73,7 +74,8 @@ final class WorktreeService {
           name: isPrimary ? _path.basename(workspace.rootPath) : name,
           path: entry.path,
           isPrimary: isPrimary,
-          hasUncommittedChanges: dirty.valueOrNull!,
+          hasUncommittedChanges: isBroken || dirty.valueOrNull!,
+          isBroken: isBroken,
           branch: entry.branch,
         ),
       );
@@ -166,7 +168,9 @@ final class WorktreeService {
   /// Removes worktree [id] of [workspace].
   ///
   /// Refused while a run is active in it, and for uncommitted changes unless
-  /// [force]. Success is judged by whether the folder is gone after
+  /// [force]. Broken worktrees also require [force], after which the backend
+  /// deletes the folder itself if git cannot, only inside the managed folder.
+  /// Success is judged by whether the folder is gone after
   /// `git worktree remove`: it is idempotent for a registered worktree whose
   /// folder is already deleted, while a folder that remains returns a
   /// [ConflictFailure]. The branch is deleted only when merged
@@ -234,12 +238,10 @@ final class WorktreeService {
         ConflictFailure('A run is active in worktree "$id".'),
       );
     }
-    if (entry == null) {
-      if (!force) {
-        return FailureResult(uncommittedConflict());
-      }
+    Future<bool> deleteFolder() async {
       try {
         await Directory(targetPath).delete(recursive: true);
+        return true;
       } on FileSystemException catch (e) {
         _log.warning(
           LogEvent(
@@ -248,15 +250,21 @@ final class WorktreeService {
           ),
           e.toString(),
         );
+        return false;
+      }
+    }
+
+    if (entry == null) {
+      if (!force) {
+        return FailureResult(uncommittedConflict());
+      }
+      if (!await deleteFolder()) {
         return FailureResult(inUseConflict());
       }
     } else {
       if (Directory(targetPath).existsSync() && !force) {
         final dirty = await _hasUncommittedChanges(targetPath);
-        if (dirty case FailureResult<bool>(:final failure)) {
-          return FailureResult(failure);
-        }
-        if (dirty.valueOrNull!) {
+        if (dirty is FailureResult<bool> || (dirty.valueOrNull ?? false)) {
           return FailureResult(uncommittedConflict());
         }
       }
@@ -285,7 +293,12 @@ final class WorktreeService {
           removal.stderr.trim(),
         );
         if (Directory(targetPath).existsSync()) {
-          return FailureResult(inUseConflict());
+          final broken =
+              force &&
+              await _hasUncommittedChanges(targetPath) is FailureResult<bool>;
+          if (!broken || !_isManaged(targetPath) || !await deleteFolder()) {
+            return FailureResult(inUseConflict());
+          }
         }
       }
     }
