@@ -307,40 +307,48 @@ class _FallbackRowCard extends ConsumerWidget {
             _buildEffortSelect(l10n, harnessLabel, effortSupported),
           ],
           SizedBox(height: spacing.space2),
-          Row(
+          Wrap(
+            spacing: spacing.space1,
+            runSpacing: spacing.space1,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: <Widget>[
-              HiveIconButton(
-                key: Key('config_fallback_${row.id}_up'),
-                focusNode: row.upFocusNode,
-                icon: HiveIcons.moveUp,
-                semanticLabel: l10n.nodeConfigFallbackMoveUp(index + 1),
-                onPressed: onMoveUp,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  HiveIconButton(
+                    key: Key('config_fallback_${row.id}_up'),
+                    focusNode: row.upFocusNode,
+                    icon: HiveIcons.moveUp,
+                    semanticLabel: l10n.nodeConfigFallbackMoveUp(index + 1),
+                    onPressed: onMoveUp,
+                  ),
+                  SizedBox(width: spacing.space1),
+                  HiveIconButton(
+                    key: Key('config_fallback_${row.id}_down'),
+                    focusNode: row.downFocusNode,
+                    icon: HiveIcons.moveDown,
+                    semanticLabel: l10n.nodeConfigFallbackMoveDown(index + 1),
+                    onPressed: onMoveDown,
+                  ),
+                  SizedBox(width: spacing.space1),
+                  HiveIconButton(
+                    key: Key('config_fallback_${row.id}_remove'),
+                    icon: HiveIcons.delete,
+                    semanticLabel: l10n.nodeConfigFallbackRemove(index + 1),
+                    onPressed: onRemove,
+                  ),
+                ],
               ),
-              SizedBox(width: spacing.space1),
-              HiveIconButton(
-                key: Key('config_fallback_${row.id}_down'),
-                focusNode: row.downFocusNode,
-                icon: HiveIcons.moveDown,
-                semanticLabel: l10n.nodeConfigFallbackMoveDown(index + 1),
-                onPressed: onMoveDown,
-              ),
-              SizedBox(width: spacing.space1),
-              HiveIconButton(
-                key: Key('config_fallback_${row.id}_remove'),
-                icon: HiveIcons.delete,
-                semanticLabel: l10n.nodeConfigFallbackRemove(index + 1),
-                onPressed: onRemove,
-              ),
-              if (statusBadgeLabel != null) ...<Widget>[
-                const Spacer(),
-                Flexible(
+              if (statusBadgeLabel != null)
+                Tooltip(
+                  message: statusBadgeLabel,
+                  excludeFromSemantics: true,
                   child: HiveBadge(
                     key: Key('config_fallback_${row.id}_status'),
                     tone: HiveBadgeTone.warning,
                     label: statusBadgeLabel,
                   ),
                 ),
-              ],
             ],
           ),
         ],

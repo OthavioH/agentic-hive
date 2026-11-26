@@ -639,13 +639,11 @@ class _EventTimelineColumn extends ConsumerWidget {
         excludeFromSemantics: true,
         waitDuration: motion.resolve(context, motion.long),
         exitDuration: motion.resolve(context, motion.short),
-        padding: EdgeInsets.symmetric(
-          horizontal: spacing.space1,
-          vertical: spacing.spaceHalf,
-        ),
+        padding: EdgeInsets.all(spacing.space2),
         decoration: ShapeDecoration(
           color: colors.surface3,
-          shape: StadiumBorder(
+          shape: RoundedRectangleBorder(
+            borderRadius: context.hiveRadii.card,
             side: BorderSide(
               color: colors.borderSubtle,
               width: elevation.hairline,

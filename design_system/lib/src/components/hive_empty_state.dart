@@ -81,7 +81,8 @@ class HiveEmptyState extends StatelessWidget {
                 Text(
                   body,
                   textAlign: TextAlign.center,
-                  style: typography.body.copyWith(color: colors.onSurfaceMuted),
+                  style: (compact ? typography.bodySmall : typography.body)
+                      .copyWith(color: colors.onSurfaceMuted),
                 ),
               ],
               if (button != null) ...<Widget>[

@@ -1,9 +1,12 @@
+import 'dart:io';
+
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/harnesses/controllers/harnesses_controller.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/fallback_list_editor.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -45,7 +48,30 @@ Widget _buildHost({
   );
 }
 
+Future<void> _loadFonts() async {
+  const fonts = <String, String>{
+    'Geist': 'assets/fonts/geist/Geist-Variable.ttf',
+  };
+  for (final entry in fonts.entries) {
+    final candidates = <String>[
+      'design_system/${entry.value}',
+      '../design_system/${entry.value}',
+    ];
+    for (final path in candidates) {
+      final file = File(path);
+      if (!file.existsSync()) continue;
+      final bytes = await file.readAsBytes();
+      final loader = FontLoader('packages/design_system/${entry.key}')
+        ..addFont(Future<ByteData>.value(ByteData.sublistView(bytes)));
+      await loader.load();
+      break;
+    }
+  }
+}
+
 void main() {
+  setUpAll(_loadFonts);
+
   testWidgets(
     'semantics labels, target sizes, focus order, and warning badges',
     (tester) async {
@@ -200,6 +226,40 @@ void main() {
   );
 
   testWidgets(
+    'status badges do not ellipsize at text scale 1.0 in 360px inspector',
+    (tester) async {
+      await tester.pumpWidget(
+        _buildHost(
+          width: 360,
+          textScale: 1,
+          entries: const <FallbackEntry>[
+            FallbackEntry(harness: NodeTypeId.codex),
+            FallbackEntry(harness: NodeTypeId.geminiCli),
+          ],
+          statuses: const <String, HarnessStatus>{
+            NodeTypeId.codex: HarnessStatus.authError,
+            NodeTypeId.geminiCli: HarnessStatus.notInstalled,
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      for (final id in <int>[0, 1]) {
+        final textFinder = find.descendant(
+          of: find.byKey(Key('config_fallback_${id}_status')),
+          matching: find.byType(Text),
+        );
+        final paragraph = tester.renderObject<RenderParagraph>(textFinder);
+        expect(
+          paragraph.didExceedMaxLines,
+          isFalse,
+          reason: 'Status badge $id should not ellipsize at scale 1.0',
+        );
+      }
+    },
+  );
+
+  testWidgets(
     'Tab traverses focus order harness -> model -> effort -> up -> down -> '
     'remove -> Add',
     (tester) async {
@@ -208,6 +268,7 @@ void main() {
           entries: const <FallbackEntry>[
             FallbackEntry(harness: NodeTypeId.claudeCode),
             FallbackEntry(harness: NodeTypeId.codex, effort: 'high'),
+            FallbackEntry(harness: NodeTypeId.geminiCli),
           ],
         ),
       );
@@ -226,7 +287,8 @@ void main() {
             .isNotEmpty;
       }
 
-      // Focus row 1's harness select and Tab through row 1 -> Add.
+      // Focus middle row (1) harness select so up, down, and remove are all
+      // enabled, then Tab through row 1 -> row 2 -> Add.
       final harnessFinder = find.byKey(const Key('config_fallback_1_harness'));
       Focus.of(
         tester.element(
@@ -240,8 +302,12 @@ void main() {
         const Key('config_fallback_1_model'),
         const Key('config_fallback_1_effort'),
         const Key('config_fallback_1_up'),
-        // Row 1 is last, so down is disabled and skipped; remove is next.
+        const Key('config_fallback_1_down'),
         const Key('config_fallback_1_remove'),
+        const Key('config_fallback_2_harness'),
+        const Key('config_fallback_2_model'),
+        const Key('config_fallback_2_up'),
+        const Key('config_fallback_2_remove'),
         const Key('config_fallback_add'),
       ];
       for (final key in expectedKeys) {
@@ -285,6 +351,42 @@ void main() {
         ),
       );
       expect(downFocus.hasFocus, isTrue);
+    },
+  );
+
+  testWidgets(
+    'moving row 1 down to last index with keyboard leaves focus on up button',
+    (tester) async {
+      await tester.pumpWidget(
+        _buildHost(
+          entries: const <FallbackEntry>[
+            FallbackEntry(harness: NodeTypeId.codex),
+            FallbackEntry(harness: NodeTypeId.geminiCli),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final downButton = find.byKey(const Key('config_fallback_0_down'));
+      Focus.of(
+        tester.element(
+          find
+              .descendant(of: downButton, matching: find.byType(HiveIcon))
+              .first,
+        ),
+      ).requestFocus();
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      final upButton = find.byKey(const Key('config_fallback_0_up'));
+      final upFocus = Focus.of(
+        tester.element(
+          find.descendant(of: upButton, matching: find.byType(HiveIcon)).first,
+        ),
+      );
+      expect(upFocus.hasFocus, isTrue);
     },
   );
 }
