@@ -5,6 +5,7 @@ import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/data/workspace/git_client.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
 import 'package:agentic_hive_backend/src/domain/worktrees/active_run_lookup.dart';
+import 'package:agentic_hive_backend/src/logging/log_event.dart';
 import 'package:agentic_hive_backend/src/util/canonical_folder.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:logging/logging.dart';
@@ -189,15 +190,25 @@ final class WorktreeService {
         .skip(1)
         .where((e) => _isManaged(e.path) && _path.basename(e.path) == id)
         .firstOrNull;
-    if (entry == null) {
-      return FailureResult(NotFoundFailure('Worktree "$id" was not found.'));
+    final String targetPath;
+    if (entry != null) {
+      targetPath = entry.path;
+    } else {
+      if (!_validName.hasMatch(id)) {
+        return FailureResult(NotFoundFailure('Worktree "$id" was not found.'));
+      }
+      final leftover = _path.join(_worktreesDir, workspace.id, id);
+      if (!_isManaged(leftover) || !Directory(leftover).existsSync()) {
+        return FailureResult(NotFoundFailure('Worktree "$id" was not found.'));
+      }
+      targetPath = leftover;
     }
 
     final active = await _activeRuns.activeTargetFolders(workspace.id);
     if (active case FailureResult<Set<String>>(:final failure)) {
       return FailureResult(failure);
     }
-    final key = canonicalFolder(entry.path, _path);
+    final key = canonicalFolder(targetPath, _path);
     if (active.valueOrNull!.any(
       (folder) => canonicalFolder(folder, _path) == key,
     )) {
@@ -205,43 +216,78 @@ final class WorktreeService {
         ConflictFailure('A run is active in worktree "$id".'),
       );
     }
-    if (Directory(entry.path).existsSync() && !force) {
-      final dirty = await _hasUncommittedChanges(entry.path);
-      if (dirty case FailureResult<bool>(:final failure)) {
-        return FailureResult(failure);
-      }
-      if (dirty.valueOrNull!) {
+    if (entry == null) {
+      if (!force) {
         return FailureResult(
           ConflictFailure(
             'Worktree "$id" has uncommitted changes; confirm to discard them.',
           ),
         );
       }
-    }
-
-    final removal = await _git.run([
-      '-C',
-      workspace.rootPath,
-      'worktree',
-      'remove',
-      if (force) '--force',
-      entry.path,
-    ]);
-    if (removal.exitCode != 0 ||
-        removal.timedOut ||
-        removal.launchError != null) {
-      _log.warning(
-        'git worktree remove failed for worktree "$id" of workspace '
-        '"${workspace.id}" (exit ${removal.exitCode}): '
-        '${removal.stderr.trim()}',
-      );
-      if (Directory(entry.path).existsSync()) {
+      try {
+        await Directory(targetPath).delete(recursive: true);
+      } on FileSystemException catch (e) {
+        _log.warning(
+          LogEvent(
+            'worktrees.remove_failed',
+            fields: {'workspaceId': workspace.id, 'worktreeId': id},
+          ),
+          e.toString(),
+        );
         return FailureResult(
           ConflictFailure(
-            'Some files in worktree "$id" are in use or could not be deleted. '
-            'Close programs using it and try again.',
+            'Some files in worktree "$id" are in use or could not be '
+            'deleted. Close programs using it and try again.',
           ),
         );
+      }
+    } else {
+      if (Directory(targetPath).existsSync() && !force) {
+        final dirty = await _hasUncommittedChanges(targetPath);
+        if (dirty case FailureResult<bool>(:final failure)) {
+          return FailureResult(failure);
+        }
+        if (dirty.valueOrNull!) {
+          return FailureResult(
+            ConflictFailure(
+              'Worktree "$id" has uncommitted changes; confirm to discard '
+              'them.',
+            ),
+          );
+        }
+      }
+
+      final removal = await _git.run([
+        '-C',
+        workspace.rootPath,
+        'worktree',
+        'remove',
+        if (force) '--force',
+        targetPath,
+      ]);
+      if (removal.exitCode != 0) {
+        _log.warning(
+          LogEvent(
+            'worktrees.remove_failed',
+            fields: {
+              'workspaceId': workspace.id,
+              'worktreeId': id,
+              'exitCode': removal.exitCode,
+              if (removal.timedOut) 'timedOut': true,
+              if (removal.launchError != null)
+                'launchError': removal.launchError.toString(),
+            },
+          ),
+          removal.stderr.trim(),
+        );
+        if (Directory(targetPath).existsSync()) {
+          return FailureResult(
+            ConflictFailure(
+              'Some files in worktree "$id" are in use or could not be '
+              'deleted. Close programs using it and try again.',
+            ),
+          );
+        }
       }
     }
 
@@ -251,14 +297,35 @@ final class WorktreeService {
       'worktree',
       'prune',
     ]);
-    if (pruned.exitCode != 0 || pruned.timedOut || pruned.launchError != null) {
+    if (pruned.exitCode != 0) {
       _log.warning(
-        'git worktree prune failed for worktree "$id" of workspace '
-        '"${workspace.id}" (exit ${pruned.exitCode}): '
-        '${pruned.stderr.trim()}',
+        LogEvent(
+          'worktrees.prune_failed',
+          fields: {
+            'workspaceId': workspace.id,
+            'worktreeId': id,
+            'exitCode': pruned.exitCode,
+            if (pruned.timedOut) 'timedOut': true,
+            if (pruned.launchError != null)
+              'launchError': pruned.launchError.toString(),
+          },
+        ),
+        pruned.stderr.trim(),
       );
     }
 
+    if (entry == null) {
+      return Success(
+        RemoveWorktreeResponse(
+          id: id,
+          deleted: true,
+          branchDeleted: false,
+          notice:
+              'The worktree folder was removed, but its branch could not be '
+              'determined because git no longer tracked it.',
+        ),
+      );
+    }
     final branch = entry.branch;
     if (branch == null) {
       return Success(

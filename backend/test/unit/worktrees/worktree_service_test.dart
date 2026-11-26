@@ -7,6 +7,7 @@ import 'package:agentic_hive_backend/src/data/workspace/git_client.dart';
 import 'package:agentic_hive_backend/src/domain/harnesses/process_runner.dart';
 import 'package:agentic_hive_backend/src/domain/worktrees/active_run_lookup.dart';
 import 'package:agentic_hive_backend/src/domain/worktrees/worktree_service.dart';
+import 'package:agentic_hive_backend/src/logging/log_event.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
@@ -23,9 +24,10 @@ final class _FakeLookup implements ActiveRunLookup {
 }
 
 final class _FailingRemoveRunner implements ProcessRunner {
-  new({required this.deleteFolder});
+  new({required this.deleteFolder, this.unregisterRepo});
 
   final bool deleteFolder;
+  final String? unregisterRepo;
   final calls = <List<String>>[];
 
   @override
@@ -37,8 +39,17 @@ final class _FailingRemoveRunner implements ProcessRunner {
     calls.add(arguments);
     final i = arguments.indexOf('worktree');
     if (i >= 0 && i + 1 < arguments.length && arguments[i + 1] == 'remove') {
+      final target = arguments.last;
       if (deleteFolder) {
-        await Directory(arguments.last).delete(recursive: true);
+        await Directory(target).delete(recursive: true);
+      }
+      if (unregisterRepo != null) {
+        final admin = Directory(
+          p.join(unregisterRepo!, '.git', 'worktrees', p.basename(target)),
+        );
+        if (admin.existsSync()) await admin.delete(recursive: true);
+        final dotGit = File(p.join(target, '.git'));
+        if (dotGit.existsSync()) await dotGit.delete();
       }
       return const ProcessRunResult(
         exitCode: 1,
@@ -205,9 +216,11 @@ void main() {
       expect(
         warnings.any(
           (r) =>
-              r.message.contains('Permission denied') &&
-              r.message.contains('ws-1') &&
-              r.message.contains('gone'),
+              r.object is LogEvent &&
+              (r.object! as LogEvent).name == 'worktrees.remove_failed' &&
+              (r.object! as LogEvent).fields['workspaceId'] == 'ws-1' &&
+              (r.object! as LogEvent).fields['worktreeId'] == 'gone' &&
+              '${r.error}'.contains('Permission denied'),
         ),
         isTrue,
       );
@@ -252,9 +265,47 @@ void main() {
       expect(Directory(created.path).existsSync(), isTrue);
       final warnings = logs.records.where((r) => r.level == Level.WARNING);
       expect(
-        warnings.any((r) => r.message.contains('Permission denied')),
+        warnings.any(
+          (r) =>
+              r.object is LogEvent &&
+              (r.object! as LogEvent).name == 'worktrees.remove_failed' &&
+              (r.object! as LogEvent).fields['workspaceId'] == 'ws-1' &&
+              (r.object! as LogEvent).fields['worktreeId'] == 'locked' &&
+              '${r.error}'.contains('Permission denied'),
+        ),
         isTrue,
       );
+    });
+
+    test('retries and removes an orphaned folder after git unregisters it on '
+        'delete failure', () async {
+      final created = (await service.create(
+        target(),
+        const CreateWorktreeRequest(name: 'orphan'),
+      )).valueOrNull!;
+      final runner = _FailingRemoveRunner(
+        deleteFolder: false,
+        unregisterRepo: repo.path,
+      );
+
+      final first = await serviceWithRunner(runner).remove(target(), 'orphan');
+      expect(first.failureOrNull, isA<ConflictFailure>());
+      expect(Directory(created.path).existsSync(), isTrue);
+
+      final withoutForce = await service.remove(target(), 'orphan');
+      expect(withoutForce.failureOrNull, isA<ConflictFailure>());
+      expect(withoutForce.failureOrNull!.message, contains('uncommitted'));
+
+      final retried = await service.remove(target(), 'orphan', force: true);
+      expect(retried.isSuccess, isTrue);
+      final body = retried.valueOrNull!;
+      expect(body.deleted, isTrue);
+      expect(body.branchDeleted, isFalse);
+      expect(body.notice, isNotNull);
+      expect(Directory(created.path).existsSync(), isFalse);
+
+      final after = await service.remove(target(), 'orphan', force: true);
+      expect(after.failureOrNull, isA<NotFoundFailure>());
     });
 
     test(
