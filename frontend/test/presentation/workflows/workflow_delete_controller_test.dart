@@ -20,7 +20,7 @@ WorkflowSummary _workflow({
 }) => WorkflowSummary(
   id: id,
   name: name,
-  workspaceId: workspaceId,
+  scope: DefinitionScope.ofWorkspaceId(workspaceId),
   nodeCount: 1,
   edgeCount: 0,
   hasValidationErrors: false,

@@ -10,10 +10,10 @@ final class DuplicateWorkflow {
   final WorkflowRepository _repository;
 
   /// Executes the use case for [id] with an optional override [name], inside
-  /// the scope of [workspaceId].
+  /// [scope].
   Future<Result<WorkflowResponse>> call(
     String id, {
     String? name,
-    String? workspaceId,
-  }) => _repository.duplicateWorkflow(id, name: name, workspaceId: workspaceId);
+    DefinitionScope scope = const GlobalScope(),
+  }) => _repository.duplicateWorkflow(id, name: name, scope: scope);
 }

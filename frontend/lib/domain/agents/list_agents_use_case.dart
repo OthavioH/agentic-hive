@@ -9,8 +9,8 @@ final class ListAgentsUseCase {
 
   final AgentRepository _repository;
 
-  /// Fetches the agent summaries: global only, or with [workspaceId] the
-  /// workspace's agents plus the global ones.
-  Future<Result<List<AgentSummary>>> call({String? workspaceId}) =>
-      _repository.listAgents(workspaceId: workspaceId);
+  /// Fetches the agent summaries for [scope].
+  Future<Result<List<AgentSummary>>> call({
+    DefinitionScope scope = const GlobalScope(),
+  }) => _repository.listAgents(scope: scope);
 }

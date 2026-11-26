@@ -217,7 +217,7 @@ void main() {
           workflowId: 'wf-1',
           workflowName: 'Parent',
           workflowDefinition: workflow,
-          workspacePath: repo.path,
+          workspaceRoot: repo.path,
           workspaceId: 'ws-1',
           status: RunStatus.running,
           startedAt: DateTime.utc(2026),

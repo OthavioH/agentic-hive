@@ -72,7 +72,7 @@ final class DeleteWorkflowTool extends ScopedMcpTool {
     final revision = (revisionResult as Success<String>).value;
     final accepted = await workflows.deleteWorkflow(
       id,
-      workspaceId: scope.workspaceId,
+      scope: scope.definitionScope,
       expectedRevision: revision,
     );
     return switch (accepted) {
@@ -136,7 +136,7 @@ final class DeleteWorkflowTool extends ScopedMcpTool {
           events.workflowChanged(
             WorkflowChangeKind.deleted,
             id,
-            workspaceId: scope.workspaceId,
+            scope: scope.definitionScope,
           );
         }
       }),
@@ -211,9 +211,10 @@ final class DeleteWorkflowTool extends ScopedMcpTool {
     final noun = count == 1 ? 'workflow' : 'workflows';
     final entries = references
         .map((ref) {
-          final scope = ref.scope == WorkflowScope.global
-              ? 'global'
-              : 'workspace ${ref.workspaceId}';
+          final scope = switch (ref.scope) {
+            GlobalScope() => 'global',
+            WorkspaceScope(:final workspaceId) => 'workspace $workspaceId',
+          };
           return '"${ref.workflowName}" (id ${ref.workflowId}, $scope, '
               'nodes: ${ref.nodeIds.join(', ')})';
         })

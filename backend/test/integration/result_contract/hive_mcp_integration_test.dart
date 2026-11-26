@@ -17,15 +17,15 @@ import '../mcp_tools/support/mcp_stdio_client.dart';
 
 void main() {
   late Directory tempDir;
-  late String workspacePath;
+  late String targetFolder;
   late GetIt di;
   late Backend backend;
 
   setUp(() async {
     tempDir = await createTempDir();
     final dataDir = p.join(tempDir.path, 'data');
-    workspacePath = p.join(tempDir.path, 'ws');
-    await Directory(workspacePath).create(recursive: true);
+    targetFolder = p.join(tempDir.path, 'ws');
+    await Directory(targetFolder).create(recursive: true);
 
     di = GetIt.asNewInstance();
     backend = await Backend.start(
@@ -67,7 +67,7 @@ void main() {
       NodeExecutionContext(
         runId: 'run-int-1',
         nodeId: 'node-int-1',
-        workspacePath: workspacePath,
+        targetFolder: targetFolder,
       ),
     )).valueOrNull!;
     addTearDown(session.dispose);
@@ -134,7 +134,7 @@ void main() {
       NodeExecutionContext(
         runId: 'run-int-1',
         nodeId: 'node-int-1',
-        workspacePath: workspacePath,
+        targetFolder: targetFolder,
       ),
     );
     expect(locked.valueOrNull?.status, ResultContractStatus.success);

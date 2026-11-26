@@ -66,7 +66,7 @@ final class _ScriptedRemote implements WorkflowRemoteDataSource {
   @override
   Future<Result<WorkflowDeletionAccepted>> deleteWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
     String? revision,
     bool force = false,
   }) async {
@@ -91,7 +91,7 @@ final class _ScriptedRemote implements WorkflowRemoteDataSource {
   @override
   Future<Result<WorkflowResponse>> getWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => getResult;
 
   @override

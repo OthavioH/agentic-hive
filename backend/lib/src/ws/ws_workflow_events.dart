@@ -16,7 +16,7 @@ final class WsWorkflowEvents implements WorkflowEvents {
   void workflowChanged(
     WorkflowChangeKind kind,
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
     WorkflowSummary? workflow,
   }) => _registry.broadcast(
     WsEnvelope(
@@ -25,7 +25,7 @@ final class WsWorkflowEvents implements WorkflowEvents {
       payload: WorkflowsChangedPayload(
         kind: kind,
         id: id,
-        workspaceId: workspaceId,
+        workspaceId: scope.workspaceIdOrNull,
         workflow: workflow,
       ).toJson(),
     ),

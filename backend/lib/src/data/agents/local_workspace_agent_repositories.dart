@@ -17,9 +17,12 @@ final class LocalWorkspaceAgentRepositories
   final p.Context _path;
 
   @override
-  AgentRepository forRoot(String workspaceRoot) => LocalAgentRepository(
+  AgentRepository forRoot(
+    String workspaceRoot, {
+    required String workspaceId,
+  }) => LocalAgentRepository(
     agentsDir: _path.join(workspaceRoot, '.agents', 'agents'),
-    scope: AgentScope.workspace,
+    scope: WorkspaceScope(workspaceId),
     pathContext: _path,
   );
 
@@ -27,7 +30,9 @@ final class LocalWorkspaceAgentRepositories
   Future<Result<AgentRepository>> forWorkspaceId(String workspaceId) async {
     final found = await _findWorkspace(workspaceId);
     return switch (found) {
-      Success<Workspace>(:final value) => Success(forRoot(value.rootPath)),
+      Success<Workspace>(:final value) => Success(
+        forRoot(value.rootPath, workspaceId: value.id),
+      ),
       FailureResult<Workspace>(:final failure) => FailureResult(failure),
     };
   }

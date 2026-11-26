@@ -49,7 +49,7 @@ void main() {
     workflowName: sampleWorkflow.name,
     workflowDefinition: sampleWorkflow,
     workspaceId: workspaceId,
-    workspacePath: '/tmp/ws',
+    workspaceRoot: '/tmp/ws',
     status: status,
     startedAt: DateTime.utc(2026, 11, 20, 10),
   );

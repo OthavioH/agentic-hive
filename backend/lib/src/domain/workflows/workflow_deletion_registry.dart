@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_operation.dart';
+import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 /// In-memory registry for recent workflow deletion operations (ADR 0027).
 final class WorkflowDeletionRegistry {
@@ -21,15 +22,15 @@ final class WorkflowDeletionRegistry {
   /// Returns the running operation for the workflow scope, when present.
   WorkflowDeletionOperation? runningFor(
     String workflowId, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) {
-    final id = _running[_key(workflowId, workspaceId)];
+    final id = _running[_key(workflowId, scope)];
     return id == null ? null : _operations[id];
   }
 
   /// Starts tracking an operation, throwing if that workflow scope is running.
   WorkflowDeletionOperation start(WorkflowDeletionOperation operation) {
-    final key = _key(operation.workflowId, operation.workspaceId);
+    final key = _key(operation.workflowId, operation.scope);
     if (_running.containsKey(key)) {
       throw StateError('Workflow deletion is already running.');
     }
@@ -53,7 +54,7 @@ final class WorkflowDeletionRegistry {
     final updated = change(current);
     _operations[operationId] = updated;
     if (updated.isFinished) {
-      _running.remove(_key(updated.workflowId, updated.workspaceId));
+      _running.remove(_key(updated.workflowId, updated.scope));
       final completer = _completers[operationId];
       if (completer != null && !completer.isCompleted) {
         completer.complete(updated);
@@ -71,8 +72,10 @@ final class WorkflowDeletionRegistry {
     return _completers[operationId]?.future;
   }
 
-  String _key(String workflowId, String? workspaceId) =>
-      '${workspaceId ?? ''}\u0000$workflowId';
+  String _key(String workflowId, DefinitionScope scope) => switch (scope) {
+    GlobalScope() => '\u0000$workflowId',
+    WorkspaceScope(:final workspaceId) => '$workspaceId\u0000$workflowId',
+  };
 
   void _prune() {
     while (_operations.length > retainedOperations) {

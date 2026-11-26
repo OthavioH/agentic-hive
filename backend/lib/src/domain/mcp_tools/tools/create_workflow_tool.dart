@@ -62,7 +62,7 @@ final class CreateWorkflowTool extends ScopedMcpTool {
     events.workflowChanged(
       WorkflowChangeKind.created,
       response.workflow.id,
-      workspaceId: response.workspaceId,
+      scope: response.scope,
       workflow: workflowSummaryOf(response),
     );
     final suffix = response.validation.isValid ? '' : '\n$draftLine';

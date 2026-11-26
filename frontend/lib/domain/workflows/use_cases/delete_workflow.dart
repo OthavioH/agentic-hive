@@ -1,5 +1,6 @@
 import 'package:agentic_hive_frontend/domain/workflows/workflow_deletion_update.dart';
 import 'package:agentic_hive_frontend/domain/workflows/workflow_repository.dart';
+import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 /// Deletes a workflow by ID as an asynchronous operation (ADR 0027).
 final class DeleteWorkflow {
@@ -8,16 +9,16 @@ final class DeleteWorkflow {
 
   final WorkflowRepository _repository;
 
-  /// Executes the use case for [id] in the scope of [workspaceId]. [revision]
+  /// Executes the use case for [id] in [scope]. [revision]
   /// is the expected revision; [force] stops active runs first.
   Stream<WorkflowDeletionUpdate> call(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
     String? revision,
     bool force = false,
   }) => _repository.deleteWorkflow(
     id,
-    workspaceId: workspaceId,
+    scope: scope,
     revision: revision,
     force: force,
   );

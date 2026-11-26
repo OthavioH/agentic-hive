@@ -211,7 +211,7 @@ class _RunDetailBodyState extends ConsumerState<_RunDetailBody> {
       children: <Widget>[
         _HeaderRow(
           title: run.workflowName,
-          subtitle: run.workspacePath,
+          subtitle: run.workspaceRoot,
           onBack: onBack,
           actions: <Widget>[
             Row(
@@ -294,7 +294,7 @@ class _RunDetailBodyState extends ConsumerState<_RunDetailBody> {
             children: <Widget>[
               _MetadataItem(
                 label: l10n.runDetailWorkspaceLabel,
-                value: run.workspacePath,
+                value: run.workspaceRoot,
                 mono: true,
               ),
               _MetadataItem(
@@ -671,7 +671,7 @@ class _InspectorColumn extends StatelessWidget {
             ),
             RunInspectorTab.snapshots => SnapshotsPanel(
               runId: runId,
-              workspacePath: run.workspacePath,
+              workspaceRoot: run.workspaceRoot,
               runStatus: run.status,
               nodeLabels: <String, String>{
                 for (final node in run.workflowDefinition.nodes)

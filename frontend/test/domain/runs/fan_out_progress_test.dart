@@ -26,7 +26,7 @@ Run _childRun({
   workflowId: 'wf-child',
   workflowName: 'Child Workflow',
   workflowDefinition: _minimalWorkflow(),
-  workspacePath: '/tmp/ws',
+  workspaceRoot: '/tmp/ws',
   status: status,
   startedAt: startedAt ?? _baseTime,
   parentRunId: 'parent-1',

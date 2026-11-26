@@ -36,7 +36,7 @@ Run _run(
   workflowId: 'child-wf',
   workflowName: 'Child Flow',
   workflowDefinition: _sampleWorkflow(),
-  workspacePath: '/ws',
+  workspaceRoot: '/ws',
   status: status,
   startedAt: DateTime.utc(2026),
   errorMessage: errorMessage,
@@ -52,7 +52,7 @@ NodeExecutionContext _context({
   runId: 'parent',
   nodeId: 'fan',
   nodeLabel: nodeLabel,
-  workspacePath: '.',
+  targetFolder: '.',
   workspaceId: workspaceId,
   config:
       config ??

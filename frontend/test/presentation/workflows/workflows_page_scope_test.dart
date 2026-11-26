@@ -24,11 +24,9 @@ final class _ScopedRepository implements WorkflowRepository {
 
   @override
   Future<Result<List<WorkflowSummary>>> listWorkflows({
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => Success(
-    items
-        .where((w) => w.workspaceId == null || w.workspaceId == workspaceId)
-        .toList(),
+    items.where((w) => w.scope is GlobalScope || w.scope == scope).toList(),
   );
 
   @override
@@ -47,10 +45,7 @@ final class _ScopedRepository implements WorkflowRepository {
           updatedAt: now,
         ),
         validation: const WorkflowValidationResult(isValid: false),
-        scope: request.workspaceId == null
-            ? WorkflowScope.global
-            : WorkflowScope.workspace,
-        workspaceId: request.workspaceId,
+        scope: DefinitionScope.ofWorkspaceId(request.workspaceId),
       ),
     );
   }
@@ -59,35 +54,38 @@ final class _ScopedRepository implements WorkflowRepository {
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
-    duplicatedScopes.add(workspaceId);
+    duplicatedScopes.add(scope.workspaceIdOrNull);
     return const FailureResult(NotFoundFailure('unused'));
   }
 
   @override
   Stream<WorkflowDeletionUpdate> deleteWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
     String? revision,
     bool force = false,
   }) {
+    final workspaceId = scope.workspaceIdOrNull;
     deletedScopes.add(workspaceId);
-    items.removeWhere((w) => w.id == id && w.workspaceId == workspaceId);
+    items.removeWhere(
+      (w) => w.id == id && w.scope.workspaceIdOrNull == workspaceId,
+    );
     return Stream.value(const WorkflowDeletionSucceeded());
   }
 
   @override
   Future<Result<WorkflowResponse>> getWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
     UpdateWorkflowRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
@@ -112,10 +110,7 @@ WorkflowSummary _summary(String id, String name, {String? workspaceId}) =>
       edgeCount: 0,
       hasValidationErrors: false,
       updatedAt: DateTime.utc(2026, 11, 20, 12),
-      scope: workspaceId == null
-          ? WorkflowScope.global
-          : WorkflowScope.workspace,
-      workspaceId: workspaceId,
+      scope: DefinitionScope.ofWorkspaceId(workspaceId),
     );
 
 Future<_ScopedRepository> _pump(

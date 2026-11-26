@@ -158,7 +158,7 @@ void main() {
         id: 'run-1',
         workflowName: 'Test Flow',
         workflowDefinition: workflow,
-        workspacePath: workspaceDir.path,
+        workspaceRoot: workspaceDir.path,
         status: RunStatus.running,
         startedAt: DateTime.utc(2026, 11, 21, 10),
       ),
@@ -166,7 +166,7 @@ void main() {
     await File(p.join(workspaceDir.path, 'a.txt')).writeAsString('v1\n');
     final snapRes = await snapshotService.captureSnapshot(
       runId: 'run-1',
-      workspaceDir: workspaceDir.path,
+      targetFolder: workspaceDir.path,
       nodeId: 'n1',
     );
     final snap = (snapRes as Success<Snapshot>).value;

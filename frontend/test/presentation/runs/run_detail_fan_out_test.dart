@@ -70,6 +70,7 @@ final class _FanOutRunRepository implements RunRepository {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   }) async {
@@ -162,7 +163,7 @@ Run _parentRun({bool includeFanOut = true}) => Run(
   workflowId: 'wf-parent',
   workflowName: 'Parent Flow',
   workflowDefinition: _fanOutWorkflow(includeFanOut: includeFanOut),
-  workspacePath: '/projects/hive',
+  workspaceRoot: '/projects/hive',
   status: RunStatus.running,
   startedAt: _baseTime,
 );
@@ -185,7 +186,7 @@ Run _childRun({
     createdAt: _baseTime,
     updatedAt: _baseTime,
   ),
-  workspacePath: '/projects/hive',
+  workspaceRoot: '/projects/hive',
   status: status,
   startedAt: startedAt ?? _baseTime,
   parentRunId: 'run-parent',

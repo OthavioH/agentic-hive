@@ -31,7 +31,7 @@ final class CommandNode extends Node {
 
     final config = CommandNodeConfig.fromJson(context.config);
     final workingDirResult = resolveWorkspacePath(
-      context.workspacePath,
+      context.targetFolder,
       config.workingDirectory,
     );
     if (workingDirResult case FailureResult<String>(:final failure)) {

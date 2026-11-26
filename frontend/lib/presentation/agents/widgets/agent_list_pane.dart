@@ -272,10 +272,10 @@ class _AgentListTile extends StatelessWidget {
                   runSpacing: spacing.spaceHalf,
                   children: <Widget>[
                     HiveBadge(
-                      label: agent.scope == AgentScope.workspace
+                      label: agent.scope is WorkspaceScope
                           ? l10n.agentsScopeWorkspaceBadge
                           : l10n.agentsScopeGlobalBadge,
-                      tone: agent.scope == AgentScope.workspace
+                      tone: agent.scope is WorkspaceScope
                           ? HiveBadgeTone.accentMuted
                           : HiveBadgeTone.neutral,
                     ),

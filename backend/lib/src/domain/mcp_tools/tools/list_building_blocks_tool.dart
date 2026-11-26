@@ -26,18 +26,17 @@ final class ListBuildingBlocksTool extends ScopedMcpTool {
 
   @override
   Future<Result<String>> runInScope(McpScope scope, McpToolInput input) async {
-    final listed = await _agents.list(workspaceId: scope.workspaceId);
+    final listed = await _agents.list(scope: scope.definitionScope);
     return listed.map((all) {
       final usable = all.where((a) => a.parseError == null).toList();
       final workspaceIds = {
         for (final a in usable)
-          if (a.scope == AgentScope.workspace) a.id,
+          if (a.scope is WorkspaceScope) a.id,
       };
       final visible = usable
           .where((a) => !a.overridden)
           .where(
-            (a) =>
-                a.scope == AgentScope.workspace || !workspaceIds.contains(a.id),
+            (a) => a.scope is WorkspaceScope || !workspaceIds.contains(a.id),
           )
           .toList(growable: false);
       return _formatter.format(

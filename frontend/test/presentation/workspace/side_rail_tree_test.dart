@@ -57,15 +57,19 @@ final class _FakeRunsRepo implements RunRepository {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   }) async {
     await listGate?.future;
     final failure = listFailure;
     if (failure != null) return FailureResult<RunsListResponse>(failure);
-    final filtered = status == null
-        ? runs
-        : runs.where((r) => r.status == status).toList();
+    final filtered = runs.where((r) {
+      if (status != null && r.status != status) return false;
+      if (workflowId != null && r.workflowId != workflowId) return false;
+      if (workspaceId != null && r.workspaceId != workspaceId) return false;
+      return true;
+    }).toList();
     final start = offset ?? 0;
     final page = limit == null
         ? filtered.skip(start).toList()
@@ -132,7 +136,7 @@ final class _FakePauseRepo implements PauseRepository {
 final class _FakeWorkflowRepo implements WorkflowRepository {
   @override
   Future<Result<List<WorkflowSummary>>> listWorkflows({
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const Success<List<WorkflowSummary>>(<WorkflowSummary>[]);
 
   @override
@@ -143,7 +147,7 @@ final class _FakeWorkflowRepo implements WorkflowRepository {
   @override
   Stream<WorkflowDeletionUpdate> deleteWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
     String? revision,
     bool force = false,
   }) => throw UnimplementedError();
@@ -152,20 +156,20 @@ final class _FakeWorkflowRepo implements WorkflowRepository {
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) => throw UnimplementedError();
 
   @override
   Future<Result<WorkflowResponse>> getWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) => throw UnimplementedError();
 
   @override
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
     UpdateWorkflowRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) => throw UnimplementedError();
 
   @override

@@ -60,11 +60,20 @@ final class _FakeRunsRepo implements RunRepository {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
-  }) async => Success<RunsListResponse>(
-    RunsListResponse(items: runs, total: runs.length),
-  );
+  }) async {
+    final filtered = runs.where((r) {
+      if (status != null && r.status != status) return false;
+      if (workflowId != null && r.workflowId != workflowId) return false;
+      if (workspaceId != null && r.workspaceId != workspaceId) return false;
+      return true;
+    }).toList();
+    return Success<RunsListResponse>(
+      RunsListResponse(items: filtered, total: filtered.length),
+    );
+  }
 
   @override
   Future<Result<Run>> cancelRun(String id) => throw UnimplementedError();

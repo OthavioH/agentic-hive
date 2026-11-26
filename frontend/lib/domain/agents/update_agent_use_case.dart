@@ -9,10 +9,10 @@ final class UpdateAgentUseCase {
 
   final AgentRepository _repository;
 
-  /// Persists updates to agent [id] using [request].
+  /// Persists updates to agent [id] using [request] in [scope].
   Future<Result<AgentDetail>> call({
     required String id,
     required UpdateAgentRequest request,
-    String? workspaceId,
-  }) => _repository.updateAgent(id, request, workspaceId: workspaceId);
+    DefinitionScope scope = const GlobalScope(),
+  }) => _repository.updateAgent(id, request, scope: scope);
 }

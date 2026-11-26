@@ -32,25 +32,29 @@ final class _InMemoryAgentRepository implements AgentRepository {
   void clearStore() => _store.clear();
 
   @override
-  Future<Result<List<AgentSummary>>> listAgents({String? workspaceId}) async =>
-      Success(
-        _store.values
-            .map(
-              (d) => AgentSummary(
-                id: d.id,
-                name: d.name,
-                description: d.description,
-                tags: d.tags,
-                contentHash: d.contentHash,
-                updatedAt: d.updatedAt,
-                parseError: d.parseError,
-              ),
-            )
-            .toList(),
-      );
+  Future<Result<List<AgentSummary>>> listAgents({
+    DefinitionScope scope = const GlobalScope(),
+  }) async => Success(
+    _store.values
+        .map(
+          (d) => AgentSummary(
+            id: d.id,
+            name: d.name,
+            description: d.description,
+            tags: d.tags,
+            contentHash: d.contentHash,
+            updatedAt: d.updatedAt,
+            parseError: d.parseError,
+          ),
+        )
+        .toList(),
+  );
 
   @override
-  Future<Result<AgentDetail>> getAgent(String id, {String? workspaceId}) async {
+  Future<Result<AgentDetail>> getAgent(
+    String id, {
+    DefinitionScope scope = const GlobalScope(),
+  }) async {
     final found = _store[id];
     if (found == null) {
       return const FailureResult(NotFoundFailure('Agent not found'));
@@ -61,7 +65,7 @@ final class _InMemoryAgentRepository implements AgentRepository {
   @override
   Future<Result<AgentDetail>> createAgent(
     CreateAgentRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
     final created = AgentDetail(
       id: request.id,
@@ -84,7 +88,7 @@ final class _InMemoryAgentRepository implements AgentRepository {
   Future<Result<AgentDetail>> updateAgent(
     String id,
     UpdateAgentRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
     final existing = _store[id];
     if (existing == null) {
@@ -119,7 +123,10 @@ final class _InMemoryAgentRepository implements AgentRepository {
   }
 
   @override
-  Future<Result<void>> deleteAgent(String id, {String? workspaceId}) async {
+  Future<Result<void>> deleteAgent(
+    String id, {
+    DefinitionScope scope = const GlobalScope(),
+  }) async {
     _store.remove(id);
     return const Success(null);
   }

@@ -199,7 +199,7 @@ final class EngineHarness {
       id: runId,
       workflowName: workflow.name,
       workflowDefinition: workflow,
-      workspacePath: '/workspace',
+      workspaceRoot: '/workspace',
       status: status,
       startedAt: DateTime.utc(2026),
       input: input,

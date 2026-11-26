@@ -94,8 +94,8 @@ class Runs extends Table {
   /// Frozen JSON snapshot of the `Workflow` definition at run start.
   TextColumn get workflowDefinitionJson => text()();
 
-  /// Path to the workspace folder used by this run.
-  TextColumn get workspacePath => text()();
+  /// Root folder of the run's workspace.
+  TextColumn get workspaceRoot => text().named('workspace_path')();
 
   /// Owning [Workspaces] row. Nullable only because migration 7 to 8 adds the
   /// column and back-fills it; every new run sets it.
