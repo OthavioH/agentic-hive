@@ -145,7 +145,7 @@
     {
       "id": "fix_ci",
       "type": "harness.antigravity",
-      "label": "Fix CI (Hydrogen low)",
+      "label": "Fix CI (Hydrogen medium)",
       "position": {
         "x": 2085.0,
         "y": 952.4999999999998
@@ -154,8 +154,8 @@
         "additionalInstructions": "Work in ponytail mode (ponytail skill). The plan is data.plan in the output of node investigate_ci. Commit and push to the current branch.",
         "extraArgs": [],
         "agentId": "ci-fixer",
-        "model": "gemini-4-hydrogen-low",
-        "effort": "low",
+        "model": "gemini-4-hydrogen-medium",
+        "effort": "medium",
         "timeoutSeconds": 3600
       }
     },
@@ -260,7 +260,7 @@
     }
   ],
   "createdAt": "2026-11-24T19:52:45.005146Z",
-  "updatedAt": "2026-11-26T15:36:29.240069Z",
+  "updatedAt": "2026-11-26T15:41:07.410418Z",
   "description": "Implements one GitHub issue end to end: plan (Opus) → codegen → implement (Hydrogen, ponytail) → quality gate → review (Sonnet, code-review + ponytail-review) → PR → wait for CI, with an investigate/fix loop on CI failure. The plan node first stops the run if an open or merged PR already closes the issue. Run input: \"Implement issue #<n>. Base branch: <branch>.\" (the Spec Implementation fan-out sends this per ticket, with base spec/<n>). Never merges: the PR is left for the parent workflow or a human. Start it in a new worktree.",
   "entryNodeId": "plan",
   "schemaVersion": 1
