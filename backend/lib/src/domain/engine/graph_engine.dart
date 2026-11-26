@@ -116,8 +116,8 @@ final class _RunExecution {
   final Map<String, JsonMap> nodeOutputs;
   final Map<String, int> fallbackIndexByNodeId;
 
-  // shortcut: note not persisted across restart; upgrade if users report
-  // confusion.
+  // shortcut: not persisted: lost on restart or when a pause releases the run;
+  // upgrade if users report confusion.
   final Map<String, StoppedAttempt> stoppedAttempts =
       <String, StoppedAttempt>{};
 

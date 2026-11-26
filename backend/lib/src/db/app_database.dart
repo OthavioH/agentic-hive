@@ -477,11 +477,7 @@ class AppDatabase extends _$AppDatabase {
         }
       }
       if (from < 13) {
-        if (from >= 3 &&
-            await _needsColumn(
-              'checkpoints',
-              'fallback_index_by_node_id_json',
-            )) {
+        if (from >= 3) {
           await m.addColumn(checkpoints, checkpoints.fallbackIndexByNodeIdJson);
         }
       }
@@ -490,12 +486,6 @@ class AppDatabase extends _$AppDatabase {
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
-
-  Future<bool> _needsColumn(String table, String column) async {
-    final rows = await customSelect('PRAGMA table_info("$table")').get();
-    return rows.isNotEmpty &&
-        rows.every((r) => r.read<String>('name') != column);
-  }
 
   /// Migration 7 to 8: creates one workspace per distinct run
   /// `workspace_path` (named after the folder) and attaches those runs to it

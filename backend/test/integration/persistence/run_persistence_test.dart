@@ -579,56 +579,58 @@ void main() {
     expect(loaded.input, 'New run input after migration');
   });
 
-  test('persists fallbackIndexByNodeId through checkpoints, ResumePoint, and '
-      'migrates schemaVersion 12 to 13', () async {
-    final db = AppDatabase.open(dbFile);
-    addTearDown(db.close);
+  test(
+    'persists fallbackIndexByNodeId through checkpoints and ResumePoint',
+    () async {
+      final db = AppDatabase.open(dbFile);
+      addTearDown(db.close);
 
-    final runsRepo = DriftRunRepository(db);
-    final cpRepo = DriftCheckpointRepository(db);
-    final recovery = RunRecoveryService(runs: runsRepo, checkpoints: cpRepo);
+      final runsRepo = DriftRunRepository(db);
+      final cpRepo = DriftCheckpointRepository(db);
+      final recovery = RunRecoveryService(runs: runsRepo, checkpoints: cpRepo);
 
-    await runsRepo.create(
-      makeRun(
-        id: 'r-fb',
-        status: RunStatus.interrupted,
-        startedAt: DateTime.utc(2026, 11, 20, 10),
-      ),
-    );
+      await runsRepo.create(
+        makeRun(
+          id: 'r-fb',
+          status: RunStatus.interrupted,
+          startedAt: DateTime.utc(2026, 11, 20, 10),
+        ),
+      );
 
-    final cpWithout = (await cpRepo.append(
-      id: 'cp-fb-1',
-      runId: 'r-fb',
-      pendingNodeIds: const ['a'],
-      attemptsByEdge: const {},
-      circuitBreakerCount: 0,
-      nodeOutputs: const {},
-      createdAt: DateTime.utc(2026, 11, 20, 10, 1),
-    )).valueOrNull!;
-    expect(cpWithout.fallbackIndexByNodeId, isEmpty);
+      final cpWithout = (await cpRepo.append(
+        id: 'cp-fb-1',
+        runId: 'r-fb',
+        pendingNodeIds: const ['a'],
+        attemptsByEdge: const {},
+        circuitBreakerCount: 0,
+        nodeOutputs: const {},
+        createdAt: DateTime.utc(2026, 11, 20, 10, 1),
+      )).valueOrNull!;
+      expect(cpWithout.fallbackIndexByNodeId, isEmpty);
 
-    final cpWith = (await cpRepo.append(
-      id: 'cp-fb-2',
-      runId: 'r-fb',
-      pendingNodeIds: const ['a'],
-      attemptsByEdge: const {},
-      circuitBreakerCount: 0,
-      nodeOutputs: const {},
-      fallbackIndexByNodeId: const {'a': 1},
-      createdAt: DateTime.utc(2026, 11, 20, 10, 2),
-    )).valueOrNull!;
-    expect(cpWith.fallbackIndexByNodeId, {'a': 1});
+      final cpWith = (await cpRepo.append(
+        id: 'cp-fb-2',
+        runId: 'r-fb',
+        pendingNodeIds: const ['a'],
+        attemptsByEdge: const {},
+        circuitBreakerCount: 0,
+        nodeOutputs: const {},
+        fallbackIndexByNodeId: const {'a': 1},
+        createdAt: DateTime.utc(2026, 11, 20, 10, 2),
+      )).valueOrNull!;
+      expect(cpWith.fallbackIndexByNodeId, {'a': 1});
 
-    final latest = (await cpRepo.getLatestForRun('r-fb')).valueOrNull!;
-    expect(latest.fallbackIndexByNodeId, {'a': 1});
+      final latest = (await cpRepo.getLatestForRun('r-fb')).valueOrNull!;
+      expect(latest.fallbackIndexByNodeId, {'a': 1});
 
-    final listed = (await cpRepo.listForRun('r-fb')).valueOrNull!;
-    expect(listed.first.fallbackIndexByNodeId, isEmpty);
-    expect(listed.last.fallbackIndexByNodeId, {'a': 1});
+      final listed = (await cpRepo.listForRun('r-fb')).valueOrNull!;
+      expect(listed.first.fallbackIndexByNodeId, isEmpty);
+      expect(listed.last.fallbackIndexByNodeId, {'a': 1});
 
-    final resume = (await recovery.resolveResumePoint('r-fb')).valueOrNull!;
-    expect(resume.fallbackIndexByNodeId, {'a': 1});
-  });
+      final resume = (await recovery.resolveResumePoint('r-fb')).valueOrNull!;
+      expect(resume.fallbackIndexByNodeId, {'a': 1});
+    },
+  );
 }
 
 final class _V2SeedUser implements QueryExecutorUser {

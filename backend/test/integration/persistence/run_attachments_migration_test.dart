@@ -64,6 +64,9 @@ void main() {
       await fresh.customStatement(
         'ALTER TABLE runs DROP COLUMN attachments_json',
       );
+      await fresh.customStatement(
+        'ALTER TABLE checkpoints DROP COLUMN fallback_index_by_node_id_json',
+      );
       await fresh.customStatement('PRAGMA user_version = 11');
       await fresh.close();
 

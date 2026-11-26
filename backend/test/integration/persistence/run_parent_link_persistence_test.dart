@@ -34,6 +34,19 @@ void main() {
       final v9 = NativeDatabase(dbFile);
       await v9.ensureOpen(_V9SeedUser());
       await v9.runCustom('''
+        CREATE TABLE checkpoints (
+          id TEXT NOT NULL PRIMARY KEY,
+          run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+          sequence INTEGER NOT NULL,
+          completed_node_id TEXT,
+          pending_node_ids_json TEXT NOT NULL,
+          attempts_by_edge_json TEXT NOT NULL,
+          circuit_breaker_count INTEGER NOT NULL,
+          node_outputs_json TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        )
+      ''');
+      await v9.runCustom('''
         CREATE TABLE pauses (
           id TEXT NOT NULL PRIMARY KEY,
           run_id TEXT NOT NULL,
