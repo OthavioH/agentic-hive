@@ -124,6 +124,7 @@ void validatePositiveInt(
 const Map<String, String> guardedHarnessFields = {
   'model': 'a model',
   'effort': 'an effort',
+  'fallback': 'a fallback',
 };
 
 /// Adds an issue for each guarded field set to a non-blank value in [raw] that
@@ -139,7 +140,9 @@ void validateUndeclaredHarnessFields(
       continue;
     }
     final value = raw[entry.key];
-    if (value == null || (value is String && isBlank(value))) {
+    if (value == null ||
+        (value is String && isBlank(value)) ||
+        (value is List && value.isEmpty)) {
       continue;
     }
     issues.add(

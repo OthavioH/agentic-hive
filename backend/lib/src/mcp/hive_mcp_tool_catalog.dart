@@ -127,7 +127,10 @@ abstract final class HiveMcpToolCatalog {
                 '(harness.claude_code, harness.codex, harness.gemini_cli, '
                 'harness.antigravity) to another one, keeping id, edges and '
                 'supported config; dropped config fields are named in the '
-                'answer); remove_node {id} (also its edges); '
+                'answer; a headless harness config may hold fallback: '
+                '[{harness, model?, effort?}], the harnesses tried in order '
+                'when the node hits a rate limit (effort only on harnesses '
+                'that have one)); remove_node {id} (also its edges); '
                 'connect {from, to, output, maxRetries?}; '
                 'disconnect {from, to, output?}; set_entry {id}; '
                 'set_meta {name?, description?}.',

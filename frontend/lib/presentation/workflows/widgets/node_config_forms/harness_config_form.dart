@@ -164,8 +164,10 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
       };
       widget.onConfigChanged(json);
     } else {
-      widget.onConfigChanged(
-        HarnessNodeConfig(
+      // shortcut: passes fallback through untouched until the fallback editor
+      // (#188) owns it.
+      widget.onConfigChanged({
+        ...HarnessNodeConfig(
           agentId: _agentId,
           additionalInstructions: _nullIfEmpty(_instructionsController.text),
           workingDirectory: _nullIfEmpty(_workingDirController.text),
@@ -174,7 +176,8 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
           effort: _effort,
           extraArgs: _extraArgs,
         ).toJson(),
-      );
+        'fallback': ?widget.node.config['fallback'],
+      });
     }
   }
 

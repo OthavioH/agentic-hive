@@ -463,4 +463,58 @@ void main() {
       expect(result, isA<Success<String>>());
     },
   );
+
+  test('update_node sets valid fallback and keeps it on type change', () async {
+    final before = await seed();
+    const fallback = [
+      {'harness': NodeTypeId.codex, 'model': 'gpt-5', 'effort': 'high'},
+    ];
+    final setResult = await call(before.workflow.id, before.revision!, [
+      {
+        'op': 'update_node',
+        'id': 'plan',
+        'config': {'fallback': fallback},
+      },
+    ]);
+    final setText = (setResult as Success<String>).value;
+    expect(setText, contains('Validation: ok'));
+    final afterSet = (await service.getWorkflow(
+      before.workflow.id,
+    ) as Success<WorkflowResponse>).value;
+    expect(afterSet.workflow.nodes.first.config['fallback'], fallback);
+
+    final typeResult = await call(before.workflow.id, afterSet.revision!, [
+      {'op': 'update_node', 'id': 'plan', 'type': NodeTypeId.geminiCli},
+    ]);
+    expect(typeResult, isA<Success<String>>());
+    final afterType = (await service.getWorkflow(
+      before.workflow.id,
+    ) as Success<WorkflowResponse>).value;
+    expect(afterType.workflow.nodes.first.config['fallback'], fallback);
+  });
+
+  test(
+    'invalid fallback saves as draft and reports validation issues',
+    () async {
+      final before = await seed();
+      final result = await call(before.workflow.id, before.revision!, [
+        {
+          'op': 'update_node',
+          'id': 'plan',
+          'config': {
+            'fallback': [
+              {'harness': NodeTypeId.terminal},
+              {'harness': NodeTypeId.geminiCli, 'effort': 'high'},
+              {'harness': NodeTypeId.codex, 'model': '-x'},
+            ],
+          },
+        },
+      ]);
+      final text = (result as Success<String>).value;
+      expect(text, endsWith(CreateWorkflowTool.draftLine));
+      expect(text, contains('fallback[0].harness'));
+      expect(text, contains('does not support choosing an effort'));
+      expect(text, contains('fallback[2].model'));
+    },
+  );
 }
