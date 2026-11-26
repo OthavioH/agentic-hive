@@ -43,8 +43,14 @@ class _FallbackRowState {
   String harness;
   final TextEditingController model;
   String? effort;
+  final FocusNode upFocusNode = FocusNode();
+  final FocusNode downFocusNode = FocusNode();
 
-  void dispose() => model.dispose();
+  void dispose() {
+    model.dispose();
+    upFocusNode.dispose();
+    downFocusNode.dispose();
+  }
 }
 
 class _FallbackListEditorState extends ConsumerState<FallbackListEditor> {
@@ -135,11 +141,22 @@ class _FallbackListEditorState extends ConsumerState<FallbackListEditor> {
   void _moveRow(int index, int delta) {
     final target = index + delta;
     if (target < 0 || target >= _rows.length) return;
+    final row = _rows[index];
     setState(() {
-      final row = _rows.removeAt(index);
-      _rows.insert(target, row);
+      _rows
+        ..removeAt(index)
+        ..insert(target, row);
     });
     _emit();
+    if (delta < 0 && target == 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) row.downFocusNode.requestFocus();
+      });
+    } else if (delta > 0 && target == _rows.length - 1) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) row.upFocusNode.requestFocus();
+      });
+    }
   }
 
   void _removeRow(int index) {
@@ -162,6 +179,7 @@ class _FallbackListEditorState extends ConsumerState<FallbackListEditor> {
               icon: HiveIcons.harnesses,
               title: l10n.nodeConfigFallbackTitle,
               message: l10n.nodeConfigFallbackEmpty,
+              compact: true,
               action: HiveButton(
                 key: const Key('config_fallback_add'),
                 label: l10n.nodeConfigFallbackAdd,
@@ -273,7 +291,7 @@ class _FallbackRowCard extends ConsumerWidget {
             ],
             onChanged: onHarnessChanged,
           ),
-          SizedBox(height: spacing.space1),
+          SizedBox(height: spacing.space2),
           HiveTextField(
             key: Key('config_fallback_${row.id}_model'),
             label: l10n.nodeConfigFallbackModelLabel,
@@ -285,38 +303,51 @@ class _FallbackRowCard extends ConsumerWidget {
             onChanged: onModelChanged,
           ),
           if (showEffort) ...<Widget>[
-            SizedBox(height: spacing.space1),
+            SizedBox(height: spacing.space2),
             _buildEffortSelect(l10n, harnessLabel, effortSupported),
           ],
-          SizedBox(height: spacing.space1),
+          SizedBox(height: spacing.space2),
           Wrap(
             spacing: spacing.space1,
             runSpacing: spacing.space1,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: <Widget>[
-              HiveIconButton(
-                key: Key('config_fallback_${row.id}_up'),
-                icon: HiveIcons.moveUp,
-                semanticLabel: l10n.nodeConfigFallbackMoveUp(index + 1),
-                onPressed: onMoveUp,
-              ),
-              HiveIconButton(
-                key: Key('config_fallback_${row.id}_down'),
-                icon: HiveIcons.moveDown,
-                semanticLabel: l10n.nodeConfigFallbackMoveDown(index + 1),
-                onPressed: onMoveDown,
-              ),
-              HiveIconButton(
-                key: Key('config_fallback_${row.id}_remove'),
-                icon: HiveIcons.delete,
-                semanticLabel: l10n.nodeConfigFallbackRemove(index + 1),
-                onPressed: onRemove,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  HiveIconButton(
+                    key: Key('config_fallback_${row.id}_up'),
+                    focusNode: row.upFocusNode,
+                    icon: HiveIcons.moveUp,
+                    semanticLabel: l10n.nodeConfigFallbackMoveUp(index + 1),
+                    onPressed: onMoveUp,
+                  ),
+                  SizedBox(width: spacing.space1),
+                  HiveIconButton(
+                    key: Key('config_fallback_${row.id}_down'),
+                    focusNode: row.downFocusNode,
+                    icon: HiveIcons.moveDown,
+                    semanticLabel: l10n.nodeConfigFallbackMoveDown(index + 1),
+                    onPressed: onMoveDown,
+                  ),
+                  SizedBox(width: spacing.space1),
+                  HiveIconButton(
+                    key: Key('config_fallback_${row.id}_remove'),
+                    icon: HiveIcons.delete,
+                    semanticLabel: l10n.nodeConfigFallbackRemove(index + 1),
+                    onPressed: onRemove,
+                  ),
+                ],
               ),
               if (statusBadgeLabel != null)
-                HiveBadge(
-                  key: Key('config_fallback_${row.id}_status'),
-                  tone: HiveBadgeTone.warning,
-                  label: statusBadgeLabel,
+                Tooltip(
+                  message: statusBadgeLabel,
+                  excludeFromSemantics: true,
+                  child: HiveBadge(
+                    key: Key('config_fallback_${row.id}_status'),
+                    tone: HiveBadgeTone.warning,
+                    label: statusBadgeLabel,
+                  ),
                 ),
             ],
           ),

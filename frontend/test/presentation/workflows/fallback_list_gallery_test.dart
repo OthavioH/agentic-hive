@@ -69,6 +69,7 @@ Widget _buildHost({
   required String stateName,
   required List<FallbackEntry> entries,
   Map<String, HarnessStatus>? statuses,
+  double textScale = 1.0,
 }) {
   return UncontrolledProviderScope(
     container: ProviderContainer.test(
@@ -81,24 +82,27 @@ Widget _buildHost({
         theme: theme,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: NodeVisualScope(
-          registry: createNodeVisualRegistry(),
-          child: Scaffold(
-            body: Row(
-              children: <Widget>[
-                const Expanded(flex: 2, child: SizedBox.shrink()),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.all(HiveSpacing.standard.space2),
-                    child: FallbackListEditor(
-                      key: ValueKey<String>(stateName),
-                      nodeType: NodeTypeId.claudeCode,
-                      entries: entries,
-                      onChanged: (_) {},
+        home: MediaQuery(
+          data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+          child: NodeVisualScope(
+            registry: createNodeVisualRegistry(),
+            child: Scaffold(
+              body: Row(
+                children: <Widget>[
+                  const Expanded(flex: 2, child: SizedBox.shrink()),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.all(HiveSpacing.standard.space2),
+                      child: FallbackListEditor(
+                        key: ValueKey<String>(stateName),
+                        nodeType: NodeTypeId.claudeCode,
+                        entries: entries,
+                        onChanged: (_) {},
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -228,6 +232,30 @@ void main() {
         );
         await tester.pumpAndSettle();
         await _capture(tester, 'loading_$suffix', boundaryKey: boundaryKey);
+
+        // Long model name + large text scale (2.0)
+        await tester.pumpWidget(
+          _buildHost(
+            theme: th.value,
+            boundaryKey: boundaryKey,
+            stateName: 'long_scale_$suffix',
+            textScale: 2,
+            entries: const <FallbackEntry>[
+              FallbackEntry(
+                harness: NodeTypeId.codex,
+                model:
+                    'gpt-5-turbo-preview-very-long-model-name-that-scrolls-'
+                    'horizontally',
+                effort: 'high',
+              ),
+            ],
+            statuses: const <String, HarnessStatus>{
+              NodeTypeId.codex: HarnessStatus.authError,
+            },
+          ),
+        );
+        await tester.pumpAndSettle();
+        await _capture(tester, 'long_scale_$suffix', boundaryKey: boundaryKey);
       });
     }
   }

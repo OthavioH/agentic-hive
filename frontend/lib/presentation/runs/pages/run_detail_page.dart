@@ -625,16 +625,39 @@ class _EventTimelineColumn extends ConsumerWidget {
     if (from == null || to == null) return const <Widget>[];
     final rawReason = event.payload['reason'];
     final reason = rawReason is String ? rawReason : '';
+    final summary = l10n.runDetailFallbackSummary(
+      RunL10n.fallbackEntryLabel(context, l10n, from),
+      RunL10n.fallbackEntryLabel(context, l10n, to),
+      reason,
+    );
+    final motion = context.hiveMotion;
+    final elevation = context.hiveElevation;
     return <Widget>[
       SizedBox(height: spacing.space1),
-      Text(
-        l10n.runDetailFallbackSummary(
-          RunL10n.fallbackEntryLabel(context, l10n, from),
-          RunL10n.fallbackEntryLabel(context, l10n, to),
-          reason,
+      Tooltip(
+        message: summary,
+        excludeFromSemantics: true,
+        waitDuration: motion.resolve(context, motion.long),
+        exitDuration: motion.resolve(context, motion.short),
+        padding: EdgeInsets.all(spacing.space2),
+        decoration: ShapeDecoration(
+          color: colors.surface3,
+          shape: RoundedRectangleBorder(
+            borderRadius: context.hiveRadii.card,
+            side: BorderSide(
+              color: colors.borderSubtle,
+              width: elevation.hairline,
+            ),
+          ),
         ),
-        key: Key('run_event_fallback_summary_${event.id}'),
-        style: typography.bodySmall.copyWith(color: colors.onSurface),
+        textStyle: typography.bodySmall.copyWith(color: colors.onSurface),
+        child: Text(
+          summary,
+          key: Key('run_event_fallback_summary_${event.id}'),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: typography.bodySmall.copyWith(color: colors.onSurface),
+        ),
       ),
     ];
   }

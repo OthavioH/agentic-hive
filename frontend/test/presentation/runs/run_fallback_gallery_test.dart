@@ -272,6 +272,111 @@ void main() {
         await tester.tap(find.text('Events'));
         await tester.pumpAndSettle();
         await _capture(tester, 'events_$suffix', boundaryKey: boundaryKey);
+
+        // Long model + long reason + large text scale (2.0) on graph & events
+        final longGraphKey = GlobalKey();
+        await tester.pumpWidget(
+          RepaintBoundary(
+            key: longGraphKey,
+            child: MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: th.value,
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: MediaQuery(
+                data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+                child: NodeVisualScope(
+                  registry: createNodeVisualRegistry(),
+                  child: Scaffold(
+                    body: RunGraphView(
+                      workflow: workflow,
+                      nodeStatuses: const <String, HiveNodeStatus>{
+                        'n1': HiveNodeStatus.succeeded,
+                        'n2': HiveNodeStatus.succeeded,
+                      },
+                      selectedNodeId: 'n1',
+                      ranOn: const <String, FallbackEntry>{
+                        'n1': FallbackEntry(
+                          harness: NodeTypeId.codex,
+                          model:
+                              'gpt-5-turbo-preview-very-long-model-name-check',
+                        ),
+                      },
+                      onSelectNode: (_) {},
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await _capture(
+          tester,
+          'graph_long_scale_$suffix',
+          boundaryKey: longGraphKey,
+        );
+
+        final longEvents = <RunEvent>[
+          RunEvent(
+            id: 'evt-fb-long',
+            runId: 'run-1',
+            sequence: 1,
+            type: RunEventType.nodeFallback,
+            nodeId: 'n1',
+            createdAt: now,
+            payload: const <String, Object?>{
+              'from': <String, Object?>{'harness': NodeTypeId.claudeCode},
+              'to': <String, Object?>{
+                'harness': NodeTypeId.codex,
+                'model': 'gpt-5-turbo-preview-very-long-model-name-check',
+              },
+              'reason':
+                  'HTTP 429 rate limit exceeded on primary endpoint after '
+                  '3 retries with exponential backoff; switching to fallback '
+                  'harness.',
+            },
+          ),
+        ];
+        final longEventsKey = GlobalKey();
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: ProviderContainer.test(
+              overrides: [
+                runRepositoryProvider.overrideWithValue(
+                  _FakeRunRepository(run, longEvents),
+                ),
+                backendWsMessagesProvider.overrideWith(
+                  (_) => const Stream<WsEnvelope>.empty(),
+                ),
+              ],
+            ),
+            child: RepaintBoundary(
+              key: longEventsKey,
+              child: MaterialApp(
+                debugShowCheckedModeBanner: false,
+                theme: th.value,
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                home: MediaQuery(
+                  data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+                  child: NodeVisualScope(
+                    registry: createNodeVisualRegistry(),
+                    child: const Scaffold(body: RunDetailPage(runId: 'run-1')),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Events'));
+        await tester.pumpAndSettle();
+        await _capture(
+          tester,
+          'events_long_scale_$suffix',
+          boundaryKey: longEventsKey,
+        );
       });
     }
   }

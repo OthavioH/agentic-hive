@@ -329,56 +329,65 @@ class _RunNodeCard extends StatelessWidget {
               ),
               boxShadow: elevation.shadowSmall,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    HiveIcon(
-                      visual.icon,
-                      size: spacing.space2,
-                      color: iconColor,
-                    ),
-                    SizedBox(width: spacing.space1),
-                    Expanded(
-                      child: Text(
-                        node.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: typography.labelLarge.copyWith(
-                          color: colors.onSurface,
-                        ),
+            child: LayoutBuilder(
+              builder: (context, constraints) => FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: SizedBox(
+                  width: constraints.maxWidth,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          HiveIcon(
+                            visual.icon,
+                            size: spacing.space2,
+                            color: iconColor,
+                          ),
+                          SizedBox(width: spacing.space1),
+                          Expanded(
+                            child: Text(
+                              node.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: typography.labelLarge.copyWith(
+                                color: colors.onSurface,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: spacing.space1),
+                          HiveStatusDot(
+                            key: Key('run_graph_node_status_${node.id}'),
+                            status: status,
+                            semanticLabel: statusLabel,
+                            size: spacing.space2,
+                          ),
+                        ],
                       ),
-                    ),
-                    SizedBox(width: spacing.space1),
-                    HiveStatusDot(
-                      key: Key('run_graph_node_status_${node.id}'),
-                      status: status,
-                      semanticLabel: statusLabel,
-                      size: spacing.space2,
-                    ),
-                  ],
-                ),
-                SizedBox(height: spacing.spaceHalf),
-                if (ranOnText != null)
-                  HiveChip.readOnly(
-                    key: Key('run_graph_node_ran_on_${node.id}'),
-                    label: ranOnText,
-                  )
-                else
-                  Text(
-                    subtitleText,
-                    key: hasProgressLine
-                        ? Key('run_graph_node_progress_${node.id}')
-                        : null,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: typography.bodySmall.copyWith(
-                      color: colors.onSurfaceMuted,
-                    ),
+                      SizedBox(height: spacing.spaceHalf),
+                      if (ranOnText != null)
+                        HiveChip.readOnly(
+                          key: Key('run_graph_node_ran_on_${node.id}'),
+                          label: ranOnText,
+                        )
+                      else
+                        Text(
+                          subtitleText,
+                          key: hasProgressLine
+                              ? Key('run_graph_node_progress_${node.id}')
+                              : null,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: typography.bodySmall.copyWith(
+                            color: colors.onSurfaceMuted,
+                          ),
+                        ),
+                    ],
                   ),
-              ],
+                ),
+              ),
             ),
           ),
         ),

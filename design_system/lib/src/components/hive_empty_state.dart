@@ -11,6 +11,7 @@ class HiveEmptyState extends StatelessWidget {
     required this.title,
     this.message,
     this.action,
+    this.compact = false,
     super.key,
   });
 
@@ -26,6 +27,10 @@ class HiveEmptyState extends StatelessWidget {
   /// Optional action, usually one `HiveButton`.
   final Widget? action;
 
+  /// Uses tighter padding, omits the icon circle, and renders the title with
+  /// `HiveTypography.label` for dense panels such as inspectors.
+  final bool compact;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.hiveColors;
@@ -37,37 +42,38 @@ class HiveEmptyState extends StatelessWidget {
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: spacing.space8 * 6),
         child: Padding(
-          padding: EdgeInsets.all(spacing.space4),
+          padding: EdgeInsets.all(compact ? spacing.space2 : spacing.space4),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: colors.surface2,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: colors.borderSubtle,
-                    width: context.hiveElevation.hairline,
+              if (!compact) ...<Widget>[
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colors.surface2,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: colors.borderSubtle,
+                      width: context.hiveElevation.hairline,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.all(spacing.space2),
+                    child: HiveIcon(
+                      icon,
+                      size: spacing.space3,
+                      color: colors.onSurfaceMuted,
+                    ),
                   ),
                 ),
-                child: Padding(
-                  padding: EdgeInsets.all(spacing.space2),
-                  child: HiveIcon(
-                    icon,
-                    size: spacing.space3,
-                    color: colors.onSurfaceMuted,
-                  ),
-                ),
-              ),
-              SizedBox(height: spacing.space2),
+                SizedBox(height: spacing.space2),
+              ],
               Semantics(
                 header: true,
                 child: Text(
                   title,
                   textAlign: TextAlign.center,
-                  style: typography.titleSmall.copyWith(
-                    color: colors.onSurface,
-                  ),
+                  style: (compact ? typography.label : typography.titleSmall)
+                      .copyWith(color: colors.onSurface),
                 ),
               ),
               if (body != null) ...<Widget>[
@@ -75,7 +81,8 @@ class HiveEmptyState extends StatelessWidget {
                 Text(
                   body,
                   textAlign: TextAlign.center,
-                  style: typography.body.copyWith(color: colors.onSurfaceMuted),
+                  style: (compact ? typography.bodySmall : typography.body)
+                      .copyWith(color: colors.onSurfaceMuted),
                 ),
               ],
               if (button != null) ...<Widget>[

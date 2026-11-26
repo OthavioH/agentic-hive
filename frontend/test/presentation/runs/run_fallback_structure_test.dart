@@ -219,4 +219,130 @@ void main() {
       findsNothing,
     );
   });
+
+  testWidgets(
+    'fallback summary Text has maxLines 2, ellipsis overflow, and Tooltip',
+    (tester) async {
+      final run = Run(
+        id: 'run-1',
+        workflowId: 'wf-1',
+        workflowName: 'Fallback Flow',
+        workflowDefinition: workflow,
+        workspaceRoot: '/tmp/repo',
+        status: RunStatus.succeeded,
+        startedAt: now,
+        finishedAt: DateTime.utc(2026, 11, 25, 12, 0, 5),
+      );
+      const longReason =
+          'HTTP 429 rate limit exceeded on primary endpoint after 3 retries '
+          'with exponential backoff; switching to fallback harness.';
+      final events = <RunEvent>[
+        RunEvent(
+          id: 'evt-1',
+          runId: 'run-1',
+          sequence: 1,
+          type: RunEventType.nodeFallback,
+          nodeId: 'n1',
+          createdAt: now,
+          payload: const <String, Object?>{
+            'from': <String, Object?>{'harness': NodeTypeId.claudeCode},
+            'to': <String, Object?>{
+              'harness': NodeTypeId.codex,
+              'model': 'gpt-5-turbo-preview-very-long-model-name',
+            },
+            'reason': longReason,
+          },
+        ),
+      ];
+
+      await tester.binding.setSurfaceSize(const Size(1280, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: ProviderContainer.test(
+            overrides: [
+              runRepositoryProvider.overrideWithValue(
+                _FakeRunRepository(run, events),
+              ),
+              backendWsMessagesProvider.overrideWith(
+                (_) => const Stream<WsEnvelope>.empty(),
+              ),
+            ],
+          ),
+          child: MaterialApp(
+            theme: HiveTheme.dark(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: NodeVisualScope(
+              registry: createNodeVisualRegistry(),
+              child: const Scaffold(body: RunDetailPage(runId: 'run-1')),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Events'));
+      await tester.pumpAndSettle();
+
+      final summaryFinder = find.byKey(
+        const Key('run_event_fallback_summary_evt-1'),
+      );
+      final summaryText = tester.widget<Text>(summaryFinder);
+      expect(summaryText.maxLines, 2);
+      expect(summaryText.overflow, TextOverflow.ellipsis);
+
+      final tooltipFinder = find.ancestor(
+        of: summaryFinder,
+        matching: find.byType(Tooltip),
+      );
+      expect(tooltipFinder, findsOneWidget);
+      expect(tester.widget<Tooltip>(tooltipFinder).message, summaryText.data);
+
+      await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+      await expectLater(tester, meetsGuideline(textContrastGuideline));
+      handle.dispose();
+    },
+  );
+
+  testWidgets(
+    'RunGraphView node card with long model at text scale 2.0 has no overflow',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: HiveTheme.dark(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: NodeVisualScope(
+              registry: createNodeVisualRegistry(),
+              child: Scaffold(
+                body: RunGraphView(
+                  workflow: workflow,
+                  nodeStatuses: const <String, HiveNodeStatus>{
+                    'n1': HiveNodeStatus.succeeded,
+                    'n2': HiveNodeStatus.succeeded,
+                  },
+                  selectedNodeId: 'n1',
+                  ranOn: const <String, FallbackEntry>{
+                    'n1': FallbackEntry(
+                      harness: NodeTypeId.codex,
+                      model: 'gpt-5-turbo-preview-very-long-model-name-check',
+                    ),
+                  },
+                  onSelectNode: (_) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

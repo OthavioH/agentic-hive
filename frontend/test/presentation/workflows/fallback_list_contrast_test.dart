@@ -45,6 +45,24 @@ void main() {
           reason: '$name danger/surface2: ${ratio.toStringAsFixed(2)}',
         );
       });
+
+      test('compact empty message onSurfaceMuted on surface2 meets AA', () {
+        final ratio = HiveContrast.ratio(c.onSurfaceMuted, c.surface2);
+        expect(
+          ratio,
+          greaterThanOrEqualTo(4.5),
+          reason: '$name onSurfaceMuted/surface2: ${ratio.toStringAsFixed(2)}',
+        );
+      });
+
+      test('non-text borderStrong on surface2 meets 3:1', () {
+        final ratio = HiveContrast.ratio(c.borderStrong, c.surface2);
+        expect(
+          ratio,
+          greaterThanOrEqualTo(3.0),
+          reason: '$name borderStrong/surface2: ${ratio.toStringAsFixed(2)}',
+        );
+      });
     });
   }
 }
