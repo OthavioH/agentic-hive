@@ -27,6 +27,24 @@ void main() {
           reason: '$name onSurfaceMuted/surface1: ${ratio.toStringAsFixed(2)}',
         );
       });
+
+      test('select option label and icon on surface2 meets AA', () {
+        final ratio = HiveContrast.ratio(c.onSurface, c.surface2);
+        expect(
+          ratio,
+          greaterThanOrEqualTo(4.5),
+          reason: '$name onSurface/surface2: ${ratio.toStringAsFixed(2)}',
+        );
+      });
+
+      test('select chevron muted icon on surface3 meets non-text 3:1', () {
+        final ratio = HiveContrast.ratio(c.onSurfaceMuted, c.surface3);
+        expect(
+          ratio,
+          greaterThanOrEqualTo(3.0),
+          reason: '$name onSurfaceMuted/surface3: ${ratio.toStringAsFixed(2)}',
+        );
+      });
     });
   }
 }

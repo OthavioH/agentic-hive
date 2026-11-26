@@ -328,12 +328,18 @@ class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
               key: const Key('inspector_change_harness_select'),
               label: l10n.editorChangeHarnessSelectLabel,
               value: null,
+              autofocus: true,
               options: <HiveSelectOption<String>>[
                 for (final typeId in headlessHarnessTypeIds)
                   if (typeId != node.type)
                     HiveSelectOption<String>(
                       value: typeId,
                       label: resolveNodeTypeLabel(context, l10n, typeId),
+                      icon: context
+                          .dependOnInheritedWidgetOfExactType<NodeVisualScope>()
+                          ?.registry
+                          .resolve(typeId)
+                          .icon,
                     ),
               ],
               onChanged: widget.state.isSaving

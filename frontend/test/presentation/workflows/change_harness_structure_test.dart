@@ -142,9 +142,21 @@ void main() {
     );
     expect(selectFinder, findsOneWidget);
     expect(find.bySemanticsLabel('New harness'), findsOneWidget);
+    expect(tester.getSize(selectFinder).height, greaterThanOrEqualTo(32));
     expect(
       tester.getTopLeft(buttonFinder).dy,
       lessThan(tester.getTopLeft(selectFinder).dy),
+    );
+
+    // Autofocus: focus moves into the picker when it appears.
+    final autofocusTarget = FocusManager.instance.primaryFocus;
+    expect(autofocusTarget, isNotNull);
+    expect(
+      find.ancestor(
+        of: find.byElementPredicate((e) => e == autofocusTarget!.context),
+        matching: selectFinder,
+      ),
+      findsOneWidget,
     );
 
     // Focus order: button precedes select.
@@ -164,6 +176,13 @@ void main() {
 
     await tester.tap(selectFinder);
     await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byType(MenuItemButton),
+        matching: find.byType(HiveIcon),
+      ),
+      findsNWidgets(3),
+    );
     await tester.tap(find.text('Gemini CLI').last);
     await tester.pumpAndSettle();
 
