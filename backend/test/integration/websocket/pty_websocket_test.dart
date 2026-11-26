@@ -318,6 +318,40 @@ void main() {
         isFalse,
       );
     });
+
+    test('subscribe to ended session replays final scrollback then '
+        'ptySessionNotActive', () async {
+      final client = await connectClient();
+      const key = (runId: 'run-final', nodeId: 'term-1', attempt: 1);
+      final handle = _RecordingPtyHandle(key, ptyRegistry);
+      ptyRegistry
+        ..registerSession(handle)
+        ..appendOutput(key, utf8.encode('final line'));
+      await ptyRegistry.unregisterSession(key);
+
+      client.sendEnvelope(
+        WsEnvelope(
+          type: WsMessageType.ptySubscribe,
+          id: 'sub-final',
+          payload: const PtySubscribePayload(
+            runId: 'run-final',
+            nodeId: 'term-1',
+          ).toJson(),
+        ),
+      );
+
+      final first = await client.next();
+      expect(first.type, WsMessageType.ptyOutput);
+      final snap = PtyOutputPayload.fromJson(first.payload);
+      expect(snap.isSnapshot, isTrue);
+      expect(utf8.decode(base64Decode(snap.data)), 'final line');
+
+      final second = await client.next();
+      expect(second.type, WsMessageType.error);
+      final err = WsErrorPayload.fromJson(second.payload);
+      expect(err.code, WsErrorCode.ptySessionNotActive);
+      expect(err.replyTo, 'sub-final');
+    });
   });
 }
 

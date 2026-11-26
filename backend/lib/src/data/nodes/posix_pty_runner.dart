@@ -986,6 +986,7 @@ final class PosixPtyRunner implements PtyRunner {
     });
 
     var readerSpawned = false;
+    var writerAttached = false;
     var timedOut = false;
     var waitTimedOutAfterKill = false;
     var exitCode = -1;
@@ -1007,6 +1008,7 @@ final class PosixPtyRunner implements PtyRunner {
       ), errorsAreFatal: false);
       final writerSendPort = await writerReady.future;
       handle.attachWriter(writerSendPort, writerDone);
+      writerAttached = true;
 
       if (invocation.initialInput case final input? when input.isNotEmpty) {
         if (initialInputDelay > Duration.zero) {
@@ -1043,7 +1045,7 @@ final class PosixPtyRunner implements PtyRunner {
       if (!exitReadFdOwnedByWaiter && exitReadFd >= 0) {
         libc.close(exitReadFd);
       }
-      if (!readerSpawned) {
+      if (!writerAttached) {
         await terminateProcessTree();
       }
       if (!exitCompleter.isCompleted) {
