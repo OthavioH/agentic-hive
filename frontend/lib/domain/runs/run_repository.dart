@@ -4,11 +4,12 @@ import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 /// Repository contract for querying and deleting workflow runs, event logs,
 /// and checkpoints.
 abstract interface class RunRepository {
-  /// Returns paginated run summaries matching optional [status] and
-  /// [workflowId] filters.
+  /// Returns paginated run summaries matching optional [status], [workflowId],
+  /// and [workspaceId] filters.
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   });

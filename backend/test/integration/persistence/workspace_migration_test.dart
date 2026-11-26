@@ -196,7 +196,7 @@ void main() {
     expect(r4.workspaceId, isNotNull);
     expect(r1.status, RunStatus.succeeded);
     expect(r3.status, RunStatus.running);
-    expect(r1.workspacePath, projectA);
+    expect(r1.workspaceRoot, projectA);
 
     final workflow = (await DriftWorkflowRepository(db).getById('wf-1'))
         .valueOrNull!;

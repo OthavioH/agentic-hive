@@ -5,14 +5,16 @@ import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 /// Repository contract for managing saved workflow definitions.
 abstract interface class WorkflowRepository {
   /// Returns summaries of the global workflows, plus the ones of
-  /// [workspaceId] when given. Each summary carries its scope.
-  Future<Result<List<WorkflowSummary>>> listWorkflows({String? workspaceId});
+  /// [WorkspaceScope] when given. Each summary carries its scope.
+  Future<Result<List<WorkflowSummary>>> listWorkflows({
+    DefinitionScope scope = const GlobalScope(),
+  });
 
   /// Fetches a single workflow and its current validation result by [id], in
-  /// the scope of [workspaceId] (global when `null`).
+  /// [scope].
   Future<Result<WorkflowResponse>> getWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   });
 
   /// Creates and persists a new workflow.
@@ -20,22 +22,21 @@ abstract interface class WorkflowRepository {
     CreateWorkflowRequest request,
   );
 
-  /// Updates an existing workflow identified by [id] in the scope of
-  /// [workspaceId] (global when `null`).
+  /// Updates an existing workflow identified by [id] in [scope].
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
     UpdateWorkflowRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   });
 
-  /// Duplicates an existing workflow identified by [id] inside its scope.
+  /// Duplicates an existing workflow identified by [id] inside [scope].
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   });
 
-  /// Deletes the workflow [id] of [workspaceId] (global when `null`) as an
+  /// Deletes the workflow [id] of [scope] as an
   /// asynchronous operation (ADR 0027) and reports it: a
   /// [WorkflowDeletionStarted] on `202`, [WorkflowDeletionProgressed] while it
   /// runs, then exactly one [WorkflowDeletionEnded], after which the stream
@@ -43,7 +44,7 @@ abstract interface class WorkflowRepository {
   /// first.
   Stream<WorkflowDeletionUpdate> deleteWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
     String? revision,
     bool force = false,
   });

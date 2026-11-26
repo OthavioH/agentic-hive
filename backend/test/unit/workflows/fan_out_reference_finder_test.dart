@@ -151,7 +151,6 @@ void main() {
         const WorkflowReference(
           workflowId: 'wf-p',
           workflowName: 'Parent',
-          scope: WorkflowScope.global,
           nodeIds: ['fan-a', 'fan-b'],
         ),
       ]);
@@ -203,7 +202,10 @@ void main() {
         'wf-w2': _fanOutWorkflow('wf-w2', 'Ws2Ref', 'wf-x'),
       };
 
-      final res = await finder.find('wf-x', workspaceId: 'ws-1');
+      final res = await finder.find(
+        'wf-x',
+        scope: const WorkspaceScope('ws-1'),
+      );
       expect(res.valueOrNull!.map((r) => r.workflowId), ['wf-g', 'wf-w1']);
     },
   );
@@ -248,12 +250,12 @@ void main() {
     };
 
     final res = await finder.find('wf-x');
-    expect(res.valueOrNull!.map((r) => '${r.workflowId}@${r.workspaceId}'), [
-      'wf-g1@null',
-      'wf-g2@null',
-      'wf-a@ws-a',
-      'wf-b@ws-b',
-    ]);
+    expect(
+      res.valueOrNull!.map(
+        (r) => '${r.workflowId}@${r.scope.workspaceIdOrNull}',
+      ),
+      ['wf-g1@null', 'wf-g2@null', 'wf-a@ws-a', 'wf-b@ws-b'],
+    );
   });
 
   test('a failing repository list returns the failure', () async {

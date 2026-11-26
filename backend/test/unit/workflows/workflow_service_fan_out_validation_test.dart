@@ -210,7 +210,10 @@ void main() {
         await workspaceWorkflows.create('/ws-1', _parentWorkflow());
         await workspaceWorkflows.create('/ws-1', _plainWorkflow('child'));
 
-        final result = await service.getWorkflow('parent', workspaceId: 'ws-1');
+        final result = await service.getWorkflow(
+          'parent',
+          scope: const WorkspaceScope('ws-1'),
+        );
         final response = result.valueOrNull!;
 
         expect(response.validation.isValid, isTrue);
@@ -227,7 +230,10 @@ void main() {
       await workspaceWorkflows.create('/ws-1', _parentWorkflow());
       globalRepo.store['child'] = _plainWorkflow('child');
 
-      final result = await service.getWorkflow('parent', workspaceId: 'ws-1');
+      final result = await service.getWorkflow(
+        'parent',
+        scope: const WorkspaceScope('ws-1'),
+      );
       final response = result.valueOrNull!;
 
       expect(response.validation.isValid, isTrue);

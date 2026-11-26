@@ -358,7 +358,7 @@ void main() {
         workflowName: workflow.name,
         workflowDefinition: workflow,
         workspaceId: 'ws-1',
-        workspacePath: workspaceDir.path,
+        workspaceRoot: workspaceDir.path,
         status: RunStatus.succeeded,
         startedAt: DateTime.utc(2026),
       ),

@@ -47,7 +47,7 @@ final class GetWorkflowTool extends ScopedMcpTool {
 
     final wfResult = await _workflows.getWorkflow(
       id,
-      workspaceId: scope.workspaceId,
+      scope: scope.definitionScope,
     );
     return switch (wfResult) {
       FailureResult(failure: NotFoundFailure()) => FailureResult(

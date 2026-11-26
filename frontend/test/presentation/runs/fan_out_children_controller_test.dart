@@ -51,7 +51,7 @@ Run _run({
   workflowId: 'wf-child',
   workflowName: 'Child Flow',
   workflowDefinition: _minimalWorkflow(),
-  workspacePath: '/tmp/ws',
+  workspaceRoot: '/tmp/ws',
   status: status,
   startedAt: startedAt ?? _baseTime,
   parentRunId: parentRunId,
@@ -72,6 +72,7 @@ final class _FakeRunRepository implements RunRepository {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   }) async {

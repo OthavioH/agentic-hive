@@ -148,29 +148,28 @@ class WorkflowEditorController extends _$WorkflowEditorController {
   int _idCounter = 0;
   int _validationSeq = 0;
   int _focusSeq = 0;
-  String? _workspaceId;
+  DefinitionScope _scope = const GlobalScope();
 
-  /// Loads [workflowId] from the scope of [workspaceId]; `null` is the global
-  /// scope. Saving writes back to the same scope.
+  /// Loads [workflowId] from [scope]. Saving writes back to the same scope.
   @override
   Future<WorkflowEditorState> build(
     String workflowId, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
-    _workspaceId = workspaceId;
+    _scope = scope;
     final changes = ref.read(watchWorkflowChangesProvider).call().listen((
       payload,
     ) {
       if (payload.kind == WorkflowChangeKind.updated &&
           payload.id == workflowId &&
-          payload.workspaceId == workspaceId) {
+          DefinitionScope.ofWorkspaceId(payload.workspaceId) == scope) {
         unawaited(_reloadIfClean(workflowId, payload.workflow?.revision));
       }
     });
     ref.onDispose(() => unawaited(changes.cancel()));
     final result = await ref
         .read(getWorkflowProvider)
-        .call(workflowId, workspaceId: workspaceId);
+        .call(workflowId, scope: scope);
     return switch (result) {
       Success<WorkflowResponse>(:final value) => WorkflowEditorState(
         workflow: value.workflow,
@@ -191,7 +190,7 @@ class WorkflowEditorController extends _$WorkflowEditorController {
     if (current.isDirty || current.isSaving) return;
     final result = await ref
         .read(getWorkflowProvider)
-        .call(workflowId, workspaceId: _workspaceId);
+        .call(workflowId, scope: _scope);
     if (!ref.mounted) return;
     final latest = state.asData?.value;
     if (latest == null || latest.isDirty || latest.isSaving) return;
@@ -566,7 +565,7 @@ class WorkflowEditorController extends _$WorkflowEditorController {
             schemaVersion: draft.schemaVersion,
             revision: current.revision,
           ),
-          workspaceId: _workspaceId,
+          scope: _scope,
         );
     if (!ref.mounted) return result;
 

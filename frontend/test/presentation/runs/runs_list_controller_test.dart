@@ -43,8 +43,10 @@ final class _FakeRunRepository implements RunRepository {
   Result<void> deleteOverride = const Success<void>(null);
   RunStatus? lastStatusFilter;
   String? lastWorkflowFilter;
+  String? lastWorkspaceId;
   int? lastLimit;
   int? lastOffset;
+  int listCalls = 0;
   final List<String> deletedIds = <String>[];
 
   void seedDefaults() {
@@ -77,17 +79,21 @@ final class _FakeRunRepository implements RunRepository {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   }) async {
+    listCalls++;
     lastStatusFilter = status;
     lastWorkflowFilter = workflowId;
+    lastWorkspaceId = workspaceId;
     lastLimit = limit;
     lastOffset = offset;
     if (listOverride != null) return listOverride!;
     final filtered = items.where((run) {
       if (status != null && run.status != status) return false;
       if (workflowId != null && run.workflowId != workflowId) return false;
+      if (workspaceId != null && run.workspaceId != workspaceId) return false;
       return true;
     }).toList();
     final start = offset ?? 0;
@@ -146,7 +152,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
 
   @override
   Future<Result<List<WorkflowSummary>>> listWorkflows({
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => Success(<WorkflowSummary>[
     WorkflowSummary(
       id: 'wf-1',
@@ -169,7 +175,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   @override
   Future<Result<WorkflowResponse>> getWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
@@ -181,20 +187,20 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
     UpdateWorkflowRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Stream<WorkflowDeletionUpdate> deleteWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
     String? revision,
     bool force = false,
   }) => Stream.value(const WorkflowDeletionSucceeded());
@@ -429,8 +435,7 @@ void main() {
       },
     );
 
-    test('filters runs to currentWorkspaceId and pages client-side across '
-        'other workspaces', () async {
+    test('requests runs filtered by currentWorkspaceId', () async {
       final repo = _FakeRunRepository();
       // 55 runs for ws-2 (newest) followed by 3 runs for ws-1.
       for (var i = 0; i < 55; i++) {
@@ -475,11 +480,14 @@ void main() {
 
       final state = await container.read(runsListControllerProvider.future);
       expect(state.isGlobalSelected, isFalse);
+      expect(state.total, 3);
       expect(state.runs.map((r) => r.id), <String>[
         'mine-0',
         'mine-1',
         'mine-2',
       ]);
+      expect(repo.lastWorkspaceId, 'ws-1');
+      expect(repo.listCalls, 1);
     });
 
     test(
@@ -521,6 +529,7 @@ final class _OutOfOrderFakeRunRepository extends _FakeRunRepository {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   }) {
@@ -528,6 +537,7 @@ final class _OutOfOrderFakeRunRepository extends _FakeRunRepository {
       return super.listRuns(
         status: status,
         workflowId: workflowId,
+        workspaceId: workspaceId,
         limit: limit,
         offset: offset,
       );

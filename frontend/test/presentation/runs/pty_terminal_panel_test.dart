@@ -126,7 +126,7 @@ Run _buildTerminalRun({required RunStatus status, required DateTime now}) {
       createdAt: now,
       updatedAt: now,
     ),
-    workspacePath: '/tmp/repo',
+    workspaceRoot: '/tmp/repo',
     status: status,
     startedAt: now,
   );

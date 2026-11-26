@@ -62,7 +62,7 @@ final _canonicalBlocks = <String>[
 AgentSummary _agent({
   required String id,
   required String name,
-  AgentScope scope = AgentScope.global,
+  DefinitionScope scope = const GlobalScope(),
   String description = '',
 }) => AgentSummary(
   id: id,
@@ -150,7 +150,7 @@ void main() {
           _agent(
             id: 'a',
             name: 'A',
-            scope: AgentScope.workspace,
+            scope: const WorkspaceScope('ws-1'),
             description: long,
           ),
           _agent(id: 'b', name: 'B'),

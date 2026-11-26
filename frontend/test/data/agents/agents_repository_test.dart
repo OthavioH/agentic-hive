@@ -180,7 +180,7 @@ void main() {
       final client = _FakeBackendClient(_FakeWebSocketSession());
       final ds = AgentsRemoteDataSource(client);
 
-      await ds.listAgents(workspaceId: 'ws 1');
+      await ds.listAgents(scope: const WorkspaceScope('ws 1'));
       expect(client.lastPath, '/api/v1/agents?workspaceId=ws%201');
 
       client.nextGet = Success(
@@ -189,27 +189,30 @@ void main() {
           name: 'Reviewer',
           contentHash: 'h',
           updatedAt: DateTime.utc(2026, 11, 20),
-          scope: AgentScope.workspace,
+          scope: const WorkspaceScope('ws-1'),
         ).toJson(),
       );
-      final detail = await ds.getAgent('reviewer', workspaceId: 'ws-1');
+      final detail = await ds.getAgent(
+        'reviewer',
+        scope: const WorkspaceScope('ws-1'),
+      );
       expect(client.lastPath, '/api/v1/agents/reviewer?workspaceId=ws-1');
-      expect(detail.valueOrNull?.scope, AgentScope.workspace);
+      expect(detail.valueOrNull?.scope, const WorkspaceScope('ws-1'));
 
       await ds.createAgent(
         const CreateAgentRequest(id: 'a', name: 'A'),
-        workspaceId: 'ws-1',
+        scope: const WorkspaceScope('ws-1'),
       );
       expect(client.lastPath, '/api/v1/agents?workspaceId=ws-1');
 
       await ds.updateAgent(
         'a',
         const UpdateAgentRequest(name: 'A', expectedHash: 'h'),
-        workspaceId: 'ws-1',
+        scope: const WorkspaceScope('ws-1'),
       );
       expect(client.lastPath, '/api/v1/agents/a?workspaceId=ws-1');
 
-      await ds.deleteAgent('a', workspaceId: 'ws-1');
+      await ds.deleteAgent('a', scope: const WorkspaceScope('ws-1'));
       expect(client.lastPath, '/api/v1/agents/a?workspaceId=ws-1');
 
       await ds.listAgents();

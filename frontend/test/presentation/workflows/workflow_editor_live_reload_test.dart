@@ -28,7 +28,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   @override
   Future<Result<WorkflowResponse>> getWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
     getCalls++;
     return Success(
@@ -44,7 +44,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
     UpdateWorkflowRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
@@ -54,7 +54,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
 
   @override
   Future<Result<List<WorkflowSummary>>> listWorkflows({
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const Success(<WorkflowSummary>[]);
 
   @override
@@ -66,13 +66,13 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Stream<WorkflowDeletionUpdate> deleteWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
     String? revision,
     bool force = false,
   }) => Stream.value(const WorkflowDeletionSucceeded());
@@ -130,7 +130,7 @@ Future<ProviderContainer> _open(
   );
   final provider = workflowEditorControllerProvider(
     'wf-1',
-    workspaceId: workspaceId,
+    scope: DefinitionScope.ofWorkspaceId(workspaceId),
   );
   container.listen(provider, (_, _) {});
   await container.read(provider.future);
@@ -141,7 +141,12 @@ WorkflowEditorState _state(
   ProviderContainer container, {
   String? workspaceId,
 }) => container
-    .read(workflowEditorControllerProvider('wf-1', workspaceId: workspaceId))
+    .read(
+      workflowEditorControllerProvider(
+        'wf-1',
+        scope: DefinitionScope.ofWorkspaceId(workspaceId),
+      ),
+    )
     .requireValue;
 
 void main() {

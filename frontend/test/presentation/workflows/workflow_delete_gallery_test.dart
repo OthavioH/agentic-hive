@@ -106,8 +106,7 @@ List<WorkflowSummary> _seed() => <WorkflowSummary>[
     edgeCount: 7,
     hasValidationErrors: false,
     updatedAt: _updatedAt,
-    scope: WorkflowScope.workspace,
-    workspaceId: 'ws-1',
+    scope: const WorkspaceScope('ws-1'),
     revision: 'r1',
   ),
   WorkflowSummary(

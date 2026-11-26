@@ -13,29 +13,34 @@ final class AgentRepositoryImpl implements AgentRepository {
   final Stream<AgentsChangedPayload> _changesStream;
 
   @override
-  Future<Result<List<AgentSummary>>> listAgents({String? workspaceId}) =>
-      _remoteDataSource.listAgents(workspaceId: workspaceId);
+  Future<Result<List<AgentSummary>>> listAgents({
+    DefinitionScope scope = const GlobalScope(),
+  }) => _remoteDataSource.listAgents(scope: scope);
 
   @override
-  Future<Result<AgentDetail>> getAgent(String id, {String? workspaceId}) =>
-      _remoteDataSource.getAgent(id, workspaceId: workspaceId);
+  Future<Result<AgentDetail>> getAgent(
+    String id, {
+    DefinitionScope scope = const GlobalScope(),
+  }) => _remoteDataSource.getAgent(id, scope: scope);
 
   @override
   Future<Result<AgentDetail>> createAgent(
     CreateAgentRequest request, {
-    String? workspaceId,
-  }) => _remoteDataSource.createAgent(request, workspaceId: workspaceId);
+    DefinitionScope scope = const GlobalScope(),
+  }) => _remoteDataSource.createAgent(request, scope: scope);
 
   @override
   Future<Result<AgentDetail>> updateAgent(
     String id,
     UpdateAgentRequest request, {
-    String? workspaceId,
-  }) => _remoteDataSource.updateAgent(id, request, workspaceId: workspaceId);
+    DefinitionScope scope = const GlobalScope(),
+  }) => _remoteDataSource.updateAgent(id, request, scope: scope);
 
   @override
-  Future<Result<void>> deleteAgent(String id, {String? workspaceId}) =>
-      _remoteDataSource.deleteAgent(id, workspaceId: workspaceId);
+  Future<Result<void>> deleteAgent(
+    String id, {
+    DefinitionScope scope = const GlobalScope(),
+  }) => _remoteDataSource.deleteAgent(id, scope: scope);
 
   @override
   Stream<AgentsChangedPayload> watchAgentChanges() => _changesStream;

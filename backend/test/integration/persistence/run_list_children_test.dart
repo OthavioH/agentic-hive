@@ -34,7 +34,7 @@ void main() {
     workflowId: sampleWorkflow.id,
     workflowName: sampleWorkflow.name,
     workflowDefinition: sampleWorkflow,
-    workspacePath: '/tmp/ws',
+    workspaceRoot: '/tmp/ws',
     status: RunStatus.succeeded,
     startedAt: startedAt,
     parentRunId: parentRunId,

@@ -9,7 +9,7 @@ import 'package:logging/logging.dart';
 final class PreparedWorkspace {
   /// Creates a prepared workspace description.
   const new({
-    required this.effectiveWorkspacePath,
+    required this.targetFolder,
     required this.isolationMode,
     this.worktreePath,
     this.worktreeBranch,
@@ -17,7 +17,7 @@ final class PreparedWorkspace {
   });
 
   /// Directory where nodes and snapshots should operate.
-  final String effectiveWorkspacePath;
+  final String targetFolder;
 
   /// Effective isolation mode applied to the run.
   final WorkspaceIsolationMode isolationMode;
@@ -48,15 +48,15 @@ final class WorkspacePreparationService {
   ///
   /// Failures are logged, never swallowed silently.
   Future<void> cleanupWorktree({
-    required String workspacePath,
+    required String workspaceRoot,
     required String worktreePath,
     String? branchName,
   }) async {
-    final repoExists = Directory(workspacePath).existsSync();
+    final repoExists = Directory(workspaceRoot).existsSync();
     if (repoExists) {
       await _runLogged([
         '-C',
-        workspacePath,
+        workspaceRoot,
         'worktree',
         'remove',
         '--force',
@@ -64,7 +64,7 @@ final class WorkspacePreparationService {
       ], 'worktree_remove');
       await _runLogged([
         '-C',
-        workspacePath,
+        workspaceRoot,
         'worktree',
         'prune',
       ], 'worktree_prune');
@@ -87,7 +87,7 @@ final class WorkspacePreparationService {
     if (repoExists && branchName != null) {
       await _runLogged([
         '-C',
-        workspacePath,
+        workspaceRoot,
         'branch',
         '-d',
         branchName,

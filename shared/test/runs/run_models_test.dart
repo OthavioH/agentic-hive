@@ -71,7 +71,7 @@ void main() {
         workflowId: 'wf-1',
         workflowName: 'Test Workflow',
         workflowDefinition: sampleWorkflow,
-        workspacePath: '/tmp/ws',
+        workspaceRoot: '/tmp/ws',
         status: RunStatus.running,
         startedAt: DateTime.utc(2026, 11, 20, 12),
         finishedAt: DateTime.utc(2026, 11, 20, 12, 5),
@@ -91,7 +91,7 @@ void main() {
         id: 'run-2',
         workflowName: 'Ad-hoc',
         workflowDefinition: sampleWorkflow,
-        workspacePath: '/tmp/ws',
+        workspaceRoot: '/tmp/ws',
         status: RunStatus.paused,
         startedAt: DateTime.utc(2026, 11, 20, 12),
       );
@@ -117,7 +117,7 @@ void main() {
         id: 'run-att',
         workflowName: 'With Attachments',
         workflowDefinition: sampleWorkflow,
-        workspacePath: '/tmp/ws',
+        workspaceRoot: '/tmp/ws',
         status: RunStatus.running,
         startedAt: DateTime.utc(2026, 11, 20, 12),
         attachments: const [
@@ -143,7 +143,7 @@ void main() {
         id: 'run-old',
         workflowName: 'Old',
         workflowDefinition: sampleWorkflow,
-        workspacePath: '/tmp/ws',
+        workspaceRoot: '/tmp/ws',
         status: RunStatus.succeeded,
         startedAt: DateTime.utc(2026, 11, 20, 12),
       ).toJson();
@@ -157,7 +157,7 @@ void main() {
         workflowId: 'wf-1',
         workflowName: 'Child Workflow',
         workflowDefinition: sampleWorkflow,
-        workspacePath: '/tmp/ws',
+        workspaceRoot: '/tmp/ws',
         status: RunStatus.running,
         startedAt: DateTime.utc(2026, 11, 20, 12),
         parentRunId: 'run-0',
@@ -181,7 +181,7 @@ void main() {
         'id': 'run-legacy',
         'workflowName': 'Legacy',
         'workflowDefinition': sampleWorkflow.toJson(),
-        'workspacePath': '/tmp/ws',
+        'workspaceRoot': '/tmp/ws',
         'status': 'succeeded',
         'startedAt': '2026-11-20T12:00:00.000Z',
       };
@@ -194,7 +194,7 @@ void main() {
         id: 'run-wt',
         workflowName: 'Isolated',
         workflowDefinition: sampleWorkflow,
-        workspacePath: '/tmp/ws',
+        workspaceRoot: '/tmp/ws',
         status: RunStatus.running,
         startedAt: DateTime.utc(2026, 11, 20, 12),
         isolationMode: WorkspaceIsolationMode.worktree,
@@ -202,6 +202,22 @@ void main() {
         worktreeBranch: 'hive/run-wt',
       );
       expect(Run.fromJson(worktreeRun.toJson()), worktreeRun);
+    });
+
+    test('serializes workspaceRoot and omits workspacePath', () {
+      final run = Run(
+        id: 'run-ws-root',
+        workflowName: 'Workspace Root',
+        workflowDefinition: sampleWorkflow,
+        workspaceRoot: '/tmp/ws',
+        status: RunStatus.running,
+        startedAt: DateTime.utc(2026, 11, 20, 12),
+      );
+
+      final json = run.toJson();
+      expect(json['workspaceRoot'], '/tmp/ws');
+      expect(json.containsKey('workspacePath'), isFalse);
+      expect(Run.fromJson(json), run);
     });
   });
 

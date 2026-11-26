@@ -73,7 +73,7 @@ final class EditWorkflowTool extends ScopedMcpTool {
     }
     final loaded = await workflows.getWorkflow(
       id,
-      workspaceId: scope.workspaceId,
+      scope: scope.definitionScope,
     );
     if (loaded case FailureResult(failure: NotFoundFailure())) {
       return FailureResult(_notFound(id, scope));
@@ -110,7 +110,7 @@ final class EditWorkflowTool extends ScopedMcpTool {
         schemaVersion: response.workflow.schemaVersion,
         revision: revision,
       ),
-      workspaceId: scope.workspaceId,
+      scope: scope.definitionScope,
     );
     return switch (saved) {
       FailureResult(failure: StaleRevisionFailure(:final currentRevision)) =>
@@ -152,7 +152,7 @@ final class EditWorkflowTool extends ScopedMcpTool {
     events.workflowChanged(
       WorkflowChangeKind.updated,
       response.workflow.id,
-      workspaceId: response.workspaceId,
+      scope: response.scope,
       workflow: workflowSummaryOf(response),
     );
     final suffix = response.validation.isValid

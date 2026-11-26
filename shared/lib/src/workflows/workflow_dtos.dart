@@ -1,8 +1,8 @@
+import 'package:agentic_hive_shared/src/definitions/definition_scope.dart';
 import 'package:agentic_hive_shared/src/json_fields.dart';
 import 'package:agentic_hive_shared/src/workflows/workflow.dart';
 import 'package:agentic_hive_shared/src/workflows/workflow_edge.dart';
 import 'package:agentic_hive_shared/src/workflows/workflow_node.dart';
-import 'package:agentic_hive_shared/src/workflows/workflow_scope.dart';
 import 'package:agentic_hive_shared/src/workflows/workflow_summary.dart';
 import 'package:agentic_hive_shared/src/workflows/workflow_validation.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
@@ -94,20 +94,36 @@ sealed class WorkflowListResponse with _$WorkflowListResponse {
 
 /// Response body for single-workflow endpoints (`POST`, `GET`, `PUT`,
 /// `duplicate`).
-@freezed
+@Freezed(toJson: false)
 sealed class WorkflowResponse with _$WorkflowResponse {
   /// Creates a workflow response.
+  // ignore: invalid_annotation_target
+  @JsonSerializable(createToJson: true)
   const factory({
     required Workflow workflow,
     required WorkflowValidationResult validation,
-    @Default(WorkflowScope.global) WorkflowScope scope,
-    String? workspaceId,
+    @Default(GlobalScope())
+    @JsonKey(
+      readValue: readWholeJson,
+      fromJson: DefinitionScope.fromJson,
+      includeToJson: false,
+    )
+    DefinitionScope scope,
 
     /// Content hash of the workflow definition for optimistic concurrency;
     /// always set by the backend.
     String? revision,
   }) = _WorkflowResponse;
 
+  const new _();
+
   /// Decodes a workflow response; throws a [FormatException] on a bad shape.
   factory fromJson(JsonMap json) => parseJson(json, _$WorkflowResponseFromJson);
+
+  /// Encodes this response to JSON, flattening [scope] into `scope` and
+  /// optional `workspaceId`.
+  JsonMap toJson() => {
+    ..._$WorkflowResponseToJson(this as _WorkflowResponse),
+    ...scope.toJson(),
+  };
 }

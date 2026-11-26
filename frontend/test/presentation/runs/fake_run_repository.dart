@@ -26,6 +26,7 @@ final class FakeRunRepository implements RunRepository {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   }) async => const Success(RunsListResponse(items: <RunSummary>[], total: 0));
@@ -53,7 +54,7 @@ final class FakeRunRepository implements RunRepository {
           createdAt: _now,
           updatedAt: _now,
         ),
-        workspacePath: '/projects/hive',
+        workspaceRoot: '/projects/hive',
         status: status,
         startedAt: _now,
         isolationMode: isolationMode,

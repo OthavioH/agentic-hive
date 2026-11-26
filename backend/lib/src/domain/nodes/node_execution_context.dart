@@ -21,7 +21,7 @@ final class NodeExecutionContext {
   const new({
     required this.runId,
     required this.nodeId,
-    required this.workspacePath,
+    required this.targetFolder,
     this.nodeLabel,
     this.workspaceRoot,
     this.workspaceId,
@@ -49,11 +49,12 @@ final class NodeExecutionContext {
   /// Display label of the node being executed.
   final String? nodeLabel;
 
-  /// Absolute path to the run's workspace directory.
-  final String workspacePath;
+  /// Absolute path to the run's target folder (the workspace root or a
+  /// worktree).
+  final String targetFolder;
 
   /// Root folder of the registered workspace the run belongs to, which can
-  /// differ from [workspacePath] under worktree isolation. Used to find
+  /// differ from [targetFolder] under worktree isolation. Used to find
   /// workspace-scoped agents (ADR 0025).
   final String? workspaceRoot;
 

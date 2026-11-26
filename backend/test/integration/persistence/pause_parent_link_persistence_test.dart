@@ -126,7 +126,7 @@ void main() {
         workflowId: sampleWorkflow.id,
         workflowName: sampleWorkflow.name,
         workflowDefinition: sampleWorkflow,
-        workspacePath: dir.path,
+        workspaceRoot: dir.path,
         status: RunStatus.paused,
         startedAt: DateTime.utc(2026, 11, 21, 10),
         parentRunId: 'parent-1',

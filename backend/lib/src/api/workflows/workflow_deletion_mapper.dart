@@ -8,7 +8,7 @@ WorkflowDeletionStatus workflowDeletionStatusOf(WorkflowDeletionOperation op) {
   return WorkflowDeletionStatus(
     operationId: op.id,
     workflowId: op.workflowId,
-    workspaceId: op.workspaceId,
+    workspaceId: op.scope.workspaceIdOrNull,
     phase: op.phase,
     runsToStop: op.runsToStop,
     runsStopped: op.runsStopped,
@@ -27,7 +27,7 @@ WorkflowDeletedPayload workflowDeletedPayloadOf(WorkflowDeletionOperation op) =>
     WorkflowDeletedPayload(
       operationId: op.id,
       workflowId: op.workflowId,
-      workspaceId: op.workspaceId,
+      workspaceId: op.scope.workspaceIdOrNull,
       deletedRuns: op.runsDeleted,
       orphanedRuns: op.orphanedRuns,
     );
@@ -40,7 +40,7 @@ WorkflowDeleteFailedPayload workflowDeleteFailedPayloadOf(
   return WorkflowDeleteFailedPayload(
     operationId: op.id,
     workflowId: op.workflowId,
-    workspaceId: op.workspaceId,
+    workspaceId: op.scope.workspaceIdOrNull,
     code: error?.code ?? ApiErrorCode.internalError,
     message: error?.message ?? 'Internal server error.',
     deletedRuns: op.runsDeleted,

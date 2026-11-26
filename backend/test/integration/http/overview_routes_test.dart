@@ -4,15 +4,26 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/data/pauses/drift_pause_repository.dart';
 import 'package:agentic_hive_backend/src/data/runs/drift_run_event_repository.dart';
 import 'package:agentic_hive_backend/src/data/runs/drift_run_repository.dart';
 import 'package:agentic_hive_backend/src/db/app_database.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
+import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import 'support/harness.dart';
+
+/// Opens a seed database connection that waits for the running backend's write
+/// lock instead of failing with SQLITE_BUSY.
+AppDatabase _openSeedDatabase(String path) => AppDatabase(
+  NativeDatabase.createInBackground(
+    File(path),
+    setup: (db) => db.execute('PRAGMA busy_timeout = 5000;'),
+  ),
+);
 
 void main() {
   late String dataDir;
@@ -91,7 +102,7 @@ description: Writes clean code
 You are a senior developer.
 ''');
 
-    final db = AppDatabase.open(File(cfg.databasePath));
+    final db = _openSeedDatabase(cfg.databasePath);
     try {
       final runs = DriftRunRepository(db);
       final events = DriftRunEventRepository(db);
@@ -103,7 +114,7 @@ You are a senior developer.
           workflowId: workflow.id,
           workflowName: workflow.name,
           workflowDefinition: workflow,
-          workspacePath: '/tmp/ws',
+          workspaceRoot: '/tmp/ws',
           status: RunStatus.paused,
           startedAt: now.subtract(const Duration(minutes: 20)),
         ),
@@ -114,7 +125,7 @@ You are a senior developer.
           workflowId: workflow.id,
           workflowName: workflow.name,
           workflowDefinition: workflow,
-          workspacePath: '/tmp/ws',
+          workspaceRoot: '/tmp/ws',
           status: RunStatus.running,
           startedAt: now.subtract(const Duration(minutes: 5)),
         ),
@@ -125,7 +136,7 @@ You are a senior developer.
           workflowId: workflow.id,
           workflowName: workflow.name,
           workflowDefinition: workflow,
-          workspacePath: '/tmp/ws',
+          workspaceRoot: '/tmp/ws',
           status: RunStatus.interrupted,
           startedAt: now.subtract(const Duration(minutes: 30)),
         ),
@@ -136,7 +147,7 @@ You are a senior developer.
           workflowId: workflow.id,
           workflowName: workflow.name,
           workflowDefinition: workflow,
-          workspacePath: '/tmp/ws',
+          workspaceRoot: '/tmp/ws',
           status: RunStatus.succeeded,
           startedAt: now.subtract(const Duration(hours: 2)),
           finishedAt: now.subtract(const Duration(hours: 1)),
@@ -148,7 +159,7 @@ You are a senior developer.
           workflowId: workflow.id,
           workflowName: workflow.name,
           workflowDefinition: workflow,
-          workspacePath: '/tmp/ws',
+          workspaceRoot: '/tmp/ws',
           status: RunStatus.failed,
           startedAt: now.subtract(const Duration(hours: 30)),
           finishedAt: now.subtract(const Duration(hours: 29)),
@@ -266,7 +277,7 @@ You are a senior developer.
         updatedAt: DateTime.utc(2026, 11, 21, 9),
       );
 
-      final db = AppDatabase.open(File(cfg.databasePath));
+      final db = _openSeedDatabase(cfg.databasePath);
       try {
         final runs = DriftRunRepository(db);
         final events = DriftRunEventRepository(db);
@@ -277,7 +288,7 @@ You are a senior developer.
             workflowId: longWorkflow.id,
             workflowName: longWorkflow.name,
             workflowDefinition: longWorkflow,
-            workspacePath: '/tmp/ws',
+            workspaceRoot: '/tmp/ws',
             status: RunStatus.running,
             startedAt: now.subtract(const Duration(minutes: 30)),
           ),
@@ -288,7 +299,7 @@ You are a senior developer.
             workflowId: longWorkflow.id,
             workflowName: longWorkflow.name,
             workflowDefinition: longWorkflow,
-            workspacePath: '/tmp/ws',
+            workspaceRoot: '/tmp/ws',
             status: RunStatus.running,
             startedAt: now.subtract(const Duration(minutes: 10)),
           ),
@@ -299,7 +310,7 @@ You are a senior developer.
             workflowId: longWorkflow.id,
             workflowName: longWorkflow.name,
             workflowDefinition: longWorkflow,
-            workspacePath: '/tmp/ws',
+            workspaceRoot: '/tmp/ws',
             status: RunStatus.cancelling,
             startedAt: now.subtract(const Duration(minutes: 5)),
           ),
@@ -310,7 +321,7 @@ You are a senior developer.
             workflowId: longWorkflow.id,
             workflowName: longWorkflow.name,
             workflowDefinition: longWorkflow,
-            workspacePath: '/tmp/ws',
+            workspaceRoot: '/tmp/ws',
             status: RunStatus.succeeded,
             startedAt: now.subtract(const Duration(hours: 24)),
             finishedAt: now.subtract(const Duration(hours: 23, minutes: 58)),
@@ -322,7 +333,7 @@ You are a senior developer.
             workflowId: longWorkflow.id,
             workflowName: longWorkflow.name,
             workflowDefinition: longWorkflow,
-            workspacePath: '/tmp/ws',
+            workspaceRoot: '/tmp/ws',
             status: RunStatus.succeeded,
             startedAt: now.subtract(const Duration(hours: 25)),
             finishedAt: now.subtract(const Duration(hours: 24, minutes: 2)),
@@ -372,41 +383,50 @@ You are a senior developer.
 
         // Verify exact window boundary on DriftRunRepository directly.
         final cutoff = DateTime.utc(2026, 11, 20, 12);
-        await runs.create(
-          Run(
-            id: 'run-boundary-exact',
-            workflowId: longWorkflow.id,
-            workflowName: longWorkflow.name,
-            workflowDefinition: longWorkflow,
-            workspacePath: '/tmp/ws',
-            status: RunStatus.failed,
-            startedAt: cutoff.subtract(const Duration(minutes: 1)),
-            finishedAt: cutoff,
+        expect(
+          await runs.create(
+            Run(
+              id: 'run-boundary-exact',
+              workflowId: longWorkflow.id,
+              workflowName: longWorkflow.name,
+              workflowDefinition: longWorkflow,
+              workspaceRoot: '/tmp/ws',
+              status: RunStatus.failed,
+              startedAt: cutoff.subtract(const Duration(minutes: 1)),
+              finishedAt: cutoff,
+            ),
           ),
+          isA<Success<Run>>(),
         );
-        await runs.create(
-          Run(
-            id: 'run-boundary-micro-after',
-            workflowId: longWorkflow.id,
-            workflowName: longWorkflow.name,
-            workflowDefinition: longWorkflow,
-            workspacePath: '/tmp/ws',
-            status: RunStatus.failed,
-            startedAt: cutoff.subtract(const Duration(minutes: 1)),
-            finishedAt: cutoff.add(const Duration(microseconds: 1)),
+        expect(
+          await runs.create(
+            Run(
+              id: 'run-boundary-micro-after',
+              workflowId: longWorkflow.id,
+              workflowName: longWorkflow.name,
+              workflowDefinition: longWorkflow,
+              workspaceRoot: '/tmp/ws',
+              status: RunStatus.failed,
+              startedAt: cutoff.subtract(const Duration(minutes: 1)),
+              finishedAt: cutoff.add(const Duration(microseconds: 1)),
+            ),
           ),
+          isA<Success<Run>>(),
         );
-        await runs.create(
-          Run(
-            id: 'run-boundary-ms-before',
-            workflowId: longWorkflow.id,
-            workflowName: longWorkflow.name,
-            workflowDefinition: longWorkflow,
-            workspacePath: '/tmp/ws',
-            status: RunStatus.failed,
-            startedAt: cutoff.subtract(const Duration(minutes: 1)),
-            finishedAt: cutoff.subtract(const Duration(milliseconds: 1)),
+        expect(
+          await runs.create(
+            Run(
+              id: 'run-boundary-ms-before',
+              workflowId: longWorkflow.id,
+              workflowName: longWorkflow.name,
+              workflowDefinition: longWorkflow,
+              workspaceRoot: '/tmp/ws',
+              status: RunStatus.failed,
+              startedAt: cutoff.subtract(const Duration(minutes: 1)),
+              finishedAt: cutoff.subtract(const Duration(milliseconds: 1)),
+            ),
           ),
+          isA<Success<Run>>(),
         );
 
         final boundaryCount = await runs.countByStatusFinishedSince(

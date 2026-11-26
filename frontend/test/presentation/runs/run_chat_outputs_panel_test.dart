@@ -52,7 +52,7 @@ RunDetailState _state(List<Checkpoint> checkpoints) => RunDetailState(
       createdAt: _now,
       updatedAt: _now,
     ),
-    workspacePath: '/projects/hive',
+    workspaceRoot: '/projects/hive',
     status: RunStatus.running,
     startedAt: _now,
   ),

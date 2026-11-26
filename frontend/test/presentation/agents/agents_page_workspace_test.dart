@@ -26,50 +26,65 @@ final class _SelectionStore implements WorkspaceSelectionStore {
   Future<void> save(String? workspaceId) async {}
 }
 
-AgentSummary _summary(String id, AgentScope scope, {bool overridden = false}) =>
-    AgentSummary(
-      id: id,
-      // Same name across scopes: an override matches on the name (ADR 0025).
-      name: id,
-      contentHash: 'h-$id-${scope.name}',
-      updatedAt: DateTime.utc(2026, 11, 22),
-      scope: scope,
-      overridden: overridden,
-    );
+AgentSummary _summary(
+  String id,
+  DefinitionScope scope, {
+  bool overridden = false,
+}) => AgentSummary(
+  id: id,
+  // Same name across scopes: an override matches on the name (ADR 0025).
+  name: id,
+  contentHash: 'h-$id-${scope.wireName}',
+  updatedAt: DateTime.utc(2026, 11, 22),
+  scope: scope,
+  overridden: overridden,
+);
 
 final class _Repository implements AgentRepository {
   final listCalls = <String?>[];
 
   @override
-  Future<Result<List<AgentSummary>>> listAgents({String? workspaceId}) async {
+  Future<Result<List<AgentSummary>>> listAgents({
+    DefinitionScope scope = const GlobalScope(),
+  }) async {
+    final workspaceId = scope.workspaceIdOrNull;
     listCalls.add(workspaceId);
     return Success([
-      if (workspaceId != null) _summary('reviewer', AgentScope.workspace),
-      _summary('reviewer', AgentScope.global, overridden: workspaceId != null),
-      _summary('planner', AgentScope.global),
+      if (workspaceId != null)
+        _summary('reviewer', WorkspaceScope(workspaceId)),
+      _summary(
+        'reviewer',
+        const GlobalScope(),
+        overridden: workspaceId != null,
+      ),
+      _summary('planner', const GlobalScope()),
     ]);
   }
 
   @override
-  Future<Result<AgentDetail>> getAgent(String id, {String? workspaceId}) =>
-      throw UnimplementedError();
+  Future<Result<AgentDetail>> getAgent(
+    String id, {
+    DefinitionScope scope = const GlobalScope(),
+  }) => throw UnimplementedError();
 
   @override
   Future<Result<AgentDetail>> createAgent(
     CreateAgentRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) => throw UnimplementedError();
 
   @override
   Future<Result<AgentDetail>> updateAgent(
     String id,
     UpdateAgentRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) => throw UnimplementedError();
 
   @override
-  Future<Result<void>> deleteAgent(String id, {String? workspaceId}) =>
-      throw UnimplementedError();
+  Future<Result<void>> deleteAgent(
+    String id, {
+    DefinitionScope scope = const GlobalScope(),
+  }) => throw UnimplementedError();
 
   @override
   Stream<AgentsChangedPayload> watchAgentChanges() =>
