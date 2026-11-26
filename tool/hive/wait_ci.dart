@@ -18,18 +18,7 @@ const _overallLimit = Duration(hours: 2);
 
 Future<void> main(List<String> args) async {
   try {
-    final pr =
-        (await SpecState.read())?.pr ??
-        int.parse(
-          await runText('gh', [
-            'pr',
-            'view',
-            '--json',
-            'number',
-            '--jq',
-            '.number',
-          ]),
-        );
+    final pr = await fetchCurrentPr();
     if (args.contains('--ready')) {
       await run('gh', ['pr', 'ready', '$pr'], allowFailure: true);
     }

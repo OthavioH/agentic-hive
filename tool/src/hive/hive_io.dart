@@ -176,6 +176,21 @@ Future<List<PullRequest>> fetchPullRequests(String base) async {
   ];
 }
 
+/// The spec PR when the folder has spec state, otherwise the PR of the
+/// current branch.
+Future<int> fetchCurrentPr() async =>
+    (await SpecState.read())?.pr ??
+    int.parse(
+      await runText('gh', [
+        'pr',
+        'view',
+        '--json',
+        'number',
+        '--jq',
+        '.number',
+      ]),
+    );
+
 /// The checks of [pr], or an empty list while GitHub reports none yet.
 Future<List<CiCheck>> fetchChecks(int pr) async {
   final result = await run('gh', [

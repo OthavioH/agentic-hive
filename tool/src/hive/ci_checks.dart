@@ -44,3 +44,17 @@ CiState ciStateOf(List<CiCheck> checks) {
 /// Whether [check] failed or was cancelled.
 bool isFailing(CiCheck check) =>
     check.bucket == 'fail' || check.bucket == 'cancel';
+
+final _runIdPattern = RegExp(r'/actions/runs/(\d+)(?:[/?#]|$)');
+
+/// Distinct GitHub Actions workflow run ids for the failing or cancelled
+/// checks in [checks], in order of first appearance.
+List<String> failingRunIds(List<CiCheck> checks) {
+  final ids = <String>{};
+  for (final check in checks) {
+    if (!isFailing(check)) continue;
+    final match = _runIdPattern.firstMatch(check.link);
+    if (match != null) ids.add(match.group(1)!);
+  }
+  return ids.toList();
+}

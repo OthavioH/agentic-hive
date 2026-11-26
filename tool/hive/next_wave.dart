@@ -12,7 +12,8 @@ import '../src/hive/wave_plan.dart';
 //
 // Reports the tickets that can start now as fan-out items (`data.items`).
 // Reports an empty list when every ticket is done, and a failure when tickets
-// remain but none can start (a blocker failed, or a ticket PR is still open).
+// remain but none can start (a blocker failed, a ticket PR is still open, or a
+// styling ticket is awaiting wireframe approval).
 // Label overrides come from tool/hive/ticket_overrides.json.
 
 const _overridesFile = 'tool/hive/ticket_overrides.json';
@@ -41,10 +42,17 @@ Future<void> main() async {
     }
     final startable = plan.withStatus(.startable);
     if (startable.isEmpty) {
-      await report(
-        success: false,
-        summary: 'Tickets remain but none can start:\n${plan.describe()}',
-      );
+      final toApprove = plan.wireframesToApprove;
+      final lines = toApprove
+          .map((w) => '#${w.number} ${w.title}: apply $wireframeApprovedLabel')
+          .join('\n');
+      final summary = toApprove.isEmpty
+          ? 'Tickets remain but none can start:\n${plan.describe()}'
+          : 'Tickets remain but none can start. Approve these wireframes, '
+                'then approve the pause:\n'
+                '$lines\n\n'
+                '${plan.describe()}';
+      await report(success: false, summary: summary);
       return;
     }
     final overrides = File(_overridesFile).existsSync()
