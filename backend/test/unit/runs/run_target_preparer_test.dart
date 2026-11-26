@@ -47,7 +47,10 @@ void main() {
   Workspace workspace() => baseWorkspace.copyWith(rootPath: repo.path);
 
   setUp(() async {
-    root = await Directory.systemTemp.createTemp('hive_target_preparer_');
+    final tempDir = await Directory.systemTemp.createTemp(
+      'hive_target_preparer_',
+    );
+    root = Directory(tempDir.resolveSymbolicLinksSync());
     repo = Directory(p.join(root.path, 'repo'))..createSync();
     await _git(repo.path, ['init', '-b', 'main']);
     File(p.join(repo.path, 'a.txt')).writeAsStringSync('a');
