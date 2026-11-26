@@ -356,5 +356,21 @@ void main() {
       expect(forced.isSuccess, isTrue);
       expect(Directory(created.path).existsSync(), isFalse);
     });
+
+    test('does not treat case or trailing-dot aliases of a registered worktree '
+        'as an orphaned folder', () async {
+      final created = (await service.create(
+        target(),
+        const CreateWorktreeRequest(name: 'foo'),
+      )).valueOrNull!;
+
+      final upper = await service.remove(target(), 'FOO', force: true);
+      expect(upper.failureOrNull, isA<NotFoundFailure>());
+
+      final dotted = await service.remove(target(), 'foo.', force: true);
+      expect(dotted.failureOrNull, isA<NotFoundFailure>());
+
+      expect(Directory(created.path).existsSync(), isTrue);
+    });
   });
 }

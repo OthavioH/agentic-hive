@@ -242,6 +242,11 @@ void main() {
       body: jsonEncode(const CreateWorktreeRequest(name: 'x').toJson()),
     );
     expect(created.statusCode, 400);
+
+    final removed = await http.delete(
+      '/api/v1/workspaces/${plainWorkspace.id}/worktrees/x',
+    );
+    expect(removed.statusCode, 404);
   });
 
   test('unknown workspace is 404', () async {

@@ -182,6 +182,9 @@ final class WorktreeService {
         ValidationFailure('The primary checkout cannot be removed.'),
       );
     }
+    if (!workspace.isGit) {
+      return FailureResult(NotFoundFailure('Worktree "$id" was not found.'));
+    }
     final entries = await _gitEntries(workspace);
     if (entries case FailureResult<List<_Entry>>(:final failure)) {
       return FailureResult(failure);
@@ -198,11 +201,26 @@ final class WorktreeService {
         return FailureResult(NotFoundFailure('Worktree "$id" was not found.'));
       }
       final leftover = _path.join(_worktreesDir, workspace.id, id);
-      if (!_isManaged(leftover) || !Directory(leftover).existsSync()) {
+      if (!_isManaged(leftover) ||
+          !Directory(leftover).existsSync() ||
+          entries.valueOrNull!.any(
+            (e) =>
+                Directory(e.path).existsSync() &&
+                FileSystemEntity.identicalSync(e.path, leftover),
+          )) {
         return FailureResult(NotFoundFailure('Worktree "$id" was not found.'));
       }
       targetPath = leftover;
     }
+
+    ConflictFailure uncommittedConflict() => ConflictFailure(
+      'Worktree "$id" has uncommitted changes; confirm to discard them.',
+    );
+
+    ConflictFailure inUseConflict() => ConflictFailure(
+      'Some files in worktree "$id" are in use or could not be deleted. '
+      'Close programs using it and try again.',
+    );
 
     final active = await _activeRuns.activeTargetFolders(workspace.id);
     if (active case FailureResult<Set<String>>(:final failure)) {
@@ -218,11 +236,7 @@ final class WorktreeService {
     }
     if (entry == null) {
       if (!force) {
-        return FailureResult(
-          ConflictFailure(
-            'Worktree "$id" has uncommitted changes; confirm to discard them.',
-          ),
-        );
+        return FailureResult(uncommittedConflict());
       }
       try {
         await Directory(targetPath).delete(recursive: true);
@@ -234,12 +248,7 @@ final class WorktreeService {
           ),
           e.toString(),
         );
-        return FailureResult(
-          ConflictFailure(
-            'Some files in worktree "$id" are in use or could not be '
-            'deleted. Close programs using it and try again.',
-          ),
-        );
+        return FailureResult(inUseConflict());
       }
     } else {
       if (Directory(targetPath).existsSync() && !force) {
@@ -248,12 +257,7 @@ final class WorktreeService {
           return FailureResult(failure);
         }
         if (dirty.valueOrNull!) {
-          return FailureResult(
-            ConflictFailure(
-              'Worktree "$id" has uncommitted changes; confirm to discard '
-              'them.',
-            ),
-          );
+          return FailureResult(uncommittedConflict());
         }
       }
 
@@ -281,12 +285,7 @@ final class WorktreeService {
           removal.stderr.trim(),
         );
         if (Directory(targetPath).existsSync()) {
-          return FailureResult(
-            ConflictFailure(
-              'Some files in worktree "$id" are in use or could not be '
-              'deleted. Close programs using it and try again.',
-            ),
-          );
+          return FailureResult(inUseConflict());
         }
       }
     }
