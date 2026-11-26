@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:agentic_hive_backend/src/mcp/hive_mcp_backend_client.dart';
 import 'package:agentic_hive_backend/src/mcp/hive_mcp_tool_catalog.dart';
 import 'package:agentic_hive_backend/src/mcp/hive_mcp_tools_client.dart';
+import 'package:agentic_hive_backend/src/version.dart';
 import 'package:dart_mcp/server.dart';
 
 /// Stateless stdio MCP server exposing `report_result` and `ask_human`
@@ -16,7 +17,10 @@ final class HiveMcpServer extends MCPServer with ToolsSupport {
     required this.tools,
     super.protocolLogSink,
   }) : super.fromStreamChannel(
-         implementation: Implementation(name: 'hive-mcp', version: '0.2.0'),
+         implementation: Implementation(
+           name: 'hive-mcp',
+           version: backendVersion,
+         ),
          instructions:
              'Manage Agentic Hive workflows only through these tools, never by '
              'editing workspace workflow files. Workflow tools take an '
