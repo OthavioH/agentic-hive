@@ -1,9 +1,11 @@
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/agent_library_select_field.dart';
+import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/fallback_list_editor.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/node_config_form_registry.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// Inspector configuration form for headless harness nodes and
@@ -44,6 +46,7 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
   String? _effort;
   List<String> _extraArgs = const <String>[];
   List<String> _args = const <String>[];
+  List<FallbackEntry> _fallback = const <FallbackEntry>[];
   bool _sendPromptToStdin = false;
   String? _syncedNodeId;
   bool _hasTimeoutError = false;
@@ -74,6 +77,15 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
         oldWidget.node.type != widget.node.type ||
         oldWidget.includeTerminalFields != widget.includeTerminalFields) {
       _syncFromNode();
+      return;
+    }
+    if (!widget.includeTerminalFields) {
+      final oldFallback = _parseHarnessConfig(oldWidget.node.config).fallback;
+      final newFallback = _parseHarnessConfig(widget.node.config).fallback;
+      if (!listEquals(oldFallback, newFallback) &&
+          !listEquals(_fallback, newFallback)) {
+        _fallback = List<FallbackEntry>.of(newFallback);
+      }
     }
   }
 
@@ -101,6 +113,7 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
       _effort = _nullIfEmpty(_rawString('effort') ?? '');
       _commandController.text = config.command ?? '';
       _args = List<String>.of(config.args);
+      _fallback = const <FallbackEntry>[];
       _sendPromptToStdin = config.sendPromptToStdin;
     } else {
       final config = _parseHarnessConfig(widget.node.config);
@@ -111,6 +124,7 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
       _extraArgs = List<String>.of(config.extraArgs);
       _modelController.text = config.model ?? '';
       _effort = _nullIfEmpty(config.effort ?? '');
+      _fallback = List<FallbackEntry>.of(config.fallback);
       _commandController.clear();
       _args = const <String>[];
       _sendPromptToStdin = false;
@@ -164,10 +178,8 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
       };
       widget.onConfigChanged(json);
     } else {
-      // shortcut: passes fallback through untouched until the fallback editor
-      // (#188) owns it.
-      widget.onConfigChanged({
-        ...HarnessNodeConfig(
+      widget.onConfigChanged(
+        HarnessNodeConfig(
           agentId: _agentId,
           additionalInstructions: _nullIfEmpty(_instructionsController.text),
           workingDirectory: _nullIfEmpty(_workingDirController.text),
@@ -175,9 +187,9 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
           model: _nullIfEmpty(_modelController.text),
           effort: _effort,
           extraArgs: _extraArgs,
+          fallback: _fallback,
         ).toJson(),
-        'fallback': ?widget.node.config['fallback'],
-      });
+      );
     }
   }
 
@@ -302,6 +314,19 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
             _emit();
           },
         ),
+        if (!widget.includeTerminalFields &&
+            supported.contains('fallback')) ...<Widget>[
+          SizedBox(height: spacing.space2),
+          FallbackListEditor(
+            key: ValueKey<String>('${widget.node.id}|${widget.node.type}'),
+            nodeType: widget.node.type,
+            entries: _fallback,
+            onChanged: (list) {
+              setState(() => _fallback = list);
+              _emit();
+            },
+          ),
+        ],
       ],
     );
   }

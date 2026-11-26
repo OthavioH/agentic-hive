@@ -288,5 +288,33 @@ void main() {
         codexAuthError,
       ]);
     });
+
+    test(
+      'harnessStatusByTypeId maps HarnessId wire names to NodeTypeId',
+      () async {
+        final completer = Completer<Result<List<HarnessInfo>>>();
+        final testRepo = _FakeHarnessRepository()..pendingGet = completer;
+        addTearDown(testRepo.dispose);
+
+        final container = ProviderContainer.test(
+          overrides: [harnessRepositoryProvider.overrideWithValue(testRepo)],
+        );
+        final sub = container.listen(harnessStatusByTypeIdProvider, (_, _) {});
+        addTearDown(sub.close);
+
+        expect(container.read(harnessStatusByTypeIdProvider), isNull);
+
+        completer.complete(Success(<HarnessInfo>[claudeReady, codexAuthError]));
+        await container.read(harnessesControllerProvider.future);
+
+        expect(
+          container.read(harnessStatusByTypeIdProvider),
+          <String, HarnessStatus>{
+            NodeTypeId.claudeCode: HarnessStatus.ready,
+            NodeTypeId.codex: HarnessStatus.authError,
+          },
+        );
+      },
+    );
   });
 }

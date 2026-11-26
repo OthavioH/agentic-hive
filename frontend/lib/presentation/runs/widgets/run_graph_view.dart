@@ -22,6 +22,7 @@ class RunGraphView extends StatefulWidget {
     required this.selectedNodeId,
     required this.onSelectNode,
     this.fanOutProgress = const <String, FanOutProgress>{},
+    this.ranOn = const <String, FallbackEntry>{},
     super.key,
   });
 
@@ -39,6 +40,9 @@ class RunGraphView extends StatefulWidget {
 
   /// Progress summaries keyed by fan-out node ID.
   final Map<String, FanOutProgress> fanOutProgress;
+
+  /// Effective `{harness, model}` keyed by node ID for nodes that fell back.
+  final Map<String, FallbackEntry> ranOn;
 
   @override
   State<RunGraphView> createState() => _RunGraphViewState();
@@ -139,6 +143,7 @@ class _RunGraphViewState extends State<RunGraphView> {
                                 HiveNodeStatus.idle,
                             isSelected: widget.selectedNodeId == node.id,
                             progress: widget.fanOutProgress[node.id],
+                            ranOn: widget.ranOn[node.id],
                             onTap: () => widget.onSelectNode(node.id),
                           ),
                         ),
@@ -227,12 +232,14 @@ class _RunNodeCard extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
     this.progress,
+    this.ranOn,
   });
 
   final WorkflowNode node;
   final HiveNodeStatus status;
   final bool isSelected;
   final FanOutProgress? progress;
+  final FallbackEntry? ranOn;
   final VoidCallback onTap;
 
   @override
@@ -280,9 +287,18 @@ class _RunNodeCard extends StatelessWidget {
     final needsYouText = needsHuman > 0
         ? l10n.runDetailFanOutNeedsYou(needsHuman)
         : null;
-    final semanticsLabel = needsYouText == null
-        ? '${node.label} ($statusLabel)'
-        : '${node.label} ($statusLabel), $needsYouText';
+    final currentRanOn = ranOn;
+    final ranOnText = currentRanOn != null && !hasProgressLine
+        ? l10n.runDetailRanOn(
+            RunL10n.fallbackEntryLabel(context, l10n, currentRanOn),
+          )
+        : null;
+    final semanticsParts = <String>[
+      '${node.label} ($statusLabel)',
+      ?needsYouText,
+      ?ranOnText,
+    ];
+    final semanticsLabel = semanticsParts.join(', ');
 
     return SizedBox(
       width: WorkflowCanvasGeometry.nodeWidth,
@@ -296,7 +312,12 @@ class _RunNodeCard extends StatelessWidget {
           child: AnimatedContainer(
             duration: motion.resolve(context, motion.short),
             curve: motion.standardCurve,
-            padding: EdgeInsets.all(spacing.space2),
+            padding: ranOnText != null
+                ? EdgeInsets.symmetric(
+                    horizontal: spacing.space2,
+                    vertical: spacing.space1,
+                  )
+                : EdgeInsets.all(spacing.space2),
             decoration: BoxDecoration(
               color: isSelected ? colors.surface3 : colors.surface2,
               borderRadius: context.hiveRadii.card,
@@ -340,17 +361,23 @@ class _RunNodeCard extends StatelessWidget {
                   ],
                 ),
                 SizedBox(height: spacing.spaceHalf),
-                Text(
-                  subtitleText,
-                  key: hasProgressLine
-                      ? Key('run_graph_node_progress_${node.id}')
-                      : null,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: typography.bodySmall.copyWith(
-                    color: colors.onSurfaceMuted,
+                if (ranOnText != null)
+                  HiveChip.readOnly(
+                    key: Key('run_graph_node_ran_on_${node.id}'),
+                    label: ranOnText,
+                  )
+                else
+                  Text(
+                    subtitleText,
+                    key: hasProgressLine
+                        ? Key('run_graph_node_progress_${node.id}')
+                        : null,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: typography.bodySmall.copyWith(
+                      color: colors.onSurfaceMuted,
+                    ),
                   ),
-                ),
               ],
             ),
           ),

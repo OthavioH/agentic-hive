@@ -4047,5 +4047,114 @@
   "editorChangeHarnessCancelAction": "Cancel",
   "@editorChangeHarnessCancelAction": {
     "description": "Cancel button label in the change-harness confirmation dialog."
+  },
+  "nodeConfigFallbackTitle": "Fallback",
+  "@nodeConfigFallbackTitle": {
+    "description": "Section title for the harness node fallback list editor."
+  },
+  "nodeConfigFallbackEmpty": "No fallback. The node fails on a rate limit.",
+  "@nodeConfigFallbackEmpty": {
+    "description": "Empty state message shown when a harness node has no fallback entries."
+  },
+  "nodeConfigFallbackAdd": "Add fallback",
+  "@nodeConfigFallbackAdd": {
+    "description": "Button label to add a new fallback entry."
+  },
+  "nodeConfigFallbackHarnessLabel": "Harness",
+  "@nodeConfigFallbackHarnessLabel": {
+    "description": "Select label for the harness of a fallback entry."
+  },
+  "nodeConfigFallbackModelLabel": "Model (optional)",
+  "@nodeConfigFallbackModelLabel": {
+    "description": "Text field label for the optional model of a fallback entry."
+  },
+  "nodeConfigFallbackEffortLabel": "Effort (optional)",
+  "@nodeConfigFallbackEffortLabel": {
+    "description": "Select label for the optional effort of a fallback entry."
+  },
+  "nodeConfigFallbackModelDashError": "Model must not start with \"-\".",
+  "@nodeConfigFallbackModelDashError": {
+    "description": "Validation error shown when a fallback model starts with a hyphen."
+  },
+  "nodeConfigFallbackMoveUp": "Move fallback {n} up",
+  "@nodeConfigFallbackMoveUp": {
+    "description": "Accessible label for moving a fallback entry up.",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "nodeConfigFallbackMoveDown": "Move fallback {n} down",
+  "@nodeConfigFallbackMoveDown": {
+    "description": "Accessible label for moving a fallback entry down.",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "nodeConfigFallbackRemove": "Remove fallback {n}",
+  "@nodeConfigFallbackRemove": {
+    "description": "Accessible label for removing a fallback entry.",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "nodeConfigFallbackNotInstalled": "{harness} is not installed",
+  "@nodeConfigFallbackNotInstalled": {
+    "description": "Warning badge label when a fallback harness is not installed.",
+    "placeholders": {
+      "harness": {
+        "type": "String"
+      }
+    }
+  },
+  "nodeConfigFallbackNotSignedIn": "{harness} is not signed in",
+  "@nodeConfigFallbackNotSignedIn": {
+    "description": "Warning badge label when a fallback harness is not signed in.",
+    "placeholders": {
+      "harness": {
+        "type": "String"
+      }
+    }
+  },
+  "runDetailFallbackEntry": "{harness} · {model}",
+  "@runDetailFallbackEntry": {
+    "description": "Formatted harness and model label for a fallback entry.",
+    "placeholders": {
+      "harness": {
+        "type": "String"
+      },
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "runDetailRanOn": "Ran on {entry}",
+  "@runDetailRanOn": {
+    "description": "Chip label on a run graph node card showing which harness/model it fell back to.",
+    "placeholders": {
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "runDetailFallbackSummary": "Switched from {from} to {to}: {reason}",
+  "@runDetailFallbackSummary": {
+    "description": "Summary line on a node.fallback event in the run Events tab.",
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
   }
 }
