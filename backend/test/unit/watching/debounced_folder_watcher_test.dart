@@ -86,11 +86,12 @@ void main() {
   test(
     'folds rapid create then write into a single created emission',
     () async {
+      const longDebounce = Duration(seconds: 1);
       final events = <(String path, FolderChangeKind kind)>[];
       final watcher = DebouncedFolderWatcher(
         directory: tempDir.path,
         extensions: const {'.md'},
-        debounce: debounce,
+        debounce: longDebounce,
         onChange: (path, kind) => events.add((path, kind)),
         onError: (error, stackTrace) =>
             fail('Unexpected watcher error: $error'),
@@ -98,12 +99,13 @@ void main() {
       addTearDown(watcher.close);
       await watcher.ready;
 
-      final file = File(p.join(tempDir.path, 'c.md'))
-        ..writeAsStringSync('first')
-        ..writeAsStringSync('second');
+      final file = File(p.join(tempDir.path, 'c.md'));
+      await file.writeAsString('first');
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      await file.writeAsString('second');
 
       await _waitFor(() => events.isNotEmpty);
-      await Future<void>.delayed(debounce * 4);
+      await Future<void>.delayed(const Duration(milliseconds: 500));
 
       expect(events, [(file.path, FolderChangeKind.created)]);
     },
@@ -112,6 +114,7 @@ void main() {
   test(
     'collapses several rapid writes to an existing file into one updated',
     () async {
+      const longDebounce = Duration(seconds: 1);
       final file = File(p.join(tempDir.path, 'existing.md'));
       await file.writeAsString('v0');
 
@@ -119,7 +122,7 @@ void main() {
       final watcher = DebouncedFolderWatcher(
         directory: tempDir.path,
         extensions: const {'.md'},
-        debounce: debounce,
+        debounce: longDebounce,
         onChange: (path, kind) => events.add((path, kind)),
         onError: (error, stackTrace) =>
             fail('Unexpected watcher error: $error'),
@@ -127,33 +130,37 @@ void main() {
       addTearDown(watcher.close);
       await watcher.ready;
 
-      file
-        ..writeAsStringSync('v1')
-        ..writeAsStringSync('v2')
-        ..writeAsStringSync('v3');
+      for (var i = 1; i <= 5; i++) {
+        await file.writeAsString('v$i');
+        if (i < 5) {
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+        }
+      }
 
       await _waitFor(() => events.isNotEmpty);
-      await Future<void>.delayed(debounce * 4);
+      await Future<void>.delayed(const Duration(milliseconds: 500));
 
       expect(events, [(file.path, FolderChangeKind.updated)]);
     },
   );
 
   test('close right after a write prevents any emission', () async {
+    const longDebounce = Duration(seconds: 1);
     final events = <(String path, FolderChangeKind kind)>[];
     final watcher = DebouncedFolderWatcher(
       directory: tempDir.path,
       extensions: const {'.md'},
-      debounce: debounce,
+      debounce: longDebounce,
       onChange: (path, kind) => events.add((path, kind)),
       onError: (error, stackTrace) => fail('Unexpected watcher error: $error'),
     );
     await watcher.ready;
 
     await File(p.join(tempDir.path, 'd.md')).writeAsString('before close');
+    await Future<void>.delayed(const Duration(milliseconds: 300));
     await watcher.close();
 
-    await Future<void>.delayed(debounce * 4);
+    await Future<void>.delayed(longDebounce);
     expect(events, isEmpty);
   });
 }
