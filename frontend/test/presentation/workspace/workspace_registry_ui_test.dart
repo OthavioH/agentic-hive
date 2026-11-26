@@ -274,4 +274,78 @@ void main() {
       );
     },
   );
+
+  testWidgets('WorkspaceSwitcherBar centers icon and Workspaces button '
+      'on the select field', (tester) async {
+    repo.workspaces = [makeWorkspace(name: 'Alpha')];
+    selectionStore.savedId = 'ws-1';
+
+    await tester.pumpWidget(
+      _wrap(
+        child: const WorkspaceSwitcherBar(),
+        repo: repo,
+        selectionStore: selectionStore,
+        filePicker: filePicker,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final select = find.byKey(const Key('workspace_switcher_select'));
+    final outerIcon = find.byElementPredicate(
+      (element) =>
+          element.widget is HiveIcon &&
+          (element.widget as HiveIcon).icon == HiveIcons.folder &&
+          element.findAncestorWidgetOfExactType<HiveSelect<String>>() == null,
+    );
+    final well = find.descendant(
+      of: select,
+      matching: find.byType(HiveFocusRing),
+    );
+    final button = find.byKey(const Key('workspace_manage_button'));
+
+    expect(outerIcon, findsOneWidget);
+    expect(well, findsOneWidget);
+    expect(button, findsOneWidget);
+
+    final wellCenterY = tester.getCenter(well).dy;
+    expect(
+      tester.getCenter(outerIcon).dy,
+      moreOrLessEquals(wellCenterY, epsilon: 0.5),
+    );
+    expect(
+      tester.getCenter(button).dy,
+      moreOrLessEquals(wellCenterY, epsilon: 0.5),
+    );
+  });
+
+  testWidgets('WorkspaceSwitcherBar centers icon, text and Workspaces button '
+      'in empty state', (tester) async {
+    await tester.pumpWidget(
+      _wrap(
+        child: const WorkspaceSwitcherBar(),
+        repo: repo,
+        selectionStore: selectionStore,
+        filePicker: filePicker,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final outerIcon = find.byElementPredicate(
+      (element) =>
+          element.widget is HiveIcon &&
+          (element.widget as HiveIcon).icon == HiveIcons.folder,
+    );
+    final emptyText = find.text('No workspace registered');
+    final button = find.byKey(const Key('workspace_manage_button'));
+
+    final buttonCenterY = tester.getCenter(button).dy;
+    expect(
+      tester.getCenter(outerIcon).dy,
+      moreOrLessEquals(buttonCenterY, epsilon: 0.5),
+    );
+    expect(
+      tester.getCenter(emptyText).dy,
+      moreOrLessEquals(buttonCenterY, epsilon: 0.5),
+    );
+  });
 }

@@ -20,14 +20,31 @@ class WorkspaceSwitcherBar extends ConsumerWidget {
     final colors = context.hiveColors;
     final typography = context.hiveTypography;
     final asyncState = ref.watch(workspaceRegistryControllerProvider);
+    final showsSelect = switch (asyncState) {
+      AsyncData<WorkspaceRegistryState>(:final value) =>
+        value.workspaces.isNotEmpty,
+      _ => false,
+    };
+
+    Widget fieldAligned(Widget child) => showsSelect
+        ? SizedBox(
+            height: spacing.space5,
+            child: Center(child: child),
+          )
+        : child;
 
     return HiveCard(
       child: Row(
+        crossAxisAlignment: showsSelect
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.center,
         children: <Widget>[
-          HiveIcon(
-            HiveIcons.folder,
-            size: spacing.space2,
-            color: colors.onSurfaceMuted,
+          fieldAligned(
+            HiveIcon(
+              HiveIcons.folder,
+              size: spacing.space2,
+              color: colors.onSurfaceMuted,
+            ),
           ),
           SizedBox(width: spacing.space1),
           Expanded(
@@ -68,40 +85,37 @@ class WorkspaceSwitcherBar extends ConsumerWidget {
                           color: colors.onSurfaceMuted,
                         ),
                       )
-                    : ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: spacing.space8 * 5,
-                        ),
-                        child: HiveSelect<String>(
-                          key: const Key('workspace_switcher_select'),
-                          label: l10n.workspaceCurrentLabel,
-                          value: value.currentWorkspaceId,
-                          options: <HiveSelectOption<String>>[
-                            for (final workspace in value.workspaces)
-                              HiveSelectOption<String>(
-                                value: workspace.id,
-                                label: workspace.name,
-                                icon: HiveIcons.folder,
-                              ),
-                          ],
-                          onChanged: (id) => unawaited(
-                            ref
-                                .read(
-                                  workspaceRegistryControllerProvider.notifier,
-                                )
-                                .selectWorkspace(id),
-                          ),
+                    : HiveSelect<String>(
+                        key: const Key('workspace_switcher_select'),
+                        label: l10n.workspaceCurrentLabel,
+                        value: value.currentWorkspaceId,
+                        options: <HiveSelectOption<String>>[
+                          for (final workspace in value.workspaces)
+                            HiveSelectOption<String>(
+                              value: workspace.id,
+                              label: workspace.name,
+                              icon: HiveIcons.folder,
+                            ),
+                        ],
+                        onChanged: (id) => unawaited(
+                          ref
+                              .read(
+                                workspaceRegistryControllerProvider.notifier,
+                              )
+                              .selectWorkspace(id),
                         ),
                       ),
             },
           ),
           SizedBox(width: spacing.space2),
-          HiveButton(
-            key: const Key('workspace_manage_button'),
-            label: l10n.workspaceManageAction,
-            variant: HiveButtonVariant.secondary,
-            size: HiveButtonSize.small,
-            onPressed: () => unawaited(WorkspaceRegistryDialog.show(context)),
+          fieldAligned(
+            HiveButton(
+              key: const Key('workspace_manage_button'),
+              label: l10n.workspaceManageAction,
+              variant: HiveButtonVariant.secondary,
+              size: HiveButtonSize.small,
+              onPressed: () => unawaited(WorkspaceRegistryDialog.show(context)),
+            ),
           ),
         ],
       ),
