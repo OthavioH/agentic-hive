@@ -580,4 +580,78 @@ void main() {
     await pumpEventQueue();
     expect(repo.subscriptions, hasLength(1));
   });
+
+  test('reconnect to ended session replays final snapshot then ends', () async {
+    final session1 = _FakeWsSession();
+    final session2 = _FakeWsSession();
+    final repo = _RecordingPtyRepository();
+
+    final controller = StreamController<BackendWebSocketSession?>.broadcast();
+    BackendWebSocketSession? currentSession = session1;
+
+    final container = ProviderContainer.test(
+      overrides: [
+        ptyRepositoryProvider.overrideWithValue(repo),
+        backendWebSocketSessionProvider.overrideWith((ref) {
+          final sub = controller.stream.listen((next) {
+            currentSession = next;
+            ref.invalidateSelf();
+          });
+          ref.onDispose(sub.cancel);
+          return currentSession;
+        }),
+      ],
+    );
+    addTearDown(() async {
+      container.dispose();
+      await controller.close();
+      await session1.close();
+      await session2.close();
+    });
+
+    final provider = ptyTerminalControllerProvider('run-1', 'node-1', 1);
+    final sub = container.listen(provider, (_, _) {});
+
+    session1.emit(
+      _ptyOutputEnvelope(
+        runId: 'run-1',
+        nodeId: 'node-1',
+        attempt: 1,
+        text: 'A',
+      ),
+    );
+    await pumpEventQueue();
+    expect(sub.read().hasOutput, isTrue);
+
+    controller.add(session2);
+    await pumpEventQueue();
+    expect(repo.subscriptions, hasLength(2));
+
+    session2
+      ..emit(
+        _ptyOutputEnvelope(
+          runId: 'run-1',
+          nodeId: 'node-1',
+          attempt: 1,
+          text: 'A\r\nFINAL',
+          isSnapshot: true,
+        ),
+      )
+      ..emit(
+        WsEnvelope(
+          id: 'err-final',
+          type: WsMessageType.error,
+          payload: const WsErrorPayload(
+            code: WsErrorCode.ptySessionNotActive,
+            message: 'PTY session is not active or has already ended.',
+            replyTo: 'pty-sub-2',
+          ).toJson(),
+        ),
+      );
+    await pumpEventQueue();
+
+    expect(sub.read().terminalController.plainText, contains('FINAL'));
+    expect(sub.read().mode, HiveTerminalMode.ended);
+    expect(sub.read().hasOutput, isTrue);
+  });
 }

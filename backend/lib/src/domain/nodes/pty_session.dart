@@ -169,6 +169,7 @@ final class PtySessionRegistry {
     this.scrollbackCapacityBytes = PtyScrollbackBuffer.defaultCapacityBytes,
     this.coalesceWindow = defaultCoalesceWindow,
     this.maxCoalesceBytes = defaultMaxCoalesceBytes,
+    this.endedRetention = defaultEndedRetention,
   });
 
   /// Default coalescing window (~60 fps).
@@ -176,6 +177,9 @@ final class PtySessionRegistry {
 
   /// Default maximum coalesced chunk size (32 KiB).
   static const int defaultMaxCoalesceBytes = 32 * 1024;
+
+  /// Default number of ended sessions whose final scrollback is retained.
+  static const int defaultEndedRetention = 8;
 
   /// Ring-buffer capacity per session.
   final int scrollbackCapacityBytes;
@@ -186,8 +190,13 @@ final class PtySessionRegistry {
   /// Maximum buffered bytes before flushing immediately.
   final int maxCoalesceBytes;
 
+  /// Maximum number of ended sessions whose final scrollback is retained.
+  final int endedRetention;
+
   final Map<PtySessionKey, _SessionState> _sessions =
       <PtySessionKey, _SessionState>{};
+  final Map<PtySessionKey, Uint8List> _endedSnapshots =
+      <PtySessionKey, Uint8List>{};
   final StreamController<PtyOutputPayload> _outputs =
       StreamController<PtyOutputPayload>.broadcast(sync: true);
   final StreamController<PtySessionKey> _sessionEnded =
@@ -203,6 +212,7 @@ final class PtySessionRegistry {
   /// Registers an active PTY [handle].
   void registerSession(PtySessionHandle handle) {
     if (_disposed) return;
+    _endedSnapshots.remove(handle.key);
     _sessions[handle.key] = _SessionState(
       handle: handle,
       scrollbackCapacityBytes: scrollbackCapacityBytes,
@@ -234,10 +244,18 @@ final class PtySessionRegistry {
     final state = _sessions.remove(key);
     if (state == null) return;
     _flush(key, state);
+    _endedSnapshots.remove(key);
+    _endedSnapshots[key] = state.scrollback.snapshot();
+    while (_endedSnapshots.length > endedRetention) {
+      _endedSnapshots.remove(_endedSnapshots.keys.first);
+    }
     if (!_sessionEnded.isClosed) {
       _sessionEnded.add(key);
     }
   }
+
+  /// Final scrollback of a recently ended session, or `null`.
+  Uint8List? endedSnapshot(PtySessionKey key) => _endedSnapshots[key];
 
   /// Flushes any pending coalesced output for [key] and returns a snapshot of
   /// the scrollback ring buffer, or `null` if no active session exists.
@@ -317,6 +335,7 @@ final class PtySessionRegistry {
       entry.value.coalesceTimer = null;
     }
     _sessions.clear();
+    _endedSnapshots.clear();
     await _outputs.close();
     await _sessionEnded.close();
   }
