@@ -74,12 +74,14 @@ final class _FakeRunRepository implements RunRepository {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   }) async {
     final filtered = items.where((run) {
       if (status != null && run.status != status) return false;
       if (workflowId != null && run.workflowId != workflowId) return false;
+      if (workspaceId != null && run.workspaceId != workspaceId) return false;
       return true;
     }).toList();
     final start = offset ?? 0;

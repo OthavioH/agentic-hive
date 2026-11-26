@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 final class _FakeRunRepository implements RunRepository {
   RunStatus? lastStatus;
   String? lastWorkflowId;
+  String? lastWorkspaceId;
   int? lastLimit;
   int? lastOffset;
   String? lastId;
@@ -20,11 +21,13 @@ final class _FakeRunRepository implements RunRepository {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   }) async {
     lastStatus = status;
     lastWorkflowId = workflowId;
+    lastWorkspaceId = workspaceId;
     lastLimit = limit;
     lastOffset = offset;
     return const Success(RunsListResponse(items: <RunSummary>[], total: 0));
@@ -131,12 +134,14 @@ void main() {
           .call(
             status: RunStatus.failed,
             workflowId: 'wf-1',
+            workspaceId: 'ws-1',
             limit: 10,
             offset: 2,
           );
       expect(listRes.isSuccess, isTrue);
       expect(repo.lastStatus, RunStatus.failed);
       expect(repo.lastWorkflowId, 'wf-1');
+      expect(repo.lastWorkspaceId, 'ws-1');
       expect(repo.lastLimit, 10);
       expect(repo.lastOffset, 2);
 

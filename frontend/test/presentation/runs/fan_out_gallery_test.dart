@@ -154,10 +154,14 @@ final class _FakeRunListRepository implements RunRepository {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   }) async {
-    return Success(RunsListResponse(items: items, total: items.length));
+    final filtered = workspaceId == null
+        ? items
+        : items.where((r) => r.workspaceId == workspaceId).toList();
+    return Success(RunsListResponse(items: filtered, total: filtered.length));
   }
 
   @override
@@ -216,6 +220,7 @@ final class _FanOutRunRepository implements RunRepository {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   }) async {

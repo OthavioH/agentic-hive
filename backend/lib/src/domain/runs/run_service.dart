@@ -947,6 +947,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int limit = 50,
     int offset = 0,
   }) async {
@@ -964,6 +965,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     final result = await _runs.list(
       status: status,
       workflowId: workflowId,
+      workspaceId: workspaceId,
       limit: limit,
       offset: offset,
     );

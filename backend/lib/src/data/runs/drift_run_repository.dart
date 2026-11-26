@@ -96,6 +96,7 @@ final class DriftRunRepository implements RunRepository {
   Future<Result<({List<RunSummary> items, int total})>> list({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int limit = 50,
     int offset = 0,
   }) async {
@@ -107,6 +108,9 @@ final class DriftRunRepository implements RunRepository {
         }
         if (workflowId != null) {
           expr = expr & tbl.workflowId.equals(workflowId);
+        }
+        if (workspaceId != null) {
+          expr = expr & tbl.workspaceId.equals(workspaceId);
         }
         return expr;
       }
