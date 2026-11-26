@@ -125,8 +125,6 @@ class RunsListController extends _$RunsListController {
   static const int pageSize = 50;
 
   int _requestToken = 0;
-  int _nextBackendOffset = 0;
-  int _skippedCount = 0;
 
   ({String? workspaceId, bool isGlobal}) get _workspaceSelection {
     final registry = ref
@@ -215,30 +213,29 @@ class RunsListController extends _$RunsListController {
       current.copyWith(isLoadingMore: true, actionFailure: () => null),
     );
 
-    final result = await _fetchWorkspacePage(
-      workspaceId: selection.workspaceId!,
-      status: current.statusFilter,
-      workflowId: current.workflowFilter,
-      startOffset: _nextBackendOffset,
-    );
+    final result = await ref
+        .read(listRunsProvider)
+        .call(
+          workspaceId: selection.workspaceId,
+          status: current.statusFilter,
+          workflowId: current.workflowFilter,
+          limit: pageSize,
+          offset: current.runs.length,
+        );
     if (!ref.mounted || token != _requestToken) return;
 
     final latest = state.asData?.value ?? current;
     switch (result) {
-      case Success<_RunsPage>(:final value):
-        _nextBackendOffset = value.nextOffset;
-        final combined = <RunSummary>[...latest.runs, ...value.items];
+      case Success<RunsListResponse>(:final value):
         state = AsyncData(
           latest.copyWith(
-            runs: combined,
-            total: value.hasMore
-                ? value.backendTotal - _skippedCount
-                : combined.length,
+            runs: <RunSummary>[...latest.runs, ...value.items],
+            total: value.total,
             isLoadingMore: false,
             actionFailure: () => null,
           ),
         );
-      case FailureResult<_RunsPage>(:final failure):
+      case FailureResult<RunsListResponse>(:final failure):
         state = AsyncData(
           latest.copyWith(isLoadingMore: false, actionFailure: () => failure),
         );
@@ -329,31 +326,30 @@ class RunsListController extends _$RunsListController {
     final selection = _workspaceSelection;
     if (selection.isGlobal || selection.workspaceId == null) return;
     final token = ++_requestToken;
-    _skippedCount = 0;
-    final runsResult = await _fetchWorkspacePage(
-      workspaceId: selection.workspaceId!,
-      status: statusFilter,
-      workflowId: workflowFilter,
-      startOffset: 0,
-    );
+    final runsResult = await ref
+        .read(listRunsProvider)
+        .call(
+          workspaceId: selection.workspaceId,
+          status: statusFilter,
+          workflowId: workflowFilter,
+          limit: pageSize,
+          offset: 0,
+        );
     if (!ref.mounted || token != _requestToken) return;
 
     switch (runsResult) {
-      case Success<_RunsPage>(:final value):
-        _nextBackendOffset = value.nextOffset;
+      case Success<RunsListResponse>(:final value):
         state = AsyncData(
           current.copyWith(
             runs: value.items,
-            total: value.hasMore
-                ? value.backendTotal - _skippedCount
-                : value.items.length,
+            total: value.total,
             statusFilter: () => statusFilter,
             workflowFilter: () => workflowFilter,
             isLoadingMore: false,
             actionFailure: () => null,
           ),
         );
-      case FailureResult<_RunsPage>(:final failure):
+      case FailureResult<RunsListResponse>(:final failure):
         _setBusy(null, actionFailure: failure);
     }
   }
@@ -364,8 +360,6 @@ class RunsListController extends _$RunsListController {
     required String? workspaceId,
     required bool isGlobal,
   }) async {
-    _nextBackendOffset = 0;
-    _skippedCount = 0;
     if (isGlobal || workspaceId == null) {
       return RunsListState(
         runs: const <RunSummary>[],
@@ -377,12 +371,15 @@ class RunsListController extends _$RunsListController {
       );
     }
 
-    final runsFuture = _fetchWorkspacePage(
-      workspaceId: workspaceId,
-      status: statusFilter,
-      workflowId: workflowFilter,
-      startOffset: 0,
-    );
+    final runsFuture = ref
+        .read(listRunsProvider)
+        .call(
+          workspaceId: workspaceId,
+          status: statusFilter,
+          workflowId: workflowFilter,
+          limit: pageSize,
+          offset: 0,
+        );
     final workflowsFuture = ref
         .read(listWorkflowsProvider)
         .call(scope: DefinitionScope.ofWorkspaceId(workspaceId));
@@ -392,82 +389,16 @@ class RunsListController extends _$RunsListController {
 
     final workflows = workflowsResult.valueOrNull ?? const <WorkflowSummary>[];
     return switch (runsResult) {
-      Success<_RunsPage>(:final value) => () {
-        _nextBackendOffset = value.nextOffset;
-        return RunsListState(
-          runs: value.items,
-          total: value.hasMore
-              ? value.backendTotal - _skippedCount
-              : value.items.length,
-          workflows: workflows,
-          statusFilter: statusFilter,
-          workflowFilter: workflowFilter,
-        );
-      }(),
-      FailureResult<_RunsPage>(:final failure) => Error.throwWithStackTrace(
-        failure,
-        StackTrace.current,
+      Success<RunsListResponse>(:final value) => RunsListState(
+        runs: value.items,
+        total: value.total,
+        workflows: workflows,
+        statusFilter: statusFilter,
+        workflowFilter: workflowFilter,
       ),
+      FailureResult<RunsListResponse>(:final failure) =>
+        Error.throwWithStackTrace(failure, StackTrace.current),
     };
-  }
-
-  Future<Result<_RunsPage>> _fetchWorkspacePage({
-    required String workspaceId,
-    required RunStatus? status,
-    required String? workflowId,
-    required int startOffset,
-  }) async {
-    final collected = <RunSummary>[];
-    var offset = startOffset;
-    var hasMore = false;
-    var backendTotal = 0;
-    final listRuns = ref.read(listRunsProvider);
-
-    while (collected.length < pageSize) {
-      final result = await listRuns(
-        status: status,
-        workflowId: workflowId,
-        limit: pageSize,
-        offset: offset,
-      );
-      switch (result) {
-        case FailureResult<RunsListResponse>(:final failure):
-          return FailureResult(failure);
-        case Success<RunsListResponse>(:final value):
-          backendTotal = value.total;
-          if (value.items.isEmpty) {
-            return Success((
-              items: collected,
-              nextOffset: offset,
-              hasMore: false,
-              backendTotal: backendTotal,
-            ));
-          }
-          offset += value.items.length;
-          for (final run in value.items) {
-            if (run.workspaceId == workspaceId) {
-              collected.add(run);
-            } else {
-              _skippedCount++;
-            }
-          }
-          hasMore = offset < value.total;
-          if (!hasMore) {
-            return Success((
-              items: collected,
-              nextOffset: offset,
-              hasMore: false,
-              backendTotal: backendTotal,
-            ));
-          }
-      }
-    }
-    return Success((
-      items: collected,
-      nextOffset: offset,
-      hasMore: hasMore,
-      backendTotal: backendTotal,
-    ));
   }
 
   void _setBusy(String? id, {Failure? actionFailure}) {
@@ -478,10 +409,3 @@ class RunsListController extends _$RunsListController {
     );
   }
 }
-
-typedef _RunsPage = ({
-  List<RunSummary> items,
-  int nextOffset,
-  bool hasMore,
-  int backendTotal,
-});

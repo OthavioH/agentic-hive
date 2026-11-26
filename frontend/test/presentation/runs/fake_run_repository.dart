@@ -26,6 +26,7 @@ final class FakeRunRepository implements RunRepository {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   }) async => const Success(RunsListResponse(items: <RunSummary>[], total: 0));

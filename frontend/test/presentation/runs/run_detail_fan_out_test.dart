@@ -70,6 +70,7 @@ final class _FanOutRunRepository implements RunRepository {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   }) async {

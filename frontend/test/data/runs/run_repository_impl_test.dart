@@ -130,6 +130,7 @@ void main() {
         final result = await repo.listRuns(
           status: RunStatus.succeeded,
           workflowId: 'wf-1',
+          workspaceId: 'ws-1',
           limit: 20,
           offset: 5,
         );
@@ -140,6 +141,7 @@ void main() {
         expect(uri.queryParameters, <String, String>{
           'status': 'succeeded',
           'workflowId': 'wf-1',
+          'workspaceId': 'ws-1',
           'limit': '20',
           'offset': '5',
         });

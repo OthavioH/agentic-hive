@@ -13,10 +13,11 @@ abstract interface class RunRepository {
   Future<Result<Map<String, Run>>> getByIds(Iterable<String> ids);
 
   /// Lists [RunSummary] items ordered by `startedAt DESC`, with optional
-  /// filters and pagination.
+  /// [status], [workflowId], and [workspaceId] filters and pagination.
   Future<Result<({List<RunSummary> items, int total})>> list({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int limit = 50,
     int offset = 0,
   });

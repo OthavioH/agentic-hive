@@ -47,17 +47,21 @@ final class _FakeRunRepository implements RunRepository {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   }) async {
+    final filtered = workspaceId == null
+        ? items
+        : items.where((r) => r.workspaceId == workspaceId).toList();
     final start = offset ?? 0;
     final page = limit == null
-        ? items.skip(start).toList()
-        : items.skip(start).take(limit).toList();
+        ? filtered.skip(start).toList()
+        : filtered.skip(start).take(limit).toList();
     return Success(
       RunsListResponse(
         items: page,
-        total: backendTotalOverride ?? items.length,
+        total: backendTotalOverride ?? filtered.length,
       ),
     );
   }

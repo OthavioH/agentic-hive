@@ -14,11 +14,13 @@ final class RunRepositoryImpl implements RunRepository {
   Future<Result<RunsListResponse>> listRuns({
     RunStatus? status,
     String? workflowId,
+    String? workspaceId,
     int? limit,
     int? offset,
   }) => _remoteDataSource.listRuns(
     status: status,
     workflowId: workflowId,
+    workspaceId: workspaceId,
     limit: limit,
     offset: offset,
   );
