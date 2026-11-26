@@ -31,14 +31,15 @@ final class WorkflowRepositoryImpl implements WorkflowRepository {
   final Duration pollInterval;
 
   @override
-  Future<Result<List<WorkflowSummary>>> listWorkflows({String? workspaceId}) =>
-      _remoteDataSource.listWorkflows(workspaceId: workspaceId);
+  Future<Result<List<WorkflowSummary>>> listWorkflows({
+    DefinitionScope scope = const GlobalScope(),
+  }) => _remoteDataSource.listWorkflows(scope: scope);
 
   @override
   Future<Result<WorkflowResponse>> getWorkflow(
     String id, {
-    String? workspaceId,
-  }) => _remoteDataSource.getWorkflow(id, workspaceId: workspaceId);
+    DefinitionScope scope = const GlobalScope(),
+  }) => _remoteDataSource.getWorkflow(id, scope: scope);
 
   @override
   Future<Result<WorkflowResponse>> createWorkflow(
@@ -49,19 +50,15 @@ final class WorkflowRepositoryImpl implements WorkflowRepository {
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
     UpdateWorkflowRequest request, {
-    String? workspaceId,
-  }) => _remoteDataSource.updateWorkflow(id, request, workspaceId: workspaceId);
+    DefinitionScope scope = const GlobalScope(),
+  }) => _remoteDataSource.updateWorkflow(id, request, scope: scope);
 
   @override
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
-    String? workspaceId,
-  }) => _remoteDataSource.duplicateWorkflow(
-    id,
-    name: name,
-    workspaceId: workspaceId,
-  );
+    DefinitionScope scope = const GlobalScope(),
+  }) => _remoteDataSource.duplicateWorkflow(id, name: name, scope: scope);
 
   /// Follows a deletion (ADR 0027): live events win and the status is polled
   /// every [pollInterval] as a fallback. A `404` on the request is success
@@ -69,7 +66,7 @@ final class WorkflowRepositoryImpl implements WorkflowRepository {
   @override
   Stream<WorkflowDeletionUpdate> deleteWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
     String? revision,
     bool force = false,
   }) {
@@ -77,14 +74,7 @@ final class WorkflowRepositoryImpl implements WorkflowRepository {
     final ended = Completer<void>();
     out.onListen = () {
       unawaited(
-        _follow(
-          out,
-          ended,
-          id,
-          workspaceId: workspaceId,
-          revision: revision,
-          force: force,
-        ),
+        _follow(out, ended, id, scope: scope, revision: revision, force: force),
       );
     };
     out.onCancel = () {
@@ -97,7 +87,7 @@ final class WorkflowRepositoryImpl implements WorkflowRepository {
     StreamController<WorkflowDeletionUpdate> out,
     Completer<void> ended,
     String id, {
-    required String? workspaceId,
+    required DefinitionScope scope,
     required String? revision,
     required bool force,
   }) async {
@@ -140,7 +130,7 @@ final class WorkflowRepositoryImpl implements WorkflowRepository {
     try {
       final accepted = await _remoteDataSource.deleteWorkflow(
         id,
-        workspaceId: workspaceId,
+        scope: scope,
         revision: revision,
         force: force,
       );
@@ -154,7 +144,7 @@ final class WorkflowRepositoryImpl implements WorkflowRepository {
           emit(WorkflowDeletionStarted(operationId: value.operationId));
           earlyProgress.forEach(onProgress);
           earlyFinished.forEach(onFinished);
-          unawaited(_poll(id, workspaceId, value.operationId, ended, emit));
+          unawaited(_poll(id, scope, value.operationId, ended, emit));
           await ended.future;
       }
     } finally {
@@ -167,7 +157,7 @@ final class WorkflowRepositoryImpl implements WorkflowRepository {
 
   Future<void> _poll(
     String id,
-    String? workspaceId,
+    DefinitionScope scope,
     String operationId,
     Completer<void> ended,
     void Function(WorkflowDeletionUpdate) emit,
@@ -198,7 +188,7 @@ final class WorkflowRepositoryImpl implements WorkflowRepository {
         case Success(:final value):
           emit(_progressed(value));
         case FailureResult(:final failure) when failure is NotFoundFailure:
-          emit(await _endedForVanishedOperation(id, workspaceId));
+          emit(await _endedForVanishedOperation(id, scope));
         case FailureResult(:final failure):
           emit(WorkflowDeletionFailed(failure));
       }
@@ -209,12 +199,9 @@ final class WorkflowRepositoryImpl implements WorkflowRepository {
   /// means it was deleted; still present means the operation was lost.
   Future<WorkflowDeletionEnded> _endedForVanishedOperation(
     String id,
-    String? workspaceId,
+    DefinitionScope scope,
   ) async {
-    final current = await _remoteDataSource.getWorkflow(
-      id,
-      workspaceId: workspaceId,
-    );
+    final current = await _remoteDataSource.getWorkflow(id, scope: scope);
     return switch (current) {
       Success() => const WorkflowDeletionFailed(
         UnexpectedFailure(

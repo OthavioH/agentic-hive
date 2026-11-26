@@ -23,16 +23,14 @@ final class ListWorkflowsTool extends ScopedMcpTool {
 
   @override
   Future<Result<String>> runInScope(McpScope scope, McpToolInput input) async {
-    final result = await _workflows.listWorkflows(
-      workspaceId: scope.workspaceId,
-    );
+    final result = await _workflows.listWorkflows(scope: scope.definitionScope);
     return result.map((list) {
-      final filtered = scope.workspaceId == null
+      final filtered = scope.definitionScope is GlobalScope
           ? list.workflows
           : list.workflows
-                .where((item) => item.scope == WorkflowScope.workspace)
+                .where((item) => item.scope is WorkspaceScope)
                 .toList(growable: false);
-      final hint = scope.workspaceId == null
+      final hint = scope.definitionScope is GlobalScope
           ? 'Pass workspace (id or root path, see list_workspaces) to see a '
                 "workspace's workflows."
           : 'Pass workspace=global to see global workflows.';

@@ -11,24 +11,29 @@ final class AgentsRemoteDataSource {
 
   final BackendClient _client;
 
-  /// Appends the `workspaceId` query parameter when [workspaceId] is set.
-  ///
-  /// Without it the backend serves the global library only.
-  static String _scoped(String path, String? workspaceId) => workspaceId == null
-      ? path
-      : '$path?workspaceId=${Uri.encodeComponent(workspaceId)}';
+  /// Appends `workspaceId` when [scope] is [WorkspaceScope].
+  static String _scoped(String path, DefinitionScope scope) => switch (scope) {
+    GlobalScope() => path,
+    WorkspaceScope(:final workspaceId) =>
+      '$path?workspaceId=${Uri.encodeComponent(workspaceId)}',
+  };
 
   /// Fetches agent summaries (`GET /api/v1/agents`): the global library, or
-  /// with [workspaceId] that workspace's agents plus the global ones.
-  Future<Result<List<AgentSummary>>> listAgents({String? workspaceId}) async {
-    final result = await _client.getJson(_scoped(_basePath, workspaceId));
+  /// with [WorkspaceScope] that workspace's agents plus the global ones.
+  Future<Result<List<AgentSummary>>> listAgents({
+    DefinitionScope scope = const GlobalScope(),
+  }) async {
+    final result = await _client.getJson(_scoped(_basePath, scope));
     return result.flatMap(_decodeList);
   }
 
   /// Fetches full detail for agent [id] (`GET /api/v1/agents/<id>`).
-  Future<Result<AgentDetail>> getAgent(String id, {String? workspaceId}) async {
+  Future<Result<AgentDetail>> getAgent(
+    String id, {
+    DefinitionScope scope = const GlobalScope(),
+  }) async {
     final result = await _client.getJson(
-      _scoped('$_basePath/${Uri.encodeComponent(id)}', workspaceId),
+      _scoped('$_basePath/${Uri.encodeComponent(id)}', scope),
     );
     return result.flatMap(_decodeDetail);
   }
@@ -36,10 +41,10 @@ final class AgentsRemoteDataSource {
   /// Creates an agent (`POST /api/v1/agents`).
   Future<Result<AgentDetail>> createAgent(
     CreateAgentRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
     final result = await _client.postJson(
-      _scoped(_basePath, workspaceId),
+      _scoped(_basePath, scope),
       body: request.toJson(),
     );
     return result.flatMap(_decodeDetail);
@@ -49,18 +54,20 @@ final class AgentsRemoteDataSource {
   Future<Result<AgentDetail>> updateAgent(
     String id,
     UpdateAgentRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
     final result = await _client.putJson(
-      _scoped('$_basePath/${Uri.encodeComponent(id)}', workspaceId),
+      _scoped('$_basePath/${Uri.encodeComponent(id)}', scope),
       request.toJson(),
     );
     return result.flatMap(_decodeDetail);
   }
 
   /// Deletes an agent (`DELETE /api/v1/agents/<id>`).
-  Future<Result<void>> deleteAgent(String id, {String? workspaceId}) => _client
-      .delete(_scoped('$_basePath/${Uri.encodeComponent(id)}', workspaceId));
+  Future<Result<void>> deleteAgent(
+    String id, {
+    DefinitionScope scope = const GlobalScope(),
+  }) => _client.delete(_scoped('$_basePath/${Uri.encodeComponent(id)}', scope));
 
   Result<List<AgentSummary>> _decodeList(JsonMap json) {
     try {

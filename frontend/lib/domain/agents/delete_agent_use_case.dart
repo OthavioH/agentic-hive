@@ -1,5 +1,6 @@
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/domain/agents/agent_repository.dart';
+import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 /// Deletes an agent from the library.
 final class DeleteAgentUseCase {
@@ -8,8 +9,9 @@ final class DeleteAgentUseCase {
 
   final AgentRepository _repository;
 
-  /// Deletes the agent with [id] from the workspace folder when [workspaceId]
-  /// is set, and from the global library otherwise.
-  Future<Result<void>> call(String id, {String? workspaceId}) =>
-      _repository.deleteAgent(id, workspaceId: workspaceId);
+  /// Deletes the agent with [id] from [scope].
+  Future<Result<void>> call(
+    String id, {
+    DefinitionScope scope = const GlobalScope(),
+  }) => _repository.deleteAgent(id, scope: scope);
 }

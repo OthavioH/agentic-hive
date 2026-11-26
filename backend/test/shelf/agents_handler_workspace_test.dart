@@ -89,7 +89,7 @@ void main() {
     final list = AgentListResponse.fromJson(await readJson(res));
 
     expect(list.agents.map((s) => s.id), ['a']);
-    expect(list.agents.single.scope, AgentScope.global);
+    expect(list.agents.single.scope, const GlobalScope());
   });
 
   test(
@@ -105,7 +105,8 @@ void main() {
       final list = AgentListResponse.fromJson(await readJson(res));
 
       final summary = [
-        for (final s in list.agents) '${s.id}:${s.scope.name}:${s.overridden}',
+        for (final s in list.agents)
+          '${s.id}:${s.scope.wireName}:${s.overridden}',
       ];
       expect(
         summary,
@@ -116,6 +117,23 @@ void main() {
         ]),
       );
       expect(syncCount, greaterThan(0));
+    },
+  );
+
+  test(
+    'workspace agent listing wire JSON includes workspaceId on workspace scope',
+    () async {
+      await writeAgent(wsAgents(), 'reviewer', 'w');
+
+      final res = await handler(
+        buildRequest('/api/v1/agents?workspaceId=ws-1'),
+      );
+      final json = await readJson(res);
+      final agents = json['agents']! as List<Object?>;
+      final reviewer = agents.single! as Map<String, Object?>;
+
+      expect(reviewer['scope'], 'workspace');
+      expect(reviewer['workspaceId'], 'ws-1');
     },
   );
 
@@ -130,14 +148,14 @@ void main() {
       ),
     );
     expect(overridden.prompt, 'workspace prompt');
-    expect(overridden.scope, AgentScope.workspace);
+    expect(overridden.scope, const WorkspaceScope('ws-1'));
 
     final fallback = AgentDetail.fromJson(
       await readJson(
         await handler(buildRequest('/api/v1/agents/planner?workspaceId=ws-1')),
       ),
     );
-    expect(fallback.scope, AgentScope.global);
+    expect(fallback.scope, const GlobalScope());
 
     final globalOnly = AgentDetail.fromJson(
       await readJson(await handler(buildRequest('/api/v1/agents/reviewer'))),
@@ -157,7 +175,7 @@ void main() {
     expect(res.statusCode, 201);
     expect(
       AgentDetail.fromJson(await readJson(res)).scope,
-      AgentScope.workspace,
+      const WorkspaceScope('ws-1'),
     );
     expect(File(p.join(wsAgents().path, 'ws-only.md')).existsSync(), isTrue);
     expect(File(p.join(globalDir.path, 'ws-only.md')).existsSync(), isFalse);

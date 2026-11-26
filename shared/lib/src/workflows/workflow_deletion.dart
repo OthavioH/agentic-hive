@@ -1,5 +1,5 @@
+import 'package:agentic_hive_shared/src/definitions/definition_scope.dart';
 import 'package:agentic_hive_shared/src/json_fields.dart';
-import 'package:agentic_hive_shared/src/workflows/workflow_scope.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'workflow_deletion.freezed.dart';
@@ -32,20 +32,36 @@ enum WorkflowDeletionOutcome {
 }
 
 /// A workflow whose fan-out nodes reference another workflow (ADR 0029).
-@freezed
+@Freezed(toJson: false)
 sealed class WorkflowReference with _$WorkflowReference {
   /// Creates a reference entry.
   const factory({
     required String workflowId,
     required String workflowName,
-    required WorkflowScope scope,
-    String? workspaceId,
+    @Default(GlobalScope())
+    @JsonKey(
+      readValue: readWholeJson,
+      fromJson: DefinitionScope.fromJson,
+      includeToJson: false,
+    )
+    DefinitionScope scope,
     @Default(<String>[]) List<String> nodeIds,
   }) = _WorkflowReference;
+
+  const new _();
 
   /// Decodes an entry; throws [FormatException] on a bad shape.
   factory fromJson(JsonMap json) =>
       parseJson(json, _$WorkflowReferenceFromJson);
+
+  /// Encodes this reference to JSON, flattening [scope] into `scope` and
+  /// optional `workspaceId`.
+  JsonMap toJson() => {
+    'workflowId': workflowId,
+    'workflowName': workflowName,
+    'nodeIds': nodeIds,
+    ...scope.toJson(),
+  };
 }
 
 /// Body of `GET /api/v1/workflows/{id}/references`.

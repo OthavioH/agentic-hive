@@ -43,7 +43,7 @@ final class ScriptedWorkflowRepository implements WorkflowRepository {
 
   @override
   Future<Result<List<WorkflowSummary>>> listWorkflows({
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => Success(List<WorkflowSummary>.from(items));
 
   @override
@@ -85,7 +85,7 @@ final class ScriptedWorkflowRepository implements WorkflowRepository {
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
     duplicatedIds.add(id);
     if (duplicateGate != null) {
@@ -119,13 +119,13 @@ final class ScriptedWorkflowRepository implements WorkflowRepository {
   @override
   Stream<WorkflowDeletionUpdate> deleteWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
     String? revision,
     bool force = false,
   }) {
     deleteCalls.add((
       id: id,
-      workspaceId: workspaceId,
+      workspaceId: scope.workspaceIdOrNull,
       revision: revision,
       force: force,
     ));
@@ -140,14 +140,14 @@ final class ScriptedWorkflowRepository implements WorkflowRepository {
   @override
   Future<Result<WorkflowResponse>> getWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
     UpdateWorkflowRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override

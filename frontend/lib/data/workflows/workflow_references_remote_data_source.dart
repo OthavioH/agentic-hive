@@ -7,7 +7,7 @@ abstract interface class WorkflowReferencesRemoteDataSource {
   /// Fetches workflows referencing [workflowId] via the backend REST API.
   Future<Result<WorkflowReferencesResponse>> getReferences(
     String workflowId, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   });
 }
 
@@ -22,12 +22,14 @@ final class HttpWorkflowReferencesRemoteDataSource
   @override
   Future<Result<WorkflowReferencesResponse>> getReferences(
     String workflowId, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
     final encoded = Uri.encodeComponent(workflowId);
-    final query = workspaceId == null
-        ? ''
-        : '?workspaceId=${Uri.encodeQueryComponent(workspaceId)}';
+    final query = switch (scope) {
+      GlobalScope() => '',
+      WorkspaceScope(:final workspaceId) =>
+        '?workspaceId=${Uri.encodeQueryComponent(workspaceId)}',
+    };
     final result = await _client.sendJsonRequest(
       'GET',
       '/api/v1/workflows/$encoded/references$query',

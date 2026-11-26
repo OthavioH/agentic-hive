@@ -144,7 +144,6 @@ void main() {
       const WorkflowReference(
         workflowId: 'wf-parent',
         workflowName: 'Parent',
-        scope: WorkflowScope.global,
         nodeIds: ['fan-1'],
       ),
     ]);

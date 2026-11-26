@@ -29,7 +29,11 @@ final class WorkspaceAgentWatchers {
   static final _log = Logger('agents.workspace_watchers');
 
   final Future<Result<List<Workspace>>> Function() _listWorkspaces;
-  final AgentRepository Function(String workspaceRoot) _repositoryFor;
+  final AgentRepository Function(
+    String workspaceRoot, {
+    required String workspaceId,
+  })
+  _repositoryFor;
   final ConnectionRegistry _registry;
   final Duration _debounceDuration;
   final p.Context _path;
@@ -78,7 +82,7 @@ final class WorkspaceAgentWatchers {
       if (!Directory(dir).existsSync()) continue;
       final watcher = AgentDirectoryWatcher(
         agentsDir: dir,
-        repository: _repositoryFor(root),
+        repository: _repositoryFor(root, workspaceId: id),
         registry: _registry,
         workspaceId: id,
         debounceDuration: _debounceDuration,

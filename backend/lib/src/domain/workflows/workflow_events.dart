@@ -2,11 +2,11 @@ import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 /// Publishes workflow changes so clients can keep their view live.
 abstract interface class WorkflowEvents {
-  /// Reports that workflow [id] changed; null [workspaceId] means Global.
+  /// Reports that workflow [id] changed in [scope].
   void workflowChanged(
     WorkflowChangeKind kind,
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
     WorkflowSummary? workflow,
   });
 }
@@ -21,6 +21,5 @@ WorkflowSummary workflowSummaryOf(WorkflowResponse response) => WorkflowSummary(
   hasValidationErrors: !response.validation.isValid,
   updatedAt: response.workflow.updatedAt,
   scope: response.scope,
-  workspaceId: response.workspaceId,
   revision: response.revision,
 );

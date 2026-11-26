@@ -64,9 +64,9 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
 
   @override
   Future<Result<List<WorkflowSummary>>> listWorkflows({
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
-    listedScopes.add(workspaceId);
+    listedScopes.add(scope.workspaceIdOrNull);
     if (listOverride != null) return listOverride!;
     return Success(List<WorkflowSummary>.from(items));
   }
@@ -109,7 +109,7 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
     final source = items.firstWhere((w) => w.id == id);
     final copy = WorkflowSummary(
@@ -140,11 +140,11 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   @override
   Stream<WorkflowDeletionUpdate> deleteWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
     String? revision,
     bool force = false,
   }) {
-    deletedScopes.add(workspaceId);
+    deletedScopes.add(scope.workspaceIdOrNull);
     items.removeWhere((w) => w.id == id);
     return Stream.value(const WorkflowDeletionSucceeded());
   }
@@ -152,14 +152,14 @@ final class _FakeWorkflowRepository implements WorkflowRepository {
   @override
   Future<Result<WorkflowResponse>> getWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
     UpdateWorkflowRequest request, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async => const FailureResult(NotFoundFailure('unused'));
 
   @override
@@ -229,7 +229,7 @@ void main() {
         hasLength(4),
       );
 
-      notifier.removeWorkflow('wf-2', workspaceId: null);
+      notifier.removeWorkflow('wf-2', scope: const GlobalScope());
       expect(
         container
             .read(workflowsListControllerProvider)
@@ -308,7 +308,7 @@ void main() {
         WorkflowSummary(
           id: 'wf-1',
           name: 'Scoped copy',
-          workspaceId: 'ws-1',
+          scope: const WorkspaceScope('ws-1'),
           nodeCount: 0,
           edgeCount: 0,
           hasValidationErrors: false,
@@ -322,19 +322,30 @@ void main() {
 
       container
           .read(workflowsListControllerProvider.notifier)
-          .setDeleting('wf-1', workspaceId: 'ws-1', deleting: true);
+          .setDeleting(
+            'wf-1',
+            scope: const WorkspaceScope('ws-1'),
+            deleting: true,
+          );
 
       final workflows = container
           .read(workflowsListControllerProvider)
           .requireValue
           .workflows;
-      expect(workflows.where((w) => w.deleting).map((w) => w.workspaceId), [
-        'ws-1',
-      ]);
+      expect(
+        workflows
+            .where((w) => w.deleting)
+            .map((w) => w.scope.workspaceIdOrNull),
+        ['ws-1'],
+      );
 
       container
           .read(workflowsListControllerProvider.notifier)
-          .setDeleting('wf-1', workspaceId: 'ws-1', deleting: false);
+          .setDeleting(
+            'wf-1',
+            scope: const WorkspaceScope('ws-1'),
+            deleting: false,
+          );
       expect(
         container
             .read(workflowsListControllerProvider)
@@ -351,7 +362,7 @@ void main() {
         WorkflowSummary(
           id: 'wf-1',
           name: 'Scoped copy',
-          workspaceId: 'ws-1',
+          scope: const WorkspaceScope('ws-1'),
           nodeCount: 0,
           edgeCount: 0,
           hasValidationErrors: false,
@@ -365,13 +376,13 @@ void main() {
 
       container
           .read(workflowsListControllerProvider.notifier)
-          .removeWorkflow('wf-1', workspaceId: 'ws-1');
+          .removeWorkflow('wf-1', scope: const WorkspaceScope('ws-1'));
 
       final ids = container
           .read(workflowsListControllerProvider)
           .requireValue
           .workflows
-          .map((w) => (w.id, w.workspaceId))
+          .map((w) => (w.id, w.scope.workspaceIdOrNull))
           .toList();
       expect(ids, [('wf-1', null), ('wf-2', null)]);
     });
@@ -437,9 +448,12 @@ void main() {
             workflowsListControllerProvider.notifier,
           );
 
-          await notifier.createWorkflow(name: 'In repo', workspaceId: 'ws-1');
+          await notifier.createWorkflow(
+            name: 'In repo',
+            scope: const WorkspaceScope('ws-1'),
+          );
           await notifier.createWorkflow(name: 'Everywhere');
-          notifier.removeWorkflow('wf-1', workspaceId: 'ws-1');
+          notifier.removeWorkflow('wf-1', scope: const WorkspaceScope('ws-1'));
 
           expect(repo.createdScopes, ['ws-1', null]);
         },

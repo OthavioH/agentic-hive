@@ -9,7 +9,7 @@ final class WorkflowDeletionOperation {
     required this.workflowId,
     required this.phase,
     required this.startedAt,
-    this.workspaceId,
+    this.scope = const GlobalScope(),
     this.runsToStop = 0,
     this.runsStopped = 0,
     this.runsDeleted = 0,
@@ -25,8 +25,8 @@ final class WorkflowDeletionOperation {
   /// Workflow identifier.
   final String workflowId;
 
-  /// Workspace scope, or `null` for global.
-  final String? workspaceId;
+  /// Scope of the workflow being deleted.
+  final DefinitionScope scope;
 
   /// Current phase.
   final WorkflowDeletionPhase phase;
@@ -71,7 +71,7 @@ final class WorkflowDeletionOperation {
   }) => WorkflowDeletionOperation(
     id: id,
     workflowId: workflowId,
-    workspaceId: workspaceId,
+    scope: scope,
     phase: phase ?? this.phase,
     runsToStop: runsToStop ?? this.runsToStop,
     runsStopped: runsStopped ?? this.runsStopped,

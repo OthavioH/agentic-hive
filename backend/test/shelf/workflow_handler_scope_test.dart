@@ -214,15 +214,15 @@ void main() {
         await _json(await handler.call(_request('GET', '/?workspaceId=ws-1'))),
       ).workflows;
       expect(both.map((w) => w.scope).toSet(), {
-        WorkflowScope.global,
-        WorkflowScope.workspace,
+        const GlobalScope(),
+        const WorkspaceScope('ws-1'),
       });
       expect(both, hasLength(2));
 
       final globalOnly = WorkflowListResponse.fromJson(
         await _json(await handler.call(_request('GET', '/'))),
       ).workflows;
-      expect(globalOnly.map((w) => w.scope), [WorkflowScope.global]);
+      expect(globalOnly.map((w) => w.scope), [const GlobalScope()]);
     },
   );
 

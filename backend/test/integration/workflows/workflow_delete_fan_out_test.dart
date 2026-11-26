@@ -113,7 +113,6 @@ void main() {
       WorkflowReference(
         workflowId: parent.id,
         workflowName: 'Parent Flow',
-        scope: WorkflowScope.global,
         nodeIds: const ['fan-1'],
       ),
     ]);

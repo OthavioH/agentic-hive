@@ -1,12 +1,12 @@
+import 'package:agentic_hive_shared/src/definitions/definition_scope.dart';
 import 'package:agentic_hive_shared/src/json_fields.dart';
-import 'package:agentic_hive_shared/src/workflows/workflow_scope.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'workflow_summary.freezed.dart';
 part 'workflow_summary.g.dart';
 
 /// Lightweight summary of a saved workflow for list views.
-@freezed
+@Freezed(toJson: false)
 sealed class WorkflowSummary with _$WorkflowSummary {
   /// Creates a workflow summary.
   const factory({
@@ -17,8 +17,13 @@ sealed class WorkflowSummary with _$WorkflowSummary {
     required bool hasValidationErrors,
     required DateTime updatedAt,
     String? description,
-    @Default(WorkflowScope.global) WorkflowScope scope,
-    String? workspaceId,
+    @Default(GlobalScope())
+    @JsonKey(
+      readValue: readWholeJson,
+      fromJson: DefinitionScope.fromJson,
+      includeToJson: false,
+    )
+    DefinitionScope scope,
 
     /// Content hash of the workflow definition for optimistic concurrency;
     /// always set by the backend.
@@ -29,6 +34,23 @@ sealed class WorkflowSummary with _$WorkflowSummary {
     @Default(false) bool deleting,
   }) = _WorkflowSummary;
 
+  const new _();
+
   /// Decodes a workflow summary; throws a [FormatException] on a bad shape.
   factory fromJson(JsonMap json) => parseJson(json, _$WorkflowSummaryFromJson);
+
+  /// Encodes this summary to JSON, flattening [scope] into `scope` and
+  /// optional `workspaceId`.
+  JsonMap toJson() => {
+    'id': id,
+    'name': name,
+    'nodeCount': nodeCount,
+    'edgeCount': edgeCount,
+    'hasValidationErrors': hasValidationErrors,
+    'updatedAt': updatedAt.toIso8601String(),
+    'description': ?description,
+    'revision': ?revision,
+    'deleting': deleting,
+    ...scope.toJson(),
+  };
 }

@@ -59,11 +59,11 @@ final class WorkflowService {
   final DateTime Function() _now;
   final Map<String, Future<void>> _writeQueue = <String, Future<void>>{};
 
-  /// Lists global workflows, plus the ones of [workspaceId] when given, as
+  /// Lists global workflows, plus the ones of [WorkspaceScope] when given, as
   /// summaries with their validation status. Same-named workflows from both
   /// scopes are all listed; each summary carries its scope.
   Future<Result<WorkflowListResponse>> listWorkflows({
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
     final globals = await _repository.listAll();
     if (globals case FailureResult<List<Workflow>>(:final failure)) {
@@ -71,9 +71,9 @@ final class WorkflowService {
     }
     final summaries = <WorkflowSummary>[
       for (final workflow in globals.valueOrNull!)
-        _summary(workflow, WorkflowScope.global, null),
+        _summary(workflow, const GlobalScope()),
     ];
-    if (workspaceId != null) {
+    if (scope case WorkspaceScope(:final workspaceId)) {
       final target = await _resolveTarget(workspaceId);
       if (target case FailureResult<_Target>(:final failure)) {
         return FailureResult(failure);
@@ -84,24 +84,23 @@ final class WorkflowService {
         return FailureResult(failure);
       }
       summaries.addAll([
-        for (final workflow in files.valueOrNull!)
-          _summary(workflow, WorkflowScope.workspace, workspaceId),
+        for (final workflow in files.valueOrNull!) _summary(workflow, scope),
       ]);
     }
     summaries.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     return Success(WorkflowListResponse(workflows: summaries));
   }
 
-  /// Fetches a workflow by [id] along with its validation result.
+  /// Fetches a workflow by [id] in [scope] along with its validation result.
   Future<Result<WorkflowResponse>> getWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
-    final result = await _load(id, workspaceId);
+    final result = await _load(id, scope);
     if (result case FailureResult<Workflow>(:final failure)) {
       return FailureResult(failure);
     }
-    return Success(await _response(result.valueOrNull!, workspaceId));
+    return Success(await _response(result.valueOrNull!, scope));
   }
 
   /// Creates and persists a new workflow in the scope named by
@@ -112,7 +111,7 @@ final class WorkflowService {
     final timestamp = _now().toUtc();
     return _persistNew(
       request.name,
-      request.workspaceId,
+      DefinitionScope.ofWorkspaceId(request.workspaceId),
       (id) => Workflow(
         id: id,
         name: request.name,
@@ -127,19 +126,19 @@ final class WorkflowService {
     );
   }
 
-  /// Updates an existing workflow [id], refreshing `updatedAt`.
+  /// Updates an existing workflow [id] in [scope], refreshing `updatedAt`.
   ///
   /// When `request.revision` is non-blank, fails with [StaleRevisionFailure]
   /// if the stored workflow's revision differs.
   Future<Result<WorkflowResponse>> updateWorkflow(
     String id,
     UpdateWorkflowRequest request, {
-    String? workspaceId,
-  }) => _serialized(id, workspaceId, () async {
-    if (_deletingFailure(id, workspaceId) case final failure?) {
+    DefinitionScope scope = const GlobalScope(),
+  }) => _serialized(id, scope, () async {
+    if (_deletingFailure(id, scope) case final failure?) {
       return FailureResult(failure);
     }
-    final existingResult = await _load(id, workspaceId);
+    final existingResult = await _load(id, scope);
     if (existingResult case FailureResult<Workflow>(:final failure)) {
       return FailureResult(failure);
     }
@@ -159,39 +158,40 @@ final class WorkflowService {
       updatedAt: _now().toUtc(),
     );
     final Result<Workflow> result;
-    if (workspaceId == null) {
-      result = await _repository.update(updated);
-    } else {
-      final target = await _resolveTarget(workspaceId);
-      if (target case FailureResult<_Target>(:final failure)) {
-        return FailureResult(failure);
-      }
-      final scoped = target.valueOrNull!;
-      result = await scoped.repository.update(scoped.rootPath, updated);
+    switch (scope) {
+      case GlobalScope():
+        result = await _repository.update(updated);
+      case WorkspaceScope(:final workspaceId):
+        final target = await _resolveTarget(workspaceId);
+        if (target case FailureResult<_Target>(:final failure)) {
+          return FailureResult(failure);
+        }
+        final scoped = target.valueOrNull!;
+        result = await scoped.repository.update(scoped.rootPath, updated);
     }
     if (result case FailureResult<Workflow>(:final failure)) {
       return FailureResult(failure);
     }
-    return Success(await _response(result.valueOrNull!, workspaceId));
+    return Success(await _response(result.valueOrNull!, scope));
   });
 
-  /// Accepts asynchronous deletion of the workflow [id] (ADR 0027).
+  /// Accepts asynchronous deletion of the workflow [id] in [scope] (ADR 0027).
   ///
   /// When [expectedRevision] is non-blank, fails with [StaleRevisionFailure]
   /// if the stored workflow's revision differs.
   Future<Result<WorkflowDeletionAccepted>> deleteWorkflow(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
     String? expectedRevision,
     bool force = false,
-  }) => _serialized(id, workspaceId, () async {
-    final running = _deletions.runningFor(id, workspaceId: workspaceId);
+  }) => _serialized(id, scope, () async {
+    final running = _deletions.runningFor(id, scope: scope);
     if (running != null) {
       return Success(
         WorkflowDeletionAccepted(operationId: running.id, workflowId: id),
       );
     }
-    final existing = await _load(id, workspaceId);
+    final existing = await _load(id, scope);
     if (existing case FailureResult<Workflow>(:final failure)) {
       return FailureResult(failure);
     }
@@ -204,7 +204,7 @@ final class WorkflowService {
     if (runsDeleter != null) {
       final active = await runsDeleter.activeRunsOfWorkflow(
         id,
-        workspaceId: workspaceId,
+        workspaceId: scope.workspaceIdOrNull,
       );
       if (active case FailureResult<Map<String, RunStatus>>(:final failure)) {
         return FailureResult(failure);
@@ -220,10 +220,7 @@ final class WorkflowService {
         );
       }
     }
-    final referencesResult = await _referenceFinder.find(
-      id,
-      workspaceId: workspaceId,
-    );
+    final referencesResult = await _referenceFinder.find(id, scope: scope);
     if (referencesResult case FailureResult<List<WorkflowReference>>(
       :final failure,
     )) {
@@ -236,7 +233,7 @@ final class WorkflowService {
       WorkflowDeletionOperation(
         id: _generateId(),
         workflowId: id,
-        workspaceId: workspaceId,
+        scope: scope,
         phase: phase,
         runsToStop: force ? activeRuns.length : 0,
         startedAt: _now().toUtc(),
@@ -256,13 +253,13 @@ final class WorkflowService {
   /// Lists the workflows whose fan-out nodes reference workflow [id] (R16).
   Future<Result<WorkflowReferencesResponse>> getReferences(
     String id, {
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
-    final existing = await _load(id, workspaceId);
+    final existing = await _load(id, scope);
     if (existing case FailureResult<Workflow>(:final failure)) {
       return FailureResult(failure);
     }
-    final found = await _referenceFinder.find(id, workspaceId: workspaceId);
+    final found = await _referenceFinder.find(id, scope: scope);
     return found.map((refs) => WorkflowReferencesResponse(references: refs));
   }
 
@@ -295,7 +292,7 @@ final class WorkflowService {
       if (runsDeleter != null) {
         final result = await runsDeleter.deleteRunsOfWorkflow(
           operation.workflowId,
-          workspaceId: operation.workspaceId,
+          workspaceId: operation.scope.workspaceIdOrNull,
           force: force,
           onProgress: (p) => _onRunsProgress(operationId, p),
         );
@@ -320,7 +317,7 @@ final class WorkflowService {
       );
       final deleted = await _deleteDefinition(
         operation.workflowId,
-        operation.workspaceId,
+        operation.scope,
       );
       if (deleted case FailureResult<void>(:final failure)) {
         _finish(
@@ -357,14 +354,21 @@ final class WorkflowService {
     }
   }
 
-  Future<Result<void>> _deleteDefinition(String id, String? workspaceId) async {
-    if (workspaceId == null) return await _repository.delete(id);
-    final target = await _resolveTarget(workspaceId);
-    if (target case FailureResult<_Target>(:final failure)) {
-      return FailureResult(failure);
+  Future<Result<void>> _deleteDefinition(
+    String id,
+    DefinitionScope scope,
+  ) async {
+    switch (scope) {
+      case GlobalScope():
+        return await _repository.delete(id);
+      case WorkspaceScope(:final workspaceId):
+        final target = await _resolveTarget(workspaceId);
+        if (target case FailureResult<_Target>(:final failure)) {
+          return FailureResult(failure);
+        }
+        final scoped = target.valueOrNull!;
+        return await scoped.repository.delete(scoped.rootPath, id);
     }
-    final scoped = target.valueOrNull!;
-    return await scoped.repository.delete(scoped.rootPath, id);
   }
 
   void _onRunsProgress(String operationId, WorkflowRunsProgress progress) {
@@ -415,12 +419,12 @@ final class WorkflowService {
   Future<Result<WorkflowResponse>> duplicateWorkflow(
     String id, {
     String? name,
-    String? workspaceId,
+    DefinitionScope scope = const GlobalScope(),
   }) async {
-    if (_deletingFailure(id, workspaceId) case final failure?) {
+    if (_deletingFailure(id, scope) case final failure?) {
       return FailureResult(failure);
     }
-    final existingResult = await _load(id, workspaceId);
+    final existingResult = await _load(id, scope);
     if (existingResult case FailureResult<Workflow>(:final failure)) {
       return FailureResult(failure);
     }
@@ -432,7 +436,7 @@ final class WorkflowService {
         : '${existing.name} (Copy)';
     return await _persistNew(
       copyName,
-      workspaceId,
+      scope,
       (newId) => Workflow(
         id: newId,
         name: copyName,
@@ -453,47 +457,52 @@ final class WorkflowService {
 
   Future<Result<WorkflowResponse>> _persistNew(
     String name,
-    String? workspaceId,
+    DefinitionScope scope,
     Workflow Function(String id) build,
   ) async {
     final Result<Workflow> result;
-    if (workspaceId == null) {
-      result = await _repository.create(build(_generateId()));
-    } else {
-      final target = await _resolveTarget(workspaceId);
-      if (target case FailureResult<_Target>(:final failure)) {
-        return FailureResult(failure);
-      }
-      final scoped = target.valueOrNull!;
-      final base = slugifyWorkflowName(name);
-      var candidate = base;
-      var suffix = 1;
-      while (await _exists(scoped, candidate)) {
-        suffix += 1;
-        candidate = '$base-$suffix';
-      }
-      result = await scoped.repository.create(
-        scoped.rootPath,
-        build(candidate),
-      );
+    switch (scope) {
+      case GlobalScope():
+        result = await _repository.create(build(_generateId()));
+      case WorkspaceScope(:final workspaceId):
+        final target = await _resolveTarget(workspaceId);
+        if (target case FailureResult<_Target>(:final failure)) {
+          return FailureResult(failure);
+        }
+        final scoped = target.valueOrNull!;
+        final base = slugifyWorkflowName(name);
+        var candidate = base;
+        var suffix = 1;
+        while (await _exists(scoped, candidate)) {
+          suffix += 1;
+          candidate = '$base-$suffix';
+        }
+        result = await scoped.repository.create(
+          scoped.rootPath,
+          build(candidate),
+        );
     }
     if (result case FailureResult<Workflow>(:final failure)) {
       return FailureResult(failure);
     }
-    return Success(await _response(result.valueOrNull!, workspaceId));
+    return Success(await _response(result.valueOrNull!, scope));
   }
 
   Future<bool> _exists(_Target target, String id) async =>
       (await target.repository.getById(target.rootPath, id)) is Success;
 
-  Future<Result<Workflow>> _load(String id, String? workspaceId) async {
-    if (workspaceId == null) return await _repository.getById(id);
-    final target = await _resolveTarget(workspaceId);
-    if (target case FailureResult<_Target>(:final failure)) {
-      return FailureResult(failure);
+  Future<Result<Workflow>> _load(String id, DefinitionScope scope) async {
+    switch (scope) {
+      case GlobalScope():
+        return await _repository.getById(id);
+      case WorkspaceScope(:final workspaceId):
+        final target = await _resolveTarget(workspaceId);
+        if (target case FailureResult<_Target>(:final failure)) {
+          return FailureResult(failure);
+        }
+        final scoped = target.valueOrNull!;
+        return await scoped.repository.getById(scoped.rootPath, id);
     }
-    final scoped = target.valueOrNull!;
-    return await scoped.repository.getById(scoped.rootPath, id);
   }
 
   Future<Result<_Target>> _resolveTarget(String workspaceId) async {
@@ -510,11 +519,7 @@ final class WorkflowService {
     );
   }
 
-  WorkflowSummary _summary(
-    Workflow workflow,
-    WorkflowScope scope,
-    String? workspaceId,
-  ) {
+  WorkflowSummary _summary(Workflow workflow, DefinitionScope scope) {
     final validation = _validator.validate(workflow);
     return WorkflowSummary(
       id: workflow.id,
@@ -525,15 +530,13 @@ final class WorkflowService {
       hasValidationErrors: !validation.isValid,
       updatedAt: workflow.updatedAt,
       scope: scope,
-      workspaceId: workspaceId,
       revision: workflowRevision(workflow),
-      deleting:
-          _deletions.runningFor(workflow.id, workspaceId: workspaceId) != null,
+      deleting: _deletions.runningFor(workflow.id, scope: scope) != null,
     );
   }
 
-  WorkflowDeletingFailure? _deletingFailure(String id, String? workspaceId) {
-    final operation = _deletions.runningFor(id, workspaceId: workspaceId);
+  WorkflowDeletingFailure? _deletingFailure(String id, DefinitionScope scope) {
+    final operation = _deletions.runningFor(id, scope: scope);
     return operation == null
         ? null
         : WorkflowDeletingFailure(
@@ -544,10 +547,10 @@ final class WorkflowService {
 
   Future<WorkflowResponse> _response(
     Workflow workflow,
-    String? workspaceId,
+    DefinitionScope scope,
   ) async {
     final base = _validator.validate(workflow);
-    final extra = await _fanOutIssues(workflow, workspaceId);
+    final extra = await _fanOutIssues(workflow, scope);
     final issues = [...base.issues, ...extra];
     return WorkflowResponse(
       workflow: workflow,
@@ -557,17 +560,14 @@ final class WorkflowService {
         ),
         issues: issues,
       ),
-      scope: workspaceId == null
-          ? WorkflowScope.global
-          : WorkflowScope.workspace,
-      workspaceId: workspaceId,
+      scope: scope,
       revision: workflowRevision(workflow),
     );
   }
 
   Future<List<WorkflowValidationIssue>> _fanOutIssues(
     Workflow workflow,
-    String? workspaceId,
+    DefinitionScope scope,
   ) async {
     final childIds = {
       for (final n in workflow.nodes)
@@ -577,14 +577,14 @@ final class WorkflowService {
     if (childIds.isEmpty) return const [];
     final found = <String, Workflow>{};
     for (final id in childIds) {
-      final child = await _resolveChild(id, workspaceId);
+      final child = await _resolveChild(id, scope);
       if (child != null) found[id] = child;
     }
     return FanOutValidation.validate(workflow, findWorkflow: (id) => found[id]);
   }
 
-  Future<Workflow?> _resolveChild(String id, String? workspaceId) async {
-    if (workspaceId != null) {
+  Future<Workflow?> _resolveChild(String id, DefinitionScope scope) async {
+    if (scope case WorkspaceScope(:final workspaceId)) {
       final target = await _resolveTarget(workspaceId);
       final scoped = target.valueOrNull;
       if (scoped != null) {
@@ -601,10 +601,13 @@ final class WorkflowService {
   /// Runs [action] after every earlier write to the same workflow finished.
   Future<T> _serialized<T>(
     String id,
-    String? workspaceId,
+    DefinitionScope scope,
     Future<T> Function() action,
   ) async {
-    final key = '${workspaceId ?? ''}\u0000$id';
+    final key = switch (scope) {
+      GlobalScope() => '\u0000$id',
+      WorkspaceScope(:final workspaceId) => '$workspaceId\u0000$id',
+    };
     final previous = _writeQueue[key] ?? Future<void>.value();
     final done = Completer<void>();
     _writeQueue[key] = done.future;
