@@ -9,6 +9,7 @@ import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/workflow_inspector_panel.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -129,6 +130,10 @@ void main() {
 
     final buttonFinder = find.byKey(const Key('inspector_change_harness'));
     expect(buttonFinder, findsOneWidget);
+    expect(
+      tester.getSemantics(buttonFinder).label,
+      contains('Change harness'),
+    );
     final buttonSize = tester.getSize(buttonFinder);
     expect(buttonSize.height, greaterThanOrEqualTo(32));
 
@@ -139,9 +144,25 @@ void main() {
       const Key('inspector_change_harness_select'),
     );
     expect(selectFinder, findsOneWidget);
+    expect(find.bySemanticsLabel('New harness'), findsOneWidget);
     expect(
       tester.getTopLeft(buttonFinder).dy,
       lessThan(tester.getTopLeft(selectFinder).dy),
+    );
+
+    // Focus order: button precedes select.
+    Focus.of(tester.element(find.text('Change harness'))).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    final primary = FocusManager.instance.primaryFocus;
+    expect(primary, isNotNull);
+    expect(
+      find.ancestor(
+        of: find.byElementPredicate((e) => e == primary!.context),
+        matching: selectFinder,
+      ),
+      findsOneWidget,
     );
 
     await tester.tap(selectFinder);
@@ -149,7 +170,12 @@ void main() {
     await tester.tap(find.text('Gemini CLI').last);
     await tester.pumpAndSettle();
 
-    expect(find.byType(HiveConfirmDialog), findsOneWidget);
+    final dialogFinder = find.byType(HiveConfirmDialog);
+    expect(dialogFinder, findsOneWidget);
+    expect(
+      ModalRoute.of(tester.element(dialogFinder))?.isCurrent,
+      isTrue,
+    );
     expect(find.text('Switch'), findsOneWidget);
     expect(find.text('Cancel'), findsOneWidget);
   });

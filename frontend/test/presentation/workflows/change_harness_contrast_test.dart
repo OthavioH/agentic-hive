@@ -10,12 +10,12 @@ void main() {
     final c = entry.value;
 
     group('change harness contrast ($name)', () {
-      test('secondary button label on surface1 meets AA', () {
-        final ratio = HiveContrast.ratio(c.onSurface, c.surface1);
+      test('secondary button label on surface3 meets AA', () {
+        final ratio = HiveContrast.ratio(c.onSurface, c.surface3);
         expect(
           ratio,
           greaterThanOrEqualTo(4.5),
-          reason: '$name onSurface/surface1: ${ratio.toStringAsFixed(2)}',
+          reason: '$name onSurface/surface3: ${ratio.toStringAsFixed(2)}',
         );
       });
 

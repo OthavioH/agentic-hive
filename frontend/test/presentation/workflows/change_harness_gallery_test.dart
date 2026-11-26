@@ -12,12 +12,37 @@ import 'package:agentic_hive_frontend/presentation/workflows/widgets/workflow_in
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as p;
 
 const String _captureDir = String.fromEnvironment('HIVE_CAPTURE_DIR');
+
+Future<void> _loadFonts() async {
+  const fonts = <String, String>{
+    'BricolageGrotesque':
+        'assets/fonts/bricolage_grotesque/BricolageGrotesque-Variable.ttf',
+    'Geist': 'assets/fonts/geist/Geist-Variable.ttf',
+    'GeistMono': 'assets/fonts/geist_mono/GeistMono-Variable.ttf',
+  };
+  for (final entry in fonts.entries) {
+    final candidates = <String>[
+      'design_system/${entry.value}',
+      '../design_system/${entry.value}',
+    ];
+    for (final path in candidates) {
+      final file = File(path);
+      if (!file.existsSync()) continue;
+      final bytes = await file.readAsBytes();
+      final loader = FontLoader('packages/design_system/${entry.key}')
+        ..addFont(Future<ByteData>.value(ByteData.sublistView(bytes)));
+      await loader.load();
+      break;
+    }
+  }
+}
 
 final class _FakeAgentRepository implements AgentRepository {
   final StreamController<AgentsChangedPayload> _changes =
@@ -123,6 +148,7 @@ Widget _buildGalleryHost({
     child: RepaintBoundary(
       key: boundaryKey,
       child: MaterialApp(
+        debugShowCheckedModeBanner: false,
         theme: theme,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
@@ -169,6 +195,8 @@ Widget _buildGalleryHost({
 }
 
 void main() {
+  setUpAll(_loadFonts);
+
   late _FakeAgentRepository agentRepo;
 
   setUp(() {
@@ -272,6 +300,17 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Codex').last);
         await tester.pumpAndSettle();
+        final codexNode = claudeNode.copyWith(type: NodeTypeId.codex);
+        await tester.pumpWidget(
+          _buildGalleryHost(
+            node: codexNode,
+            theme: th.value,
+            agentRepo: agentRepo,
+            boundaryKey: boundaryKey,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Codex'), findsWidgets);
         await _capture(tester, 'no-drops_$suffix', boundaryKey: boundaryKey);
 
         await tester.pumpWidget(
@@ -308,6 +347,9 @@ void main() {
         await tester.tap(find.text('Codex').last);
         await tester.pumpAndSettle();
         await _capture(tester, 'error_$suffix', boundaryKey: boundaryKey);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
 
         await tester.pumpWidget(
           _buildGalleryHost(

@@ -336,7 +336,9 @@ class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
                       label: resolveNodeTypeLabel(context, l10n, typeId),
                     ),
               ],
-              onChanged: (newType) => unawaited(_changeHarness(node, newType)),
+              onChanged: widget.state.isSaving
+                  ? null
+                  : (newType) => unawaited(_changeHarness(node, newType)),
             ),
           ],
         ],
