@@ -188,6 +188,16 @@ abstract final class HiveIcons {
     HugeIcons.strokeRoundedArrowRight01,
   );
 
+  /// Move an item up in an ordered list.
+  static const HiveIconData moveUp = _HugeGlyph(
+    HugeIcons.strokeRoundedArrowUp01,
+  );
+
+  /// Move an item down in an ordered list.
+  static const HiveIconData moveDown = _HugeGlyph(
+    HugeIcons.strokeRoundedArrowDown01,
+  );
+
   /// Pin a panel so it stays open beside the rail.
   static const HiveIconData pin = _HugeGlyph(HugeIcons.strokeRoundedPin);
 
@@ -321,6 +331,8 @@ abstract final class HiveIcons {
     'success': success,
     'chevronDown': chevronDown,
     'chevronRight': chevronRight,
+    'moveUp': moveUp,
+    'moveDown': moveDown,
     'pin': pin,
     'scrollToBottom': scrollToBottom,
     'search': search,
