@@ -245,6 +245,20 @@ void main() {
     expect(response.statusCode, 404);
   });
 
+  test('trims padded workspaceId query parameter', () async {
+    await handler.call(
+      _request('POST', '/', {'name': 'Deploy', 'workspaceId': 'ws-1'}),
+    );
+
+    final response = await handler.call(
+      _request('GET', '/deploy?workspaceId=%20ws-1%20'),
+    );
+
+    expect(response.statusCode, 200);
+    final decoded = WorkflowResponse.fromJson(await _json(response));
+    expect(decoded.scope, const WorkspaceScope('ws-1'));
+  });
+
   test(
     'a workspace workflow edited by hand gets a new revision and refuses the '
     'stale one',

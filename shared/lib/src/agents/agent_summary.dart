@@ -12,6 +12,8 @@ part 'agent_summary.g.dart';
 @Freezed(toJson: false)
 sealed class AgentSummary with _$AgentSummary {
   /// Creates an agent summary.
+  // ignore: invalid_annotation_target
+  @JsonSerializable(createToJson: true)
   const factory({
     required String id,
     required String name,
@@ -38,14 +40,7 @@ sealed class AgentSummary with _$AgentSummary {
   /// Encodes this summary to JSON, flattening [scope] into `scope` and
   /// optional `workspaceId`.
   JsonMap toJson() => {
-    'id': id,
-    'name': name,
-    'contentHash': contentHash,
-    'updatedAt': updatedAt.toIso8601String(),
-    'description': description,
-    'tags': tags,
-    'overridden': overridden,
-    'parseError': ?parseError,
+    ..._$AgentSummaryToJson(this as _AgentSummary),
     ...scope.toJson(),
   };
 }

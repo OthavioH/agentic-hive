@@ -9,6 +9,8 @@ part 'agent_detail.g.dart';
 @Freezed(toJson: false)
 sealed class AgentDetail with _$AgentDetail {
   /// Creates an agent detail.
+  // ignore: invalid_annotation_target
+  @JsonSerializable(createToJson: true)
   const factory({
     required String id,
     required String name,
@@ -40,19 +42,7 @@ sealed class AgentDetail with _$AgentDetail {
   /// Encodes this detail to JSON, flattening [scope] into `scope` and
   /// optional `workspaceId`.
   JsonMap toJson() => {
-    'id': id,
-    'name': name,
-    'contentHash': contentHash,
-    'updatedAt': updatedAt.toIso8601String(),
-    'description': description,
-    'tags': tags,
-    'requiredSkills': requiredSkills,
-    'requiredTools': requiredTools,
-    'allowedTools': allowedTools,
-    'deniedTools': deniedTools,
-    'prompt': prompt,
-    'parseError': ?parseError,
-    'rawContent': ?rawContent,
+    ..._$AgentDetailToJson(this as _AgentDetail),
     ...scope.toJson(),
   };
 }

@@ -353,8 +353,10 @@ Future<void> registerDependencies(
     ..registerSingleton<AgentPromptResolver>(
       RepositoryAgentPromptResolver(
         di<AgentRepository>(),
-        workspaceAgents: (root) =>
-            di<WorkspaceAgentRepositories>().forRoot(root, workspaceId: root),
+        workspaceAgents: (root) => LocalAgentRepository(
+          agentsDir: platformPaths.context.join(root, '.agents', 'agents'),
+          pathContext: platformPaths.context,
+        ),
       ),
     )
     ..registerSingleton<NodeRegistry>(

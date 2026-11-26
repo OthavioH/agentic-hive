@@ -35,6 +35,8 @@ enum WorkflowDeletionOutcome {
 @Freezed(toJson: false)
 sealed class WorkflowReference with _$WorkflowReference {
   /// Creates a reference entry.
+  // ignore: invalid_annotation_target
+  @JsonSerializable(createToJson: true)
   const factory({
     required String workflowId,
     required String workflowName,
@@ -57,9 +59,7 @@ sealed class WorkflowReference with _$WorkflowReference {
   /// Encodes this reference to JSON, flattening [scope] into `scope` and
   /// optional `workspaceId`.
   JsonMap toJson() => {
-    'workflowId': workflowId,
-    'workflowName': workflowName,
-    'nodeIds': nodeIds,
+    ..._$WorkflowReferenceToJson(this as _WorkflowReference),
     ...scope.toJson(),
   };
 }

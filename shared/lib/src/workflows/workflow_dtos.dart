@@ -97,6 +97,8 @@ sealed class WorkflowListResponse with _$WorkflowListResponse {
 @Freezed(toJson: false)
 sealed class WorkflowResponse with _$WorkflowResponse {
   /// Creates a workflow response.
+  // ignore: invalid_annotation_target
+  @JsonSerializable(createToJson: true)
   const factory({
     required Workflow workflow,
     required WorkflowValidationResult validation,
@@ -121,9 +123,7 @@ sealed class WorkflowResponse with _$WorkflowResponse {
   /// Encodes this response to JSON, flattening [scope] into `scope` and
   /// optional `workspaceId`.
   JsonMap toJson() => {
-    'workflow': workflow.toJson(),
-    'validation': validation.toJson(),
-    'revision': ?revision,
+    ..._$WorkflowResponseToJson(this as _WorkflowResponse),
     ...scope.toJson(),
   };
 }

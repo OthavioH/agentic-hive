@@ -14,8 +14,12 @@ final class AgentsHandler {
   final AgentService _service;
 
   /// The `workspaceId` query parameter, mapped to [DefinitionScope].
-  DefinitionScope _scope(Request request) =>
-      DefinitionScope.ofWorkspaceId(request.url.queryParameters['workspaceId']);
+  DefinitionScope _scope(Request request) {
+    final value = request.url.queryParameters['workspaceId']?.trim();
+    return DefinitionScope.ofWorkspaceId(
+      value == null || value.isEmpty ? null : value,
+    );
+  }
 
   /// `GET /api/v1/agents` — lists the global agents, or with `?workspaceId=`
   /// the workspace agents plus the global ones (ADR 0025).

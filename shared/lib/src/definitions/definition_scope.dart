@@ -36,13 +36,10 @@ sealed class DefinitionScope {
 
   /// Converts a bare nullable [workspaceId] at a wire boundary.
   ///
-  /// `null` or blank strings map to [GlobalScope].
-  static DefinitionScope ofWorkspaceId(String? workspaceId) {
-    if (workspaceId == null || workspaceId.trim().isEmpty) {
-      return const GlobalScope();
-    }
-    return WorkspaceScope(workspaceId);
-  }
+  /// `null` maps to [GlobalScope]; any non-null string maps to
+  /// [WorkspaceScope].
+  static DefinitionScope ofWorkspaceId(String? workspaceId) =>
+      workspaceId == null ? const GlobalScope() : WorkspaceScope(workspaceId);
 
   /// Wire value of the `scope` key: `'global'` or `'workspace'`.
   String get wireName;

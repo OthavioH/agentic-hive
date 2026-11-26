@@ -117,8 +117,12 @@ final class WorkflowHandler {
   }
 
   /// The `workspaceId` query parameter; absent or blank means [GlobalScope].
-  DefinitionScope _scope(Request request) =>
-      DefinitionScope.ofWorkspaceId(request.url.queryParameters['workspaceId']);
+  DefinitionScope _scope(Request request) {
+    final value = request.url.queryParameters['workspaceId']?.trim();
+    return DefinitionScope.ofWorkspaceId(
+      value == null || value.isEmpty ? null : value,
+    );
+  }
 
   /// The `revision` query parameter; absent or blank means no check.
   String? _revision(Request request) {

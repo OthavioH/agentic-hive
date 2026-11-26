@@ -231,4 +231,15 @@ void main() {
     final res = await handler(buildRequest('/api/v1/agents?workspaceId=nope'));
     expect(res.statusCode, 404);
   });
+
+  test('trims padded workspaceId query parameter', () async {
+    await writeAgent(wsAgents(), 'reviewer', 'workspace prompt');
+
+    final res = await handler(
+      buildRequest('/api/v1/agents/reviewer?workspaceId=%20ws-1%20'),
+    );
+    expect(res.statusCode, 200);
+    final detail = AgentDetail.fromJson(await readJson(res));
+    expect(detail.scope, const WorkspaceScope('ws-1'));
+  });
 }

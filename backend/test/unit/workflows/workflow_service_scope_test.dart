@@ -195,6 +195,20 @@ void main() {
     expect(result.failureOrNull, isA<NotFoundFailure>());
   });
 
+  test(
+    'create with a blank workspace id fails and writes nothing to global',
+    () async {
+      for (final blank in ['', '  ']) {
+        final result = await service.createWorkflow(
+          CreateWorkflowRequest(name: 'Deploy', workspaceId: blank),
+        );
+
+        expect(result.failureOrNull, isA<NotFoundFailure>());
+        expect(globalRepository.store, isEmpty);
+      }
+    },
+  );
+
   test('same name in both scopes lists both with their scope', () async {
     await service.createWorkflow(const CreateWorkflowRequest(name: 'Deploy'));
     now = now.add(const Duration(minutes: 1));

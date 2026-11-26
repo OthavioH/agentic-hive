@@ -21,13 +21,14 @@ import 'package:logging/logging.dart';
 /// Domain service for managing and validating [Workflow]s.
 ///
 /// Workflows are global (SQLite) or workspace-scoped (files under the
-/// workspace root, ADR 0025). Every operation takes an optional `workspaceId`:
-/// `null` addresses the global scope.
+/// workspace root, ADR 0025). Every operation takes a [DefinitionScope]:
+/// [GlobalScope] addresses the global scope, and [WorkspaceScope] addresses a
+/// workspace.
 final class WorkflowService {
   /// Creates a workflow service.
   ///
   /// Without a workspace workflow repository and a workspace repository only
-  /// the global scope is available and any `workspaceId` is answered with
+  /// the global scope is available and any [WorkspaceScope] is answered with
   /// `NotFoundFailure`. Without a runs deleter the workflow's runs are kept
   /// (tests only).
   new({

@@ -9,6 +9,8 @@ part 'workflow_summary.g.dart';
 @Freezed(toJson: false)
 sealed class WorkflowSummary with _$WorkflowSummary {
   /// Creates a workflow summary.
+  // ignore: invalid_annotation_target
+  @JsonSerializable(createToJson: true)
   const factory({
     required String id,
     required String name,
@@ -42,15 +44,7 @@ sealed class WorkflowSummary with _$WorkflowSummary {
   /// Encodes this summary to JSON, flattening [scope] into `scope` and
   /// optional `workspaceId`.
   JsonMap toJson() => {
-    'id': id,
-    'name': name,
-    'nodeCount': nodeCount,
-    'edgeCount': edgeCount,
-    'hasValidationErrors': hasValidationErrors,
-    'updatedAt': updatedAt.toIso8601String(),
-    'description': ?description,
-    'revision': ?revision,
-    'deleting': deleting,
+    ..._$WorkflowSummaryToJson(this as _WorkflowSummary),
     ...scope.toJson(),
   };
 }

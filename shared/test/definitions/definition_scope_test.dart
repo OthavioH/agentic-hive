@@ -80,8 +80,8 @@ void main() {
 
     test('ofWorkspaceId and workspaceIdOrNull convert at wire boundaries', () {
       expect(DefinitionScope.ofWorkspaceId(null), const GlobalScope());
-      expect(DefinitionScope.ofWorkspaceId(''), const GlobalScope());
-      expect(DefinitionScope.ofWorkspaceId('  '), const GlobalScope());
+      expect(DefinitionScope.ofWorkspaceId(''), const WorkspaceScope(''));
+      expect(DefinitionScope.ofWorkspaceId('  '), const WorkspaceScope('  '));
       expect(
         DefinitionScope.ofWorkspaceId('ws-1'),
         const WorkspaceScope('ws-1'),
