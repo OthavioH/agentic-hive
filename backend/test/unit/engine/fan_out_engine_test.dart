@@ -266,6 +266,51 @@ void main() {
   );
 
   test(
+    'with no onFailure edge a failing child includes summary in errorMessage',
+    () async {
+      h.script.on('seed', [
+        (_) async => const Success(
+          NodeOutcome(
+            outputLabel: NodeOutput.onSuccess,
+            data: {
+              'items': ['a'],
+            },
+          ),
+        ),
+      ]);
+      h.script.on('work', [
+        (_) async => const Success(
+          NodeOutcome(
+            outputLabel: NodeOutput.onFailure,
+            data: {'summary': 'wireframe #181 is not approved'},
+          ),
+        ),
+      ]);
+
+      await h.runs.create(
+        Run(
+          id: 'run-1',
+          workflowId: 'parent-wf',
+          workflowName: 'Parent Flow',
+          workflowDefinition: _parentWorkflow(),
+          workspaceRoot: '.',
+          workspaceId: 'ws-1',
+          status: RunStatus.running,
+          startedAt: DateTime.utc(2026),
+        ),
+      );
+      await h.engine.start('run-1');
+      await service.waitForActiveExecutions();
+
+      expect(h.run.status, RunStatus.failed);
+      final child = h.runs.runs.values
+          .where((r) => r.parentRunId == 'run-1')
+          .single;
+      expect(child.errorMessage, contains('wireframe #181 is not approved'));
+    },
+  );
+
+  test(
     'empty list: parent succeeds and has a snapshot.warning event',
     () async {
       h.script.on('seed', [
