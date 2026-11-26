@@ -15,6 +15,33 @@ void main() {
     expect(Worktree.fromJson(worktree.toJson()), worktree);
   });
 
+  test('Worktree without isBroken decodes as not broken', () {
+    final worktree = Worktree.fromJson({
+      'id': 'feat',
+      'name': 'feat',
+      'path': '/data/worktrees/ws/feat',
+      'isPrimary': false,
+      'hasUncommittedChanges': false,
+    });
+
+    expect(worktree.isBroken, isFalse);
+  });
+
+  test('a broken Worktree round-trips through JSON', () {
+    const worktree = Worktree(
+      id: 'feat',
+      name: 'feat',
+      path: '/data/worktrees/ws/feat',
+      isPrimary: false,
+      hasUncommittedChanges: true,
+      isBroken: true,
+    );
+
+    final json = worktree.toJson();
+    expect(json['isBroken'], isTrue);
+    expect(Worktree.fromJson(json), worktree);
+  });
+
   test('the primary checkout has a fixed id', () {
     expect(primaryWorktreeId, 'primary');
   });
