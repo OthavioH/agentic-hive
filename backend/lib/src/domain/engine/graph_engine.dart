@@ -1244,7 +1244,7 @@ final class GraphEngine implements RunCanceller {
   Future<void> _captureSnapshot(_RunExecution x, String nodeId) async {
     final captured = await _snapshots.captureSnapshot(
       runId: x.run.id,
-      workspaceDir: _targetFolderOf(x.run),
+      targetFolder: _targetFolderOf(x.run),
       nodeId: nodeId,
     );
     if (captured case FailureResult<Snapshot>(:final failure)) {

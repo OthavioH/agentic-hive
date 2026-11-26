@@ -409,7 +409,7 @@ void main() {
       await h.createRun(askFlow(), status: RunStatus.paused);
       await h.snapshots.captureSnapshot(
         runId: runId,
-        workspaceDir: '/workspace',
+        targetFolder: '/workspace',
         nodeId: 'plan',
       );
       await h.checkpoints.append(
@@ -424,7 +424,7 @@ void main() {
       );
       await h.snapshots.captureSnapshot(
         runId: runId,
-        workspaceDir: '/workspace',
+        targetFolder: '/workspace',
         nodeId: 'ask',
       );
       if (siblingCompletedAfter) {

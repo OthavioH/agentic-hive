@@ -80,14 +80,14 @@ final class ShadowSnapshotService implements SnapshotService {
   String shadowRepoPath(String runId) =>
       _pathContext.join(_snapshotsDir, runId);
 
-  /// Captures a workspace snapshot for [runId] in [workspaceDir].
+  /// Captures a workspace snapshot for [runId] in [targetFolder].
   ///
   /// [extraExclusions] and [maxFileSizeBytes] (`null` or `<= 0` disables the
   /// guard) are persisted so [restoreSnapshot] applies the same rules.
   @override
   Future<Result<Snapshot>> captureSnapshot({
     required String runId,
-    required String workspaceDir,
+    required String targetFolder,
     String? nodeId,
     SnapshotKind kind = SnapshotKind.preNode,
     List<String> extraExclusions = const [],
@@ -96,7 +96,7 @@ final class ShadowSnapshotService implements SnapshotService {
     runId,
     () => _captureLocked(
       runId: runId,
-      workspaceDir: workspaceDir,
+      targetFolder: targetFolder,
       nodeId: nodeId,
       kind: kind,
       options: _CaptureOptions(
@@ -108,15 +108,15 @@ final class ShadowSnapshotService implements SnapshotService {
 
   Future<Result<Snapshot>> _captureLocked({
     required String runId,
-    required String workspaceDir,
+    required String targetFolder,
     required _CaptureOptions options,
     required SnapshotKind kind,
     String? nodeId,
   }) async {
-    if (!Directory(workspaceDir).existsSync()) {
+    if (!Directory(targetFolder).existsSync()) {
       return FailureResult(
         ValidationFailure(
-          'Workspace directory "$workspaceDir" does not exist.',
+          'Workspace directory "$targetFolder" does not exist.',
         ),
       );
     }
@@ -142,7 +142,7 @@ final class ShadowSnapshotService implements SnapshotService {
 
     final excludeFile = File(_pathContext.join(shadowDir, 'info', 'exclude'));
     final baseExclusions = await _buildExclusions(
-      workspaceDir: workspaceDir,
+      targetFolder: targetFolder,
       extraExclusions: effectiveOptions.extraExclusions,
     );
     await excludeFile.parent.create(recursive: true);
@@ -156,7 +156,7 @@ final class ShadowSnapshotService implements SnapshotService {
     if (maxFileSizeBytes != null && maxFileSizeBytes > 0) {
       oversized = await _findOversizedFiles(
         shadowDir: shadowDir,
-        workspaceDir: workspaceDir,
+        targetFolder: targetFolder,
         maxFileSizeBytes: maxFileSizeBytes,
       );
       if (oversized.isNotEmpty) {
@@ -182,7 +182,7 @@ final class ShadowSnapshotService implements SnapshotService {
     }
 
     final addResult = await _git.runChecked(
-      _shadowArgs(shadowDir, workspaceDir, const ['add', '-A']),
+      _shadowArgs(shadowDir, targetFolder, const ['add', '-A']),
       timeout: GitClient.longTimeout,
       failureContext: 'Staging workspace files for snapshot',
     );
@@ -192,7 +192,7 @@ final class ShadowSnapshotService implements SnapshotService {
 
     final unstageResult = await _unstageOversized(
       shadowDir: shadowDir,
-      workspaceDir: workspaceDir,
+      targetFolder: targetFolder,
       paths: [for (final entry in oversized) entry.path],
     );
     if (unstageResult case FailureResult<void>(:final failure)) {
@@ -219,7 +219,7 @@ final class ShadowSnapshotService implements SnapshotService {
       // Exit 0 = nothing staged, 1 = changes staged; any other code is a
       // failure that must not be mistaken for "changed".
       final diffQuiet = await _git.runAllowingExitCodes(
-        _shadowArgs(shadowDir, workspaceDir, const [
+        _shadowArgs(shadowDir, targetFolder, const [
           'diff',
           '--cached',
           '--quiet',
@@ -238,7 +238,7 @@ final class ShadowSnapshotService implements SnapshotService {
         commitHash = prevHash;
       } else {
         final diffStatus = await _git.runChecked(
-          _shadowArgs(shadowDir, workspaceDir, const [
+          _shadowArgs(shadowDir, targetFolder, const [
             'diff',
             '--cached',
             '--name-status',
@@ -478,7 +478,7 @@ final class ShadowSnapshotService implements SnapshotService {
     final targetFolder = run.worktreePath ?? run.workspaceRoot;
     final safetyResult = await _captureLocked(
       runId: runId,
-      workspaceDir: targetFolder,
+      targetFolder: targetFolder,
       kind: SnapshotKind.safetyPreRestore,
       options: options,
     );
@@ -583,11 +583,11 @@ final class ShadowSnapshotService implements SnapshotService {
   /// configuration which could break unattended snapshots.
   List<String> _shadowArgs(
     String shadowDir,
-    String? workspaceDir,
+    String? targetFolder,
     List<String> command,
   ) => [
     '--git-dir=$shadowDir',
-    if (workspaceDir != null) '--work-tree=$workspaceDir',
+    if (targetFolder != null) '--work-tree=$targetFolder',
     '-c',
     'commit.gpgsign=false',
     '-c',
@@ -666,14 +666,14 @@ final class ShadowSnapshotService implements SnapshotService {
   /// earlier snapshot, where the untracked-only exclude file has no effect).
   Future<Result<void>> _unstageOversized({
     required String shadowDir,
-    required String workspaceDir,
+    required String targetFolder,
     required List<String> paths,
   }) async {
     const chunkSize = 100;
     for (var i = 0; i < paths.length; i += chunkSize) {
       final end = i + chunkSize > paths.length ? paths.length : i + chunkSize;
       final result = await _git.runChecked(
-        _shadowArgs(shadowDir, workspaceDir, [
+        _shadowArgs(shadowDir, targetFolder, [
           '--literal-pathspecs',
           'rm',
           '--cached',
@@ -744,14 +744,14 @@ final class ShadowSnapshotService implements SnapshotService {
   }
 
   Future<String> _buildExclusions({
-    required String workspaceDir,
+    required String targetFolder,
     required List<String> extraExclusions,
   }) async {
     final buffer = StringBuffer()
       ..writeln('.git/')
       ..writeln('.git');
 
-    final hiveIgnore = File(_pathContext.join(workspaceDir, '.hiveignore'));
+    final hiveIgnore = File(_pathContext.join(targetFolder, '.hiveignore'));
     if (hiveIgnore.existsSync()) {
       final content = await hiveIgnore.readAsString();
       if (content.isNotEmpty) {
@@ -770,11 +770,11 @@ final class ShadowSnapshotService implements SnapshotService {
 
   Future<List<({String path, int sizeBytes})>> _findOversizedFiles({
     required String shadowDir,
-    required String workspaceDir,
+    required String targetFolder,
     required int maxFileSizeBytes,
   }) async {
     final lsResult = await _git.run(
-      _shadowArgs(shadowDir, workspaceDir, const [
+      _shadowArgs(shadowDir, targetFolder, const [
         'ls-files',
         '--others',
         '--modified',
@@ -794,7 +794,7 @@ final class ShadowSnapshotService implements SnapshotService {
     for (final relPath in entries) {
       if (relPath.isEmpty) continue;
       final localPath = _pathContext.joinAll([
-        workspaceDir,
+        targetFolder,
         ...relPath.split('/'),
       ]);
       final type = FileSystemEntity.typeSync(localPath, followLinks: false);

@@ -166,7 +166,7 @@ void main() {
     await File(p.join(workspaceDir.path, 'a.txt')).writeAsString('v1\n');
     final snapRes = await snapshotService.captureSnapshot(
       runId: 'run-1',
-      workspaceDir: workspaceDir.path,
+      targetFolder: workspaceDir.path,
       nodeId: 'n1',
     );
     final snap = (snapRes as Success<Snapshot>).value;

@@ -29,7 +29,7 @@ abstract base class Node {
   Future<Result<NodeOutcome>> execute(NodeExecutionContext context);
 
   /// Resolves [relativePath] inside [targetFolder], returning a
-  /// [ValidationFailure] if it is absolute or escapes the workspace
+  /// [ValidationFailure] if it is absolute or escapes the target folder
   /// (including through symbolic links).
   Result<String> resolveWorkspacePath(
     String targetFolder,

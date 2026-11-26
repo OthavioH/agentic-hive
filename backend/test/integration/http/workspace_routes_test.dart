@@ -84,7 +84,7 @@ void main() {
           .writeAsString('before\n');
       final snapRes = await snapService.captureSnapshot(
         runId: 'run-http',
-        workspaceDir: workspaceDir.path,
+        targetFolder: workspaceDir.path,
         nodeId: 'n1',
       );
       snapshotId = (snapRes as Success<Snapshot>).value.id;

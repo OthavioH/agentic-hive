@@ -30,7 +30,7 @@ void main() {
       await h.createRun(chain());
       await h.snapshots.captureSnapshot(
         runId: runId,
-        workspaceDir: '/workspace',
+        targetFolder: '/workspace',
         nodeId: 'a',
       );
       await h.checkpoints.append(
@@ -51,7 +51,7 @@ void main() {
       );
       await h.snapshots.captureSnapshot(
         runId: runId,
-        workspaceDir: '/workspace',
+        targetFolder: '/workspace',
         nodeId: 'b',
       );
       await h.recovery.recoverOrphanedRuns();
@@ -168,7 +168,7 @@ void main() {
     Future<Snapshot> snapshotOf(String nodeId) async {
       await h.snapshots.captureSnapshot(
         runId: runId,
-        workspaceDir: '/workspace',
+        targetFolder: '/workspace',
         nodeId: nodeId,
       );
       return h.snapshots.snapshots.last;

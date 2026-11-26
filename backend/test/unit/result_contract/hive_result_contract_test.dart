@@ -15,16 +15,16 @@ import 'package:test/test.dart';
 void main() {
   late Directory tempDir;
   late String dataDir;
-  late String workspacePath;
+  late String targetFolder;
   late ResultContractCoordinator coordinator;
   late HiveResultContract contract;
 
   setUp(() async {
     tempDir = await Directory.systemTemp.createTemp('hive_rc_');
     dataDir = p.join(tempDir.path, 'data');
-    workspacePath = p.join(tempDir.path, 'workspace');
+    targetFolder = p.join(tempDir.path, 'workspace');
     await Directory(dataDir).create(recursive: true);
-    await Directory(workspacePath).create(recursive: true);
+    await Directory(targetFolder).create(recursive: true);
 
     coordinator = ResultContractCoordinator();
     contract = HiveResultContract(
@@ -54,7 +54,7 @@ void main() {
   }) => NodeExecutionContext(
     runId: runId,
     nodeId: nodeId,
-    targetFolder: workspacePath,
+    targetFolder: targetFolder,
     attempt: attempt,
     availableOutputs: availableOutputs,
   );
@@ -68,7 +68,7 @@ void main() {
       );
 
       expect(p.isWithin(dataDir, fallback), isTrue);
-      expect(p.isWithin(workspacePath, fallback), isFalse);
+      expect(p.isWithin(targetFolder, fallback), isFalse);
       expect(
         fallback,
         endsWith(p.join('runs', 'run-42', 'results', 'coder-attempt-2.json')),
