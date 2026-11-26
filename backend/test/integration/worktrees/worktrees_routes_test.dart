@@ -308,4 +308,36 @@ void main() {
     ]);
     expect(listed.stdout as String, isNot(contains('vanish')));
   });
+
+  test(
+    'lists a broken worktree with the broken flag and removes it on force',
+    () async {
+      await create('ok');
+      final bad = Worktree.fromJson((await create('bad')).json);
+      final dotGit = File(p.join(bad.path, '.git'));
+      if (dotGit.existsSync()) dotGit.deleteSync();
+      dotGit.writeAsStringSync('gitdir: ${p.join(dataDir, 'nowhere')}\n');
+
+      final items = await list();
+      final listedBad = items.firstWhere((w) => w.id == 'bad');
+      expect(listedBad.isBroken, isTrue);
+      expect(listedBad.hasUncommittedChanges, isTrue);
+      expect(items.firstWhere((w) => w.id == 'ok').isBroken, isFalse);
+
+      final refused = await http.delete(
+        '/api/v1/workspaces/${workspace.id}/worktrees/bad',
+      );
+      expect(refused.statusCode, 409);
+      final error = refused.json['error']! as Map<String, Object?>;
+      expect(error['code'], 'conflict');
+      expect(error['message']! as String, contains('uncommitted'));
+      expect(Directory(bad.path).existsSync(), isTrue);
+
+      final forced = await http.delete(
+        '/api/v1/workspaces/${workspace.id}/worktrees/bad?force=true',
+      );
+      expect(forced.statusCode, 200);
+      expect(Directory(bad.path).existsSync(), isFalse);
+    },
+  );
 }

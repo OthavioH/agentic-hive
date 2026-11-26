@@ -360,6 +360,14 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
                 NotFoundFailure('Worktree "$worktreeId" was not found.'),
               );
             }
+            if (existing.isBroken) {
+              return FailureResult(
+                ConflictFailure(
+                  'Worktree "$worktreeId" is broken: git cannot read it. '
+                  'Remove it and create a new one.',
+                ),
+              );
+            }
             final conflict = await claim(
               existing.isPrimary ? workspacePath : existing.path,
             );

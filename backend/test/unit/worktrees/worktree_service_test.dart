@@ -116,6 +116,35 @@ void main() {
 
   Workspace target() => workspace.copyWith(rootPath: repo.path);
 
+  void breakWorktree(String worktreePath) {
+    final dotGit = File(p.join(worktreePath, '.git'));
+    if (dotGit.existsSync()) dotGit.deleteSync();
+    dotGit.writeAsStringSync('gitdir: ${p.join(root.path, 'nowhere')}\n');
+  }
+
+  test(
+    'list reports a broken worktree and still lists the healthy ones',
+    () async {
+      await service.create(target(), const CreateWorktreeRequest(name: 'ok'));
+      final bad = (await service.create(
+        target(),
+        const CreateWorktreeRequest(name: 'bad'),
+      )).valueOrNull!;
+      breakWorktree(bad.path);
+
+      final result = await service.list(target());
+
+      expect(result.isSuccess, isTrue);
+      final items = result.valueOrNull!;
+      expect(items, hasLength(3));
+      final listedBad = items.firstWhere((w) => w.id == 'bad');
+      expect(listedBad.isBroken, isTrue);
+      expect(listedBad.hasUncommittedChanges, isTrue);
+      expect(items.firstWhere((w) => w.id == 'ok').isBroken, isFalse);
+      expect(items.firstWhere((w) => w.isPrimary).isBroken, isFalse);
+    },
+  );
+
   test('removal is blocked while a run is active in the worktree', () async {
     final created = (await service.create(
       target(),
@@ -372,5 +401,118 @@ void main() {
 
       expect(Directory(created.path).existsSync(), isTrue);
     });
+
+    test('refuses a broken worktree without force as uncommitted', () async {
+      final created = (await service.create(
+        target(),
+        const CreateWorktreeRequest(name: 'bad-noforce'),
+      )).valueOrNull!;
+      breakWorktree(created.path);
+
+      final result = await service.remove(target(), 'bad-noforce');
+
+      expect(result.failureOrNull, isA<ConflictFailure>());
+      expect(result.failureOrNull!.message, contains('uncommitted'));
+      expect(Directory(created.path).existsSync(), isTrue);
+    });
+
+    test(
+      'force-removes a broken worktree inside the managed folder, prunes and '
+      'deletes its branch',
+      () async {
+        final created = (await service.create(
+          target(),
+          const CreateWorktreeRequest(name: 'bad'),
+        )).valueOrNull!;
+        breakWorktree(created.path);
+        final runner = _FailingRemoveRunner(deleteFolder: false);
+
+        final result = await serviceWithRunner(runner)
+            .remove(target(), 'bad', force: true);
+
+        expect(result.isSuccess, isTrue);
+        final body = result.valueOrNull!;
+        expect(body.deleted, isTrue);
+        expect(body.branchDeleted, isTrue);
+        expect(Directory(created.path).existsSync(), isFalse);
+        expect(
+          runner.calls,
+          containsAll([
+            ['-C', repo.path, 'worktree', 'prune'],
+            ['-C', repo.path, 'branch', '-d', 'bad'],
+          ]),
+        );
+      },
+    );
+
+    test(
+      'never deletes a broken worktree outside the managed folder',
+      () async {
+        final outside = p.join(root.path, 'outside', 'ext');
+        await _git(repo.path, ['worktree', 'add', '-b', 'outside', outside]);
+        breakWorktree(outside);
+
+        final listed = await service.list(target());
+        expect(listed.isSuccess, isTrue);
+        expect(listed.valueOrNull!.any((w) => w.id == 'ext'), isFalse);
+
+        final removed = await service.remove(target(), 'ext', force: true);
+        expect(removed.failureOrNull, isA<NotFoundFailure>());
+        expect(Directory(outside).existsSync(), isTrue);
+      },
+    );
+
+    test(
+      'returns in-use conflict when the broken folder cannot be deleted',
+      () async {
+        final created = (await service.create(
+          target(),
+          const CreateWorktreeRequest(name: 'bad-locked-win'),
+        )).valueOrNull!;
+        breakWorktree(created.path);
+        final handle = File(p.join(created.path, 'a.txt'))
+            .openSync(mode: FileMode.write);
+        addTearDown(handle.closeSync);
+        final runner = _FailingRemoveRunner(deleteFolder: false);
+
+        final result = await serviceWithRunner(runner)
+            .remove(target(), 'bad-locked-win', force: true);
+
+        expect(result.failureOrNull, isA<ConflictFailure>());
+        expect(
+          result.failureOrNull!.message,
+          contains('in use or could not be deleted'),
+        );
+        expect(Directory(created.path).existsSync(), isTrue);
+      },
+      testOn: 'windows',
+    );
+
+    test(
+      'returns in-use conflict when the broken folder cannot be deleted',
+      () async {
+        final created = (await service.create(
+          target(),
+          const CreateWorktreeRequest(name: 'bad-locked-posix'),
+        )).valueOrNull!;
+        final sub = Directory(p.join(created.path, 'sub'))..createSync();
+        File(p.join(sub.path, 'file.txt')).writeAsStringSync('x');
+        breakWorktree(created.path);
+        await Process.run('chmod', ['555', sub.path]);
+        addTearDown(() => Process.run('chmod', ['755', sub.path]));
+        final runner = _FailingRemoveRunner(deleteFolder: false);
+
+        final result = await serviceWithRunner(runner)
+            .remove(target(), 'bad-locked-posix', force: true);
+
+        expect(result.failureOrNull, isA<ConflictFailure>());
+        expect(
+          result.failureOrNull!.message,
+          contains('in use or could not be deleted'),
+        );
+        expect(Directory(created.path).existsSync(), isTrue);
+      },
+      testOn: 'posix',
+    );
   });
 }
