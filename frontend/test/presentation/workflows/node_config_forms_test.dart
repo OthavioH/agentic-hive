@@ -1791,28 +1791,25 @@ void main() {
         },
         <String, dynamic>{'harness': NodeTypeId.codex, 'model': 'gpt-first'},
       ]);
-      expect(
-        tester
-            .widget<HiveTextField>(
-              find.byKey(const Key('config_fallback_0_model')),
-            )
-            .controller!
-            .text,
-        'gemini-second',
-      );
-      expect(
-        tester
-            .widget<HiveTextField>(
-              find.byKey(const Key('config_fallback_1_model')),
-            )
-            .controller!
-            .text,
-        'gpt-first',
-      );
+      final modelFields = tester
+          .widgetList<HiveTextField>(
+            find.byWidgetPredicate(
+              (w) =>
+                  w is HiveTextField &&
+                  w.key is ValueKey<String> &&
+                  (w.key! as ValueKey<String>).value.startsWith(
+                    'config_fallback_',
+                  ) &&
+                  (w.key! as ValueKey<String>).value.endsWith('_model'),
+            ),
+          )
+          .toList();
+      expect(modelFields[0].controller!.text, 'gemini-second');
+      expect(modelFields[1].controller!.text, 'gpt-first');
 
-      final moveUp1 = find.byKey(const Key('config_fallback_1_up'));
-      await tester.ensureVisible(moveUp1);
-      await tester.tap(moveUp1);
+      final moveUpSecond = find.bySemanticsLabel('Move fallback 2 up');
+      await tester.ensureVisible(moveUpSecond);
+      await tester.tap(moveUpSecond);
       await tester.pumpAndSettle();
 
       expect(latest?['fallback'], <JsonMap>[
@@ -1888,5 +1885,54 @@ void main() {
       expect(find.byKey(const Key('config_fallback_add')), findsNothing);
       expect(find.text('Fallback'), findsNothing);
     });
+
+    testWidgets(
+      'external fallback update on same node syncs editor and preserves on '
+      'edit',
+      (tester) async {
+        JsonMap? latest;
+        await pumpFallbackForm(
+          tester,
+          makeHarnessNode(NodeTypeId.claudeCode),
+          onConfig: (c) => latest = c,
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text('No fallback. The node fails on a rate limit.'),
+          findsOneWidget,
+        );
+
+        await pumpFallbackForm(
+          tester,
+          makeHarnessNode(NodeTypeId.claudeCode, const <String, dynamic>{
+            'fallback': <JsonMap>[
+              <String, dynamic>{'harness': NodeTypeId.codex, 'model': 'gpt-5'},
+            ],
+          }),
+          onConfig: (c) => latest = c,
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text('No fallback. The node fails on a rate limit.'),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const Key('config_fallback_0_model')),
+          findsOneWidget,
+        );
+
+        await tester.enterText(
+          find.byKey(const Key('config_harness_additional_instructions')),
+          'Updated instructions',
+        );
+        await tester.pumpAndSettle();
+
+        expect(latest?['fallback'], <JsonMap>[
+          <String, dynamic>{'harness': NodeTypeId.codex, 'model': 'gpt-5'},
+        ]);
+      },
+    );
   });
 }

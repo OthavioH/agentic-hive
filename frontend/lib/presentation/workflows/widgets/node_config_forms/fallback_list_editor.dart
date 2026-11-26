@@ -3,6 +3,7 @@ import 'package:agentic_hive_frontend/presentation/harnesses/controllers/harness
 import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -59,7 +60,8 @@ class _FallbackListEditorState extends ConsumerState<FallbackListEditor> {
   @override
   void didUpdateWidget(FallbackListEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.nodeType != widget.nodeType) {
+    if (oldWidget.nodeType != widget.nodeType ||
+        !listEquals(_currentEntries(), widget.entries)) {
       _clearRows();
       _syncRows();
     }
@@ -103,15 +105,17 @@ class _FallbackListEditorState extends ConsumerState<FallbackListEditor> {
     return headlessHarnessTypeIds.first;
   }
 
+  List<FallbackEntry> _currentEntries() => <FallbackEntry>[
+    for (final row in _rows)
+      FallbackEntry(
+        harness: row.harness,
+        model: _nullIfEmpty(row.model.text),
+        effort: row.effort,
+      ),
+  ];
+
   void _emit() {
-    widget.onChanged(<FallbackEntry>[
-      for (final row in _rows)
-        FallbackEntry(
-          harness: row.harness,
-          model: _nullIfEmpty(row.model.text),
-          effort: row.effort,
-        ),
-    ]);
+    widget.onChanged(_currentEntries());
   }
 
   void _addRow() {
@@ -173,7 +177,6 @@ class _FallbackListEditorState extends ConsumerState<FallbackListEditor> {
                   _FallbackRowCard(
                     key: ValueKey<int>(_rows[i].id),
                     index: i,
-                    totalCount: _rows.length,
                     row: _rows[i],
                     onHarnessChanged: (harness) {
                       setState(() => _rows[i].harness = harness);
@@ -214,7 +217,6 @@ class _FallbackListEditorState extends ConsumerState<FallbackListEditor> {
 class _FallbackRowCard extends ConsumerWidget {
   const new({
     required this.index,
-    required this.totalCount,
     required this.row,
     required this.onHarnessChanged,
     required this.onModelChanged,
@@ -226,7 +228,6 @@ class _FallbackRowCard extends ConsumerWidget {
   });
 
   final int index;
-  final int totalCount;
   final _FallbackRowState row;
   final ValueChanged<String> onHarnessChanged;
   final ValueChanged<String> onModelChanged;
@@ -260,7 +261,7 @@ class _FallbackRowCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           HiveSelect<String>(
-            key: Key('config_fallback_${index}_harness'),
+            key: Key('config_fallback_${row.id}_harness'),
             label: l10n.nodeConfigFallbackHarnessLabel,
             value: row.harness,
             options: <HiveSelectOption<String>>[
@@ -274,7 +275,7 @@ class _FallbackRowCard extends ConsumerWidget {
           ),
           SizedBox(height: spacing.space1),
           HiveTextField(
-            key: Key('config_fallback_${index}_model'),
+            key: Key('config_fallback_${row.id}_model'),
             label: l10n.nodeConfigFallbackModelLabel,
             hint: l10n.nodeConfigHarnessDefaultHint,
             errorText: modelStartsWithDash
@@ -294,26 +295,26 @@ class _FallbackRowCard extends ConsumerWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: <Widget>[
               HiveIconButton(
-                key: Key('config_fallback_${index}_up'),
+                key: Key('config_fallback_${row.id}_up'),
                 icon: HiveIcons.moveUp,
                 semanticLabel: l10n.nodeConfigFallbackMoveUp(index + 1),
                 onPressed: onMoveUp,
               ),
               HiveIconButton(
-                key: Key('config_fallback_${index}_down'),
+                key: Key('config_fallback_${row.id}_down'),
                 icon: HiveIcons.moveDown,
                 semanticLabel: l10n.nodeConfigFallbackMoveDown(index + 1),
                 onPressed: onMoveDown,
               ),
               HiveIconButton(
-                key: Key('config_fallback_${index}_remove'),
+                key: Key('config_fallback_${row.id}_remove'),
                 icon: HiveIcons.delete,
                 semanticLabel: l10n.nodeConfigFallbackRemove(index + 1),
                 onPressed: onRemove,
               ),
               if (statusBadgeLabel != null)
                 HiveBadge(
-                  key: Key('config_fallback_${index}_status'),
+                  key: Key('config_fallback_${row.id}_status'),
                   tone: HiveBadgeTone.warning,
                   label: statusBadgeLabel,
                 ),
@@ -338,7 +339,7 @@ class _FallbackRowCard extends ConsumerWidget {
       error = l10n.nodeConfigEffortInvalidError(current);
     }
     return HiveSelect<String>(
-      key: Key('config_fallback_${index}_effort'),
+      key: Key('config_fallback_${row.id}_effort'),
       label: l10n.nodeConfigFallbackEffortLabel,
       hint: l10n.nodeConfigHarnessDefaultHint,
       errorText: error,

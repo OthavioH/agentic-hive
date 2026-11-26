@@ -5,6 +5,7 @@ import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/node_config_form_registry.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// Inspector configuration form for headless harness nodes and
@@ -76,6 +77,15 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
         oldWidget.node.type != widget.node.type ||
         oldWidget.includeTerminalFields != widget.includeTerminalFields) {
       _syncFromNode();
+      return;
+    }
+    if (!widget.includeTerminalFields) {
+      final oldFallback = _parseHarnessConfig(oldWidget.node.config).fallback;
+      final newFallback = _parseHarnessConfig(widget.node.config).fallback;
+      if (!listEquals(oldFallback, newFallback) &&
+          !listEquals(_fallback, newFallback)) {
+        _fallback = List<FallbackEntry>.of(newFallback);
+      }
     }
   }
 

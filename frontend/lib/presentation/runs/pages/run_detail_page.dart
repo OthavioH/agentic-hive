@@ -620,8 +620,8 @@ class _EventTimelineColumn extends ConsumerWidget {
     HiveColors colors,
     RunEvent event,
   ) {
-    final from = _parseFallbackEndpoint(event.payload['from']);
-    final to = _parseFallbackEndpoint(event.payload['to']);
+    final from = RunDetailState.parseFallbackEndpoint(event.payload['from']);
+    final to = RunDetailState.parseFallbackEndpoint(event.payload['to']);
     if (from == null || to == null) return const <Widget>[];
     final rawReason = event.payload['reason'];
     final reason = rawReason is String ? rawReason : '';
@@ -637,18 +637,6 @@ class _EventTimelineColumn extends ConsumerWidget {
         style: typography.bodySmall.copyWith(color: colors.onSurface),
       ),
     ];
-  }
-
-  FallbackEntry? _parseFallbackEndpoint(Object? raw) {
-    if (raw is! Map<Object?, Object?>) return null;
-    final harness = raw['harness'];
-    if (harness is! String || harness.isEmpty) return null;
-    final rawModel = raw['model'];
-    final trimmedModel = rawModel is String ? rawModel.trim() : '';
-    return FallbackEntry(
-      harness: harness,
-      model: trimmedModel.isEmpty ? null : trimmedModel,
-    );
   }
 }
 

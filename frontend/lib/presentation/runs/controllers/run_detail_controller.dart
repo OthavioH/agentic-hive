@@ -94,6 +94,19 @@ final class RunDetailState {
     return checkpoints.last;
   }
 
+  /// Parses a `{harness, model?}` map from a `node.fallback` event payload.
+  static FallbackEntry? parseFallbackEndpoint(Object? raw) {
+    if (raw is! Map<Object?, Object?>) return null;
+    final harness = raw['harness'];
+    if (harness is! String || harness.isEmpty) return null;
+    final rawModel = raw['model'];
+    final trimmedModel = rawModel is String ? rawModel.trim() : '';
+    return FallbackEntry(
+      harness: harness,
+      model: trimmedModel.isEmpty ? null : trimmedModel,
+    );
+  }
+
   /// Effective `{harness, model}` each node ran on after a `node.fallback`
   /// event, omitting entries that match the node's own configured target.
   Map<String, FallbackEntry> get ranOnByNodeId {
@@ -102,16 +115,9 @@ final class RunDetailState {
       if (event.type != RunEventType.nodeFallback) continue;
       final nodeId = event.nodeId;
       if (nodeId == null) continue;
-      final to = event.payload['to'];
-      if (to is! Map<Object?, Object?>) continue;
-      final harness = to['harness'];
-      if (harness is! String || harness.isEmpty) continue;
-      final rawModel = to['model'];
-      final trimmedModel = rawModel is String ? rawModel.trim() : '';
-      latestByNodeId[nodeId] = FallbackEntry(
-        harness: harness,
-        model: trimmedModel.isEmpty ? null : trimmedModel,
-      );
+      final entry = parseFallbackEndpoint(event.payload['to']);
+      if (entry == null) continue;
+      latestByNodeId[nodeId] = entry;
     }
     if (latestByNodeId.isEmpty) return const <String, FallbackEntry>{};
 

@@ -4,6 +4,7 @@ import 'package:agentic_hive_frontend/presentation/workflows/node_visuals.dart';
 import 'package:agentic_hive_frontend/presentation/workflows/widgets/node_config_forms/fallback_list_editor.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -118,4 +119,37 @@ void main() {
       expect(rem0.dy, lessThan(add.dy));
     },
   );
+
+  testWidgets('reordering preserves keyboard focus on the moved button', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildHost(
+        entries: const <FallbackEntry>[
+          FallbackEntry(harness: NodeTypeId.codex),
+          FallbackEntry(harness: NodeTypeId.geminiCli),
+          FallbackEntry(harness: NodeTypeId.antigravity),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final buttonFinder = find.byKey(const Key('config_fallback_0_down'));
+    final focusNode = Focus.of(
+      tester.element(
+        find
+            .descendant(of: buttonFinder, matching: find.byType(HiveIcon))
+            .first,
+      ),
+    )..requestFocus();
+    await tester.pumpAndSettle();
+    expect(focusNode.hasFocus, isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    final primary = FocusManager.instance.primaryFocus;
+    expect(primary, same(focusNode));
+    expect(focusNode.hasFocus, isTrue);
+  });
 }

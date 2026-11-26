@@ -66,9 +66,9 @@ Future<void> _capture(
 Widget _buildHost({
   required ThemeData theme,
   required Key boundaryKey,
+  required String stateName,
   required List<FallbackEntry> entries,
   Map<String, HarnessStatus>? statuses,
-  double textScale = 1.0,
 }) {
   return UncontrolledProviderScope(
     container: ProviderContainer.test(
@@ -81,11 +81,6 @@ Widget _buildHost({
         theme: theme,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: TextScaler.linear(textScale)),
-          child: child!,
-        ),
         home: NodeVisualScope(
           registry: createNodeVisualRegistry(),
           child: Scaffold(
@@ -96,7 +91,7 @@ Widget _buildHost({
                   child: SingleChildScrollView(
                     padding: EdgeInsets.all(HiveSpacing.standard.space2),
                     child: FallbackListEditor(
-                      key: ValueKey<int>(entries.length),
+                      key: ValueKey<String>(stateName),
                       nodeType: NodeTypeId.claudeCode,
                       entries: entries,
                       onChanged: (_) {},
@@ -145,6 +140,7 @@ void main() {
           _buildHost(
             theme: th.value,
             boundaryKey: boundaryKey,
+            stateName: 'empty_$suffix',
             entries: const <FallbackEntry>[],
             statuses: allReady,
           ),
@@ -157,6 +153,7 @@ void main() {
           _buildHost(
             theme: th.value,
             boundaryKey: boundaryKey,
+            stateName: 'populated_$suffix',
             entries: const <FallbackEntry>[
               FallbackEntry(
                 harness: NodeTypeId.codex,
@@ -171,11 +168,12 @@ void main() {
         await tester.pumpAndSettle();
         await _capture(tester, 'populated_$suffix', boundaryKey: boundaryKey);
 
-        // Effort unsupported + invalid input + redundant entry
+        // Effort unsupported + invalid input + redundant (equal) entries
         await tester.pumpWidget(
           _buildHost(
             theme: th.value,
             boundaryKey: boundaryKey,
+            stateName: 'invalid_$suffix',
             entries: const <FallbackEntry>[
               FallbackEntry(
                 harness: NodeTypeId.geminiCli,
@@ -183,11 +181,17 @@ void main() {
                 effort: 'high',
               ),
               FallbackEntry(harness: NodeTypeId.claudeCode, model: 'sonnet'),
+              FallbackEntry(harness: NodeTypeId.claudeCode, model: 'sonnet'),
             ],
             statuses: allReady,
           ),
         );
         await tester.pumpAndSettle();
+        expect(find.text('Model must not start with "-".'), findsOneWidget);
+        expect(
+          find.text('Gemini CLI does not support choosing an effort.'),
+          findsOneWidget,
+        );
         await _capture(tester, 'invalid_$suffix', boundaryKey: boundaryKey);
 
         // Not installed + not signed in
@@ -195,6 +199,7 @@ void main() {
           _buildHost(
             theme: th.value,
             boundaryKey: boundaryKey,
+            stateName: 'status_$suffix',
             entries: const <FallbackEntry>[
               FallbackEntry(harness: NodeTypeId.codex),
               FallbackEntry(harness: NodeTypeId.geminiCli),
@@ -206,6 +211,8 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        expect(find.text('Codex is not installed'), findsOneWidget);
+        expect(find.text('Gemini CLI is not signed in'), findsOneWidget);
         await _capture(tester, 'status_$suffix', boundaryKey: boundaryKey);
 
         // Loading status (null)
@@ -213,6 +220,7 @@ void main() {
           _buildHost(
             theme: th.value,
             boundaryKey: boundaryKey,
+            stateName: 'loading_$suffix',
             entries: const <FallbackEntry>[
               FallbackEntry(harness: NodeTypeId.codex),
             ],

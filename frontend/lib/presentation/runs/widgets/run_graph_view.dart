@@ -312,7 +312,12 @@ class _RunNodeCard extends StatelessWidget {
           child: AnimatedContainer(
             duration: motion.resolve(context, motion.short),
             curve: motion.standardCurve,
-            padding: EdgeInsets.all(spacing.space2),
+            padding: ranOnText != null
+                ? EdgeInsets.symmetric(
+                    horizontal: spacing.space2,
+                    vertical: spacing.space1,
+                  )
+                : EdgeInsets.all(spacing.space2),
             decoration: BoxDecoration(
               color: isSelected ? colors.surface3 : colors.surface2,
               borderRadius: context.hiveRadii.card,
@@ -357,15 +362,9 @@ class _RunNodeCard extends StatelessWidget {
                 ),
                 SizedBox(height: spacing.spaceHalf),
                 if (ranOnText != null)
-                  Flexible(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: HiveChip.readOnly(
-                        key: Key('run_graph_node_ran_on_${node.id}'),
-                        label: ranOnText,
-                      ),
-                    ),
+                  HiveChip.readOnly(
+                    key: Key('run_graph_node_ran_on_${node.id}'),
+                    label: ranOnText,
                   )
                 else
                   Text(
