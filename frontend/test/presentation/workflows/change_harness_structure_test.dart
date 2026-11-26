@@ -130,10 +130,7 @@ void main() {
 
     final buttonFinder = find.byKey(const Key('inspector_change_harness'));
     expect(buttonFinder, findsOneWidget);
-    expect(
-      tester.getSemantics(buttonFinder).label,
-      contains('Change harness'),
-    );
+    expect(tester.getSemantics(buttonFinder).label, contains('Change harness'));
     final buttonSize = tester.getSize(buttonFinder);
     expect(buttonSize.height, greaterThanOrEqualTo(32));
 
@@ -172,10 +169,7 @@ void main() {
 
     final dialogFinder = find.byType(HiveConfirmDialog);
     expect(dialogFinder, findsOneWidget);
-    expect(
-      ModalRoute.of(tester.element(dialogFinder))?.isCurrent,
-      isTrue,
-    );
+    expect(ModalRoute.of(tester.element(dialogFinder))?.isCurrent, isTrue);
     expect(find.text('Switch'), findsOneWidget);
     expect(find.text('Cancel'), findsOneWidget);
   });
