@@ -374,7 +374,7 @@ Run _parentRun({RunStatus status = RunStatus.running}) => Run(
   workflowId: 'wf-parent',
   workflowName: 'Parent Flow',
   workflowDefinition: _fanOutWorkflow(),
-  workspacePath: '/projects/hive',
+  workspaceRoot: '/projects/hive',
   status: status,
   startedAt: _baseTime,
 );
@@ -396,7 +396,7 @@ Run _childRun({
     createdAt: _baseTime,
     updatedAt: _baseTime,
   ),
-  workspacePath: '/projects/hive',
+  workspaceRoot: '/projects/hive',
   status: status,
   startedAt: _baseTime.add(Duration(minutes: index)),
   parentRunId: 'run-parent',

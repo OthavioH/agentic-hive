@@ -96,7 +96,7 @@ final class SnapshotsState {
 @riverpod
 class SnapshotsController extends _$SnapshotsController {
   @override
-  Future<SnapshotsState> build(String runId, String workspacePath) {
+  Future<SnapshotsState> build(String runId, String workspaceRoot) {
     return _load();
   }
 
@@ -223,7 +223,7 @@ class SnapshotsController extends _$SnapshotsController {
     final snapshotsFuture = ref.read(listRunSnapshotsProvider).call(runId);
     final capabilitiesFuture = ref
         .read(getWorkspaceCapabilitiesProvider)
-        .call(path: workspacePath);
+        .call(path: workspaceRoot);
     final snapshotsResult = await snapshotsFuture;
     final capabilities = await capabilitiesFuture;
     final snapshots = switch (snapshotsResult) {

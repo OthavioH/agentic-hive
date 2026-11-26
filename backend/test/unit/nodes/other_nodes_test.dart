@@ -135,7 +135,7 @@ void main() {
   NodeExecutionContext ctx(JsonMap config) => NodeExecutionContext(
     runId: 'run-1',
     nodeId: 'node-1',
-    workspacePath: tempDir.path,
+    targetFolder: tempDir.path,
     config: config,
   );
 
@@ -518,7 +518,7 @@ void main() {
         const NodeExecutionContext(
           runId: 'run-1',
           nodeId: 'review-1',
-          workspacePath: '/tmp/workspace',
+          targetFolder: '/tmp/workspace',
           config: {
             'harnessType': NodeTypeId.claudeCode,
             'reviewCriteria': 'Check tests.',
@@ -584,7 +584,7 @@ void main() {
         const NodeExecutionContext(
           runId: 'run-1',
           nodeId: 'n1',
-          workspacePath: '/tmp/ws',
+          targetFolder: '/tmp/ws',
           config: {
             'instructions': 'Review.',
             'proposalNodeId': 'planner',
@@ -631,7 +631,7 @@ void main() {
           const NodeExecutionContext(
             runId: 'run-1',
             nodeId: 'n1',
-            workspacePath: '/tmp/ws',
+            targetFolder: '/tmp/ws',
             config: {
               'instructions': 'Review.',
               'proposalNodeId': 'planner',

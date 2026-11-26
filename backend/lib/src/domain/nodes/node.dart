@@ -28,15 +28,15 @@ abstract base class Node {
   /// Executes this node within [context].
   Future<Result<NodeOutcome>> execute(NodeExecutionContext context);
 
-  /// Resolves [relativePath] inside [workspacePath], returning a
+  /// Resolves [relativePath] inside [targetFolder], returning a
   /// [ValidationFailure] if it is absolute or escapes the workspace
   /// (including through symbolic links).
   Result<String> resolveWorkspacePath(
-    String workspacePath,
+    String targetFolder,
     String? relativePath, {
     String fieldName = 'workingDirectory',
   }) {
-    final normalizedRoot = p.normalize(p.absolute(workspacePath));
+    final normalizedRoot = p.normalize(p.absolute(targetFolder));
     final canonicalRoot = _resolveCanonicalPath(normalizedRoot);
     if (relativePath == null || relativePath.trim().isEmpty) {
       return Success(canonicalRoot);

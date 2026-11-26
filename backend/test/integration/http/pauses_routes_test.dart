@@ -54,7 +54,7 @@ void main() {
           workflowId: 'wf-1',
           workflowName: workflow.name,
           workflowDefinition: workflow,
-          workspacePath: '/tmp/ws',
+          workspaceRoot: '/tmp/ws',
           status: RunStatus.paused,
           startedAt: DateTime.utc(2026, 11, 21, 10),
         ),

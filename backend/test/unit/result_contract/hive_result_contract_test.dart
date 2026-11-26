@@ -54,7 +54,7 @@ void main() {
   }) => NodeExecutionContext(
     runId: runId,
     nodeId: nodeId,
-    workspacePath: workspacePath,
+    targetFolder: workspacePath,
     attempt: attempt,
     availableOutputs: availableOutputs,
   );

@@ -138,7 +138,7 @@ void main() {
       workflowId: 'wf-1',
       workflowName: sampleWorkflow.name,
       workflowDefinition: sampleWorkflow,
-      workspacePath: wsPath,
+      workspaceRoot: wsPath,
       status: status,
       startedAt: DateTime.utc(2026, 11, 21, 10),
       isolationMode: isolationMode,
@@ -629,7 +629,7 @@ void main() {
           'HEAD',
         ]);
         final prepared = PreparedWorkspace(
-          effectiveWorkspacePath: worktreePath,
+          targetFolder: worktreePath,
           isolationMode: WorkspaceIsolationMode.worktree,
           worktreePath: worktreePath,
           worktreeBranch: 'hive/run-wt',
@@ -661,7 +661,7 @@ void main() {
         // Capture a snapshot in the worktree.
         await snapshotService.captureSnapshot(
           runId: 'run-wt',
-          workspaceDir: prepared.effectiveWorkspacePath,
+          workspaceDir: prepared.targetFolder,
         );
         expect(
           Directory(snapshotService.shadowRepoPath('run-wt')).existsSync(),

@@ -72,7 +72,7 @@ final class _FakeRunRepository implements RunRepository {
           createdAt: now,
           updatedAt: now,
         ),
-        workspacePath: '/projects/hive',
+        workspaceRoot: '/projects/hive',
         workspaceId: request.workspaceId,
         status: RunStatus.running,
         startedAt: now,

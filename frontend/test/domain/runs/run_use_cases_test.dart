@@ -45,7 +45,7 @@ final class _FakeRunRepository implements RunRepository {
           createdAt: now,
           updatedAt: now,
         ),
-        workspacePath: '/tmp',
+        workspaceRoot: '/tmp',
         status: RunStatus.succeeded,
         startedAt: now,
       ),

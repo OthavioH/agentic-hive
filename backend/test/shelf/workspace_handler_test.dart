@@ -158,7 +158,7 @@ void main() {
         id: 'run-1',
         workflowName: 'Test Flow',
         workflowDefinition: workflow,
-        workspacePath: workspaceDir.path,
+        workspaceRoot: workspaceDir.path,
         status: RunStatus.running,
         startedAt: DateTime.utc(2026, 11, 21, 10),
       ),

@@ -67,7 +67,7 @@ void main() {
       NodeExecutionContext(
         runId: 'run-int-1',
         nodeId: 'node-int-1',
-        workspacePath: workspacePath,
+        targetFolder: workspacePath,
       ),
     )).valueOrNull!;
     addTearDown(session.dispose);
@@ -134,7 +134,7 @@ void main() {
       NodeExecutionContext(
         runId: 'run-int-1',
         nodeId: 'node-int-1',
-        workspacePath: workspacePath,
+        targetFolder: workspacePath,
       ),
     );
     expect(locked.valueOrNull?.status, ResultContractStatus.success);

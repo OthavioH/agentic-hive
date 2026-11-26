@@ -128,7 +128,7 @@ final class _FakeResultContract implements ResultContract {
         runId: context.runId,
         nodeId: context.nodeId,
         attempt: context.attempt,
-        workspacePath: context.workspacePath,
+        targetFolder: context.targetFolder,
         availableOutputs: context.availableOutputs,
       );
     }
@@ -269,7 +269,7 @@ void main() {
   }) => NodeExecutionContext(
     runId: 'run-1',
     nodeId: 'term-1',
-    workspacePath: workspaceDir.path,
+    targetFolder: workspaceDir.path,
     config: config,
   );
 
@@ -378,7 +378,7 @@ void main() {
           NodeExecutionContext(
             runId: 'run-1',
             nodeId: 'term-1',
-            workspacePath: workspaceDir.path,
+            targetFolder: workspaceDir.path,
             workspaceId: 'ws-1',
             config: const <String, Object?>{'additionalInstructions': 'go'},
           ),
@@ -768,7 +768,7 @@ void main() {
         NodeExecutionContext(
           runId: 'run-1',
           nodeId: 'term-1',
-          workspacePath: tempDir.path,
+          targetFolder: tempDir.path,
           config: const {'command': 'echo ok'},
           runAttachments: const [
             RunAttachmentFile(

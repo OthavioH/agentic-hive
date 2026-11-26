@@ -35,7 +35,7 @@ Future<void> _pump(
         home: Scaffold(
           body: SnapshotsPanel(
             runId: 'run-1',
-            workspacePath: '/work',
+            workspaceRoot: '/work',
             runStatus: status,
             nodeLabels: const <String, String>{'node-build': 'Build step'},
           ),

@@ -475,10 +475,10 @@ final class ShadowSnapshotService implements SnapshotService {
       maxFileSizeBytes: maxFileSizeBytes ?? stored.maxFileSizeBytes,
     );
 
-    final workspaceDir = run.worktreePath ?? run.workspacePath;
+    final targetFolder = run.worktreePath ?? run.workspaceRoot;
     final safetyResult = await _captureLocked(
       runId: runId,
-      workspaceDir: workspaceDir,
+      workspaceDir: targetFolder,
       kind: SnapshotKind.safetyPreRestore,
       options: options,
     );
@@ -501,7 +501,7 @@ final class ShadowSnapshotService implements SnapshotService {
     }
 
     final resetResult = await _git.runChecked(
-      _shadowArgs(shadowDir, workspaceDir, [
+      _shadowArgs(shadowDir, targetFolder, [
         'reset',
         '--hard',
         targetSnapshot.commitHash,
@@ -516,7 +516,7 @@ final class ShadowSnapshotService implements SnapshotService {
     // Remove untracked files created after targetSnapshot while preserving
     // .git/ and excluded files (no -x flag).
     final cleanResult = await _git.runChecked(
-      _shadowArgs(shadowDir, workspaceDir, const ['clean', '-fd']),
+      _shadowArgs(shadowDir, targetFolder, const ['clean', '-fd']),
       timeout: GitClient.longTimeout,
       failureContext: 'Cleaning untracked files during snapshot restore',
     );
