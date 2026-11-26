@@ -276,6 +276,7 @@ Worktree makeWorktree({
   String path = '/tmp/ws-1',
   bool isPrimary = true,
   bool hasUncommittedChanges = false,
+  bool isBroken = false,
   String? branch = 'main',
 }) => Worktree(
   id: id,
@@ -283,6 +284,7 @@ Worktree makeWorktree({
   path: path,
   isPrimary: isPrimary,
   hasUncommittedChanges: hasUncommittedChanges,
+  isBroken: isBroken,
   branch: branch,
 );
 
