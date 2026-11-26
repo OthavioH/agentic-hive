@@ -128,4 +128,45 @@ void main() {
     expect(removedEvent.worktreeId, 'feat');
     expect(removedEvent.worktree, isNull);
   });
+
+  test(
+    'failed worktree removal (409) still broadcasts worktrees.changed',
+    () async {
+      final registered = await http.post(
+        '/api/v1/workspaces',
+        body: jsonEncode(CreateWorkspaceRequest(rootPath: repo.path).toJson()),
+      );
+      final workspace = Workspace.fromJson(registered.json);
+      await _nextOfType(ws, WsMessageType.workspacesChanged);
+      final base = '/api/v1/workspaces/${workspace.id}/worktrees';
+
+      final created = await http.post(
+        base,
+        body: jsonEncode(const CreateWorktreeRequest(name: 'held').toJson()),
+      );
+      expect(created.statusCode, 201);
+      final worktree = Worktree.fromJson(created.json);
+      await _nextOfType(ws, WsMessageType.worktreesChanged);
+
+      await _git(repo.path, ['worktree', 'lock', worktree.path]);
+      addTearDown(() async {
+        await Process.run('git', [
+          '-C',
+          repo.path,
+          'worktree',
+          'unlock',
+          worktree.path,
+        ]);
+      });
+
+      final removed = await http.delete('$base/held');
+      expect(removed.statusCode, 409);
+      final event = WorktreesChangedPayload.fromJson(
+        (await _nextOfType(ws, WsMessageType.worktreesChanged)).payload,
+      );
+      expect(event.kind, WorktreeChangeKind.removed);
+      expect(event.workspaceId, workspace.id);
+      expect(event.worktreeId, 'held');
+    },
+  );
 }
