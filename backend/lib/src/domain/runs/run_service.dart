@@ -14,6 +14,7 @@ import 'package:agentic_hive_backend/src/domain/runs/run_canceller.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_log_store.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_target_preparer.dart';
 import 'package:agentic_hive_backend/src/domain/settings/execution_settings_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_registry.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
@@ -262,8 +263,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     }
 
     String? reservedFolder;
-    String? createdWorktreePath;
-    String? createdWorktreeBranch;
+    RunTargetPreparer? preparer;
     void Function()? releaseLend;
     var launched = false;
 
@@ -332,89 +332,22 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
           isolationMode: WorkspaceIsolationMode.direct,
         );
       } else {
-        switch (target) {
-          case RunTargetPrimary():
-            final conflict = await claim(workspaceRoot);
-            if (conflict != null) return FailureResult(conflict);
-            prepared = PreparedWorkspace(
-              targetFolder: workspaceRoot,
-              isolationMode: WorkspaceIsolationMode.direct,
-            );
-          case RunTargetWorktree(:final worktreeId):
-            final worktrees = _worktrees;
-            if (worktrees == null) {
-              return const FailureResult(
-                UnexpectedFailure('Worktree service is not configured.'),
-              );
-            }
-            final listed = await worktrees.list(workspace);
-            if (listed case FailureResult<List<Worktree>>(:final failure)) {
-              return FailureResult(failure);
-            }
-            final existing = listed.valueOrNull!
-                .where((w) => w.id == worktreeId)
-                .firstOrNull;
-            if (existing == null) {
-              return FailureResult(
-                NotFoundFailure('Worktree "$worktreeId" was not found.'),
-              );
-            }
-            final conflict = await claim(
-              existing.isPrimary ? workspaceRoot : existing.path,
-            );
-            if (conflict != null) return FailureResult(conflict);
-            prepared = existing.isPrimary
-                ? PreparedWorkspace(
-                    targetFolder: workspaceRoot,
-                    isolationMode: WorkspaceIsolationMode.direct,
-                  )
-                : PreparedWorkspace(
-                    targetFolder: existing.path,
-                    isolationMode: WorkspaceIsolationMode.worktree,
-                    worktreePath: existing.path,
-                    worktreeBranch: existing.branch,
-                  );
-          case RunTargetNewWorktree(
-            :final name,
-            :final branch,
-            :final baseBranch,
-          ):
-            final worktrees = _worktrees;
-            if (worktrees == null) {
-              return const FailureResult(
-                UnexpectedFailure('Worktree service is not configured.'),
-              );
-            }
-            final created = await worktrees.create(
-              workspace,
-              CreateWorktreeRequest(
-                name: _nonBlank(name) ?? runId,
-                branch: _nonBlank(branch) ?? 'hive/$runId',
-                baseBranch: baseBranch,
-              ),
-            );
-            if (created case FailureResult<Worktree>(:final failure)) {
-              return FailureResult(failure);
-            }
-            final worktree = created.valueOrNull!;
-            createdWorktreePath = worktree.path;
-            createdWorktreeBranch = worktree.branch;
-            final conflict = await claim(worktree.path);
-            if (conflict != null) {
-              await workspacePreparation.cleanupWorktree(
-                workspaceRoot: workspaceRoot,
-                worktreePath: worktree.path,
-                branchName: worktree.branch,
-              );
-              return FailureResult(conflict);
-            }
-            prepared = PreparedWorkspace(
-              targetFolder: worktree.path,
-              isolationMode: WorkspaceIsolationMode.worktree,
-              worktreePath: worktree.path,
-              worktreeBranch: worktree.branch,
-            );
+        final targetPreparer = preparer = RunTargetPreparer.forTarget(
+          target,
+          worktrees: _worktrees,
+          workspacePreparation: workspacePreparation,
+        );
+        final preparedResult = await targetPreparer.prepare(
+          workspace: workspace,
+          runId: runId,
+          claim: claim,
+        );
+        if (preparedResult case FailureResult<PreparedWorkspace>(
+          :final failure,
+        )) {
+          return FailureResult(failure);
         }
+        prepared = preparedResult.valueOrNull!;
       }
 
       if (ignorePatterns != null && ignorePatterns.isNotEmpty) {
@@ -446,13 +379,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
       var attachmentsWritten = false;
       Future<void> undo() async {
         _snapshots?.configureRunExclusions(runId, const []);
-        if (createdWorktreePath != null) {
-          await workspacePreparation.cleanupWorktree(
-            workspaceRoot: workspaceRoot,
-            worktreePath: createdWorktreePath,
-            branchName: createdWorktreeBranch,
-          );
-        }
+        await preparer?.discard(workspace, prepared);
         if (attachmentsWritten) {
           await _attachments?.deleteRun(runId);
         }
@@ -507,11 +434,6 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
         _reservedFolders.remove(reserved);
       }
     }
-  }
-
-  static String? _nonBlank(String? value) {
-    final trimmed = value?.trim();
-    return trimmed == null || trimmed.isEmpty ? null : trimmed;
   }
 
   /// Initiates cancellation for an active run or retries cancellation for a
