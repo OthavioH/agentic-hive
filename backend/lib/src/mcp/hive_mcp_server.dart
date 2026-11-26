@@ -16,7 +16,7 @@ final class HiveMcpServer extends MCPServer with ToolsSupport {
     required this.tools,
     super.protocolLogSink,
   }) : super.fromStreamChannel(
-         implementation: Implementation(name: 'hive-mcp', version: '0.1.0'),
+         implementation: Implementation(name: 'hive-mcp', version: '0.2.0'),
          instructions:
              'Manage Agentic Hive workflows only through these tools, never by '
              'editing workspace workflow files. Workflow tools take an '
