@@ -346,7 +346,8 @@ class SideRailTreeController extends _$SideRailTreeController {
       ref.read(workspaceRegistryControllerProvider.notifier).selectGlobal();
 
   /// Removes non-primary worktree [worktreeId] of [workspaceId] and refreshes
-  /// the tree on success.
+  /// the tree after every attempt, since a failed removal may still have
+  /// changed what is on disk (ADR 0030).
   Future<Result<RemoveWorktreeResponse>> removeWorktree(
     String workspaceId,
     String worktreeId, {
@@ -358,9 +359,7 @@ class SideRailTreeController extends _$SideRailTreeController {
       force: force,
     );
     if (!ref.mounted) return result;
-    if (result is Success<RemoveWorktreeResponse>) {
-      await refresh();
-    }
+    await refresh();
     return result;
   }
 

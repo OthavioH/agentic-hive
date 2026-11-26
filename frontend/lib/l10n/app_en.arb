@@ -3264,6 +3264,14 @@
   "@sideRailTreeDirtyBadge": {
     "description": "Badge label when a worktree has uncommitted changes."
   },
+  "sideRailTreeBrokenBadge": "Broken",
+  "@sideRailTreeBrokenBadge": {
+    "description": "Badge label on a worktree row whose folder exists but git can no longer read it (broken worktree)."
+  },
+  "sideRailTreeBrokenBadgeSemantic": "Broken worktree",
+  "@sideRailTreeBrokenBadgeSemantic": {
+    "description": "Screen reader label for the broken worktree badge."
+  },
   "sideRailTreeDetachedHead": "detached HEAD",
   "@sideRailTreeDetachedHead": {
     "description": "Subtitle shown when a git worktree has a detached HEAD."

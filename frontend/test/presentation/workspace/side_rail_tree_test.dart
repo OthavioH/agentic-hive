@@ -956,6 +956,147 @@ void main() {
       },
     );
 
+    testWidgets(
+      'broken worktree shows the Broken badge and hides the dirty icon',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        try {
+          workspaceRepo
+            ..workspaces = <Workspace>[makeWorkspace()]
+            ..worktreesByWorkspaceId['ws-1'] = <Worktree>[
+              makeWorktree(),
+              makeWorktree(
+                id: 'feat-broken',
+                name: 'feat-broken',
+                path: '/data/worktrees/ws-1/feat-broken',
+                isPrimary: false,
+                hasUncommittedChanges: true,
+                isBroken: true,
+                branch: 'feature/broken',
+              ),
+              makeWorktree(
+                id: 'feat-dirty',
+                name: 'feat-dirty',
+                path: '/data/worktrees/ws-1/feat-dirty',
+                isPrimary: false,
+                hasUncommittedChanges: true,
+                branch: 'feature/dirty',
+              ),
+            ];
+
+          await tester.pumpWidget(
+            _buildRouterApp(
+              workspaceRepo: workspaceRepo,
+              selectionStore: selectionStore,
+              runsRepo: runsRepo,
+              pauseRepo: pauseRepo,
+              fixedNow: fixedNow,
+              changes: changes,
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          final brokenBadgeFinder = find.byKey(
+            const Key('tree_worktree_broken_ws-1_feat-broken'),
+          );
+          expect(brokenBadgeFinder, findsOneWidget);
+          final brokenBadge = tester.widget<HiveBadge>(brokenBadgeFinder);
+          expect(brokenBadge.tone, HiveBadgeTone.danger);
+          expect(brokenBadge.semanticLabel, 'Broken worktree');
+          expect(find.text('Broken'), findsOneWidget);
+          expect(
+            find.bySemanticsLabel(RegExp('Broken worktree')),
+            findsOneWidget,
+          );
+          expect(
+            find.byKey(const Key('tree_worktree_dirty_ws-1_feat-broken')),
+            findsNothing,
+          );
+          expect(
+            find.byKey(const Key('tree_worktree_dirty_ws-1_feat-dirty')),
+            findsOneWidget,
+          );
+          expect(
+            find.byKey(const Key('tree_worktree_broken_ws-1_feat-dirty')),
+            findsNothing,
+          );
+        } finally {
+          handle.dispose();
+        }
+      },
+    );
+
+    testWidgets(
+      'removing a broken worktree reaches the discard confirmation and '
+      'retries with force',
+      (tester) async {
+        var callCount = 0;
+        workspaceRepo
+          ..workspaces = <Workspace>[makeWorkspace()]
+          ..worktreesByWorkspaceId['ws-1'] = <Worktree>[
+            makeWorktree(),
+            makeWorktree(
+              id: 'feat-broken',
+              name: 'feat-broken',
+              path: '/data/worktrees/ws-1/feat-broken',
+              isPrimary: false,
+              hasUncommittedChanges: true,
+              isBroken: true,
+              branch: 'feature/broken',
+            ),
+          ]
+          ..onRemoveWorktree = (wsId, wtId, {required force}) {
+            callCount++;
+            if (callCount == 1 && !force) {
+              return const FailureResult<RemoveWorktreeResponse>(
+                BackendFailure(
+                  'Worktree has uncommitted changes.',
+                  statusCode: 409,
+                ),
+              );
+            }
+            return const Success<RemoveWorktreeResponse>(
+              RemoveWorktreeResponse(
+                id: 'feat-broken',
+                deleted: true,
+                branchDeleted: true,
+              ),
+            );
+          };
+
+        await tester.pumpWidget(
+          _buildRouterApp(
+            workspaceRepo: workspaceRepo,
+            selectionStore: selectionStore,
+            runsRepo: runsRepo,
+            pauseRepo: pauseRepo,
+            fixedNow: fixedNow,
+            changes: changes,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byKey(const Key('tree_remove_worktree_ws-1_feat-broken')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Remove'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Worktree has uncommitted changes'), findsOneWidget);
+        await tester.tap(find.text('Discard & remove'));
+        await tester.pumpAndSettle();
+
+        expect(
+          workspaceRepo.removeWorktreeCalls,
+          <({String workspaceId, String worktreeId, bool force})>[
+            (workspaceId: 'ws-1', worktreeId: 'feat-broken', force: false),
+            (workspaceId: 'ws-1', worktreeId: 'feat-broken', force: true),
+          ],
+        );
+      },
+    );
+
     testWidgets('active run 409 shows error and does not offer force remove', (
       tester,
     ) async {

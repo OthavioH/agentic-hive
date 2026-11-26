@@ -106,6 +106,14 @@ final class ExistingWorktreePreparer extends RunTargetPreparer {
         NotFoundFailure('Worktree "$_worktreeId" was not found.'),
       );
     }
+    if (existing.isBroken) {
+      return FailureResult(
+        ConflictFailure(
+          'Worktree "$_worktreeId" is broken: git cannot read it. '
+          'Remove it and create a new one.',
+        ),
+      );
+    }
     if (existing.isPrimary) {
       return await const PrimaryCheckoutPreparer().prepare(
         workspace: workspace,

@@ -242,10 +242,102 @@ void main() {
       body: jsonEncode(const CreateWorktreeRequest(name: 'x').toJson()),
     );
     expect(created.statusCode, 400);
+
+    final removed = await http.delete(
+      '/api/v1/workspaces/${plainWorkspace.id}/worktrees/x',
+    );
+    expect(removed.statusCode, 404);
   });
 
   test('unknown workspace is 404', () async {
     final response = await http.get('/api/v1/workspaces/nope/worktrees');
     expect(response.statusCode, 404);
   });
+
+  test('returns 409 without git output when a worktree folder remains after '
+      'git remove fails', () async {
+    final created = Worktree.fromJson((await create('pinned')).json);
+    await git(repo.path, ['worktree', 'lock', created.path]);
+    addTearDown(() async {
+      await Process.run('git', [
+        '-C',
+        repo.path,
+        'worktree',
+        'unlock',
+        created.path,
+      ]);
+    });
+
+    for (final path in [
+      '/api/v1/workspaces/${workspace.id}/worktrees/pinned',
+      '/api/v1/workspaces/${workspace.id}/worktrees/pinned?force=true',
+    ]) {
+      final response = await http.delete(path);
+      expect(response.statusCode, 409);
+      final error = response.json['error']! as Map<String, Object?>;
+      expect(error['code'], 'conflict');
+      final message = error['message']! as String;
+      expect(message, contains('in use or could not be deleted'));
+      expect(message, isNot(contains('locked')));
+      expect(message, isNot(contains('fatal')));
+      expect(message, isNot(contains('cannot')));
+      expect(Directory(created.path).existsSync(), isTrue);
+    }
+  });
+
+  test('returns 200 and prunes when the worktree folder was already deleted '
+      'on disk', () async {
+    final created = Worktree.fromJson((await create('vanish')).json);
+    await Directory(created.path).delete(recursive: true);
+
+    final response = await http.delete(
+      '/api/v1/workspaces/${workspace.id}/worktrees/vanish',
+    );
+
+    expect(response.statusCode, 200);
+    final body = RemoveWorktreeResponse.fromJson(response.json);
+    expect(body.deleted, isTrue);
+    expect(body.branchDeleted, isTrue);
+
+    final listed = await Process.run('git', [
+      '-C',
+      repo.path,
+      'worktree',
+      'list',
+      '--porcelain',
+    ]);
+    expect(listed.stdout as String, isNot(contains('vanish')));
+  });
+
+  test(
+    'lists a broken worktree with the broken flag and removes it on force',
+    () async {
+      await create('ok');
+      final bad = Worktree.fromJson((await create('bad')).json);
+      final dotGit = File(p.join(bad.path, '.git'));
+      if (dotGit.existsSync()) dotGit.deleteSync();
+      dotGit.writeAsStringSync('gitdir: ${p.join(dataDir, 'nowhere')}\n');
+
+      final items = await list();
+      final listedBad = items.firstWhere((w) => w.id == 'bad');
+      expect(listedBad.isBroken, isTrue);
+      expect(listedBad.hasUncommittedChanges, isTrue);
+      expect(items.firstWhere((w) => w.id == 'ok').isBroken, isFalse);
+
+      final refused = await http.delete(
+        '/api/v1/workspaces/${workspace.id}/worktrees/bad',
+      );
+      expect(refused.statusCode, 409);
+      final error = refused.json['error']! as Map<String, Object?>;
+      expect(error['code'], 'conflict');
+      expect(error['message']! as String, contains('uncommitted'));
+      expect(Directory(bad.path).existsSync(), isTrue);
+
+      final forced = await http.delete(
+        '/api/v1/workspaces/${workspace.id}/worktrees/bad?force=true',
+      );
+      expect(forced.statusCode, 200);
+      expect(Directory(bad.path).existsSync(), isFalse);
+    },
+  );
 }

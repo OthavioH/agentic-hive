@@ -607,6 +607,57 @@ void main() {
       );
       expect(updated.workspaces.single.worktrees, hasLength(1));
     });
+
+    test(
+      'refreshes the tree and returns the failure when removal fails',
+      () async {
+        workspaceRepo
+          ..workspaces = <Workspace>[makeWorkspace()]
+          ..worktreesByWorkspaceId['ws-1'] = <Worktree>[
+            makeWorktree(),
+            makeWorktree(
+              id: 'feat-a',
+              name: 'feat-a',
+              path: '/data/worktrees/ws-1/feat-a',
+              isPrimary: false,
+              branch: 'feat/a',
+            ),
+          ];
+        const failure = FailureResult<RemoveWorktreeResponse>(
+          BackendFailure('Some files are in use.', statusCode: 409),
+        );
+        workspaceRepo.onRemoveWorktree =
+            (workspaceId, worktreeId, {required force}) {
+              workspaceRepo.worktreesByWorkspaceId['ws-1'] = <Worktree>[
+                makeWorktree(),
+              ];
+              return failure;
+            };
+        final container = createContainer();
+        final sub = container.listen(sideRailTreeControllerProvider, (_, _) {});
+        addTearDown(sub.close);
+        final tree = await container.read(
+          sideRailTreeControllerProvider.future,
+        );
+        expect(tree.workspaces.single.worktrees, hasLength(2));
+
+        final result = await container
+            .read(sideRailTreeControllerProvider.notifier)
+            .removeWorktree('ws-1', 'feat-a');
+
+        expect(result, same(failure));
+        expect(
+          workspaceRepo.removeWorktreeCalls,
+          <({String workspaceId, String worktreeId, bool force})>[
+            (workspaceId: 'ws-1', worktreeId: 'feat-a', force: false),
+          ],
+        );
+        final updated = await container.read(
+          sideRailTreeControllerProvider.future,
+        );
+        expect(updated.workspaces.single.worktrees, hasLength(1));
+      },
+    );
   });
 
   group('selectGlobal', () {

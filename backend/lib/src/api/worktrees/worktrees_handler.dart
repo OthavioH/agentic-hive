@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_events.dart';
 import 'package:agentic_hive_backend/src/domain/workspace/workspace_service.dart';
@@ -97,7 +98,10 @@ final class WorktreesHandler {
       worktreeId,
       force: request.url.queryParameters['force'] == 'true',
     );
-    if (result is Success<RemoveWorktreeResponse>) {
+    if (result
+        case Success<RemoveWorktreeResponse>() ||
+            FailureResult<RemoveWorktreeResponse>(failure: ConflictFailure())) {
+      // A failed removal may have changed disk state; clients only refetch.
       _events?.worktreeChanged(WorktreeChangeKind.removed, id, worktreeId);
     }
     return switch (result) {
