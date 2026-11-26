@@ -557,6 +557,78 @@ void main() {
           size: const Size(240, 200),
         );
       });
+
+      testWidgets('HiveSplitter horizontal', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_splitter_horizontal',
+          const SizedBox(
+            width: 600,
+            height: 280,
+            child: HiveSplitter(
+              initialPosition: 0.6,
+              semanticLabel: 'Resize graph and inspector',
+              first: HiveInsetPanel(child: Text('Graph')),
+              second: HiveInsetPanel(child: Text('Inspector')),
+            ),
+          ),
+          size: const Size(640, 320),
+        );
+      });
+
+      testWidgets('HiveSplitter vertical', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_splitter_vertical',
+          const SizedBox(
+            width: 600,
+            height: 280,
+            child: HiveSplitter(
+              axis: Axis.vertical,
+              initialPosition: 0.5,
+              semanticLabel: 'Resize graph and inspector',
+              first: HiveInsetPanel(child: Text('Graph')),
+              second: HiveInsetPanel(child: Text('Inspector')),
+            ),
+          ),
+          size: const Size(640, 320),
+        );
+      });
+
+      testWidgets('HiveSplitter states', (tester) async {
+        Widget stateSample(Set<WidgetState> states) {
+          final controller = WidgetStatesController(states);
+          addTearDown(controller.dispose);
+          return SizedBox(
+            width: 190,
+            height: 200,
+            child: HiveSplitter(
+              initialPosition: 0.5,
+              minFirst: HiveSpacing.standard.space6,
+              minSecond: HiveSpacing.standard.space6,
+              statesController: controller,
+              semanticLabel: 'Resize graph and inspector',
+              first: const HiveInsetPanel(child: Text('Graph')),
+              second: const HiveInsetPanel(child: Text('Inspector')),
+            ),
+          );
+        }
+
+        await pumpAndMatch(
+          tester,
+          'hive_splitter_states',
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 16,
+            children: <Widget>[
+              stateSample(<WidgetState>{WidgetState.hovered}),
+              stateSample(<WidgetState>{WidgetState.focused}),
+              stateSample(<WidgetState>{WidgetState.pressed}),
+            ],
+          ),
+          size: const Size(640, 320),
+        );
+      });
     });
   }
 }
