@@ -63,7 +63,11 @@ sealed class StartRunRequest with _$StartRunRequest {
   factory fromJson(JsonMap json) => parseJson(json, _$StartRunRequestFromJson);
 }
 
-/// One line or chunk of captured output from a node attempt log.
+/// One line of captured output from a node attempt log.
+///
+/// [chunk] is exactly one line without its line terminator (it may be empty
+/// for a blank line). A PTY runner's final unterminated line is flushed as
+/// one entry too.
 ///
 /// [offset] is the strictly increasing 1-based sequence number assigned to
 /// this chunk within its `(runId, nodeId, attempt)` log stream. It matches
