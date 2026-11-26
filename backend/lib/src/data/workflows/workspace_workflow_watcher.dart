@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:agentic_hive_backend/src/core/result.dart';
+import 'package:agentic_hive_backend/src/data/watching/debounced_folder_watcher.dart';
 import 'package:agentic_hive_backend/src/data/workflows/file_workspace_workflow_repository.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_revision.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_validator.dart';
@@ -13,7 +14,6 @@ import 'package:agentic_hive_backend/src/ws/connection_registry.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
-import 'package:watcher/watcher.dart';
 
 /// Watches `<root>/.agentic-hive/workflows` of every registered workspace and
 /// broadcasts `workflows.changed` events when files change on disk (for
@@ -47,9 +47,8 @@ final class WorkspaceWorkflowWatcher {
   final p.Context _path;
   final String Function() _generateId;
 
-  final _watched = <String, _Watched>{};
-  final _pendingTimers = <String, Timer>{};
-  final _pendingKinds = <String, WorkflowChangeKind>{};
+  final _watched =
+      <String, ({String rootPath, DebouncedFolderWatcher folder})>{};
   Timer? _rescanTimer;
   bool _closed = false;
   Future<void>? _syncing;
@@ -87,7 +86,7 @@ final class WorkspaceWorkflowWatcher {
       final stillRegistered = current[id];
       if (stillRegistered == null ||
           stillRegistered.rootPath != _watched[id]!.rootPath) {
-        await _watched.remove(id)?.cancel();
+        await _watched.remove(id)?.folder.close();
       }
     }
     for (final workspace in current.values) {
@@ -97,10 +96,14 @@ final class WorkspaceWorkflowWatcher {
         pathContext: _path,
       );
       if (!Directory(directory).existsSync()) continue;
-      final watched = _Watched(
-        rootPath: workspace.rootPath,
+      final folder = DebouncedFolderWatcher(
         directory: directory,
-        onEvent: (event) => _onEvent(workspace, directory, event),
+        extensions: const {'.json'},
+        debounce: _debounceDuration,
+        pathContext: _path,
+        onChange: (path, kind) => unawaited(
+          _flush(workspace, _path.basenameWithoutExtension(path), kind),
+        ),
         onError: (error, stackTrace) => _log.warning(
           LogEvent(
             'workflows.watcher_error',
@@ -110,45 +113,22 @@ final class WorkspaceWorkflowWatcher {
           stackTrace,
         ),
       );
-      _watched[workspace.id] = watched;
-      await watched.ready;
+      _watched[workspace.id] = (rootPath: workspace.rootPath, folder: folder);
+      await folder.ready;
     }
   }
 
-  void _onEvent(Workspace workspace, String directory, WatchEvent event) {
+  Future<void> _flush(
+    Workspace workspace,
+    String id,
+    FolderChangeKind folderKind,
+  ) async {
     if (_closed) return;
-    if (!_path.equals(_path.dirname(event.path), _path.normalize(directory))) {
-      return;
-    }
-    if (_path.extension(event.path).toLowerCase() != '.json') return;
-
-    final id = _path.basenameWithoutExtension(event.path);
-    final kind = switch (event.type) {
-      ChangeType.ADD => WorkflowChangeKind.created,
-      ChangeType.MODIFY => WorkflowChangeKind.updated,
-      ChangeType.REMOVE => WorkflowChangeKind.deleted,
-      _ => null,
+    final kind = switch (folderKind) {
+      FolderChangeKind.created => WorkflowChangeKind.created,
+      FolderChangeKind.updated => WorkflowChangeKind.updated,
+      FolderChangeKind.deleted => WorkflowChangeKind.deleted,
     };
-    if (kind == null) return;
-
-    final key = '${workspace.id}|$id';
-    final pending = _pendingKinds[key];
-    _pendingKinds[key] =
-        pending == WorkflowChangeKind.created &&
-            kind == WorkflowChangeKind.updated
-        ? WorkflowChangeKind.created
-        : kind;
-    _pendingTimers[key]?.cancel();
-    _pendingTimers[key] = Timer(
-      _debounceDuration,
-      () => unawaited(_flush(workspace, key, id)),
-    );
-  }
-
-  Future<void> _flush(Workspace workspace, String key, String id) async {
-    _pendingTimers.remove(key);
-    final kind = _pendingKinds.remove(key);
-    if (_closed || kind == null) return;
 
     final WorkflowsChangedPayload payload;
     if (kind == WorkflowChangeKind.deleted) {
@@ -200,33 +180,9 @@ final class WorkspaceWorkflowWatcher {
     _closed = true;
     _rescanTimer?.cancel();
     _rescanTimer = null;
-    for (final timer in _pendingTimers.values) {
-      timer.cancel();
-    }
-    _pendingTimers.clear();
-    _pendingKinds.clear();
     for (final watched in _watched.values) {
-      await watched.cancel();
+      await watched.folder.close();
     }
     _watched.clear();
   }
-}
-
-final class _Watched {
-  new({
-    required this.rootPath,
-    required String directory,
-    required void Function(WatchEvent) onEvent,
-    required void Function(Object, StackTrace) onError,
-  }) : _watcher = DirectoryWatcher(directory) {
-    _subscription = _watcher.events.listen(onEvent, onError: onError);
-  }
-
-  final String rootPath;
-  final DirectoryWatcher _watcher;
-  late final StreamSubscription<WatchEvent> _subscription;
-
-  Future<void> get ready => _watcher.ready;
-
-  Future<void> cancel() => _subscription.cancel();
 }
