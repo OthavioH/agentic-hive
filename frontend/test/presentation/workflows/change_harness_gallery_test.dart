@@ -282,6 +282,7 @@ void main() {
           find.byKey(const Key('inspector_change_harness_select')),
         );
         await tester.pumpAndSettle();
+        await _capture(tester, 'picker-open_$suffix', boundaryKey: boundaryKey);
         await tester.tap(find.text('Gemini CLI').last);
         await tester.pumpAndSettle();
         await _capture(

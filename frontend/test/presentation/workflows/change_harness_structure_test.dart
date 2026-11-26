@@ -192,4 +192,34 @@ void main() {
     expect(find.text('Switch'), findsOneWidget);
     expect(find.text('Cancel'), findsOneWidget);
   });
+
+  testWidgets('keyboard activation moves focus into picker', (tester) async {
+    const node = WorkflowNode(
+      id: 'n1',
+      type: NodeTypeId.claudeCode,
+      label: 'Coder',
+      position: WorkflowPosition(x: 0, y: 0),
+    );
+    await tester.pumpWidget(_buildHost(node, agentRepo));
+    await tester.pumpAndSettle();
+
+    Focus.of(tester.element(find.text('Change harness'))).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    final selectFinder = find.byKey(
+      const Key('inspector_change_harness_select'),
+    );
+    expect(selectFinder, findsOneWidget);
+    final primary = FocusManager.instance.primaryFocus;
+    expect(primary, isNotNull);
+    expect(
+      find.ancestor(
+        of: find.byElementPredicate((e) => e == primary!.context),
+        matching: selectFinder,
+      ),
+      findsOneWidget,
+    );
+  });
 }

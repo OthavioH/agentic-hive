@@ -86,6 +86,7 @@ class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
   final TextEditingController _nodeTypeController = TextEditingController();
   final TextEditingController _edgeOutputController = TextEditingController();
   final TextEditingController _edgeRetriesController = TextEditingController();
+  final FocusNode _harnessSelectFocusNode = FocusNode();
 
   late final NodeConfigFormRegistry _configFormRegistry;
   String? _syncedWorkflowId;
@@ -123,6 +124,7 @@ class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
     _nodeTypeController.dispose();
     _edgeOutputController.dispose();
     _edgeRetriesController.dispose();
+    _harnessSelectFocusNode.dispose();
     super.dispose();
   }
 
@@ -320,31 +322,40 @@ class _WorkflowInspectorPanelState extends State<WorkflowInspectorPanel> {
             variant: HiveButtonVariant.secondary,
             onPressed: widget.state.isSaving
                 ? null
-                : () => setState(() => _pickingHarness = true),
+                : () {
+                    setState(() => _pickingHarness = true);
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted && _pickingHarness) {
+                        _harnessSelectFocusNode.requestFocus();
+                      }
+                    });
+                  },
           ),
           if (_pickingHarness) ...<Widget>[
             SizedBox(height: spacing.space2),
-            HiveSelect<String>(
-              key: const Key('inspector_change_harness_select'),
-              label: l10n.editorChangeHarnessSelectLabel,
-              value: null,
-              autofocus: true,
-              options: <HiveSelectOption<String>>[
-                for (final typeId in headlessHarnessTypeIds)
-                  if (typeId != node.type)
-                    HiveSelectOption<String>(
-                      value: typeId,
-                      label: resolveNodeTypeLabel(context, l10n, typeId),
-                      icon: context
-                          .dependOnInheritedWidgetOfExactType<NodeVisualScope>()
-                          ?.registry
-                          .resolve(typeId)
-                          .icon,
-                    ),
-              ],
-              onChanged: widget.state.isSaving
-                  ? null
-                  : (newType) => unawaited(_changeHarness(node, newType)),
+            Builder(
+              builder: (context) {
+                final visualScope = context
+                    .dependOnInheritedWidgetOfExactType<NodeVisualScope>();
+                return HiveSelect<String>(
+                  key: const Key('inspector_change_harness_select'),
+                  label: l10n.editorChangeHarnessSelectLabel,
+                  value: null,
+                  focusNode: _harnessSelectFocusNode,
+                  options: <HiveSelectOption<String>>[
+                    for (final typeId in headlessHarnessTypeIds)
+                      if (typeId != node.type)
+                        HiveSelectOption<String>(
+                          value: typeId,
+                          label: resolveNodeTypeLabel(context, l10n, typeId),
+                          icon: visualScope?.registry.resolve(typeId).icon,
+                        ),
+                  ],
+                  onChanged: widget.state.isSaving
+                      ? null
+                      : (newType) => unawaited(_changeHarness(node, newType)),
+                );
+              },
             ),
           ],
         ],
