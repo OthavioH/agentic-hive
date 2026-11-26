@@ -71,6 +71,7 @@ class _HarnessConfigFormState extends State<HarnessConfigForm> {
   void didUpdateWidget(HarnessConfigForm oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.node.id != widget.node.id ||
+        oldWidget.node.type != widget.node.type ||
         oldWidget.includeTerminalFields != widget.includeTerminalFields) {
       _syncFromNode();
     }
