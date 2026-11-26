@@ -1195,6 +1195,28 @@ void main() {
       expect(HarnessNodeConfig.fromJson(latest!).model, isNull);
     });
 
+    testWidgets('preserves existing fallback list when editing other fields', (
+      tester,
+    ) async {
+      const fallback = <Map<String, Object?>>[
+        {'harness': NodeTypeId.codex, 'model': 'gpt-5', 'effort': 'high'},
+      ];
+      JsonMap? latest;
+      await pumpHarness(
+        tester,
+        nodeOf(NodeTypeId.claudeCode, const {'fallback': fallback}),
+        onConfig: (c) => latest = c,
+      );
+      await tester.pumpAndSettle();
+
+      final modelFinder = find.byKey(modelKey);
+      await tester.ensureVisible(modelFinder);
+      await tester.enterText(modelFinder, 'opus');
+      await tester.pumpAndSettle();
+
+      expect(latest?['fallback'], fallback);
+    });
+
     testWidgets('effort select lists options and emits picked value or null', (
       tester,
     ) async {

@@ -267,6 +267,33 @@ void main() {
       final json = checkpoint.toJson();
       expect(Checkpoint.fromJson(json), checkpoint);
     });
+
+    test('defaults fallbackIndexByNodeId to empty and round-trips it', () {
+      final legacy = Checkpoint.fromJson({
+        'id': 'cp-legacy',
+        'runId': 'run-1',
+        'sequence': 1,
+        'pendingNodeIds': const ['n2'],
+        'attemptsByEdge': const <String, int>{},
+        'circuitBreakerCount': 0,
+        'nodeOutputs': const <String, JsonMap>{},
+        'createdAt': '2026-11-20T12:01:00.000Z',
+      });
+      expect(legacy.fallbackIndexByNodeId, isEmpty);
+
+      final withFallback = Checkpoint(
+        id: 'cp-2',
+        runId: 'run-1',
+        sequence: 3,
+        pendingNodeIds: const ['n2'],
+        attemptsByEdge: const {},
+        circuitBreakerCount: 0,
+        nodeOutputs: const {},
+        fallbackIndexByNodeId: const {'plan': 1},
+        createdAt: DateTime.utc(2026, 11, 20, 12, 2),
+      );
+      expect(Checkpoint.fromJson(withFallback.toJson()), withFallback);
+    });
   });
 
   group('RunEventType and RunEvent', () {
@@ -285,6 +312,7 @@ void main() {
         RunEventType.nodeCompleted: 'node.completed',
         RunEventType.nodeFailed: 'node.failed',
         RunEventType.nodeRetried: 'node.retried',
+        RunEventType.nodeFallback: 'node.fallback',
         RunEventType.checkpointSaved: 'checkpoint.saved',
         RunEventType.snapshotCaptured: 'snapshot.captured',
         RunEventType.snapshotRestored: 'snapshot.restored',

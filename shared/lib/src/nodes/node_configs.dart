@@ -2,6 +2,7 @@ import 'package:agentic_hive_shared/src/json_fields.dart';
 import 'package:agentic_hive_shared/src/nodes/harness_effort.dart';
 import 'package:agentic_hive_shared/src/nodes/node_category.dart';
 import 'package:agentic_hive_shared/src/nodes/node_config_validation.dart';
+import 'package:agentic_hive_shared/src/nodes/node_type_change.dart';
 import 'package:agentic_hive_shared/src/pauses/proposal_schema.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
@@ -30,6 +31,7 @@ sealed class HarnessNodeConfig with _$HarnessNodeConfig {
     String? model,
     String? effort,
     @Default(<String>[]) List<String> extraArgs,
+    @Default(<FallbackEntry>[]) List<FallbackEntry> fallback,
   }) = _HarnessNodeConfig;
 
   const new _();
@@ -76,6 +78,9 @@ sealed class HarnessNodeConfig with _$HarnessNodeConfig {
           message: 'Must not start with "-".',
         ),
       );
+    }
+    for (var i = 0; i < fallback.length; i++) {
+      issues.addAll(fallback[i].validate(prefix: 'fallback[$i].'));
     }
     return issues;
   }
@@ -208,6 +213,63 @@ sealed class TestsValidatorNodeConfig with _$TestsValidatorNodeConfig {
       field: 'timeoutSeconds',
       issues: issues,
     );
+    return issues;
+  }
+}
+
+/// One **Fallback entry** in [HarnessNodeConfig.fallback].
+@freezed
+sealed class FallbackEntry with _$FallbackEntry {
+  /// Creates a fallback entry.
+  const factory({required String harness, String? model, String? effort}) =
+      _FallbackEntry;
+
+  const new _();
+
+  /// Decodes a fallback entry; throws a [FormatException] on a bad shape.
+  factory fromJson(JsonMap json) => parseJson(json, _$FallbackEntryFromJson);
+
+  /// Validates this entry, prefixing field names with `fallback[index].` when
+  /// [prefix] is provided.
+  List<NodeConfigIssue> validate({String prefix = ''}) {
+    final issues = <NodeConfigIssue>[];
+    final validHarness = headlessHarnessTypeIds.contains(harness);
+    if (!validHarness) {
+      issues.add(
+        NodeConfigIssue(
+          field: '${prefix}harness',
+          message:
+              'Must be one of the headless harness types: '
+              '${headlessHarnessTypeIds.join(', ')}.',
+        ),
+      );
+    }
+    if (!isBlank(model) && model!.trim().startsWith('-')) {
+      issues.add(
+        NodeConfigIssue(
+          field: '${prefix}model',
+          message: 'Must not start with "-".',
+        ),
+      );
+    }
+    if (!isBlank(effort)) {
+      if (!harnessEffortIds.contains(effort)) {
+        issues.add(
+          NodeConfigIssue(
+            field: '${prefix}effort',
+            message: 'Must be one of: ${harnessEffortIds.join(', ')}.',
+          ),
+        );
+      } else if (validHarness &&
+          !NodeTypeChange.supportedFields(harness).contains('effort')) {
+        issues.add(
+          NodeConfigIssue(
+            field: '${prefix}effort',
+            message: '$harness does not support choosing an effort.',
+          ),
+        );
+      }
+    }
     return issues;
   }
 }

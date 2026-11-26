@@ -118,5 +118,28 @@ void main() {
       });
       expect(result, workflow);
     });
+
+    test('leaves node fallback untouched when applying overrides', () {
+      const fallback = <Map<String, Object?>>[
+        {'harness': NodeTypeId.codex, 'model': 'm', 'effort': 'low'},
+      ];
+      final base = _buildWorkflow();
+      final workflow = base.copyWith(
+        nodes: [
+          base.nodes.first.copyWith(
+            config: <String, Object?>{
+              ...base.nodes.first.config,
+              'fallback': fallback,
+            },
+          ),
+          ...base.nodes.skip(1),
+        ],
+      );
+      final result = NodeOverrideApplier.apply(workflow, const {
+        'h': NodeOverride(model: 'm1', effort: 'high'),
+      });
+      final h = result.nodes.firstWhere((n) => n.id == 'h');
+      expect(h.config['fallback'], fallback);
+    });
   });
 }

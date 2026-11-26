@@ -12,6 +12,17 @@ void main() {
         NodeTypeChange.supportedFields(NodeTypeId.geminiCli),
         isNot(contains('effort')),
       );
+      for (final typeId in headlessHarnessTypeIds) {
+        expect(NodeTypeChange.supportedFields(typeId), contains('fallback'));
+      }
+      expect(
+        NodeTypeChange.supportedFields(NodeTypeId.terminal),
+        isNot(contains('fallback')),
+      );
+      expect(
+        NodeTypeChange.supportedFields(NodeTypeId.reviewValidator),
+        isNot(contains('fallback')),
+      );
       expect(NodeTypeChange.supportedFields('unknown.type'), isEmpty);
     });
 
@@ -67,6 +78,15 @@ void main() {
           'model': 'm',
         }, NodeTypeId.geminiCli),
         ['effort', 'old'],
+      );
+      expect(
+        NodeTypeChange.droppedFields(<String, Object?>{
+          'fallback': [
+            {'harness': NodeTypeId.codex},
+          ],
+          'effort': 'high',
+        }, NodeTypeId.geminiCli),
+        ['effort'],
       );
     });
   });

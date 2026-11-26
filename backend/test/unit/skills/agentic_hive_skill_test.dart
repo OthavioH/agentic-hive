@@ -84,5 +84,9 @@ void main() {
       );
       expect(registry.difference(withoutDelete), equals({'delete_workflow'}));
     });
+
+    test('documents fallback', () {
+      expect(skillText, contains('fallback'));
+    });
   });
 }

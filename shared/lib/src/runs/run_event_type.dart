@@ -54,6 +54,14 @@ enum RunEventType {
   @JsonValue('node.retried')
   nodeRetried('node.retried'),
 
+  /// A node switched to a fallback entry after a rate limit.
+  ///
+  /// Payload contract:
+  /// `{"from": {"harness": id, "model"?: s},`
+  /// `"to": {"harness": id, "model"?: s}, "reason": <rate-limit message>}`.
+  @JsonValue('node.fallback')
+  nodeFallback('node.fallback'),
+
   /// A checkpoint was persisted.
   @JsonValue('checkpoint.saved')
   checkpointSaved('checkpoint.saved'),

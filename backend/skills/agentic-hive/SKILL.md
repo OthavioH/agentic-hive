@@ -16,6 +16,7 @@ Manage workflows only through the `hive` MCP tools. Never edit workspace workflo
 5. **Create in one call.** Call `create_workflow` with every node and edge, short unique node ids and the entry node. Problems in the graph are saved as a draft and returned as validation; fix them with an edit.
 6. **Edit with patch operations.** Call `edit_workflow` with only the operations that change something, not the whole workflow. The operations apply together or not at all.
    - **Change a harness in place.** To switch a node between the headless harnesses (Claude Code, Codex, Gemini CLI, Antigravity), send `update_node` with the new `type`. The node keeps its id, label, position, edges and the config the new harness supports; the answer names the config fields it dropped. A change to or from any other node type is refused: use `remove_node` and `add_node`.
+   - **Fall back on rate limit.** Set `fallback` in a headless harness node's config to an ordered list of `{harness, model?, effort?}`. When the node's harness reports a rate limit, the run switches to the next entry in the same folder. Effort only on harnesses that support it. A type change keeps the list; node overrides never change it.
 7. **Copy instead of rebuilding.** Call `duplicate_workflow` to start from an existing workflow.
 
 ## Revision

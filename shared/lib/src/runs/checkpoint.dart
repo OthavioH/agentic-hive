@@ -18,6 +18,11 @@ sealed class Checkpoint with _$Checkpoint {
     required Map<String, JsonMap> nodeOutputs,
     required DateTime createdAt,
     String? completedNodeId,
+
+    /// Per-node fallback index: absent means the node runs on its own harness;
+    /// value `i` means the node runs on `fallback[i]` (0-based). Old JSON
+    /// without this key decodes to `{}` (ADR 0007).
+    @Default(<String, int>{}) Map<String, int> fallbackIndexByNodeId,
   }) = _Checkpoint;
 
   /// Decodes a checkpoint; throws a [FormatException] on a bad shape.

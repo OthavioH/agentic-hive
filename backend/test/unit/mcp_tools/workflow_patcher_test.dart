@@ -124,6 +124,7 @@ void main() {
       'model': 'm',
       'effort': 'high',
       'extraArgs': ['--x'],
+      'fallback': <Object?>[],
     });
     expect(patch.edges, hasLength(2));
     expect(
@@ -149,8 +150,46 @@ void main() {
     expect(h1.config, {
       'additionalInstructions': '',
       'extraArgs': <Object?>[],
+      'fallback': <Object?>[],
       'agentId': 'a',
     });
+    expect(
+      patch.tally.typeChanges.single,
+      'h1: ${NodeTypeId.claudeCode} -> ${NodeTypeId.geminiCli}, '
+      'dropped config fields: effort',
+    );
+  });
+
+  test('update_node config sets fallback', () {
+    const fallback = [
+      {'harness': NodeTypeId.codex, 'model': 'gpt-5'},
+    ];
+    final patch = apply([
+      {
+        'op': 'update_node',
+        'id': 'plan',
+        'config': {'fallback': fallback},
+      },
+    ]);
+    expect(patch.nodes.first.config['fallback'], fallback);
+  });
+
+  test('update_node type to gemini_cli keeps fallback', () {
+    const fallback = [
+      {'harness': NodeTypeId.codex, 'model': 'gpt-5'},
+    ];
+    final patch = apply([
+      {
+        'op': 'add_node',
+        'id': 'h1',
+        'type': NodeTypeId.claudeCode,
+        'label': 'Agent',
+        'config': {'agentId': 'a', 'effort': 'high', 'fallback': fallback},
+      },
+      {'op': 'update_node', 'id': 'h1', 'type': NodeTypeId.geminiCli},
+    ]);
+    final h1 = patch.nodes.firstWhere((n) => n.id == 'h1');
+    expect(h1.config['fallback'], fallback);
     expect(
       patch.tally.typeChanges.single,
       'h1: ${NodeTypeId.claudeCode} -> ${NodeTypeId.geminiCli}, '

@@ -973,6 +973,7 @@ class RunDetailController extends _$RunDetailController {
       RunEventType.nodeCompleted ||
       RunEventType.nodeFailed ||
       RunEventType.nodeRetried ||
+      RunEventType.nodeFallback ||
       RunEventType.checkpointSaved ||
       RunEventType.snapshotCaptured ||
       RunEventType.snapshotRestored ||
@@ -1101,6 +1102,7 @@ class RunDetailController extends _$RunDetailController {
       case RunEventType.runStarted:
       case RunEventType.runSucceeded:
       case RunEventType.runFailed:
+      case RunEventType.nodeFallback:
       case RunEventType.checkpointSaved:
       case RunEventType.snapshotCaptured:
       case RunEventType.snapshotRestored:
