@@ -180,6 +180,24 @@
         "env": {},
         "timeoutSeconds": 120
       }
+    },
+    {
+      "id": "rerun_ci",
+      "type": "command",
+      "label": "Re-run CI",
+      "position": {
+        "x": 1950.0,
+        "y": 242.5
+      },
+      "config": {
+        "command": "C:/Users/Ots/fvm/default/bin/cache/dart-sdk/bin/dart.exe",
+        "args": [
+          "run",
+          "tool/hive/rerun_ci.dart"
+        ],
+        "env": {},
+        "timeoutSeconds": 300
+      }
     }
   ],
   "edges": [
@@ -257,10 +275,23 @@
       "sourceNodeId": "wait_ci",
       "sourceOutput": "onSuccess",
       "targetNodeId": "pr_ready"
+    },
+    {
+      "id": "edge_13",
+      "sourceNodeId": "investigate_ci",
+      "sourceOutput": "onFailure",
+      "targetNodeId": "rerun_ci"
+    },
+    {
+      "id": "edge_14",
+      "sourceNodeId": "rerun_ci",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "wait_ci",
+      "maxRetries": 2
     }
   ],
   "createdAt": "2026-11-24T19:52:45.005146Z",
-  "updatedAt": "2026-11-26T15:41:07.410418Z",
+  "updatedAt": "2026-11-26T20:24:48.896453Z",
   "description": "Implements one GitHub issue end to end: plan (Opus) → codegen → implement (Hydrogen, ponytail) → quality gate → review (Sonnet, code-review + ponytail-review) → PR → wait for CI, with an investigate/fix loop on CI failure. The plan node first stops the run if an open or merged PR already closes the issue. Run input: \"Implement issue #<n>. Base branch: <branch>.\" (the Spec Implementation fan-out sends this per ticket, with base spec/<n>). Never merges: the PR is left for the parent workflow or a human. Start it in a new worktree.",
   "entryNodeId": "plan",
   "schemaVersion": 1
