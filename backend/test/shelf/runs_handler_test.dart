@@ -184,6 +184,7 @@ final class _FakeCheckpointRepository implements CheckpointRepository {
     required int circuitBreakerCount,
     required Map<String, JsonMap> nodeOutputs,
     required DateTime createdAt,
+    Map<String, int> fallbackIndexByNodeId = const <String, int>{},
     String? completedNodeId,
     int? sequence,
   }) async {
@@ -198,6 +199,7 @@ final class _FakeCheckpointRepository implements CheckpointRepository {
       circuitBreakerCount: circuitBreakerCount,
       nodeOutputs: nodeOutputs,
       createdAt: createdAt,
+      fallbackIndexByNodeId: fallbackIndexByNodeId,
     );
     items.add(cp);
     return Success(cp);

@@ -113,6 +113,21 @@ abstract base class HarnessNode extends Node {
     }
     sections.add(contextBuffer.toString().trimRight());
 
+    final stopped = context.stoppedAttempt;
+    if (stopped != null) {
+      final model = stopped.model?.trim();
+      final modelPart = model != null && model.isNotEmpty
+          ? ' with model "$model"'
+          : '';
+      sections.add(
+        '## Previous attempt\n'
+        'A rate limit stopped the previous attempt on harness '
+        '"${stopped.harness}"$modelPart. The workspace folder may contain '
+        'its partial work; inspect it and continue from it instead of '
+        'starting over.',
+      );
+    }
+
     final humanAnswer = context.humanAnswer?.trim();
     if (humanAnswer != null && humanAnswer.isNotEmpty) {
       sections.add(
