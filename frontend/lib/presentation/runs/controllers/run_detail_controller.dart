@@ -507,14 +507,17 @@ class RunDetailController extends _$RunDetailController {
     logController.clear();
   }
 
+  /// Appends one raw log entry; the backend sends each entry as one whole line.
   void _appendLogChunk(String chunk, {required RunOutputStream stream}) {
     if (!ref.mounted) return;
-    logController.append(
-      chunk,
-      stream: stream == RunOutputStream.stderr
-          ? HiveLogStream.stderr
-          : HiveLogStream.stdout,
-    );
+    logController.appendLines(<HiveLogLine>[
+      HiveLogLine(
+        chunk,
+        stream: stream == RunOutputStream.stderr
+            ? HiveLogStream.stderr
+            : HiveLogStream.stdout,
+      ),
+    ]);
   }
 
   void _appendLogPayload(RunOutputPayload payload) {

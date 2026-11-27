@@ -270,13 +270,48 @@ void main() {
           nodeId: 'node-1',
           attempt: 1,
           stream: RunOutputStream.stdout,
-          chunk: 'streamed line\n',
+          chunk: 'streamed line',
           timestamp: now,
         ).toJson(),
       ),
     );
     await tester.pumpAndSettle();
     expect(find.text('streamed line'), findsOneWidget);
+
+    ws
+      ..emit(
+        WsEnvelope(
+          id: 'ws-1b',
+          type: WsMessageType.runOutput,
+          payload: RunOutputPayload(
+            runId: 'run-1',
+            nodeId: 'node-1',
+            attempt: 1,
+            stream: RunOutputStream.stdout,
+            chunk: 'second streamed line',
+            timestamp: now,
+          ).toJson(),
+        ),
+      )
+      ..emit(
+        WsEnvelope(
+          id: 'ws-1c',
+          type: WsMessageType.runOutput,
+          payload: RunOutputPayload(
+            runId: 'run-1',
+            nodeId: 'node-1',
+            attempt: 1,
+            stream: RunOutputStream.stderr,
+            chunk: 'stderr line',
+            timestamp: now,
+          ).toJson(),
+        ),
+      );
+    await tester.pumpAndSettle();
+    expect(find.text('streamed line'), findsOneWidget);
+    expect(find.text('second streamed line'), findsOneWidget);
+    expect(find.text('stderr line'), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('stderr-marker')), findsOneWidget);
 
     // Manual node selection pauses follow-active and loads node-2 logs
     await tester.tap(find.byKey(const Key('run_graph_node_node-2')));
@@ -648,8 +683,8 @@ final class _LiveMonitorRunRepository extends _FakeRunRepository {
         RunLogEntry(
           stream: RunOutputStream.stdout,
           chunk: nodeId == 'node-1'
-              ? 'initial line\n'
-              : 'node-2 attempt ${attempt ?? 1}\n',
+              ? 'initial line'
+              : 'node-2 attempt ${attempt ?? 1}',
           timestamp: now,
         ),
       ],

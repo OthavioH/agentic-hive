@@ -7,6 +7,9 @@ part 'run_output_payload.g.dart';
 
 /// Payload of a `run.output` WebSocket message.
 ///
+/// [chunk] is exactly one line of node output without its line terminator, the
+/// same as `RunLogEntry.chunk`.
+///
 /// [offset] is the strictly increasing 1-based sequence number assigned by the
 /// backend log store to each chunk within a `(runId, nodeId, attempt)` stream
 /// as it is persisted. Clients can deduplicate live WebSocket frames against a
