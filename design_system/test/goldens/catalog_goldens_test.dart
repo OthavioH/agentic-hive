@@ -746,7 +746,7 @@ void main() {
           ],
         );
         addTearDown(controller.dispose);
-        await tester.binding.setSurfaceSize(const Size(600, 640));
+        await tester.binding.setSurfaceSize(const Size(600, 800));
         addTearDown(() => tester.binding.setSurfaceSize(null));
 
         await tester.pumpWidget(
@@ -755,7 +755,7 @@ void main() {
             child: Center(
               child: SizedBox(
                 width: 560,
-                height: 600,
+                height: 760,
                 child: HiveTranscriptView(
                   controller: controller,
                   labels: labels,
@@ -770,6 +770,9 @@ void main() {
           ..setBlockExpanded('tc', expanded: true)
           ..setBlockExpanded('tr', expanded: true);
         await tester.pumpAndSettle();
+
+        expect(find.text('Jump to bottom'), findsNothing);
+        expect(find.text('warning: unused import'), findsOneWidget);
 
         await expectLater(
           find.byType(HiveSurface),
