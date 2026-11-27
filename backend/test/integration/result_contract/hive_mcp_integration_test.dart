@@ -13,9 +13,11 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../http/support/harness.dart';
+import '../mcp_tools/support/hive_mcp_kernel.dart';
 import '../mcp_tools/support/mcp_stdio_client.dart';
 
 void main() {
+  final hiveMcp = useCompiledHiveMcp();
   late Directory tempDir;
   late String targetFolder;
   late GetIt di;
@@ -41,10 +43,8 @@ void main() {
     required String nodeId,
     required int attempt,
   }) async {
-    final scriptPath = p.join(Directory.current.path, 'bin', 'hive_mcp.dart');
     final process = await Process.start(Platform.resolvedExecutable, <String>[
-      'run',
-      scriptPath,
+      hiveMcp(),
       '--socket',
       backend.socketPath,
       '--run-id',

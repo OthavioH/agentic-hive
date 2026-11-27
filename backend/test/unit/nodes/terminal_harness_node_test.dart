@@ -750,6 +750,41 @@ void main() {
       expect((await registry.writeInput(key, <int>[66])).isFailure, isTrue);
     });
 
+    test('keeps final scrollback of ended sessions, bounded, cleared on '
+        're-register', () async {
+      final registry = PtySessionRegistry(endedRetention: 2);
+      addTearDown(registry.dispose);
+
+      const k1 = (runId: 'run-1', nodeId: 'term-1', attempt: 1);
+      const k2 = (runId: 'run-2', nodeId: 'term-1', attempt: 1);
+      const k3 = (runId: 'run-3', nodeId: 'term-1', attempt: 1);
+
+      registry
+        ..registerSession(_FakePtySessionHandle(k1))
+        ..appendOutput(k1, utf8.encode('bye'));
+      await registry.unregisterSession(k1);
+
+      expect(utf8.decode(registry.endedSnapshot(k1)!), 'bye');
+      expect(registry.getScrollbackSnapshot(k1), isNull);
+
+      registry
+        ..registerSession(_FakePtySessionHandle(k2))
+        ..appendOutput(k2, utf8.encode('two'));
+      await registry.unregisterSession(k2);
+
+      registry
+        ..registerSession(_FakePtySessionHandle(k3))
+        ..appendOutput(k3, utf8.encode('three'));
+      await registry.unregisterSession(k3);
+
+      expect(registry.endedSnapshot(k1), isNull);
+      expect(utf8.decode(registry.endedSnapshot(k2)!), 'two');
+      expect(utf8.decode(registry.endedSnapshot(k3)!), 'three');
+
+      registry.registerSession(_FakePtySessionHandle(k2));
+      expect(registry.endedSnapshot(k2), isNull);
+    });
+
     test('includes ## Run attachments in prompt and passes no attachments dir '
         'in args', () async {
       final ptyRunner = _FakePtyRunner();

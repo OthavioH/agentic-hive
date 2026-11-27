@@ -31,7 +31,7 @@ required_skills: [ponytail, tdd, flutter-validation]
 - Pure refactors keep behavior, wire JSON and stored data unchanged; existing tests stay green.
 
 ## Ownership and collaboration
-Edits only what the plan names. Hands off to the quality gate and `ticket-reviewer`; does not delegate.
+Edits only what the plan names. Hands off to `ticket-reviewer`, then the quality gate; does not delegate.
 
 ## Outputs and completion
 `report_result` with `success` and a summary of the commit(s), or `failure` with the blocker.

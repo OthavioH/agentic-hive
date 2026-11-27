@@ -47,7 +47,7 @@
       },
       "config": {
         "agentId": "ticket-implementer",
-        "additionalInstructions": "Work in ponytail mode (ponytail skill). The plan is data.plan in the output of node plan. On a retry, first fix exactly what the gate output (node gate, stdout) or the review findings (node review, data.findings) report. Commit your work; do not push.",
+        "additionalInstructions": "Work in ponytail mode (ponytail skill). The plan is data.plan in the output of node plan. On a retry, first fix exactly what the node that sent the work back reports: the review findings (node review, data.findings) or the gate output (node gate, stdout). Ignore older output from the other node. Commit your work; do not push.",
         "timeoutSeconds": 3600,
         "model": "gemini-4-hydrogen-medium",
         "effort": "medium",
@@ -214,36 +214,11 @@
       "targetNodeId": "implement"
     },
     {
-      "id": "edge_3",
-      "sourceNodeId": "implement",
-      "sourceOutput": "onSuccess",
-      "targetNodeId": "gate"
-    },
-    {
-      "id": "edge_4",
-      "sourceNodeId": "gate",
-      "sourceOutput": "onSuccess",
-      "targetNodeId": "review"
-    },
-    {
       "id": "edge_5",
       "sourceNodeId": "gate",
       "sourceOutput": "onFailure",
       "targetNodeId": "implement",
       "maxRetries": 5
-    },
-    {
-      "id": "edge_6",
-      "sourceNodeId": "review",
-      "sourceOutput": "onSuccess",
-      "targetNodeId": "open_pr"
-    },
-    {
-      "id": "edge_7",
-      "sourceNodeId": "review",
-      "sourceOutput": "onFailure",
-      "targetNodeId": "implement",
-      "maxRetries": 2
     },
     {
       "id": "edge_8",
@@ -288,11 +263,36 @@
       "sourceOutput": "onSuccess",
       "targetNodeId": "wait_ci",
       "maxRetries": 2
+    },
+    {
+      "id": "edge_15",
+      "sourceNodeId": "implement",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "review"
+    },
+    {
+      "id": "edge_16",
+      "sourceNodeId": "review",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "gate"
+    },
+    {
+      "id": "edge_17",
+      "sourceNodeId": "review",
+      "sourceOutput": "onFailure",
+      "targetNodeId": "implement",
+      "maxRetries": 1
+    },
+    {
+      "id": "edge_18",
+      "sourceNodeId": "gate",
+      "sourceOutput": "onSuccess",
+      "targetNodeId": "open_pr"
     }
   ],
   "createdAt": "2026-11-24T19:52:45.005146Z",
-  "updatedAt": "2026-11-26T20:24:48.896453Z",
-  "description": "Implements one GitHub issue end to end: plan (Opus) → codegen → implement (Hydrogen, ponytail) → quality gate → review (Sonnet, code-review + ponytail-review) → PR → wait for CI, with an investigate/fix loop on CI failure. The plan node first stops the run if an open or merged PR already closes the issue. Run input: \"Implement issue #<n>. Base branch: <branch>.\" (the Spec Implementation fan-out sends this per ticket, with base spec/<n>). Never merges: the PR is left for the parent workflow or a human. Start it in a new worktree.",
+  "updatedAt": "2026-11-27T14:40:59.104719Z",
+  "description": "Implements one GitHub issue end to end: plan (Opus) → codegen → implement (Hydrogen, ponytail) → review (Sonnet, code-review + ponytail-review) → quality gate → PR → wait for CI, with an investigate/fix loop on CI failure. Review runs before the gate so a rejected change does not pay for a full gate run; a review rejection goes back to implement at most once. The plan node first stops the run if an open or merged PR already closes the issue. Run input: \"Implement issue #<n>. Base branch: <branch>.\" (the Spec Implementation fan-out sends this per ticket, with base spec/<n>). Never merges: the PR is left for the parent workflow or a human. Start it in a new worktree.",
   "entryNodeId": "plan",
   "schemaVersion": 1
 }

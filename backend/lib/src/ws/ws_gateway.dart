@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/pty_session.dart';
@@ -395,6 +396,10 @@ final class WsGateway {
     // and the pending chunk in the same coalesce window.
     final snapshot = _ptySessions?.getScrollbackSnapshot(key);
     if (snapshot == null) {
+      final ended = _ptySessions?.endedSnapshot(key);
+      if (ended != null && ended.isNotEmpty) {
+        _sendPtySnapshot(connection, key, ended);
+      }
       _sendError(
         connection,
         WsErrorCode.ptySessionNotActive,
@@ -406,21 +411,29 @@ final class WsGateway {
 
     _registry.subscribeToPty(connection.id, key);
     if (snapshot.isNotEmpty) {
-      connection.send(
-        WsEnvelope(
-          type: WsMessageType.ptyOutput,
-          id: _generateId(),
-          payload: PtyOutputPayload(
-            runId: key.runId,
-            nodeId: key.nodeId,
-            attempt: key.attempt,
-            data: base64Encode(snapshot),
-            timestamp: DateTime.now().toUtc(),
-            isSnapshot: true,
-          ).toJson(),
-        ),
-      );
+      _sendPtySnapshot(connection, key, snapshot);
     }
+  }
+
+  void _sendPtySnapshot(
+    WsConnection connection,
+    PtySessionKey key,
+    Uint8List bytes,
+  ) {
+    connection.send(
+      WsEnvelope(
+        type: WsMessageType.ptyOutput,
+        id: _generateId(),
+        payload: PtyOutputPayload(
+          runId: key.runId,
+          nodeId: key.nodeId,
+          attempt: key.attempt,
+          data: base64Encode(bytes),
+          timestamp: DateTime.now().toUtc(),
+          isSnapshot: true,
+        ).toJson(),
+      ),
+    );
   }
 
   void _handlePtyUnsubscribe(WsConnection connection, WsEnvelope envelope) {
