@@ -24,6 +24,7 @@ final class _TestJsonInterpreter extends JsonLineTranscriptInterpreter {
         ),
       ],
       'ignore' => const [],
+      'throw' => throw StateError('boom'),
       _ => null,
     };
   }
@@ -166,6 +167,22 @@ void main() {
             firstOffset: 7,
             lastOffset: 7,
             text: 'hi',
+          ),
+        ],
+      );
+    });
+    test('falls back to plain text when interpretEvent throws', () {
+      final interpreter = _TestJsonInterpreter();
+
+      expect(
+        interpreter.interpret(_entry(offset: 8, chunk: '{"type":"throw"}')),
+        [
+          const TranscriptEntry.plainText(
+            id: '8',
+            firstOffset: 8,
+            lastOffset: 8,
+            stream: RunOutputStream.stdout,
+            text: '{"type":"throw"}',
           ),
         ],
       );

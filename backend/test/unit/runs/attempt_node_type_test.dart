@@ -168,5 +168,57 @@ void main() {
         isNull,
       );
     });
+
+    test(
+      'uses the fallback harness when resume restarts attempt numbers at 1',
+      () {
+        final run = _run();
+        final events = [
+          _event(
+            sequence: 1,
+            type: RunEventType.nodeStarted,
+            payload: const {'attempt': 1},
+          ),
+          _event(
+            sequence: 2,
+            type: RunEventType.nodeFallback,
+            payload: const {
+              'from': {'harness': NodeTypeId.claudeCode},
+              'to': {'harness': NodeTypeId.codex},
+              'reason': 'rate_limit',
+            },
+          ),
+          _event(
+            sequence: 3,
+            type: RunEventType.nodeStarted,
+            payload: const {'attempt': 2},
+          ),
+          _event(
+            sequence: 4,
+            type: RunEventType.nodeStarted,
+            payload: const {'attempt': 1},
+          ),
+        ];
+
+        expect(
+          nodeTypeForAttempt(
+            run: run,
+            events: events,
+            nodeId: 'n1',
+            attempt: 1,
+          ),
+          NodeTypeId.codex,
+        );
+        expect(
+          nodeTypeForAttempt(
+            run: run,
+            events: events,
+            nodeId: 'n1',
+            attempt: 2,
+          ),
+          NodeTypeId.codex,
+        );
+      },
+    );
   });
 }

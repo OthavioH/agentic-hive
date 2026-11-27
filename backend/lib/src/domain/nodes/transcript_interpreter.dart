@@ -71,7 +71,11 @@ abstract base class JsonLineTranscriptInterpreter
       return [plainTextEntry(entry)];
     }
 
-    return interpretEvent(decoded, entry) ?? [plainTextEntry(entry)];
+    try {
+      return interpretEvent(decoded, entry) ?? [plainTextEntry(entry)];
+    } on Object {
+      return [plainTextEntry(entry)];
+    }
   }
 
   /// Interprets a decoded JSON object [event] from [entry].

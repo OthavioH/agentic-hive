@@ -684,8 +684,10 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     final transcripts = _transcripts;
     if (transcripts != null) {
       if (logsResult case Success(:final value)) {
-        return Success(
-          await transcripts.withTranscript(run, value, tailed: tail != null),
+        return await transcripts.withTranscript(
+          run,
+          value,
+          tailed: tail != null,
         );
       }
     }

@@ -23,6 +23,10 @@ String? nodeTypeForAttempt({
   final sorted = events.where((e) => e.nodeId == nodeId).toList()
     ..sort((a, b) => a.sequence.compareTo(b.sequence));
 
+  // shortcut: when a resume restarts attempt numbers at 1, earlier lines in
+  // the shared attempt file get the newest interpreter; upgrade path is unique
+  // attempt numbers across resumes in the engine.
+  String? resolved;
   var startedCount = 0;
   for (final event in sorted) {
     if (event.type == RunEventType.nodeFallback) {
@@ -38,10 +42,10 @@ String? nodeTypeForAttempt({
       final startedAttempt = rawAttempt is int ? rawAttempt : startedCount + 1;
       startedCount++;
       if (startedAttempt == attempt) {
-        return current;
+        resolved = current;
       }
     }
   }
 
-  return current;
+  return resolved ?? current;
 }

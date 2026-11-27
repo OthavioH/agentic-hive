@@ -422,8 +422,9 @@ Future<void> registerDependencies(
         events: di<RunEventRepository>(),
         logStore: di<RunLogStore>(),
         nodes: di<NodeRegistry>(),
+        runEvents: di<DriftRunEventRepository>().events,
       ),
-      dependsOn: [RunRepository, RunEventRepository],
+      dependsOn: [RunRepository, RunEventRepository, DriftRunEventRepository],
       dispose: (service) => service.close(),
     )
     ..registerSingleton<RunAttachmentStore>(

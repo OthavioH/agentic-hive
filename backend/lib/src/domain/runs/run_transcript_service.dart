@@ -29,10 +29,14 @@ final class RunTranscriptService {
     required this._events,
     required this._logStore,
     required this._nodes,
+    Stream<RunEvent>? runEvents,
     this._maxLiveAttempts = 64,
   }) {
     _subscription = _logStore.outputs.listen((payload) {
       _chain = _chain.then((_) => _handleLive(payload));
+    });
+    _eventSubscription = runEvents?.listen((event) {
+      _chain = _chain.then((_) => _handleRunEvent(event));
     });
   }
 
@@ -51,6 +55,7 @@ final class RunTranscriptService {
       <_AttemptKey, _LiveAttemptState>{};
 
   late final StreamSubscription<RunOutputPayload> _subscription;
+  StreamSubscription<RunEvent>? _eventSubscription;
   Future<void> _chain = Future<void>.value();
 
   /// Broadcast stream of live output frames enriched with `transcript` and
@@ -63,12 +68,16 @@ final class RunTranscriptService {
   /// `response.offset` so stateful interpreters preserve original entry ids,
   /// and only entries whose `lastOffset` falls inside the tail window are
   /// returned.
-  Future<RunNodeLogsResponse> withTranscript(
+  Future<Result<RunNodeLogsResponse>> withTranscript(
     Run run,
     RunNodeLogsResponse response, {
     required bool tailed,
   }) async {
-    final raw = await _readFullPrefixIfTailed(response, tailed: tailed);
+    final rawResult = await _readFullPrefixIfTailed(response, tailed: tailed);
+    if (rawResult case FailureResult<List<RunLogEntry>>(:final failure)) {
+      return FailureResult(failure);
+    }
+    final raw = (rawResult as Success<List<RunLogEntry>>).value;
     final interpreter = await _interpreterFor(
       run,
       response.nodeId,
@@ -88,37 +97,54 @@ final class RunTranscriptService {
           .toList(growable: false);
     }
 
-    final rawLogTruncated = raw.any(_isTruncationMarkerEntry);
-    return response.copyWith(
-      transcript: transcript,
-      rawLogTruncated: rawLogTruncated,
+    final rawLogTruncated = raw.any(_isTruncationMarker);
+    return Success(
+      response.copyWith(
+        transcript: transcript,
+        rawLogTruncated: rawLogTruncated,
+      ),
     );
   }
 
-  /// Cancels the raw log subscription, drains pending live frames, and closes
-  /// [outputs].
+  /// Cancels subscriptions, drains pending live frames, and closes [outputs].
   Future<void> close() async {
     await _subscription.cancel();
+    await _eventSubscription?.cancel();
     await _chain;
     await _controller.close();
   }
 
-  Future<List<RunLogEntry>> _readFullPrefixIfTailed(
+  Future<Result<List<RunLogEntry>>> _readFullPrefixIfTailed(
     RunNodeLogsResponse response, {
     required bool tailed,
   }) async {
-    if (!tailed) return response.entries;
+    if (!tailed) return Success(response.entries);
     final fullResult = await _logStore.readLogs(
       runId: response.runId,
       nodeId: response.nodeId,
       attempt: response.attempt,
     );
-    if (fullResult case Success(:final value)) {
-      return value.entries
-          .where((entry) => entry.offset <= response.offset)
-          .toList(growable: false);
+    switch (fullResult) {
+      case Success(:final value):
+        return Success(
+          value.entries
+              .where((entry) => entry.offset <= response.offset)
+              .toList(growable: false),
+        );
+      case FailureResult(:final failure):
+        _log.warning(
+          LogEvent(
+            'run_transcript.tail_reread_failed',
+            fields: {
+              'runId': response.runId,
+              'nodeId': response.nodeId,
+              'attempt': response.attempt,
+              'failure': '${failure.runtimeType}',
+            },
+          ),
+        );
+        return FailureResult(failure);
     }
-    return response.entries;
   }
 
   Future<TranscriptInterpreter> _interpreterFor(
@@ -175,6 +201,19 @@ final class RunTranscriptService {
     }
   }
 
+  void _handleRunEvent(RunEvent event) {
+    final nodeId = event.nodeId;
+    if (event.type != RunEventType.nodeStarted || nodeId == null) return;
+    final rawAttempt = event.payload['attempt'];
+    if (rawAttempt is int) {
+      _liveStates.remove((event.runId, nodeId, rawAttempt));
+    } else {
+      _liveStates.removeWhere(
+        (key, _) => key.$1 == event.runId && key.$2 == nodeId,
+      );
+    }
+  }
+
   Future<void> _handleLive(RunOutputPayload payload) async {
     if (_controller.isClosed) return;
     try {
@@ -191,21 +230,20 @@ final class RunTranscriptService {
         return;
       }
 
-      final entries = state.interpreter.interpret(
-        RunLogEntry(
-          stream: payload.stream,
-          chunk: payload.chunk,
-          timestamp: payload.timestamp,
-          offset: payload.offset,
-        ),
+      final entry = RunLogEntry(
+        stream: payload.stream,
+        chunk: payload.chunk,
+        timestamp: payload.timestamp,
+        offset: payload.offset,
       );
-      if (_isTruncationMarkerPayload(payload)) {
+      final entries = state.interpreter.interpret(entry);
+      if (_isTruncationMarker(entry)) {
         state.capped = true;
       }
       _controller.add(
         payload.copyWith(transcript: entries, rawLogTruncated: state.capped),
       );
-    } on Object {
+    } on Object catch (error) {
       _log.warning(
         LogEvent(
           'run_transcript.live_failed',
@@ -213,6 +251,7 @@ final class RunTranscriptService {
             'runId': payload.runId,
             'nodeId': payload.nodeId,
             'attempt': payload.attempt,
+            'errorType': '${error.runtimeType}',
           },
         ),
       );
@@ -242,37 +281,50 @@ final class RunTranscriptService {
     }
 
     var capped = false;
+    var cacheState = true;
     if (currentOffset > 1) {
       final historyResult = await _logStore.readLogs(
         runId: runId,
         nodeId: nodeId,
         attempt: attempt,
       );
-      if (historyResult case Success(:final value)) {
-        for (final entry in value.entries) {
-          if (entry.offset >= currentOffset) break;
-          if (_isTruncationMarkerEntry(entry)) {
-            capped = true;
-            break;
+      switch (historyResult) {
+        case Success(:final value):
+          for (final entry in value.entries) {
+            if (entry.offset >= currentOffset) break;
+            if (_isTruncationMarker(entry)) {
+              capped = true;
+              break;
+            }
+            interpreter.interpret(entry);
           }
-          interpreter.interpret(entry);
-        }
+        case FailureResult(:final failure):
+          cacheState = false;
+          _log.warning(
+            LogEvent(
+              'run_transcript.live_prime_failed',
+              fields: {
+                'runId': runId,
+                'nodeId': nodeId,
+                'attempt': attempt,
+                'failure': '${failure.runtimeType}',
+              },
+            ),
+          );
       }
     }
 
     final state = _LiveAttemptState(interpreter: interpreter, capped: capped);
-    _liveStates[key] = state;
-    while (_liveStates.length > _maxLiveAttempts) {
-      _liveStates.remove(_liveStates.keys.first);
+    if (cacheState) {
+      _liveStates[key] = state;
+      while (_liveStates.length > _maxLiveAttempts) {
+        _liveStates.remove(_liveStates.keys.first);
+      }
     }
     return state;
   }
 
-  static bool _isTruncationMarkerEntry(RunLogEntry entry) =>
+  static bool _isTruncationMarker(RunLogEntry entry) =>
       entry.stream == RunOutputStream.stderr &&
       entry.chunk == RunLogStore.truncationMarkerChunk;
-
-  static bool _isTruncationMarkerPayload(RunOutputPayload payload) =>
-      payload.stream == RunOutputStream.stderr &&
-      payload.chunk == RunLogStore.truncationMarkerChunk;
 }
