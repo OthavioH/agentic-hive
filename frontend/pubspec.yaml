@@ -1,6 +1,6 @@
 name: agentic_hive_frontend
 description: Agentic Hive Flutter desktop application.
-version: 0.4.0
+version: 0.3.1
 publish_to: none
 resolution: workspace
 
