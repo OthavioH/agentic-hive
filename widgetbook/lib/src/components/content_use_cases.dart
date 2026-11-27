@@ -350,6 +350,68 @@ WidgetbookComponent masterDetailComponent() {
   );
 }
 
+/// `HiveSplitter`: horizontal and vertical orientations across interaction
+/// states, plus near-minimum clamping.
+WidgetbookComponent splitterComponent() {
+  Widget pane(BuildContext context, String label) => HiveInsetPanel(
+    child: Align(
+      alignment: Alignment.topLeft,
+      child: Text(
+        label,
+        style: context.hiveTypography.titleSmall.copyWith(
+          color: context.hiveColors.onSurface,
+        ),
+      ),
+    ),
+  );
+
+  const orientations = <(String, Axis)>[
+    ('Side by side', Axis.horizontal),
+    ('Stacked', Axis.vertical),
+  ];
+
+  return WidgetbookComponent(
+    name: 'HiveSplitter',
+    useCases: <WidgetbookUseCase>[
+      for (final orientation in orientations)
+        for (final state in PreviewState.values)
+          if (!state.isDisabled)
+            WidgetbookUseCase(
+              name: '${orientation.$1} · ${state.label}',
+              builder: (context) => _Page(
+                child: StatesPreview(
+                  states: state.states,
+                  builder: (controller) => HiveSplitter(
+                    statesController: controller,
+                    axis: orientation.$2,
+                    initialPosition: 0.6,
+                    semanticLabel: 'Resize graph and inspector',
+                    first: pane(context, 'Graph'),
+                    second: pane(context, 'Inspector'),
+                  ),
+                ),
+              ),
+            ),
+      WidgetbookUseCase(
+        name: 'Near minimums',
+        builder: (context) => _Page(
+          child: Center(
+            child: SizedBox(
+              width: context.hiveSpacing.space8 * 9,
+              child: HiveSplitter(
+                initialPosition: 0.95,
+                semanticLabel: 'Resize graph and inspector',
+                first: pane(context, 'Graph'),
+                second: pane(context, 'Inspector'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
 class _Page extends StatelessWidget {
   const new({required this.child});
 

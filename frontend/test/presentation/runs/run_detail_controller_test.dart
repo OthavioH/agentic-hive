@@ -282,12 +282,13 @@ void main() {
             nodeId: 'node-1',
             attempt: 1,
             stream: RunOutputStream.stdout,
-            chunk: 'building...\n',
+            chunk: 'building...',
             timestamp: now,
           ).toJson(),
         ),
       );
       await Future<void>.delayed(Duration.zero);
+      expect(notifier.logController.lines, hasLength(1));
       expect(
         notifier.logController.lines.map((l) => l.text),
         contains('building...'),
@@ -417,7 +418,7 @@ void main() {
               nodeId: 'node-1',
               attempt: 1,
               stream: RunOutputStream.stdout,
-              chunk: 'line-1\n',
+              chunk: 'line-1',
               timestamp: now,
               offset: 1,
             ).toJson(),
@@ -432,7 +433,7 @@ void main() {
               nodeId: 'node-1',
               attempt: 1,
               stream: RunOutputStream.stdout,
-              chunk: 'line-3\n',
+              chunk: 'line-3',
               timestamp: now,
               offset: 3,
             ).toJson(),
@@ -450,13 +451,13 @@ void main() {
           entries: <RunLogEntry>[
             RunLogEntry(
               stream: RunOutputStream.stdout,
-              chunk: 'line-1\n',
+              chunk: 'line-1',
               timestamp: now,
               offset: 1,
             ),
             RunLogEntry(
               stream: RunOutputStream.stdout,
-              chunk: 'line-2\n',
+              chunk: 'line-2',
               timestamp: now,
               offset: 2,
             ),
@@ -490,7 +491,7 @@ void main() {
             nodeId: 'node-1',
             attempt: 2,
             stream: RunOutputStream.stdout,
-            chunk: 'retry-line-1\n',
+            chunk: 'retry-line-1',
             timestamp: now,
             offset: 1,
           ).toJson(),
@@ -573,7 +574,7 @@ void main() {
                 entries: <RunLogEntry>[
                   RunLogEntry(
                     stream: RunOutputStream.stdout,
-                    chunk: 'initial\n',
+                    chunk: 'initial',
                     timestamp: now,
                     offset: 1,
                   ),
@@ -591,13 +592,13 @@ void main() {
               entries: <RunLogEntry>[
                 RunLogEntry(
                   stream: RunOutputStream.stdout,
-                  chunk: 'initial\n',
+                  chunk: 'initial',
                   timestamp: now,
                   offset: 1,
                 ),
                 RunLogEntry(
                   stream: RunOutputStream.stdout,
-                  chunk: 'missed-while-offline\n',
+                  chunk: 'missed-while-offline',
                   timestamp: now,
                   offset: 2,
                 ),
@@ -655,6 +656,348 @@ void main() {
         'missed-while-offline',
       ]);
     });
+
+    test('renders each raw log entry as one line (history, live, interleaved '
+        'stdout/stderr, partial final line)', () async {
+      final now = DateTime.utc(2026, 11, 21, 4, 30);
+      final ws = _FakeWsSession();
+      addTearDown(ws.close);
+
+      final customRepo = _LiveFakeRunRepository(now: now)
+        ..onGetNodeLogs = (id, nodeId, {attempt, tail}) async => Success(
+          RunNodeLogsResponse(
+            runId: id,
+            nodeId: nodeId,
+            attempt: 1,
+            availableAttempts: const <int>[1],
+            offset: 5,
+            entries: <RunLogEntry>[
+              RunLogEntry(
+                stream: RunOutputStream.stdout,
+                chunk: 'a',
+                timestamp: now,
+                offset: 1,
+              ),
+              RunLogEntry(
+                stream: RunOutputStream.stdout,
+                chunk: 'b',
+                timestamp: now,
+                offset: 2,
+              ),
+              RunLogEntry(
+                stream: RunOutputStream.stderr,
+                chunk: 'err-1',
+                timestamp: now,
+                offset: 3,
+              ),
+              RunLogEntry(
+                stream: RunOutputStream.stdout,
+                chunk: 'c',
+                timestamp: now,
+                offset: 4,
+              ),
+              RunLogEntry(
+                stream: RunOutputStream.stdout,
+                chunk: '',
+                timestamp: now,
+                offset: 5,
+              ),
+            ],
+          ),
+        );
+
+      final container = ProviderContainer.test(
+        overrides: [
+          runRepositoryProvider.overrideWithValue(customRepo),
+          backendWebSocketSessionProvider.overrideWithValue(ws),
+          backendWsMessagesProvider.overrideWith((ref) => ws.messages),
+        ],
+      );
+      final sub = container.listen(
+        runDetailControllerProvider('run-lines'),
+        (_, _) {},
+      );
+      addTearDown(sub.close);
+
+      await container.read(runDetailControllerProvider('run-lines').future);
+      await Future<void>.delayed(Duration.zero);
+
+      ws
+        ..emit(
+          WsEnvelope(
+            id: 'ws-d',
+            type: WsMessageType.runOutput,
+            payload: RunOutputPayload(
+              runId: 'run-lines',
+              nodeId: 'node-1',
+              attempt: 1,
+              stream: RunOutputStream.stdout,
+              chunk: 'd',
+              timestamp: now,
+              offset: 6,
+            ).toJson(),
+          ),
+        )
+        ..emit(
+          WsEnvelope(
+            id: 'ws-err-2',
+            type: WsMessageType.runOutput,
+            payload: RunOutputPayload(
+              runId: 'run-lines',
+              nodeId: 'node-1',
+              attempt: 1,
+              stream: RunOutputStream.stderr,
+              chunk: 'err-2',
+              timestamp: now,
+              offset: 7,
+            ).toJson(),
+          ),
+        )
+        ..emit(
+          WsEnvelope(
+            id: 'ws-partial',
+            type: WsMessageType.runOutput,
+            payload: RunOutputPayload(
+              runId: 'run-lines',
+              nodeId: 'node-1',
+              attempt: 1,
+              stream: RunOutputStream.stdout,
+              chunk: 'partial tail',
+              timestamp: now,
+              offset: 8,
+            ).toJson(),
+          ),
+        );
+      await Future<void>.delayed(Duration.zero);
+
+      final notifier = container.read(
+        runDetailControllerProvider('run-lines').notifier,
+      );
+      expect(notifier.logController.lines, const <HiveLogLine>[
+        HiveLogLine('a'),
+        HiveLogLine('b'),
+        HiveLogLine('err-1', stream: HiveLogStream.stderr),
+        HiveLogLine('c'),
+        HiveLogLine(''),
+        HiveLogLine('d'),
+        HiveLogLine('err-2', stream: HiveLogStream.stderr),
+        HiveLogLine('partial tail'),
+      ]);
+    });
+
+    test('maxLogLines caps real lines', () async {
+      final now = DateTime.utc(2026, 11, 21, 4, 30);
+      final ws = _FakeWsSession();
+      addTearDown(ws.close);
+
+      const total = RunDetailController.maxLogLines + 10;
+      final customRepo = _LiveFakeRunRepository(now: now)
+        ..onGetNodeLogs = (id, nodeId, {attempt, tail}) async => Success(
+          RunNodeLogsResponse(
+            runId: id,
+            nodeId: nodeId,
+            attempt: 1,
+            availableAttempts: const <int>[1],
+            offset: total,
+            entries: List<RunLogEntry>.generate(
+              total,
+              (i) => RunLogEntry(
+                stream: RunOutputStream.stdout,
+                chunk: 'line-$i',
+                timestamp: now,
+                offset: i + 1,
+              ),
+            ),
+          ),
+        );
+
+      final container = ProviderContainer.test(
+        overrides: [
+          runRepositoryProvider.overrideWithValue(customRepo),
+          backendWebSocketSessionProvider.overrideWithValue(ws),
+          backendWsMessagesProvider.overrideWith((ref) => ws.messages),
+        ],
+      );
+      final sub = container.listen(
+        runDetailControllerProvider('run-cap'),
+        (_, _) {},
+      );
+      addTearDown(sub.close);
+
+      await container.read(runDetailControllerProvider('run-cap').future);
+      await Future<void>.delayed(Duration.zero);
+
+      final notifier = container.read(
+        runDetailControllerProvider('run-cap').notifier,
+      );
+      expect(notifier.logController.length, RunDetailController.maxLogLines);
+      expect(notifier.logController.lines.first.text, 'line-10');
+    });
+  });
+
+  group('RunDetailController transcript', () {
+    test(
+      'merges history, live replace-by-id, reconnect dedup, and attempt switch',
+      () async {
+        final now = DateTime.utc(2026, 11, 21, 4, 30);
+        final ws = _FakeWsSession();
+        addTearDown(ws.close);
+
+        var failLogs = false;
+        final repo = _LiveFakeRunRepository(now: now)
+          ..onGetNodeLogs = (id, nodeId, {attempt, tail}) async {
+            if (failLogs) {
+              return const FailureResult(NetworkFailure('offline'));
+            }
+            if ((attempt ?? 1) == 2) {
+              return Success(
+                RunNodeLogsResponse(
+                  runId: id,
+                  nodeId: nodeId,
+                  attempt: 2,
+                  availableAttempts: const <int>[1, 2],
+                  offset: 1,
+                  entries: <RunLogEntry>[
+                    RunLogEntry(
+                      stream: RunOutputStream.stdout,
+                      chunk: 'attempt-2-line',
+                      timestamp: now,
+                      offset: 1,
+                    ),
+                  ],
+                  transcript: const <TranscriptEntry>[
+                    TranscriptEntry.agentMessage(
+                      id: 'a2-m1',
+                      firstOffset: 1,
+                      lastOffset: 1,
+                      text: 'Attempt 2 message',
+                    ),
+                  ],
+                ),
+              );
+            }
+            return Success(
+              RunNodeLogsResponse(
+                runId: id,
+                nodeId: nodeId,
+                attempt: 1,
+                availableAttempts: const <int>[1, 2],
+                offset: 1,
+                entries: <RunLogEntry>[
+                  RunLogEntry(
+                    stream: RunOutputStream.stdout,
+                    chunk: 'line-1',
+                    timestamp: now,
+                    offset: 1,
+                  ),
+                ],
+                transcript: const <TranscriptEntry>[
+                  TranscriptEntry.agentMessage(
+                    id: 'm-1',
+                    firstOffset: 1,
+                    lastOffset: 1,
+                    text: 'Hello',
+                  ),
+                ],
+              ),
+            );
+          };
+
+        final container = ProviderContainer.test(
+          overrides: [
+            runRepositoryProvider.overrideWithValue(repo),
+            backendWebSocketSessionProvider.overrideWithValue(ws),
+            backendWsMessagesProvider.overrideWith((ref) => ws.messages),
+          ],
+        );
+        final sub = container.listen(
+          runDetailControllerProvider('run-tx'),
+          (_, _) {},
+        );
+        addTearDown(sub.close);
+
+        var state = await container.read(
+          runDetailControllerProvider('run-tx').future,
+        );
+        expect(state.transcriptEntries, hasLength(1));
+        expect(
+          (state.transcriptEntries.first as TranscriptAgentMessage).text,
+          'Hello',
+        );
+
+        // Live frame replaces m-1 in place and adds e-2.
+        ws.emit(
+          WsEnvelope(
+            id: 'ws-tx-1',
+            type: WsMessageType.runOutput,
+            payload: RunOutputPayload(
+              runId: 'run-tx',
+              nodeId: 'node-1',
+              attempt: 1,
+              stream: RunOutputStream.stdout,
+              chunk: 'delta',
+              timestamp: now,
+              offset: 2,
+              transcript: const <TranscriptEntry>[
+                TranscriptEntry.agentMessage(
+                  id: 'm-1',
+                  firstOffset: 1,
+                  lastOffset: 2,
+                  text: 'Hello world',
+                ),
+                TranscriptEntry.error(
+                  id: 'e-2',
+                  firstOffset: 2,
+                  lastOffset: 2,
+                  message: 'Oops',
+                ),
+              ],
+              rawLogTruncated: true,
+            ).toJson(),
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        state = container.read(runDetailControllerProvider('run-tx')).value!;
+        expect(state.transcriptEntries, hasLength(2));
+        expect(
+          (state.transcriptEntries.first as TranscriptAgentMessage).text,
+          'Hello world',
+        );
+        expect((state.transcriptEntries[1] as TranscriptError).message, 'Oops');
+        expect(state.rawLogTruncated, isTrue);
+
+        // Switching to attempt 2 resets transcript and loads attempt 2.
+        await container
+            .read(runDetailControllerProvider('run-tx').notifier)
+            .selectAttempt(2);
+        state = container.read(runDetailControllerProvider('run-tx')).value!;
+        expect(state.transcriptEntries, hasLength(1));
+        expect(
+          (state.transcriptEntries.first as TranscriptAgentMessage).text,
+          'Attempt 2 message',
+        );
+        expect(state.rawLogTruncated, isFalse);
+
+        // Switching back to attempt 1 with failure sets logsFailure;
+        // retry recovers.
+        failLogs = true;
+        await container
+            .read(runDetailControllerProvider('run-tx').notifier)
+            .selectAttempt(1);
+        state = container.read(runDetailControllerProvider('run-tx')).value!;
+        expect(state.logsFailure, isA<NetworkFailure>());
+        expect(state.transcriptEntries, isEmpty);
+
+        failLogs = false;
+        await container
+            .read(runDetailControllerProvider('run-tx').notifier)
+            .retryLoadLogs();
+        state = container.read(runDetailControllerProvider('run-tx')).value!;
+        expect(state.logsFailure, isNull);
+        expect(state.transcriptEntries, hasLength(1));
+      },
+    );
   });
 
   group('RunDetailState.ranOnByNodeId', () {

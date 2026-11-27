@@ -49,6 +49,8 @@ void main() {
       ),
       workspace: FakeWorkspaceRepository(),
     );
+    await tester.tap(find.text('Run details'));
+    await tester.pumpAndSettle();
     expect(find.text('Worktree'), findsOneWidget);
     expect(find.text('/data/worktrees/run-1'), findsOneWidget);
     expect(find.text('hive/run-1'), findsOneWidget);
@@ -60,6 +62,8 @@ void main() {
       runs: FakeRunRepository(),
       workspace: FakeWorkspaceRepository(),
     );
+    await tester.tap(find.text('Run details'));
+    await tester.pumpAndSettle();
     expect(find.text('Direct'), findsOneWidget);
     expect(find.byKey(const Key('run_detail_worktree_path')), findsNothing);
     expect(find.byKey(const Key('run_detail_worktree_branch')), findsNothing);

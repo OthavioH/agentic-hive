@@ -256,8 +256,10 @@ void main() {
     expect(find.byKey(const Key('run_detail_cancel_button')), findsOneWidget);
     expect(find.byKey(const Key('run_detail_resume_button')), findsNothing);
 
-    // Output tab starts on active node-1 with initial log line
+    // Transcript tab starts on active node-1; switch to Raw for log lines
     expect(find.byKey(const Key('run_output_following_badge')), findsOneWidget);
+    await tester.tap(find.text('Raw'));
+    await tester.pumpAndSettle();
     expect(find.text('initial line'), findsOneWidget);
 
     // Live run.output appends to node-1
@@ -270,13 +272,48 @@ void main() {
           nodeId: 'node-1',
           attempt: 1,
           stream: RunOutputStream.stdout,
-          chunk: 'streamed line\n',
+          chunk: 'streamed line',
           timestamp: now,
         ).toJson(),
       ),
     );
     await tester.pumpAndSettle();
     expect(find.text('streamed line'), findsOneWidget);
+
+    ws
+      ..emit(
+        WsEnvelope(
+          id: 'ws-1b',
+          type: WsMessageType.runOutput,
+          payload: RunOutputPayload(
+            runId: 'run-1',
+            nodeId: 'node-1',
+            attempt: 1,
+            stream: RunOutputStream.stdout,
+            chunk: 'second streamed line',
+            timestamp: now,
+          ).toJson(),
+        ),
+      )
+      ..emit(
+        WsEnvelope(
+          id: 'ws-1c',
+          type: WsMessageType.runOutput,
+          payload: RunOutputPayload(
+            runId: 'run-1',
+            nodeId: 'node-1',
+            attempt: 1,
+            stream: RunOutputStream.stderr,
+            chunk: 'stderr line',
+            timestamp: now,
+          ).toJson(),
+        ),
+      );
+    await tester.pumpAndSettle();
+    expect(find.text('streamed line'), findsOneWidget);
+    expect(find.text('second streamed line'), findsOneWidget);
+    expect(find.text('stderr line'), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('stderr-marker')), findsOneWidget);
 
     // Manual node selection pauses follow-active and loads node-2 logs
     await tester.tap(find.byKey(const Key('run_graph_node_node-2')));
@@ -387,6 +424,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Run input'));
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('run_detail_input_card')), findsOneWidget);
     final toggle = find.byKey(const Key('run_detail_input_toggle'));
     expect(toggle, findsOneWidget);
@@ -448,6 +487,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Run input'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('run_detail_input_copy')));
     await tester.pump();
 
@@ -488,6 +529,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Run input'));
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('run_detail_input_card')), findsOneWidget);
     expect(find.byKey(const Key('run_detail_input_copy')), findsNothing);
     expect(find.text('x.png · 1.2 KB'), findsOneWidget);
@@ -535,6 +578,8 @@ void main() {
         );
         await tester.pumpAndSettle();
 
+        await tester.tap(find.text('Run input'));
+        await tester.pumpAndSettle();
         expect(find.text('x.png · 1.2 KB · removed'), findsOneWidget);
         final chip = tester.widget<HiveReadOnlyChip>(
           find.byKey(const Key('run_detail_attachment_0')),
@@ -648,8 +693,8 @@ final class _LiveMonitorRunRepository extends _FakeRunRepository {
         RunLogEntry(
           stream: RunOutputStream.stdout,
           chunk: nodeId == 'node-1'
-              ? 'initial line\n'
-              : 'node-2 attempt ${attempt ?? 1}\n',
+              ? 'initial line'
+              : 'node-2 attempt ${attempt ?? 1}',
           timestamp: now,
         ),
       ],
