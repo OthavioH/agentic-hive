@@ -179,13 +179,20 @@ final class _AntigravityTranscriptInterpreter
     }
 
     final stepKey = '$conversationId:$stepIndex';
-    final first = _stepFirst.putIfAbsent(stepKey, () => entry);
 
     if (stepType == 'agent_response') {
+      final state = rawStep['state'];
+      if (state != 'ACTIVE' && state != 'DONE') {
+        return null;
+      }
       final delta = rawStep['text_delta'];
-      if (delta is! String) {
+      if (delta == null) {
         return const [];
       }
+      if (delta is! String) {
+        return null;
+      }
+      final first = _stepFirst.putIfAbsent(stepKey, () => entry);
       final buffer = _stepText.putIfAbsent(stepKey, StringBuffer.new)
         ..write(delta);
       final text = buffer.toString();
@@ -203,13 +210,7 @@ final class _AntigravityTranscriptInterpreter
     }
 
     if (stepType == 'tool' || stepType == 'subagent') {
-      return _interpretToolStep(
-        rawStep,
-        stepType! as String,
-        stepKey,
-        first,
-        entry,
-      );
+      return _interpretToolStep(rawStep, stepType! as String, stepKey, entry);
     }
 
     return null;
@@ -219,9 +220,13 @@ final class _AntigravityTranscriptInterpreter
     JsonMap step,
     String stepType,
     String stepKey,
-    RunLogEntry first,
     RunLogEntry entry,
   ) {
+    final state = step['state'];
+    if (state != 'ACTIVE' && state != 'DONE' && state != 'ERROR') {
+      return null;
+    }
+    final first = _stepFirst.putIfAbsent(stepKey, () => entry);
     final rawToolInfo = step['tool_info'];
     final toolInfo = rawToolInfo is JsonMap ? rawToolInfo : null;
     final rawSubagentInfo = step['subagent_info'];
@@ -244,19 +249,24 @@ final class _AntigravityTranscriptInterpreter
       callId: stepKey,
     );
 
-    switch (step['state']) {
+    switch (state) {
       case 'ACTIVE':
         return <TranscriptEntry>[callEntry];
       case 'DONE':
         final output = toolInfo?['output'];
+        final encodedOutput = switch (output) {
+          null => null,
+          final String text => text,
+          _ => jsonEncode(output),
+        };
         return <TranscriptEntry>[
           callEntry,
-          if (output is String)
+          if (encodedOutput != null)
             TranscriptEntry.toolResult(
               id: transcriptEntryId(first, 1),
               firstOffset: first.offset,
               lastOffset: entry.offset,
-              output: output,
+              output: encodedOutput,
               callId: stepKey,
             ),
         ];
@@ -295,6 +305,7 @@ final class _AntigravityTranscriptInterpreter
     final usage = rawUsage is JsonMap ? rawUsage : null;
     final rawInputTokens = usage?['input_tokens'];
     final rawOutputTokens = usage?['output_tokens'];
+    final error = rawResult['error'];
     return <TranscriptEntry>[
       TranscriptEntry.finalResult(
         id: transcriptEntryId(entry),
@@ -307,6 +318,13 @@ final class _AntigravityTranscriptInterpreter
         inputTokens: rawInputTokens is int ? rawInputTokens : null,
         outputTokens: rawOutputTokens is int ? rawOutputTokens : null,
       ),
+      if (error is String && error.isNotEmpty)
+        TranscriptEntry.error(
+          id: transcriptEntryId(entry, 1),
+          firstOffset: entry.offset,
+          lastOffset: entry.offset,
+          message: error,
+        ),
     ];
   }
 }

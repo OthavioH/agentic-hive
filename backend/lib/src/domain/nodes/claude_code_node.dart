@@ -186,7 +186,9 @@ final class _ClaudeCodeTranscriptInterpreter
       switch (block['type']) {
         case 'text':
           final text = block['text'];
-          if (text is String && text.isNotEmpty) {
+          if (text is! String) {
+            entries.add(_plainBlock(id, entry, block));
+          } else if (text.isNotEmpty) {
             entries.add(
               isApiError
                   ? TranscriptEntry.error(
@@ -205,7 +207,9 @@ final class _ClaudeCodeTranscriptInterpreter
           }
         case 'thinking':
           final thinking = block['thinking'];
-          if (thinking is String && thinking.trim().isNotEmpty) {
+          if (thinking is! String) {
+            entries.add(_plainBlock(id, entry, block));
+          } else if (thinking.trim().isNotEmpty) {
             entries.add(
               TranscriptEntry.thinking(
                 id: id,

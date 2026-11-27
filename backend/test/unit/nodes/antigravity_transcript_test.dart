@@ -41,6 +41,17 @@ List<RunLogEntry> _loadFixture() =>
         .map((line) => RunLogEntry.fromJson(jsonDecode(line) as JsonMap))
         .toList(growable: false);
 
+RunLogEntry _entry({
+  required int offset,
+  required String chunk,
+  RunOutputStream stream = RunOutputStream.stdout,
+}) => RunLogEntry(
+  stream: stream,
+  chunk: chunk,
+  timestamp: DateTime.utc(2026, 11, 20, 12),
+  offset: offset,
+);
+
 void main() {
   group('AntigravityNode.createTranscriptInterpreter', () {
     test('returns a distinct non-PlainTextTranscriptInterpreter each call', () {
@@ -212,6 +223,244 @@ void main() {
       }
 
       expect(byId.values.toList(growable: false), full);
+    });
+
+    test('preserves unknown/invalid step input without colliding with later valid steps', () {
+      final node = _buildNode();
+      final entries = <RunLogEntry>[
+        _entry(
+          offset: 1,
+          chunk: jsonEncode(<String, Object?>{
+            'event': 'step_update',
+            'step_update': <String, Object?>{
+              'conversation_id': 'c1',
+              'step_index': 1,
+              'step_type': 'agent_response',
+              'state': 'ERROR',
+              'text_delta': 'oops',
+            },
+          }),
+        ),
+        _entry(
+          offset: 2,
+          chunk: jsonEncode(<String, Object?>{
+            'event': 'step_update',
+            'step_update': <String, Object?>{
+              'conversation_id': 'c1',
+              'step_index': 1,
+              'step_type': 'agent_response',
+              'state': 'UNKNOWN_STATE',
+              'text_delta': 'mystery',
+            },
+          }),
+        ),
+        _entry(
+          offset: 3,
+          chunk: jsonEncode(<String, Object?>{
+            'event': 'step_update',
+            'step_update': <String, Object?>{
+              'conversation_id': 'c1',
+              'step_index': 1,
+              'step_type': 'agent_response',
+              'state': 'ACTIVE',
+              'text_delta': 42,
+            },
+          }),
+        ),
+        _entry(
+          offset: 4,
+          chunk: jsonEncode(<String, Object?>{
+            'event': 'step_update',
+            'step_update': <String, Object?>{
+              'conversation_id': 'c1',
+              'step_index': 1,
+              'step_type': 'agent_response',
+              'state': 'ACTIVE',
+              'text_delta': 'Recovered',
+            },
+          }),
+        ),
+        _entry(
+          offset: 5,
+          chunk: jsonEncode(<String, Object?>{
+            'event': 'step_update',
+            'step_update': <String, Object?>{
+              'conversation_id': 'c1',
+              'step_index': 2,
+              'step_type': 'tool',
+              'state': 'WEIRD',
+              'tool_info': <String, Object?>{'name': 'read_file'},
+            },
+          }),
+        ),
+        _entry(
+          offset: 6,
+          chunk: jsonEncode(<String, Object?>{
+            'event': 'step_update',
+            'step_update': <String, Object?>{
+              'conversation_id': 'c1',
+              'step_index': 2,
+              'step_type': 'tool',
+              'state': 'ACTIVE',
+              'tool_info': <String, Object?>{'name': 'read_file'},
+            },
+          }),
+        ),
+      ];
+
+      final transcript = buildTranscript(
+        node.createTranscriptInterpreter(),
+        entries,
+      );
+
+      expect(transcript, <TranscriptEntry>[
+        TranscriptEntry.plainText(
+          id: '1',
+          firstOffset: 1,
+          lastOffset: 1,
+          stream: RunOutputStream.stdout,
+          text: entries[0].chunk,
+        ),
+        TranscriptEntry.plainText(
+          id: '2',
+          firstOffset: 2,
+          lastOffset: 2,
+          stream: RunOutputStream.stdout,
+          text: entries[1].chunk,
+        ),
+        TranscriptEntry.plainText(
+          id: '3',
+          firstOffset: 3,
+          lastOffset: 3,
+          stream: RunOutputStream.stdout,
+          text: entries[2].chunk,
+        ),
+        const TranscriptEntry.agentMessage(
+          id: '4',
+          firstOffset: 4,
+          lastOffset: 4,
+          text: 'Recovered',
+        ),
+        TranscriptEntry.plainText(
+          id: '5',
+          firstOffset: 5,
+          lastOffset: 5,
+          stream: RunOutputStream.stdout,
+          text: entries[4].chunk,
+        ),
+        const TranscriptEntry.toolCall(
+          id: '6',
+          firstOffset: 6,
+          lastOffset: 6,
+          name: 'read_file',
+          callId: 'c1:2',
+        ),
+      ]);
+    });
+
+    test('encodes non-String tool DONE output, falls back to output on ERROR, '
+        'and emits result error', () {
+      final interpreter = _buildNode().createTranscriptInterpreter();
+
+      final nonStringDone = interpreter.interpret(
+        _entry(
+          offset: 1,
+          chunk: jsonEncode(<String, Object?>{
+            'event': 'step_update',
+            'step_update': <String, Object?>{
+              'conversation_id': 'c1',
+              'step_index': 1,
+              'step_type': 'tool',
+              'state': 'DONE',
+              'tool_info': <String, Object?>{
+                'name': 'list_dir',
+                'output': <String, Object?>{'count': 2},
+              },
+            },
+          }),
+        ),
+      );
+      expect(nonStringDone, const <TranscriptEntry>[
+        TranscriptEntry.toolCall(
+          id: '1',
+          firstOffset: 1,
+          lastOffset: 1,
+          name: 'list_dir',
+          callId: 'c1:1',
+        ),
+        TranscriptEntry.toolResult(
+          id: '1.1',
+          firstOffset: 1,
+          lastOffset: 1,
+          output: '{"count":2}',
+          callId: 'c1:1',
+        ),
+      ]);
+
+      final errorFallback = interpreter.interpret(
+        _entry(
+          offset: 2,
+          chunk: jsonEncode(<String, Object?>{
+            'event': 'step_update',
+            'step_update': <String, Object?>{
+              'conversation_id': 'c1',
+              'step_index': 2,
+              'step_type': 'tool',
+              'state': 'ERROR',
+              'tool_info': <String, Object?>{
+                'name': 'run_cmd',
+                'output': 'command failed',
+              },
+            },
+          }),
+        ),
+      );
+      expect(errorFallback, const <TranscriptEntry>[
+        TranscriptEntry.toolCall(
+          id: '2',
+          firstOffset: 2,
+          lastOffset: 2,
+          name: 'run_cmd',
+          callId: 'c1:2',
+        ),
+        TranscriptEntry.toolResult(
+          id: '2.1',
+          firstOffset: 2,
+          lastOffset: 2,
+          output: 'command failed',
+          callId: 'c1:2',
+          isError: true,
+        ),
+      ]);
+
+      final failedResult = interpreter.interpret(
+        _entry(
+          offset: 3,
+          chunk: jsonEncode(<String, Object?>{
+            'event': 'result',
+            'result': <String, Object?>{
+              'status': 'ERROR',
+              'error': 'Quota exceeded',
+              'duration_seconds': 1.2,
+            },
+          }),
+        ),
+      );
+      expect(failedResult, const <TranscriptEntry>[
+        TranscriptEntry.finalResult(
+          id: '3',
+          firstOffset: 3,
+          lastOffset: 3,
+          status: 'ERROR',
+          durationMs: 1200,
+        ),
+        TranscriptEntry.error(
+          id: '3.1',
+          firstOffset: 3,
+          lastOffset: 3,
+          message: 'Quota exceeded',
+        ),
+      ]);
     });
   });
 }

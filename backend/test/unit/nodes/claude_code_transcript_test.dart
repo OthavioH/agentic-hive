@@ -249,5 +249,68 @@ void main() {
 
       expect(byId.values.toList(growable: false), full);
     });
+
+    test('preserves non-String text/thinking blocks as plain text and '
+        'handles error result fallback to result text', () {
+      final interpreter = _buildNode().createTranscriptInterpreter();
+
+      final nonStringBlocks = interpreter.interpret(
+        _entry(
+          offset: 1,
+          chunk: jsonEncode(<String, Object?>{
+            'type': 'assistant',
+            'message': <String, Object?>{
+              'role': 'assistant',
+              'content': <Object?>[
+                <String, Object?>{'type': 'text', 'text': 123},
+                <String, Object?>{'type': 'thinking', 'thinking': null},
+              ],
+            },
+          }),
+        ),
+      );
+      expect(nonStringBlocks, const <TranscriptEntry>[
+        TranscriptEntry.plainText(
+          id: '1',
+          firstOffset: 1,
+          lastOffset: 1,
+          stream: RunOutputStream.stdout,
+          text: '{"type":"text","text":123}',
+        ),
+        TranscriptEntry.plainText(
+          id: '1.1',
+          firstOffset: 1,
+          lastOffset: 1,
+          stream: RunOutputStream.stdout,
+          text: '{"type":"thinking","thinking":null}',
+        ),
+      ]);
+
+      final resultTextError = interpreter.interpret(
+        _entry(
+          offset: 2,
+          chunk: jsonEncode(<String, Object?>{
+            'type': 'result',
+            'subtype': 'error_during_execution',
+            'is_error': true,
+            'result': 'Execution crashed',
+          }),
+        ),
+      );
+      expect(resultTextError, const <TranscriptEntry>[
+        TranscriptEntry.finalResult(
+          id: '2',
+          firstOffset: 2,
+          lastOffset: 2,
+          status: 'error_during_execution',
+        ),
+        TranscriptEntry.error(
+          id: '2.1',
+          firstOffset: 2,
+          lastOffset: 2,
+          message: 'Execution crashed',
+        ),
+      ]);
+    });
   });
 }
