@@ -1,9 +1,8 @@
 import 'dart:collection';
 
-import 'package:design_system/src/components/hive_button.dart';
-import 'package:design_system/src/icons/hive_icons.dart';
+import 'package:design_system/src/foundation/hive_follow_bottom.dart';
+import 'package:design_system/src/foundation/hive_log_line_row.dart';
 import 'package:design_system/src/tokens/hive_tokens_context.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// The output stream a [HiveLogLine] came from.
@@ -163,81 +162,30 @@ class HiveLogStreamViewer extends StatefulWidget {
 }
 
 /// State of a [HiveLogStreamViewer]; exposes whether it follows new lines.
-class HiveLogStreamViewerState extends State<HiveLogStreamViewer> {
-  final ScrollController _scroll = ScrollController();
-  bool _following = true;
-  bool _scrollScheduled = false;
-
-  /// Whether the viewer is pinned to the bottom and follows new lines.
-  bool get isFollowing => _following;
-
+class HiveLogStreamViewerState extends State<HiveLogStreamViewer>
+    with HiveFollowBottomMixin<HiveLogStreamViewer> {
   @override
   void initState() {
     super.initState();
-    widget.controller.addListener(_onLines);
-    _scroll.addListener(_onScroll);
-    _scheduleScrollToEnd();
+    widget.controller.addListener(onFollowContentChanged);
+    initFollowBottom();
   }
 
   @override
   void didUpdateWidget(HiveLogStreamViewer oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
-      oldWidget.controller.removeListener(_onLines);
-      widget.controller.addListener(_onLines);
-      _onLines();
+      oldWidget.controller.removeListener(onFollowContentChanged);
+      widget.controller.addListener(onFollowContentChanged);
+      onFollowContentChanged();
     }
   }
 
   @override
   void dispose() {
-    widget.controller.removeListener(_onLines);
-    _scroll.dispose();
+    widget.controller.removeListener(onFollowContentChanged);
+    disposeFollowBottom();
     super.dispose();
-  }
-
-  void _onLines() {
-    setState(() {});
-    if (_following) _scheduleScrollToEnd();
-  }
-
-  /// Follows again only once the user is back within `space1` of the end.
-  void _onScroll() {
-    if (!_scroll.hasClients) return;
-    final position = _scroll.position;
-    final atEnd =
-        position.pixels >=
-        position.maxScrollExtent - context.hiveSpacing.space1;
-    if (atEnd != _following) setState(() => _following = atEnd);
-  }
-
-  void _scheduleScrollToEnd() {
-    if (_scrollScheduled) return;
-    _scrollScheduled = true;
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      _scrollScheduled = false;
-      _scrollToEnd(attemptsLeft: 3);
-    });
-  }
-
-  /// Jumps to the end. Lazily built lines only estimate the scroll extent,
-  /// so the jump repeats after layout until the extent settles.
-  void _scrollToEnd({required int attemptsLeft}) {
-    if (!mounted || !_following || !_scroll.hasClients) return;
-    final position = _scroll.position;
-    if (position.pixels == position.maxScrollExtent) return;
-    position.jumpTo(position.maxScrollExtent);
-    if (attemptsLeft > 1) {
-      SchedulerBinding.instance.addPostFrameCallback(
-        (_) => _scrollToEnd(attemptsLeft: attemptsLeft - 1),
-      );
-    }
-  }
-
-  /// Scrolls to the newest line and resumes following.
-  void jumpToBottom() {
-    setState(() => _following = true);
-    _scrollToEnd(attemptsLeft: 3);
   }
 
   @override
@@ -261,16 +209,20 @@ class HiveLogStreamViewerState extends State<HiveLogStreamViewer> {
       );
     } else {
       body = Scrollbar(
-        controller: _scroll,
+        controller: followScrollController,
         child: SelectionArea(
           child: ListView.builder(
-            controller: _scroll,
+            controller: followScrollController,
             padding: EdgeInsets.symmetric(vertical: spacing.space1),
             itemCount: lines.length,
-            itemBuilder: (context, index) => _LogLineRow(
-              line: lines[index],
-              stderrSemanticLabel: widget.stderrSemanticLabel,
-            ),
+            itemBuilder: (context, index) {
+              final line = lines[index];
+              return HiveLogLineRow(
+                text: line.text,
+                isStderr: line.stream == HiveLogStream.stderr,
+                stderrSemanticLabel: widget.stderrSemanticLabel,
+              );
+            },
           ),
         ),
       );
@@ -291,81 +243,10 @@ class HiveLogStreamViewerState extends State<HiveLogStreamViewer> {
           child: Stack(
             children: <Widget>[
               Positioned.fill(child: body),
-              if (!_following && lines.isNotEmpty)
-                PositionedDirectional(
-                  end: spacing.space2,
-                  bottom: spacing.space2,
-                  child: HiveButton(
-                    label: widget.jumpToBottomLabel,
-                    icon: HiveIcons.scrollToBottom,
-                    variant: HiveButtonVariant.secondary,
-                    size: HiveButtonSize.small,
-                    onPressed: jumpToBottom,
-                  ),
-                ),
+              if (!isFollowing && lines.isNotEmpty)
+                buildJumpToBottomButton(widget.jumpToBottomLabel),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LogLineRow extends StatelessWidget {
-  const new({required this.line, required this.stderrSemanticLabel});
-
-  final HiveLogLine line;
-  final String stderrSemanticLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.hiveColors;
-    final spacing = context.hiveSpacing;
-    final isStderr = line.stream == HiveLogStream.stderr;
-    return Padding(
-      padding: EdgeInsetsDirectional.only(end: spacing.space2),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            // Gutter: `space2` wide, with a `spaceHalf` danger bar for
-            // stderr so the stream reads by shape, not only by color.
-            SizedBox(
-              width: spacing.space2,
-              child: isStderr
-                  ? Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: Padding(
-                        padding: EdgeInsetsDirectional.only(
-                          end: spacing.spaceHalf,
-                        ),
-                        child: SizedBox(
-                          width: spacing.spaceHalf,
-                          child: DecoratedBox(
-                            key: const ValueKey<String>('stderr-marker'),
-                            decoration: BoxDecoration(
-                              color: colors.danger,
-                              borderRadius: context.hiveRadii.pill,
-                            ),
-                            child: const SizedBox.expand(),
-                          ),
-                        ),
-                      ),
-                    )
-                  : null,
-            ),
-            Expanded(
-              child: Text(
-                line.text,
-                semanticsLabel: isStderr
-                    ? '$stderrSemanticLabel: ${line.text}'
-                    : null,
-                style: context.hiveTypography.mono.copyWith(
-                  color: isStderr ? colors.danger : colors.onSurface,
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );

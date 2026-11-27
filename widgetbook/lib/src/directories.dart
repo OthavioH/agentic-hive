@@ -120,6 +120,7 @@ final List<WidgetbookNode> directories = <WidgetbookNode>[
           metricTileComponent(),
           codeBlockComponent(),
           logStreamViewerComponent(),
+          transcriptViewComponent(),
           terminalViewComponent(),
         ],
       ),

@@ -275,6 +275,14 @@ abstract final class HiveIcons {
     HugeIcons.strokeRoundedWifiDisconnected01,
   );
 
+  /// Tool call.
+  static const HiveIconData tool = _HugeGlyph(HugeIcons.strokeRoundedWrench01);
+
+  /// Thinking or reasoning block.
+  static const HiveIconData thinking = _HugeGlyph(
+    HugeIcons.strokeRoundedBrain02,
+  );
+
   // Faces and harness logos.
 
   /// The flat Hive robot: fallback agent face.
@@ -352,6 +360,8 @@ abstract final class HiveIcons {
     'inbox': inbox,
     'connected': connected,
     'disconnected': disconnected,
+    'tool': tool,
+    'thinking': thinking,
   };
 
   /// Every harness logo by name, for galleries.

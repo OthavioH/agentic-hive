@@ -99,6 +99,9 @@ F15 addition (#22): `HiveMetricTile` (`focal` value in `number` inside `space3`,
 #254 addition:
 - `HiveSplitter`: uncontrolled two-pane split (`Axis.horizontal` side by side or `Axis.vertical` stacked); `initialPosition` is the first pane's fraction of the space minus the `space2` gap, and `onChanged` reports the updated fraction (the consumer persists it, the design system never does). `minFirst` / `minSecond` default to `space8 * 4` and are re-applied on every layout so a shrinking container never squeezes a pane below its minimum (splitting proportionally when both cannot fit). The grip pill is `borderStrong` idle -> `onSurfaceMuted` hovered -> `onSurface` pressed/dragging, with a `focusRing` stadium ring when focused. The interactive and slider-semantics band is `space6` (48 px) thick with resize cursors, arrow keys nudging by `space2`, percent slider semantics, no animation, and maximize/restore glyphs reusing `HiveIcons.maximize` / `HiveIcons.restore`.
 
+#260 addition:
+- `HiveTranscriptView` + `HiveTranscriptController` + sealed `HiveTranscriptBlock` (`HiveTranscriptMessage`, `HiveTranscriptThinking`, `HiveTranscriptToolCall`, `HiveTranscriptToolResult`, `HiveTranscriptError`, `HiveTranscriptFinalResult`, `HiveTranscriptPlainText`): lazy `ListView.builder` transcript on `surface1` with `radiusCard`, polymorphic block rendering, in-place `upsert` by id preserving expanded and show-all state, 200-line `hiveTranscriptCutLines` cut with `Show all` / `Show less`, shared internal `HiveFollowBottomMixin` and `HiveLogLineRow` (reused with `HiveLogStreamViewer`), and `HiveIcons.tool` / `HiveIcons.thinking`.
+
 **Desktop platform profile:** Windows, Linux, and macOS; mouse + keyboard first. Every interactive component must have a hover state, a visible keyboard focus indicator, and a semantics label. Support desktop density (sidebar, multi-column, master-detail).
 
 ## Do and Don't
