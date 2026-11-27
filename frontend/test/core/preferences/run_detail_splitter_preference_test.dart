@@ -1,8 +1,27 @@
+import 'dart:io';
+
+import 'package:agentic_hive_frontend/core/backend/platform_paths.dart';
 import 'package:agentic_hive_frontend/core/preferences/run_detail_splitter_preference.dart';
 import 'package:agentic_hive_frontend/core/preferences/run_detail_splitter_preference_controller.dart';
 import 'package:agentic_hive_frontend/core/preferences/run_detail_splitter_preference_store.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
+
+final class _TempPlatformPaths implements PlatformPaths {
+  const new(this._dir);
+
+  final String _dir;
+
+  @override
+  p.Context get context => p.context;
+
+  @override
+  String defaultDataDir() => _dir;
+
+  @override
+  String serverInfoPath() => context.join(_dir, 'server.json');
+}
 
 final class _InMemorySplitterPreferenceStore
     implements RunDetailSplitterPreferenceStore {
@@ -44,8 +63,17 @@ void main() {
 
   group('FileRunDetailSplitterPreferenceStore', () {
     test('loads default when unset and persists saved values', () async {
-      final container = ProviderContainer.test();
-      final store = container.read(runDetailSplitterPreferenceStoreProvider);
+      final dir = Directory.systemTemp.createTempSync(
+        'hive_splitter_pref_test_',
+      );
+      addTearDown(() {
+        if (dir.existsSync()) {
+          dir.deleteSync(recursive: true);
+        }
+      });
+      final store = FileRunDetailSplitterPreferenceStore(
+        _TempPlatformPaths(dir.path),
+      );
 
       expect(await store.load(), const RunDetailSplitterPreference());
 
