@@ -1,5 +1,6 @@
 import 'package:agentic_hive_backend/src/domain/nodes/harness_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/transcript_interpreter.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 /// Gemini CLI headless harness (`gemini -p`).
@@ -119,6 +120,10 @@ final class GeminiCliNode extends HeadlessHarnessNode {
   );
 
   @override
+  TranscriptInterpreter createTranscriptInterpreter() =>
+      _GeminiTranscriptInterpreter();
+
+  @override
   HarnessOutputAnalysis parseOutput(ProcessExecutionResult result) =>
       analyzeCliOutput(
         result,
@@ -126,4 +131,131 @@ final class GeminiCliNode extends HeadlessHarnessNode {
         rateLimitPattern: _rateLimitPattern,
         rateLimitOnCleanExit: true,
       );
+}
+
+final class _GeminiTranscriptInterpreter extends JsonLineTranscriptInterpreter {
+  String? _messageId;
+  int _messageFirstOffset = 0;
+  final StringBuffer _messageText = StringBuffer();
+
+  @override
+  List<TranscriptEntry>? interpretEvent(JsonMap event, RunLogEntry entry) {
+    final type = event['type'] as String?;
+    final isAssistantDelta =
+        type == 'message' &&
+        event['role'] == 'assistant' &&
+        event['delta'] == true;
+    if (!isAssistantDelta) {
+      _messageId = null;
+      _messageText.clear();
+    }
+
+    return switch (type) {
+      'init' => const [],
+      'message' => _interpretMessage(
+        event,
+        entry,
+        isAssistantDelta: isAssistantDelta,
+      ),
+      'tool_use' => [
+        TranscriptEntry.toolCall(
+          id: transcriptEntryId(entry),
+          firstOffset: entry.offset,
+          lastOffset: entry.offset,
+          name: event['tool_name'] as String? ?? '',
+          input: event['parameters'] as JsonMap? ?? const <String, Object?>{},
+          callId: event['tool_id'] as String?,
+        ),
+      ],
+      'tool_result' => _interpretToolResult(event, entry),
+      'error' => [
+        TranscriptEntry.error(
+          id: transcriptEntryId(entry),
+          firstOffset: entry.offset,
+          lastOffset: entry.offset,
+          message: event['message'] as String? ?? '',
+        ),
+      ],
+      'result' => _interpretResult(event, entry),
+      _ => null,
+    };
+  }
+
+  List<TranscriptEntry>? _interpretMessage(
+    JsonMap event,
+    RunLogEntry entry, {
+    required bool isAssistantDelta,
+  }) {
+    final role = event['role'] as String?;
+    if (role == 'user') {
+      return const [];
+    }
+    if (role != 'assistant') {
+      return null;
+    }
+
+    final content = event['content'] as String? ?? '';
+    if (isAssistantDelta) {
+      if (_messageId == null) {
+        _messageId = transcriptEntryId(entry);
+        _messageFirstOffset = entry.offset;
+      }
+      _messageText.write(content);
+      return [
+        TranscriptEntry.agentMessage(
+          id: _messageId!,
+          firstOffset: _messageFirstOffset,
+          lastOffset: entry.offset,
+          text: _messageText.toString(),
+        ),
+      ];
+    }
+
+    return [
+      TranscriptEntry.agentMessage(
+        id: transcriptEntryId(entry),
+        firstOffset: entry.offset,
+        lastOffset: entry.offset,
+        text: content,
+      ),
+    ];
+  }
+
+  List<TranscriptEntry> _interpretToolResult(JsonMap event, RunLogEntry entry) {
+    final error = event['error'] as JsonMap?;
+    return [
+      TranscriptEntry.toolResult(
+        id: transcriptEntryId(entry),
+        firstOffset: entry.offset,
+        lastOffset: entry.offset,
+        output:
+            event['output'] as String? ?? error?['message'] as String? ?? '',
+        callId: event['tool_id'] as String?,
+        isError: event['status'] == 'error',
+      ),
+    ];
+  }
+
+  List<TranscriptEntry> _interpretResult(JsonMap event, RunLogEntry entry) {
+    final error = event['error'] as JsonMap?;
+    final stats = event['stats'] as JsonMap?;
+    return [
+      if (error != null)
+        TranscriptEntry.error(
+          id: transcriptEntryId(entry),
+          firstOffset: entry.offset,
+          lastOffset: entry.offset,
+          message: error['message'] as String? ?? '',
+        ),
+      TranscriptEntry.finalResult(
+        id: transcriptEntryId(entry, error == null ? 0 : 1),
+        firstOffset: entry.offset,
+        lastOffset: entry.offset,
+        status: event['status'] as String?,
+        durationMs: (stats?['duration_ms'] as num?)?.toInt(),
+        inputTokens: (stats?['input_tokens'] as num?)?.toInt(),
+        outputTokens: (stats?['output_tokens'] as num?)?.toInt(),
+      ),
+    ];
+  }
 }
