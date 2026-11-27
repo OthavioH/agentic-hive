@@ -22,10 +22,17 @@ final class AntigravityNode extends HeadlessHarnessNode {
   );
 
   static final RegExp _rateLimitPattern = RegExp(
-    r'\b(rate limit|quota exceeded|(?:no|at|over|out of)\s+capacity|'
-    r'capacity\s+(?:exhausted|exceeded|limit)|too many requests|http\s*429|'
-    r'status(?:\s+code)?[:\s]+429|error[:\s]+429|'
-    r'429\s+too\s+many\s+requests)\b',
+    r'(?:"status(?:_code)?"\s*:\s*429|'
+    r'"code"\s*:\s*429|'
+    r'\b(?:resource_exhausted|resource has been exhausted|'
+    'rate limit|rate_limit_error|rate_limit_exceeded|rateLimitExceeded|'
+    'usage[_ ]limit(?:_reached)?|'
+    'quota[_ ](?:exceeded|exhausted)|out of quota|'
+    'exceeded your (?:current )?quota|'
+    r'model_capacity_exhausted|(?:no|at|over|out of)\s+capacity|'
+    r'capacity\s+(?:exhausted|exceeded|limit)|overloaded_error|'
+    r'too[_ ]many[_ ]requests|http\s*429|status(?:\s+code)?[:\s]+429|'
+    r'error[:\s]+429|429\s+too\s+many\s+requests)\b)',
     caseSensitive: false,
   );
 
