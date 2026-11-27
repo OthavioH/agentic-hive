@@ -220,49 +220,23 @@ final class _CodexTranscriptInterpreter extends JsonLineTranscriptInterpreter {
     }
 
     return switch (item['type']) {
-      'agent_message' => _upsertTextItem(
+      'agent_message' || 'reasoning' => _interpretTextItem(
         itemId,
         entry,
-        item['text'] as String? ?? '',
-        (id, firstOffset, lastOffset, text) => TranscriptEntry.agentMessage(
-          id: id,
-          firstOffset: firstOffset,
-          lastOffset: lastOffset,
-          text: text,
-        ),
+        item['text'] is String ? item['text']! as String : null,
+        item['type']! as String,
       ),
-      'reasoning' => _upsertTextItem(
-        itemId,
-        entry,
-        item['text'] as String? ?? '',
-        (id, firstOffset, lastOffset, text) => TranscriptEntry.thinking(
-          id: id,
-          firstOffset: firstOffset,
-          lastOffset: lastOffset,
-          text: text,
-        ),
-      ),
-      'todo_list' => _upsertTextItem(
+      'todo_list' => _interpretTextItem(
         itemId,
         entry,
         _formatTodoList(item),
-        (id, firstOffset, lastOffset, text) => TranscriptEntry.agentMessage(
-          id: id,
-          firstOffset: firstOffset,
-          lastOffset: lastOffset,
-          text: text,
-        ),
+        'todo_list',
       ),
-      'error' => _upsertTextItem(
+      'error' => _interpretTextItem(
         itemId,
         entry,
-        item['message'] as String? ?? '',
-        (id, firstOffset, lastOffset, message) => TranscriptEntry.error(
-          id: id,
-          firstOffset: firstOffset,
-          lastOffset: lastOffset,
-          message: message,
-        ),
+        item['message'] is String ? item['message']! as String : null,
+        'error',
       ),
       'command_execution' ||
       'mcp_tool_call' ||
@@ -272,28 +246,44 @@ final class _CodexTranscriptInterpreter extends JsonLineTranscriptInterpreter {
     };
   }
 
-  List<TranscriptEntry> _upsertTextItem(
+  List<TranscriptEntry>? _interpretTextItem(
     String itemId,
     RunLogEntry entry,
-    String text,
-    TranscriptEntry Function(
-      String id,
-      int firstOffset,
-      int lastOffset,
-      String text,
-    )
-    build,
+    String? text,
+    String type,
   ) {
-    final existing = _items[itemId];
-    if (existing == null) {
-      if (text.isEmpty) {
-        return const [];
-      }
-      final id = transcriptEntryId(entry);
-      _items[itemId] = (id: id, firstOffset: entry.offset);
-      return [build(id, entry.offset, entry.offset, text)];
+    if (text == null) {
+      return null;
     }
-    return [build(existing.id, existing.firstOffset, entry.offset, text)];
+    final existing = _items[itemId];
+    if (existing == null && text.isEmpty) {
+      return const [];
+    }
+    final id = existing?.id ?? transcriptEntryId(entry);
+    final firstOffset = existing?.firstOffset ?? entry.offset;
+    _items[itemId] ??= (id: id, firstOffset: firstOffset);
+    return [
+      switch (type) {
+        'reasoning' => TranscriptEntry.thinking(
+          id: id,
+          firstOffset: firstOffset,
+          lastOffset: entry.offset,
+          text: text,
+        ),
+        'error' => TranscriptEntry.error(
+          id: id,
+          firstOffset: firstOffset,
+          lastOffset: entry.offset,
+          message: text,
+        ),
+        _ => TranscriptEntry.agentMessage(
+          id: id,
+          firstOffset: firstOffset,
+          lastOffset: entry.offset,
+          text: text,
+        ),
+      },
+    ];
   }
 
   List<TranscriptEntry> _interpretToolItem(
@@ -323,31 +313,18 @@ final class _CodexTranscriptInterpreter extends JsonLineTranscriptInterpreter {
     }
 
     // item.completed
-    final wasStarted = _items.containsKey(itemId);
-    if (wasStarted) {
-      return [
-        TranscriptEntry.toolResult(
-          id: transcriptEntryId(entry),
-          firstOffset: entry.offset,
-          lastOffset: entry.offset,
-          output: tool.output,
-          callId: itemId,
-          isError: tool.isError,
-        ),
-      ];
-    }
-
+    final started = _items[itemId];
     return [
       TranscriptEntry.toolCall(
-        id: transcriptEntryId(entry),
-        firstOffset: entry.offset,
+        id: started?.id ?? transcriptEntryId(entry),
+        firstOffset: started?.firstOffset ?? entry.offset,
         lastOffset: entry.offset,
         name: tool.name,
         input: tool.input,
         callId: itemId,
       ),
       TranscriptEntry.toolResult(
-        id: transcriptEntryId(entry, 1),
+        id: transcriptEntryId(entry, started == null ? 1 : 0),
         firstOffset: entry.offset,
         lastOffset: entry.offset,
         output: tool.output,
@@ -425,10 +402,10 @@ final class _CodexTranscriptInterpreter extends JsonLineTranscriptInterpreter {
     );
   }
 
-  String _formatTodoList(JsonMap item) {
+  String? _formatTodoList(JsonMap item) {
     final items = item['items'];
     if (items is! List<Object?>) {
-      return '';
+      return null;
     }
     final lines = <String>[];
     for (final todo in items) {

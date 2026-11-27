@@ -239,40 +239,22 @@ final class _GeminiTranscriptInterpreter extends JsonLineTranscriptInterpreter {
   List<TranscriptEntry> _interpretResult(JsonMap event, RunLogEntry entry) {
     final error = event['error'] as JsonMap?;
     final stats = event['stats'] as JsonMap?;
-    final status = event['status'] as String?;
-    final durationMs = (stats?['duration_ms'] as num?)?.toInt();
-    final inputTokens = (stats?['input_tokens'] as num?)?.toInt();
-    final outputTokens = (stats?['output_tokens'] as num?)?.toInt();
-
-    if (error != null) {
-      return [
+    return [
+      if (error != null)
         TranscriptEntry.error(
           id: transcriptEntryId(entry),
           firstOffset: entry.offset,
           lastOffset: entry.offset,
           message: error['message'] as String? ?? '',
         ),
-        TranscriptEntry.finalResult(
-          id: transcriptEntryId(entry, 1),
-          firstOffset: entry.offset,
-          lastOffset: entry.offset,
-          status: status,
-          durationMs: durationMs,
-          inputTokens: inputTokens,
-          outputTokens: outputTokens,
-        ),
-      ];
-    }
-
-    return [
       TranscriptEntry.finalResult(
-        id: transcriptEntryId(entry),
+        id: transcriptEntryId(entry, error == null ? 0 : 1),
         firstOffset: entry.offset,
         lastOffset: entry.offset,
-        status: status,
-        durationMs: durationMs,
-        inputTokens: inputTokens,
-        outputTokens: outputTokens,
+        status: event['status'] as String?,
+        durationMs: (stats?['duration_ms'] as num?)?.toInt(),
+        inputTokens: (stats?['input_tokens'] as num?)?.toInt(),
+        outputTokens: (stats?['output_tokens'] as num?)?.toInt(),
       ),
     ];
   }

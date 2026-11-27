@@ -128,6 +128,19 @@ const List<({RunOutputStream stream, String line})> _fixture = [
   (
     stream: RunOutputStream.stdout,
     line:
+        '{"type":"item.started","item":{"id":"ws_1","type":"web_search", '
+        '"query":""}}',
+  ),
+  (
+    stream: RunOutputStream.stdout,
+    line:
+        '{"type":"item.completed","item":{"id":"ws_1","type":"web_search", '
+        '"query":"dart transcript interpreter", '
+        '"results":[{"title":"Dart docs"}]}}',
+  ),
+  (
+    stream: RunOutputStream.stdout,
+    line:
         '{"type":"turn.completed","usage":{"input_tokens":120, '
         '"cached_input_tokens":30,"output_tokens":45}}',
   ),
@@ -148,7 +161,7 @@ const List<TranscriptEntry> _expectedEntries = [
   TranscriptEntry.toolCall(
     id: '4',
     firstOffset: 4,
-    lastOffset: 4,
+    lastOffset: 6,
     name: 'shell',
     input: {'command': 'ls -la'},
     callId: 'cmd_1',
@@ -184,7 +197,7 @@ const List<TranscriptEntry> _expectedEntries = [
   TranscriptEntry.toolCall(
     id: '8',
     firstOffset: 8,
-    lastOffset: 8,
+    lastOffset: 9,
     name: 'hive.report_result',
     input: {'status': 'success'},
     callId: 'mcp_1',
@@ -214,10 +227,25 @@ const List<TranscriptEntry> _expectedEntries = [
     lastOffset: 13,
     message: 'Minor warning',
   ),
-  TranscriptEntry.finalResult(
+  TranscriptEntry.toolCall(
     id: '14',
     firstOffset: 14,
-    lastOffset: 14,
+    lastOffset: 15,
+    name: 'web_search',
+    input: {'query': 'dart transcript interpreter'},
+    callId: 'ws_1',
+  ),
+  TranscriptEntry.toolResult(
+    id: '15',
+    firstOffset: 15,
+    lastOffset: 15,
+    output: '[{"title":"Dart docs"}]',
+    callId: 'ws_1',
+  ),
+  TranscriptEntry.finalResult(
+    id: '16',
+    firstOffset: 16,
+    lastOffset: 16,
     status: 'success',
     inputTokens: 120,
     outputTokens: 45,
@@ -374,6 +402,124 @@ void main() {
       final second = node.createTranscriptInterpreter();
 
       expect(first, isNot(same(second)));
+    });
+
+    test(
+      'maps MCP error, MCP non-text content, and declined command status',
+      () {
+        final interpreter = _createNode().createTranscriptInterpreter();
+
+        const mcpError =
+            '{"type":"item.completed","item":{"id":"mcp_err", '
+            '"type":"mcp_tool_call","server":"hive","tool":"report_result", '
+            '"arguments":{},"error":{"message":"Tool failed"}, '
+            '"status":"failed"}}';
+        expect(
+          interpreter.interpret(_entry(offset: 1, chunk: mcpError)),
+          const [
+            TranscriptEntry.toolCall(
+              id: '1',
+              firstOffset: 1,
+              lastOffset: 1,
+              name: 'hive.report_result',
+              callId: 'mcp_err',
+            ),
+            TranscriptEntry.toolResult(
+              id: '1.1',
+              firstOffset: 1,
+              lastOffset: 1,
+              output: 'Tool failed',
+              callId: 'mcp_err',
+              isError: true,
+            ),
+          ],
+        );
+
+        const mcpJsonFallback =
+            '{"type":"item.completed","item":{"id":"mcp_img", '
+            '"type":"mcp_tool_call","server":"fs","tool":"read", '
+            '"arguments":{},"result":{"content":[{"type":"image", '
+            '"data":"abc"}]},"status":"completed"}}';
+        expect(
+          interpreter.interpret(_entry(offset: 2, chunk: mcpJsonFallback)),
+          const [
+            TranscriptEntry.toolCall(
+              id: '2',
+              firstOffset: 2,
+              lastOffset: 2,
+              name: 'fs.read',
+              callId: 'mcp_img',
+            ),
+            TranscriptEntry.toolResult(
+              id: '2.1',
+              firstOffset: 2,
+              lastOffset: 2,
+              output: '[{"type":"image","data":"abc"}]',
+              callId: 'mcp_img',
+            ),
+          ],
+        );
+
+        const declinedCmd =
+            '{"type":"item.completed","item":{"id":"cmd_dec", '
+            '"type":"command_execution","command":"rm -rf /", '
+            '"aggregated_output":"User declined","status":"declined"}}';
+        expect(
+          interpreter.interpret(_entry(offset: 3, chunk: declinedCmd)),
+          const [
+            TranscriptEntry.toolCall(
+              id: '3',
+              firstOffset: 3,
+              lastOffset: 3,
+              name: 'shell',
+              input: {'command': 'rm -rf /'},
+              callId: 'cmd_dec',
+            ),
+            TranscriptEntry.toolResult(
+              id: '3.1',
+              firstOffset: 3,
+              lastOffset: 3,
+              output: 'User declined',
+              callId: 'cmd_dec',
+              isError: true,
+            ),
+          ],
+        );
+      },
+    );
+
+    test('falls back to plainText when text item misses text or message', () {
+      final interpreter = _createNode().createTranscriptInterpreter();
+      const missingText =
+          '{"type":"item.completed","item":{"id":"m_1", '
+          '"type":"agent_message"}}';
+      const missingErr =
+          '{"type":"item.completed","item":{"id":"e_1","type":"error"}}';
+
+      expect(
+        interpreter.interpret(_entry(offset: 1, chunk: missingText)),
+        const [
+          TranscriptEntry.plainText(
+            id: '1',
+            firstOffset: 1,
+            lastOffset: 1,
+            stream: RunOutputStream.stdout,
+            text: missingText,
+          ),
+        ],
+      );
+      expect(
+        interpreter.interpret(_entry(offset: 2, chunk: missingErr)),
+        const [
+          TranscriptEntry.plainText(
+            id: '2',
+            firstOffset: 2,
+            lastOffset: 2,
+            stream: RunOutputStream.stdout,
+            text: missingErr,
+          ),
+        ],
+      );
     });
   });
 }
