@@ -120,6 +120,7 @@ void main() {
       );
       expect(res.json['worktreeBranch'], 'hive/$id');
 
+      await repo.waitUntilHookStarted();
       await repo.release();
 
       final deadline = DateTime.now().add(ioTimeout);
