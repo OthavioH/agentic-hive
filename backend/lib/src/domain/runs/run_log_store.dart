@@ -4,6 +4,11 @@ import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 /// Port for persisting and streaming per-`(runId, nodeId, attempt)` raw
 /// `stdout`/`stderr` output logs outside SQLite.
 abstract interface class RunLogStore {
+  /// Marker chunk written once on `stderr` when a log file reaches its size
+  /// cap.
+  static const String truncationMarkerChunk =
+      '[log truncated: maximum log size reached]';
+
   /// Broadcast stream of live output chunks emitted by running nodes.
   Stream<RunOutputPayload> get outputs;
 

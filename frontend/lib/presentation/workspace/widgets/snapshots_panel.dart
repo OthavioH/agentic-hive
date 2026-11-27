@@ -21,6 +21,7 @@ class SnapshotsPanel extends ConsumerStatefulWidget {
     required this.workspaceRoot,
     required this.runStatus,
     required this.nodeLabels,
+    this.showTitle = true,
     super.key,
   });
 
@@ -35,6 +36,9 @@ class SnapshotsPanel extends ConsumerStatefulWidget {
 
   /// Node display names keyed by node ID.
   final Map<String, String> nodeLabels;
+
+  /// Whether to render the panel's heading above the list.
+  final bool showTitle;
 
   @override
   ConsumerState<SnapshotsPanel> createState() => _SnapshotsPanelState();
@@ -78,11 +82,13 @@ class _SnapshotsPanelState extends ConsumerState<SnapshotsPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Text(
-            l10n.snapshotsTitle,
-            style: typography.titleSmall.copyWith(color: colors.onSurface),
-          ),
-          SizedBox(height: spacing.space2),
+          if (widget.showTitle) ...<Widget>[
+            Text(
+              l10n.snapshotsTitle,
+              style: typography.titleSmall.copyWith(color: colors.onSurface),
+            ),
+            SizedBox(height: spacing.space2),
+          ],
           Expanded(
             child: stateAsync.when(
               loading: () => Center(

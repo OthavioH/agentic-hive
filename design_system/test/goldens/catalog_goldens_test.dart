@@ -1,4 +1,6 @@
-@Tags(<String>['golden'])
+// Not bundled by very_good test: bundling drops the golden tag, and goldens
+// run on Ubuntu CI only.
+@Tags(<String>['golden', 'skip_very_good_optimization'])
 library;
 
 import 'package:design_system/design_system.dart';
@@ -555,6 +557,263 @@ void main() {
             ],
           ),
           size: const Size(240, 200),
+        );
+      });
+
+      testWidgets('HiveSplitter horizontal', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_splitter_horizontal',
+          const SizedBox(
+            width: 600,
+            height: 280,
+            child: HiveSplitter(
+              initialPosition: 0.6,
+              semanticLabel: 'Resize graph and inspector',
+              first: HiveInsetPanel(child: Text('Graph')),
+              second: HiveInsetPanel(child: Text('Inspector')),
+            ),
+          ),
+          size: const Size(640, 320),
+        );
+      });
+
+      testWidgets('HiveSplitter vertical', (tester) async {
+        await pumpAndMatch(
+          tester,
+          'hive_splitter_vertical',
+          const SizedBox(
+            width: 600,
+            height: 280,
+            child: HiveSplitter(
+              axis: Axis.vertical,
+              initialPosition: 0.5,
+              semanticLabel: 'Resize graph and inspector',
+              first: HiveInsetPanel(child: Text('Graph')),
+              second: HiveInsetPanel(child: Text('Inspector')),
+            ),
+          ),
+          size: const Size(640, 320),
+        );
+      });
+
+      testWidgets('HiveSplitter states', (tester) async {
+        Widget stateSample(Set<WidgetState> states) {
+          final controller = WidgetStatesController(states);
+          addTearDown(controller.dispose);
+          return SizedBox(
+            width: 190,
+            height: 200,
+            child: HiveSplitter(
+              initialPosition: 0.5,
+              minFirst: HiveSpacing.standard.space6,
+              minSecond: HiveSpacing.standard.space6,
+              statesController: controller,
+              semanticLabel: 'Resize graph and inspector',
+              first: const HiveInsetPanel(child: Text('Graph')),
+              second: const HiveInsetPanel(child: Text('Inspector')),
+            ),
+          );
+        }
+
+        await pumpAndMatch(
+          tester,
+          'hive_splitter_states',
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 16,
+            children: <Widget>[
+              stateSample(<WidgetState>{WidgetState.hovered}),
+              stateSample(<WidgetState>{WidgetState.focused}),
+              stateSample(<WidgetState>{WidgetState.pressed}),
+            ],
+          ),
+          size: const Size(640, 320),
+        );
+      });
+
+      testWidgets('HiveTranscriptView collapsed', (tester) async {
+        String showAll(int lines) => 'Show all ($lines lines)';
+        final labels = HiveTranscriptLabels(
+          semanticLabel: 'Transcript',
+          jumpToBottom: 'Jump to bottom',
+          thinking: 'Thinking',
+          toolResult: 'Tool result',
+          error: 'Error',
+          stderr: 'Error',
+          showLess: 'Show less',
+          showAll: showAll,
+          emptyLabel: 'No transcript entries yet.',
+        );
+        final controller = HiveTranscriptController(
+          initialBlocks: const <HiveTranscriptBlock>[
+            HiveTranscriptMessage(
+              id: 'm1',
+              markdown: 'Checked `scheduler.dart` and its tests.',
+            ),
+            HiveTranscriptThinking(
+              id: 'th',
+              text: 'Reviewing edge cases around process-tree cancellation.',
+            ),
+            HiveTranscriptToolCall(
+              id: 'tc',
+              name: 'read_file',
+              input: 'lib/src/engine/scheduler.dart\nlines: 1..120',
+            ),
+            HiveTranscriptToolResult(
+              id: 'tr',
+              text: '120 lines read without errors.',
+            ),
+            HiveTranscriptError(
+              id: 'err',
+              message: 'Lint check timed out after 30s.',
+            ),
+            HiveTranscriptFinalResult(
+              id: 'fin',
+              statusLabel: 'Succeeded',
+              tone: HiveFeedbackTone.success,
+              metrics: <HiveTranscriptMetric>[
+                HiveTranscriptMetric(label: 'Duration', value: '14s'),
+                HiveTranscriptMetric(label: 'Cost', value: r'$0.03'),
+              ],
+            ),
+            HiveTranscriptPlainText(
+              id: 'pt',
+              text: '00:03 +41: All tests passed!',
+            ),
+          ],
+        );
+        addTearDown(controller.dispose);
+        await pumpAndMatch(
+          tester,
+          'hive_transcript_view_collapsed',
+          SizedBox(
+            width: 560,
+            height: 480,
+            child: HiveTranscriptView(controller: controller, labels: labels),
+          ),
+          size: const Size(600, 520),
+        );
+      });
+
+      testWidgets('HiveTranscriptView expanded', (tester) async {
+        String showAll(int lines) => 'Show all ($lines lines)';
+        final labels = HiveTranscriptLabels(
+          semanticLabel: 'Transcript',
+          jumpToBottom: 'Jump to bottom',
+          thinking: 'Thinking',
+          toolResult: 'Tool result',
+          error: 'Error',
+          stderr: 'Error',
+          showLess: 'Show less',
+          showAll: showAll,
+          emptyLabel: 'No transcript entries yet.',
+        );
+        final controller = HiveTranscriptController(
+          initialBlocks: const <HiveTranscriptBlock>[
+            HiveTranscriptMessage(
+              id: 'm1',
+              markdown: 'Checked `scheduler.dart` and its tests.',
+            ),
+            HiveTranscriptThinking(
+              id: 'th',
+              text: 'Reviewing edge cases around process-tree cancellation.',
+            ),
+            HiveTranscriptToolCall(
+              id: 'tc',
+              name: 'read_file',
+              input: 'lib/src/engine/scheduler.dart\nlines: 1..120',
+            ),
+            HiveTranscriptToolResult(
+              id: 'tr',
+              text: '120 lines read without errors.',
+            ),
+            HiveTranscriptError(
+              id: 'err',
+              message: 'Lint check timed out after 30s.',
+            ),
+            HiveTranscriptFinalResult(
+              id: 'fin',
+              statusLabel: 'Succeeded',
+              tone: HiveFeedbackTone.success,
+              metrics: <HiveTranscriptMetric>[
+                HiveTranscriptMetric(label: 'Duration', value: '14s'),
+              ],
+            ),
+            HiveTranscriptPlainText(
+              id: 'pt',
+              text: 'warning: unused import',
+              stream: HiveLogStream.stderr,
+            ),
+          ],
+        );
+        addTearDown(controller.dispose);
+        await tester.binding.setSurfaceSize(const Size(600, 800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          hiveTestApp(
+            theme: theme,
+            child: Center(
+              child: SizedBox(
+                width: 560,
+                height: 760,
+                child: HiveTranscriptView(
+                  controller: controller,
+                  labels: labels,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        tester.state<HiveTranscriptViewState>(find.byType(HiveTranscriptView))
+          ..setBlockExpanded('th', expanded: true)
+          ..setBlockExpanded('tc', expanded: true)
+          ..setBlockExpanded('tr', expanded: true);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Jump to bottom'), findsNothing);
+        expect(find.text('warning: unused import'), findsOneWidget);
+
+        await expectLater(
+          find.byType(HiveSurface),
+          matchesGoldenFile(
+            'goldens/hive_transcript_view_expanded_$themeName.png',
+          ),
+        );
+      });
+
+      testWidgets('HiveTranscriptView cut', (tester) async {
+        String showAll(int lines) => 'Show all ($lines lines)';
+        final labels = HiveTranscriptLabels(
+          semanticLabel: 'Transcript',
+          jumpToBottom: 'Jump to bottom',
+          thinking: 'Thinking',
+          toolResult: 'Tool result',
+          error: 'Error',
+          stderr: 'Error',
+          showLess: 'Show less',
+          showAll: showAll,
+        );
+        final longLines = <String>[
+          for (var i = 1; i <= 250; i++) 'line $i: scheduler checkpoint ok',
+        ].join('\n');
+        final controller = HiveTranscriptController(
+          initialBlocks: <HiveTranscriptBlock>[
+            HiveTranscriptPlainText(id: 'big', text: longLines),
+          ],
+        );
+        addTearDown(controller.dispose);
+        await pumpAndMatch(
+          tester,
+          'hive_transcript_view_cut',
+          SizedBox(
+            width: 560,
+            height: 360,
+            child: HiveTranscriptView(controller: controller, labels: labels),
+          ),
+          size: const Size(600, 400),
         );
       });
     });

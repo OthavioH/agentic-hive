@@ -2485,21 +2485,17 @@
   "@runDetailFollowActiveButton": {
     "description": "Button label to re-enable auto-following the active node."
   },
-  "runDetailTabOutput": "Output",
-  "@runDetailTabOutput": {
-    "description": "Inspector tab label for live node output logs."
+  "runDetailTabTranscript": "Transcript",
+  "@runDetailTabTranscript": {
+    "description": "Inspector tab label for the selected node's transcript."
   },
-  "runDetailTabOutputs": "Outputs",
-  "@runDetailTabOutputs": {
+  "runDetailTabSummaries": "Summaries",
+  "@runDetailTabSummaries": {
     "description": "Inspector tab label for the chat-style list of node summaries."
-  },
-  "runDetailOutputsTitle": "Outputs",
-  "@runDetailOutputsTitle": {
-    "description": "Heading and empty-state title of the chat-style node outputs panel."
   },
   "runDetailOutputsEmpty": "No node has published a message yet.",
   "@runDetailOutputsEmpty": {
-    "description": "Empty state of the Outputs panel when no node published a summary."
+    "description": "Empty state of the Summaries panel when no node published a summary."
   },
   "runDetailTabEvents": "Events",
   "@runDetailTabEvents": {
@@ -2509,21 +2505,98 @@
   "@runDetailTabCheckpoints": {
     "description": "Inspector tab label for saved run checkpoints."
   },
-  "runDetailOutputTitle": "Node output",
-  "@runDetailOutputTitle": {
-    "description": "Semantic label and heading for the node output viewer."
+  "runDetailMetadataCardTitle": "Run details",
+  "@runDetailMetadataCardTitle": {
+    "description": "Collapsible section title for the run metadata card."
   },
-  "runDetailOutputSelectNode": "Select a node on the graph or wait for a node to start.",
-  "@runDetailOutputSelectNode": {
+  "runDetailViewRaw": "Raw",
+  "@runDetailViewRaw": {
+    "description": "Segmented toggle label for the raw log view in the Transcript tab."
+  },
+  "runDetailCopy": "Copy",
+  "@runDetailCopy": {
+    "description": "Accessible label for copying the visible transcript or raw log."
+  },
+  "runDetailShowAll": "Show all ({count} lines)",
+  "@runDetailShowAll": {
+    "description": "Button label to expand a cut transcript block.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "runDetailShowLess": "Show less",
+  "@runDetailShowLess": {
+    "description": "Button label to collapse an expanded transcript block."
+  },
+  "runDetailTranscriptToolCall": "Tool call",
+  "@runDetailTranscriptToolCall": {
+    "description": "Label for a tool call block in the transcript."
+  },
+  "runDetailTranscriptToolResult": "Tool result",
+  "@runDetailTranscriptToolResult": {
+    "description": "Label for a tool result block in the transcript."
+  },
+  "runDetailTranscriptThinking": "Thinking",
+  "@runDetailTranscriptThinking": {
+    "description": "Label for a thinking block in the transcript."
+  },
+  "runDetailTranscriptError": "Error",
+  "@runDetailTranscriptError": {
+    "description": "Label for an error block in the transcript."
+  },
+  "runDetailTranscriptResult": "Result",
+  "@runDetailTranscriptResult": {
+    "description": "Fallback status label for a final result block in the transcript."
+  },
+  "runDetailTranscriptDuration": "Duration",
+  "@runDetailTranscriptDuration": {
+    "description": "Metric chip label for duration in a transcript final result."
+  },
+  "runDetailTranscriptCost": "Cost",
+  "@runDetailTranscriptCost": {
+    "description": "Metric chip label for cost in a transcript final result."
+  },
+  "runDetailTranscriptTokens": "Tokens",
+  "@runDetailTranscriptTokens": {
+    "description": "Metric chip label for token usage in a transcript final result."
+  },
+  "runDetailTranscriptSelectNode": "Select a node to see its transcript",
+  "@runDetailTranscriptSelectNode": {
     "description": "Empty state message when no node is selected or active yet."
   },
-  "runDetailOutputEmpty": "No output yet.",
-  "@runDetailOutputEmpty": {
-    "description": "Empty state text inside the log stream viewer when a node has emitted no output."
+  "runDetailTranscriptEmpty": "No output yet",
+  "@runDetailTranscriptEmpty": {
+    "description": "Empty state text when a node attempt has no transcript entries yet."
+  },
+  "runDetailTranscriptTruncated": "Output was truncated: the log reached its size limit",
+  "@runDetailTranscriptTruncated": {
+    "description": "Warning banner shown when the attempt's raw log hit its size cap."
+  },
+  "runDetailTranscriptLoadError": "Couldn't load the transcript",
+  "@runDetailTranscriptLoadError": {
+    "description": "Error banner shown when loading a node's transcript fails."
+  },
+  "runDetailTranscriptCopied": "Copied to clipboard",
+  "@runDetailTranscriptCopied": {
+    "description": "Toast message shown after copying the transcript or raw log."
+  },
+  "runDetailMaximizeInspector": "Maximize inspector",
+  "@runDetailMaximizeInspector": {
+    "description": "Accessible label for maximizing the Run Detail inspector."
+  },
+  "runDetailRestoreInspector": "Restore inspector",
+  "@runDetailRestoreInspector": {
+    "description": "Accessible label for restoring the Run Detail inspector from maximized."
+  },
+  "runDetailResizeWorkArea": "Resize graph and inspector",
+  "@runDetailResizeWorkArea": {
+    "description": "Accessible label for the splitter between the graph and inspector."
   },
   "runDetailOutputAttemptLabel": "Attempt",
   "@runDetailOutputAttemptLabel": {
-    "description": "Label for the attempt selector dropdown in the Output tab."
+    "description": "Label for the attempt selector dropdown in the Transcript tab."
   },
   "runDetailOutputAttemptOption": "Attempt #{attempt}",
   "@runDetailOutputAttemptOption": {
@@ -2536,15 +2609,11 @@
   },
   "runDetailOutputJumpToBottom": "Jump to bottom",
   "@runDetailOutputJumpToBottom": {
-    "description": "Button label to jump to the bottom of the live log stream."
+    "description": "Button label to jump to the bottom of the live log or transcript."
   },
   "runDetailOutputStderrLabel": "Error",
   "@runDetailOutputStderrLabel": {
     "description": "Semantic prefix announced before stderr log lines."
-  },
-  "runDetailOutputTruncatedNotice": "Showing the most recent lines; earlier output was truncated.",
-  "@runDetailOutputTruncatedNotice": {
-    "description": "Notice shown when the fetched node log response was truncated."
   },
   "runTerminalModeWatchLabel": "Watching (read-only)",
   "@runTerminalModeWatchLabel": {

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:agentic_hive_frontend/core/preferences/run_detail_splitter_preference_controller.dart';
 import 'package:agentic_hive_frontend/domain/runs/fan_out_progress.dart';
 import 'package:agentic_hive_frontend/l10n/generated/app_localizations.dart';
 import 'package:agentic_hive_frontend/presentation/runs/controllers/fan_out_children_controller.dart';
@@ -14,6 +15,7 @@ import 'package:agentic_hive_frontend/presentation/workspace/widgets/snapshots_p
 import 'package:agentic_hive_frontend/routes/app_routes.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -140,11 +142,31 @@ class _RunDetailBody extends ConsumerStatefulWidget {
 }
 
 class _RunDetailBodyState extends ConsumerState<_RunDetailBody> {
-  RunInspectorTab _tab = RunInspectorTab.output;
+  RunInspectorTab _tab = RunInspectorTab.transcript;
+  bool _isMaximized = false;
+  bool _userDraggedSideBySide = false;
+  bool _userDraggedStacked = false;
+  int _sideBySideSplitterVersion = 0;
+  int _stackedSplitterVersion = 0;
+  double? _lastSideBySideFraction;
+  double? _lastStackedFraction;
+  final GlobalKey _inspectorKey = GlobalKey();
 
   String get runId => widget.runId;
   RunDetailState get detailState => widget.detailState;
   VoidCallback get onBack => widget.onBack;
+
+  void _toggleMaximize(AppLocalizations l10n) {
+    final next = !_isMaximized;
+    setState(() => _isMaximized = next);
+    unawaited(
+      SemanticsService.sendAnnouncement(
+        View.of(context),
+        next ? l10n.runDetailMaximizeInspector : l10n.runDetailRestoreInspector,
+        Directionality.of(context),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -153,6 +175,25 @@ class _RunDetailBodyState extends ConsumerState<_RunDetailBody> {
     final colors = context.hiveColors;
     final typography = context.hiveTypography;
     final controller = ref.read(runDetailControllerProvider(runId).notifier);
+    final splitterPref = ref.watch(
+      runDetailSplitterPreferenceControllerProvider,
+    );
+    final splitterController = ref.read(
+      runDetailSplitterPreferenceControllerProvider.notifier,
+    );
+    if (!_userDraggedSideBySide &&
+        _lastSideBySideFraction != null &&
+        _lastSideBySideFraction != splitterPref.sideBySide) {
+      _sideBySideSplitterVersion++;
+    }
+    _lastSideBySideFraction = splitterPref.sideBySide;
+    if (!_userDraggedStacked &&
+        _lastStackedFraction != null &&
+        _lastStackedFraction != splitterPref.stacked) {
+      _stackedSplitterVersion++;
+    }
+    _lastStackedFraction = splitterPref.stacked;
+
     final run = detailState.run;
     final statusLabel = RunL10n.localizeStatus(l10n, run.status);
     final isCancelling = run.status == RunStatus.cancelling;
@@ -194,10 +235,13 @@ class _RunDetailBodyState extends ConsumerState<_RunDetailBody> {
       onSelectNode: (nodeId) => unawaited(controller.selectNode(nodeId)),
     );
     final inspector = _InspectorColumn(
+      key: _inspectorKey,
       runId: runId,
       detailState: detailState,
       tab: _tab,
       onTabChanged: (tab) => setState(() => _tab = tab),
+      isMaximized: _isMaximized,
+      onToggleMaximize: () => _toggleMaximize(l10n),
       fanOutNodeIds: fanOutNodeIds,
       fanOutProgress: progressByNode,
       fanOutChildren: childrenAsync,
@@ -207,227 +251,270 @@ class _RunDetailBodyState extends ConsumerState<_RunDetailBody> {
       ),
     );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        _HeaderRow(
-          title: run.workflowName,
-          subtitle: run.workspaceRoot,
-          onBack: onBack,
-          actions: <Widget>[
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                HiveStatusDot(
-                  status: RunL10n.nodeStatusFor(run.status),
-                  semanticLabel: statusLabel,
-                  size: spacing.space2,
-                ),
-                SizedBox(width: spacing.space1),
-                HiveBadge(
-                  label: statusLabel,
-                  tone: RunL10n.badgeToneFor(run.status),
-                ),
-              ],
+    final headerRow = _HeaderRow(
+      title: run.workflowName,
+      subtitle: run.workspaceRoot,
+      onBack: onBack,
+      actions: <Widget>[
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            HiveStatusDot(
+              status: RunL10n.nodeStatusFor(run.status),
+              semanticLabel: statusLabel,
+              size: spacing.space2,
             ),
-            if (showCancel)
-              HiveButton(
-                key: const Key('run_detail_cancel_button'),
-                label: isCancelling
-                    ? l10n.runDetailCancellingAction
-                    : l10n.runDetailCancelAction,
-                icon: HiveIcons.stop,
-                variant: HiveButtonVariant.danger,
-                loading: isCancelling || detailState.isActionInFlight,
-                onPressed: (isCancelling || detailState.isActionInFlight)
-                    ? null
-                    : () => unawaited(controller.cancelRun()),
-              ),
-            if (showRetryCancel)
-              HiveButton(
-                key: const Key('run_detail_retry_cancel_button'),
-                label: l10n.runDetailRetryCancelAction,
-                icon: HiveIcons.stop,
-                variant: HiveButtonVariant.danger,
-                loading: detailState.isActionInFlight,
-                onPressed: detailState.isActionInFlight
-                    ? null
-                    : () => unawaited(controller.cancelRun()),
-              ),
-            if (showResume)
-              HiveButton(
-                key: const Key('run_detail_resume_button'),
-                label: detailState.isActionInFlight
-                    ? l10n.runDetailResumingAction
-                    : l10n.runDetailResumeAction,
-                icon: HiveIcons.play,
-                loading: detailState.isActionInFlight,
-                onPressed: detailState.isActionInFlight
-                    ? null
-                    : () => unawaited(controller.resumeRun()),
-              ),
-            HiveButton(
-              key: const Key('run_detail_refresh_button'),
-              label: l10n.runsRefreshAction,
-              icon: HiveIcons.refresh,
-              variant: HiveButtonVariant.secondary,
-              loading: detailState.isRefreshing,
-              onPressed: () => unawaited(controller.refresh()),
+            SizedBox(width: spacing.space1),
+            HiveBadge(
+              label: statusLabel,
+              tone: RunL10n.badgeToneFor(run.status),
             ),
           ],
         ),
-        if (detailState.actionFailure != null) ...<Widget>[
-          HiveBanner(
-            key: const Key('run_detail_action_failure_banner'),
-            tone: HiveFeedbackTone.danger,
-            title: RunL10n.localizeFailure(l10n, detailState.actionFailure!),
-            onDismiss: controller.dismissActionFailure,
-            dismissSemanticLabel: l10n.snapshotsDismissTooltip,
-            liveRegion: true,
+        if (showCancel)
+          HiveButton(
+            key: const Key('run_detail_cancel_button'),
+            label: isCancelling
+                ? l10n.runDetailCancellingAction
+                : l10n.runDetailCancelAction,
+            icon: HiveIcons.stop,
+            variant: HiveButtonVariant.danger,
+            loading: isCancelling || detailState.isActionInFlight,
+            onPressed: (isCancelling || detailState.isActionInFlight)
+                ? null
+                : () => unawaited(controller.cancelRun()),
           ),
-          SizedBox(height: spacing.space2),
-        ],
-        HiveCard(
-          surface: HiveCardSurface.surface2,
-          child: Wrap(
-            spacing: spacing.space4,
-            runSpacing: spacing.space2,
-            children: <Widget>[
-              _MetadataItem(
-                label: l10n.runDetailWorkspaceLabel,
-                value: run.workspaceRoot,
-                mono: true,
-              ),
-              _MetadataItem(
-                label: l10n.runDetailIsolationLabel,
-                value: switch (run.isolationMode) {
-                  WorkspaceIsolationMode.direct =>
-                    l10n.runDetailIsolationDirect,
-                  WorkspaceIsolationMode.worktree =>
-                    l10n.runDetailIsolationWorktree,
-                },
-              ),
-              if (run.worktreePath != null)
-                _MetadataItem(
-                  key: const Key('run_detail_worktree_path'),
-                  label: l10n.runDetailWorktreePathLabel,
-                  value: run.worktreePath!,
-                  mono: true,
-                ),
-              if (run.worktreeBranch != null)
-                _MetadataItem(
-                  key: const Key('run_detail_worktree_branch'),
-                  label: l10n.runDetailWorktreeBranchLabel,
-                  value: run.worktreeBranch!,
-                  mono: true,
-                ),
-              _MetadataItem(
-                label: l10n.runDetailStartedLabel,
-                value: RunL10n.formatTimestamp(run.startedAt),
-                mono: true,
-              ),
-              if (run.finishedAt != null)
-                _MetadataItem(
-                  label: l10n.runDetailFinishedLabel,
-                  value: RunL10n.formatTimestamp(run.finishedAt!),
-                  mono: true,
-                ),
-              _MetadataItem(
-                label: l10n.runDetailDurationLabel,
-                value: RunL10n.formatDuration(
-                  l10n,
-                  run.status,
-                  run.startedAt,
-                  run.finishedAt,
-                ),
-                mono: true,
-              ),
-            ],
+        if (showRetryCancel)
+          HiveButton(
+            key: const Key('run_detail_retry_cancel_button'),
+            label: l10n.runDetailRetryCancelAction,
+            icon: HiveIcons.stop,
+            variant: HiveButtonVariant.danger,
+            loading: detailState.isActionInFlight,
+            onPressed: detailState.isActionInFlight
+                ? null
+                : () => unawaited(controller.cancelRun()),
           ),
+        if (showResume)
+          HiveButton(
+            key: const Key('run_detail_resume_button'),
+            label: detailState.isActionInFlight
+                ? l10n.runDetailResumingAction
+                : l10n.runDetailResumeAction,
+            icon: HiveIcons.play,
+            loading: detailState.isActionInFlight,
+            onPressed: detailState.isActionInFlight
+                ? null
+                : () => unawaited(controller.resumeRun()),
+          ),
+        HiveButton(
+          key: const Key('run_detail_refresh_button'),
+          label: l10n.runsRefreshAction,
+          icon: HiveIcons.refresh,
+          variant: HiveButtonVariant.secondary,
+          loading: detailState.isRefreshing,
+          onPressed: () => unawaited(controller.refresh()),
         ),
-        if ((run.input != null && run.input!.trim().isNotEmpty) ||
-            (run.attachments?.isNotEmpty ?? false)) ...<Widget>[
-          SizedBox(height: spacing.space2),
-          _RunInputCard(
-            input: (run.input != null && run.input!.trim().isNotEmpty)
-                ? run.input!.trim()
-                : null,
-            copyText: (run.input != null && run.input!.trim().isNotEmpty)
-                ? run.input!
-                : null,
-            attachments: run.attachments ?? const <RunAttachment>[],
-            removed: const <RunStatus>{
-              RunStatus.succeeded,
-              RunStatus.failed,
-              RunStatus.cancelled,
-            }.contains(run.status),
-          ),
-        ],
-        if (run.errorMessage != null &&
-            run.errorMessage!.isNotEmpty) ...<Widget>[
-          SizedBox(height: spacing.space2),
-          HiveCard(
-            key: const Key('run_detail_error_card'),
-            surface: HiveCardSurface.surface2,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                HiveIcon(
-                  HiveIcons.alert,
-                  size: spacing.space3,
-                  color: colors.danger,
+      ],
+    );
+
+    final hasInputOrAttachments =
+        (run.input != null && run.input!.trim().isNotEmpty) ||
+        (run.attachments?.isNotEmpty ?? false);
+
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.escape): () {
+          if (_isMaximized) _toggleMaximize(l10n);
+        },
+      },
+      child: Focus(
+        autofocus: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            headerRow,
+            if (_isMaximized) ...<Widget>[
+              SizedBox(height: spacing.space3),
+              Expanded(child: inspector),
+            ] else ...<Widget>[
+              if (detailState.actionFailure != null) ...<Widget>[
+                HiveBanner(
+                  key: const Key('run_detail_action_failure_banner'),
+                  tone: HiveFeedbackTone.danger,
+                  title: RunL10n.localizeFailure(
+                    l10n,
+                    detailState.actionFailure!,
+                  ),
+                  onDismiss: controller.dismissActionFailure,
+                  dismissSemanticLabel: l10n.snapshotsDismissTooltip,
+                  liveRegion: true,
                 ),
-                SizedBox(width: spacing.space2),
-                Expanded(
-                  child: Column(
+                SizedBox(height: spacing.space2),
+              ],
+              HiveCollapsibleSection(
+                key: const Key('run_detail_metadata_section'),
+                title: l10n.runDetailMetadataCardTitle,
+                child: Wrap(
+                  spacing: spacing.space4,
+                  runSpacing: spacing.space2,
+                  children: <Widget>[
+                    _MetadataItem(
+                      label: l10n.runDetailWorkspaceLabel,
+                      value: run.workspaceRoot,
+                      mono: true,
+                    ),
+                    _MetadataItem(
+                      label: l10n.runDetailIsolationLabel,
+                      value: switch (run.isolationMode) {
+                        WorkspaceIsolationMode.direct =>
+                          l10n.runDetailIsolationDirect,
+                        WorkspaceIsolationMode.worktree =>
+                          l10n.runDetailIsolationWorktree,
+                      },
+                    ),
+                    if (run.worktreePath != null)
+                      _MetadataItem(
+                        key: const Key('run_detail_worktree_path'),
+                        label: l10n.runDetailWorktreePathLabel,
+                        value: run.worktreePath!,
+                        mono: true,
+                      ),
+                    if (run.worktreeBranch != null)
+                      _MetadataItem(
+                        key: const Key('run_detail_worktree_branch'),
+                        label: l10n.runDetailWorktreeBranchLabel,
+                        value: run.worktreeBranch!,
+                        mono: true,
+                      ),
+                    _MetadataItem(
+                      label: l10n.runDetailStartedLabel,
+                      value: RunL10n.formatTimestamp(run.startedAt),
+                      mono: true,
+                    ),
+                    if (run.finishedAt != null)
+                      _MetadataItem(
+                        label: l10n.runDetailFinishedLabel,
+                        value: RunL10n.formatTimestamp(run.finishedAt!),
+                        mono: true,
+                      ),
+                    _MetadataItem(
+                      label: l10n.runDetailDurationLabel,
+                      value: RunL10n.formatDuration(
+                        l10n,
+                        run.status,
+                        run.startedAt,
+                        run.finishedAt,
+                      ),
+                      mono: true,
+                    ),
+                  ],
+                ),
+              ),
+              if (hasInputOrAttachments) ...<Widget>[
+                SizedBox(height: spacing.space2),
+                HiveCollapsibleSection(
+                  key: const Key('run_detail_input_section'),
+                  title: l10n.runDetailInputLabel,
+                  child: _RunInputCard(
+                    input: (run.input != null && run.input!.trim().isNotEmpty)
+                        ? run.input!.trim()
+                        : null,
+                    copyText:
+                        (run.input != null && run.input!.trim().isNotEmpty)
+                        ? run.input!
+                        : null,
+                    attachments: run.attachments ?? const <RunAttachment>[],
+                    removed: const <RunStatus>{
+                      RunStatus.succeeded,
+                      RunStatus.failed,
+                      RunStatus.cancelled,
+                    }.contains(run.status),
+                  ),
+                ),
+              ],
+              if (run.errorMessage != null &&
+                  run.errorMessage!.isNotEmpty) ...<Widget>[
+                SizedBox(height: spacing.space2),
+                HiveCard(
+                  key: const Key('run_detail_error_card'),
+                  surface: HiveCardSurface.surface2,
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Text(
-                        l10n.runDetailErrorLabel,
-                        style: typography.label.copyWith(color: colors.danger),
+                      HiveIcon(
+                        HiveIcons.alert,
+                        size: spacing.space3,
+                        color: colors.danger,
                       ),
-                      SizedBox(height: spacing.spaceHalf),
-                      SelectableText(
-                        run.errorMessage!,
-                        style: typography.mono.copyWith(
-                          color: colors.onSurface,
+                      SizedBox(width: spacing.space2),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              l10n.runDetailErrorLabel,
+                              style: typography.label.copyWith(
+                                color: colors.danger,
+                              ),
+                            ),
+                            SizedBox(height: spacing.spaceHalf),
+                            SelectableText(
+                              run.errorMessage!,
+                              style: typography.mono.copyWith(
+                                color: colors.onSurface,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
               ],
-            ),
-          ),
-        ],
-        SizedBox(height: spacing.space3),
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth >= 840) {
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    Expanded(flex: 3, child: graphView),
-                    SizedBox(width: spacing.space3),
-                    Expanded(flex: 2, child: inspector),
-                  ],
-                );
-              }
-              return SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    SizedBox(height: spacing.space8 * 6, child: graphView),
-                    SizedBox(height: spacing.space3),
-                    SizedBox(height: spacing.space8 * 6, child: inspector),
-                  ],
+              SizedBox(height: spacing.space3),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    if (constraints.maxWidth >= 840) {
+                      return HiveSplitter(
+                        key: ValueKey<String>(
+                          'run_detail_splitter_horizontal_'
+                          '$_sideBySideSplitterVersion',
+                        ),
+                        initialPosition: splitterPref.sideBySide,
+                        semanticLabel: l10n.runDetailResizeWorkArea,
+                        onChanged: (value) {
+                          _userDraggedSideBySide = true;
+                          unawaited(splitterController.setSideBySide(value));
+                        },
+                        first: graphView,
+                        second: inspector,
+                      );
+                    }
+                    return HiveSplitter(
+                      key: ValueKey<String>(
+                        'run_detail_splitter_vertical_$_stackedSplitterVersion',
+                      ),
+                      axis: Axis.vertical,
+                      initialPosition: splitterPref.stacked,
+                      minFirst: spacing.space8 * 2,
+                      minSecond: spacing.space8 * 2,
+                      semanticLabel: l10n.runDetailResizeWorkArea,
+                      onChanged: (value) {
+                        _userDraggedStacked = true;
+                        unawaited(splitterController.setStacked(value));
+                      },
+                      first: graphView,
+                      second: inspector,
+                    );
+                  },
                 ),
-              );
-            },
-          ),
+              ),
+            ],
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -489,126 +576,111 @@ class _EventTimelineColumn extends ConsumerWidget {
 
     return HiveCard(
       surface: HiveCardSurface.surface2,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Text(
-            l10n.runDetailEventsTitle,
-            style: typography.titleSmall.copyWith(color: colors.onSurface),
-          ),
-          SizedBox(height: spacing.space2),
-          Expanded(
-            child: events.isEmpty
-                ? HiveEmptyState(
-                    icon: HiveIcons.terminal,
-                    title: l10n.runDetailEventsTitle,
-                    message: l10n.runDetailEventsEmpty,
-                  )
-                : ListView.separated(
-                    itemCount: events.length,
-                    separatorBuilder: (_, _) =>
-                        SizedBox(height: spacing.space2),
-                    itemBuilder: (context, index) {
-                      final event = events[index];
-                      final isExpanded = expandedEventIds.contains(event.id);
-                      final hasPayload = event.payload.isNotEmpty;
-                      return HiveCard(
-                        key: Key('run_event_${event.id}'),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: <Widget>[
-                            Row(
-                              children: <Widget>[
-                                Text(
-                                  '#${event.sequence}',
-                                  style: typography.mono.copyWith(
-                                    color: colors.onSurfaceMuted,
-                                  ),
-                                ),
-                                SizedBox(width: spacing.space2),
-                                HiveBadge(
-                                  label: event.type.wireName,
-                                  tone: RunL10n.eventToneFor(event.type),
-                                ),
-                                SizedBox(width: spacing.space2),
-                                Expanded(
-                                  child: Text(
-                                    RunL10n.formatTimestamp(event.createdAt),
-                                    style: typography.mono.copyWith(
-                                      color: colors.onSurfaceMuted,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                if (hasPayload)
-                                  HiveIconButton(
-                                    key: Key('run_event_toggle_${event.id}'),
-                                    icon: HiveIcons.chevronDown,
-                                    size: HiveButtonSize.small,
-                                    semanticLabel: isExpanded
-                                        ? l10n.runDetailCollapsePayloadTooltip
-                                        : l10n.runDetailExpandPayloadTooltip,
-                                    onPressed: () => ref
-                                        .read(
-                                          runDetailControllerProvider(runId)
-                                              .notifier,
-                                        )
-                                        .toggleEventExpanded(event.id),
-                                  ),
-                              ],
+      child: events.isEmpty
+          ? HiveEmptyState(
+              icon: HiveIcons.terminal,
+              title: l10n.runDetailEventsTitle,
+              message: l10n.runDetailEventsEmpty,
+            )
+          : ListView.separated(
+              itemCount: events.length,
+              separatorBuilder: (_, _) => SizedBox(height: spacing.space2),
+              itemBuilder: (context, index) {
+                final event = events[index];
+                final isExpanded = expandedEventIds.contains(event.id);
+                final hasPayload = event.payload.isNotEmpty;
+                return HiveCard(
+                  key: Key('run_event_${event.id}'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          Text(
+                            '#${event.sequence}',
+                            style: typography.mono.copyWith(
+                              color: colors.onSurfaceMuted,
                             ),
-                            if (event.nodeId != null ||
-                                event.edgeId != null) ...<Widget>[
-                              SizedBox(height: spacing.space1),
-                              Wrap(
-                                spacing: spacing.space2,
-                                runSpacing: spacing.spaceHalf,
-                                children: <Widget>[
-                                  if (event.nodeId != null)
-                                    Text(
-                                      l10n.runDetailNodeLabel(event.nodeId!),
-                                      style: typography.mono.copyWith(
-                                        color: colors.onSurfaceMuted,
-                                      ),
-                                    ),
-                                  if (event.edgeId != null)
-                                    Text(
-                                      l10n.runDetailEdgeLabel(event.edgeId!),
-                                      style: typography.mono.copyWith(
-                                        color: colors.onSurfaceMuted,
-                                      ),
-                                    ),
-                                ],
+                          ),
+                          SizedBox(width: spacing.space2),
+                          HiveBadge(
+                            label: event.type.wireName,
+                            tone: RunL10n.eventToneFor(event.type),
+                          ),
+                          SizedBox(width: spacing.space2),
+                          Expanded(
+                            child: Text(
+                              RunL10n.formatTimestamp(event.createdAt),
+                              style: typography.mono.copyWith(
+                                color: colors.onSurfaceMuted,
                               ),
-                            ],
-                            if (event.type == RunEventType.nodeFallback)
-                              ..._buildFallbackSummary(
-                                context,
-                                l10n,
-                                spacing,
-                                typography,
-                                colors,
-                                event,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (hasPayload)
+                            HiveIconButton(
+                              key: Key('run_event_toggle_${event.id}'),
+                              icon: HiveIcons.chevronDown,
+                              size: HiveButtonSize.small,
+                              semanticLabel: isExpanded
+                                  ? l10n.runDetailCollapsePayloadTooltip
+                                  : l10n.runDetailExpandPayloadTooltip,
+                              onPressed: () => ref
+                                  .read(
+                                    runDetailControllerProvider(runId).notifier,
+                                  )
+                                  .toggleEventExpanded(event.id),
+                            ),
+                        ],
+                      ),
+                      if (event.nodeId != null ||
+                          event.edgeId != null) ...<Widget>[
+                        SizedBox(height: spacing.space1),
+                        Wrap(
+                          spacing: spacing.space2,
+                          runSpacing: spacing.spaceHalf,
+                          children: <Widget>[
+                            if (event.nodeId != null)
+                              Text(
+                                l10n.runDetailNodeLabel(event.nodeId!),
+                                style: typography.mono.copyWith(
+                                  color: colors.onSurfaceMuted,
+                                ),
                               ),
-                            if (isExpanded) ...<Widget>[
-                              SizedBox(height: spacing.space2),
-                              HiveCodeBlock(
-                                key: Key('run_event_payload_${event.id}'),
-                                title: l10n.runDetailEventPayloadTitle,
-                                code: RunL10n.prettyJsonMap(event.payload),
-                                copyLabel: l10n.runDetailCopyLabel,
-                                emptyLabel: l10n.runDetailEventPayloadEmpty,
-                                maxHeight: spacing.space8 * 3,
+                            if (event.edgeId != null)
+                              Text(
+                                l10n.runDetailEdgeLabel(event.edgeId!),
+                                style: typography.mono.copyWith(
+                                  color: colors.onSurfaceMuted,
+                                ),
                               ),
-                            ],
                           ],
                         ),
-                      );
-                    },
+                      ],
+                      if (event.type == RunEventType.nodeFallback)
+                        ..._buildFallbackSummary(
+                          context,
+                          l10n,
+                          spacing,
+                          typography,
+                          colors,
+                          event,
+                        ),
+                      if (isExpanded) ...<Widget>[
+                        SizedBox(height: spacing.space2),
+                        HiveCodeBlock(
+                          key: Key('run_event_payload_${event.id}'),
+                          title: l10n.runDetailEventPayloadTitle,
+                          code: RunL10n.prettyJsonMap(event.payload),
+                          copyLabel: l10n.runDetailCopyLabel,
+                          emptyLabel: l10n.runDetailEventPayloadEmpty,
+                        ),
+                      ],
+                    ],
                   ),
-          ),
-        ],
-      ),
+                );
+              },
+            ),
     );
   }
 
@@ -681,17 +753,22 @@ class _InspectorColumn extends StatelessWidget {
     required this.detailState,
     required this.tab,
     required this.onTabChanged,
+    required this.isMaximized,
+    required this.onToggleMaximize,
     required this.fanOutNodeIds,
     required this.fanOutProgress,
     required this.fanOutChildren,
     required this.onOpenRun,
     required this.onRetryFanOut,
+    super.key,
   });
 
   final String runId;
   final RunDetailState detailState;
   final RunInspectorTab tab;
   final ValueChanged<RunInspectorTab> onTabChanged;
+  final bool isMaximized;
+  final VoidCallback onToggleMaximize;
   final Set<String> fanOutNodeIds;
   final Map<String, FanOutProgress> fanOutProgress;
   final AsyncValue<List<Run>>? fanOutChildren;
@@ -700,23 +777,37 @@ class _InspectorColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final spacing = context.hiveSpacing;
     final run = detailState.run;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Align(
-          alignment: Alignment.centerLeft,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: RunInspectorTabs(selected: tab, onChanged: onTabChanged),
-          ),
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: RunInspectorTabs(selected: tab, onChanged: onTabChanged),
+              ),
+            ),
+            if (isMaximized && tab != RunInspectorTab.transcript) ...<Widget>[
+              SizedBox(width: spacing.space2),
+              HiveIconButton(
+                key: const Key('run_inspector_restore_button'),
+                icon: HiveIcons.restore,
+                size: HiveButtonSize.small,
+                semanticLabel: l10n.runDetailRestoreInspector,
+                onPressed: onToggleMaximize,
+              ),
+            ],
+          ],
         ),
         SizedBox(height: spacing.space2),
         Expanded(
           child: switch (tab) {
-            RunInspectorTab.output => _buildOutputTab(),
-            RunInspectorTab.outputs => RunChatOutputsPanel(
+            RunInspectorTab.transcript => _buildTranscriptTab(),
+            RunInspectorTab.summaries => RunChatOutputsPanel(
               detailState: detailState,
             ),
             RunInspectorTab.events => _EventTimelineColumn(
@@ -733,6 +824,7 @@ class _InspectorColumn extends StatelessWidget {
               runId: runId,
               workspaceRoot: run.workspaceRoot,
               runStatus: run.status,
+              showTitle: false,
               nodeLabels: <String, String>{
                 for (final node in run.workflowDefinition.nodes)
                   node.id: node.label,
@@ -744,7 +836,7 @@ class _InspectorColumn extends StatelessWidget {
     );
   }
 
-  Widget _buildOutputTab() {
+  Widget _buildTranscriptTab() {
     final inspectedId = detailState.inspectedNodeId;
     if (inspectedId != null && fanOutNodeIds.contains(inspectedId)) {
       final childrenAsync = fanOutChildren;
@@ -764,7 +856,12 @@ class _InspectorColumn extends StatelessWidget {
         onRetry: onRetryFanOut,
       );
     }
-    return RunOutputPanel(runId: runId, detailState: detailState);
+    return RunOutputPanel(
+      runId: runId,
+      detailState: detailState,
+      isMaximized: isMaximized,
+      onToggleMaximize: onToggleMaximize,
+    );
   }
 }
 
@@ -783,100 +880,88 @@ class _CheckpointInspectorColumn extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final spacing = context.hiveSpacing;
-    final colors = context.hiveColors;
-    final typography = context.hiveTypography;
 
     return HiveCard(
       surface: HiveCardSurface.surface2,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Text(
-            l10n.runDetailCheckpointsTitle,
-            style: typography.titleSmall.copyWith(color: colors.onSurface),
-          ),
-          SizedBox(height: spacing.space2),
-          if (checkpoints.isEmpty || selectedCheckpoint == null)
-            Expanded(
-              child: HiveEmptyState(
-                icon: HiveIcons.branch,
-                title: l10n.runDetailCheckpointsTitle,
-                message: l10n.runDetailCheckpointsEmpty,
-              ),
+      child: checkpoints.isEmpty || selectedCheckpoint == null
+          ? HiveEmptyState(
+              icon: HiveIcons.branch,
+              title: l10n.runDetailCheckpointsTitle,
+              message: l10n.runDetailCheckpointsEmpty,
             )
-          else ...<Widget>[
-            Wrap(
-              spacing: spacing.space1,
-              runSpacing: spacing.space1,
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                for (final checkpoint in checkpoints)
-                  HiveFilterChip(
-                    key: Key('checkpoint_chip_${checkpoint.id}'),
-                    label: l10n.runDetailCheckpointSequence(
-                      checkpoint.sequence,
-                    ),
-                    selected: selectedCheckpoint!.id == checkpoint.id,
-                    onSelected: (_) => ref
-                        .read(runDetailControllerProvider(runId).notifier)
-                        .selectCheckpoint(checkpoint.id),
-                  ),
-              ],
-            ),
-            SizedBox(height: spacing.space3),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                Wrap(
+                  spacing: spacing.space1,
+                  runSpacing: spacing.space1,
                   children: <Widget>[
-                    _MetadataItem(
-                      label: l10n.runDetailCompletedNodeLabel,
-                      value:
-                          selectedCheckpoint!.completedNodeId ??
-                          l10n.runDetailNone,
-                      mono: true,
-                    ),
-                    SizedBox(height: spacing.space2),
-                    _MetadataItem(
-                      label: l10n.runDetailPendingNodesLabel,
-                      value: selectedCheckpoint!.pendingNodeIds.isEmpty
-                          ? l10n.runDetailNone
-                          : selectedCheckpoint!.pendingNodeIds.join(', '),
-                      mono: true,
-                    ),
-                    SizedBox(height: spacing.space2),
-                    _MetadataItem(
-                      label: l10n.runDetailAttemptsLabel,
-                      value: selectedCheckpoint!.attemptsByEdge.isEmpty
-                          ? l10n.runDetailNone
-                          : selectedCheckpoint!.attemptsByEdge.entries
-                                .map((e) => '${e.key}: ${e.value}')
-                                .join(', '),
-                      mono: true,
-                    ),
-                    SizedBox(height: spacing.space2),
-                    _MetadataItem(
-                      label: l10n.runDetailCircuitBreakerLabel,
-                      value: '${selectedCheckpoint!.circuitBreakerCount}',
-                      mono: true,
-                    ),
-                    SizedBox(height: spacing.space3),
-                    HiveCodeBlock(
-                      key: const Key('checkpoint_node_outputs_block'),
-                      title: l10n.runDetailNodeOutputsLabel,
-                      code: RunL10n.prettyJsonMap(
-                        selectedCheckpoint!.nodeOutputs,
+                    for (final checkpoint in checkpoints)
+                      HiveFilterChip(
+                        key: Key('checkpoint_chip_${checkpoint.id}'),
+                        label: l10n.runDetailCheckpointSequence(
+                          checkpoint.sequence,
+                        ),
+                        selected: selectedCheckpoint!.id == checkpoint.id,
+                        onSelected: (_) => ref
+                            .read(runDetailControllerProvider(runId).notifier)
+                            .selectCheckpoint(checkpoint.id),
                       ),
-                      copyLabel: l10n.runDetailCopyLabel,
-                      emptyLabel: l10n.runDetailNoOutputs,
-                      maxHeight: spacing.space8 * 4,
-                    ),
                   ],
                 ),
-              ),
+                SizedBox(height: spacing.space3),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        _MetadataItem(
+                          label: l10n.runDetailCompletedNodeLabel,
+                          value:
+                              selectedCheckpoint!.completedNodeId ??
+                              l10n.runDetailNone,
+                          mono: true,
+                        ),
+                        SizedBox(height: spacing.space2),
+                        _MetadataItem(
+                          label: l10n.runDetailPendingNodesLabel,
+                          value: selectedCheckpoint!.pendingNodeIds.isEmpty
+                              ? l10n.runDetailNone
+                              : selectedCheckpoint!.pendingNodeIds.join(', '),
+                          mono: true,
+                        ),
+                        SizedBox(height: spacing.space2),
+                        _MetadataItem(
+                          label: l10n.runDetailAttemptsLabel,
+                          value: selectedCheckpoint!.attemptsByEdge.isEmpty
+                              ? l10n.runDetailNone
+                              : selectedCheckpoint!.attemptsByEdge.entries
+                                    .map((e) => '${e.key}: ${e.value}')
+                                    .join(', '),
+                          mono: true,
+                        ),
+                        SizedBox(height: spacing.space2),
+                        _MetadataItem(
+                          label: l10n.runDetailCircuitBreakerLabel,
+                          value: '${selectedCheckpoint!.circuitBreakerCount}',
+                          mono: true,
+                        ),
+                        SizedBox(height: spacing.space3),
+                        HiveCodeBlock(
+                          key: const Key('checkpoint_node_outputs_block'),
+                          title: l10n.runDetailNodeOutputsLabel,
+                          code: RunL10n.prettyJsonMap(
+                            selectedCheckpoint!.nodeOutputs,
+                          ),
+                          copyLabel: l10n.runDetailCopyLabel,
+                          emptyLabel: l10n.runDetailNoOutputs,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ],
-      ),
     );
   }
 }

@@ -10,9 +10,11 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../http/support/harness.dart';
+import 'support/hive_mcp_kernel.dart';
 import 'support/mcp_stdio_client.dart';
 
 void main() {
+  final hiveMcp = useCompiledHiveMcp();
   late Directory tempDir;
 
   setUp(() async {
@@ -23,12 +25,9 @@ void main() {
     required String socket,
     required String workingDirectory,
   }) async {
-    // Run the script by absolute path so it resolves the backend package
-    // even though the working directory is the user's folder.
-    final scriptPath = p.join(Directory.current.path, 'bin', 'hive_mcp.dart');
     final process = await Process.start(
       Platform.resolvedExecutable,
-      <String>['run', scriptPath, '--socket', socket],
+      <String>[hiveMcp(), '--socket', socket],
       workingDirectory: workingDirectory,
       environment: const <String, String>{
         'HIVE_RUN_ID': '',

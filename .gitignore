@@ -16,3 +16,6 @@ backend/.dev-data/
 .DS_Store
 Thumbs.db
 .backend-test.log
+
+# Entrypoint very_good test generates while it runs
+**/test/.test_optimizer.dart

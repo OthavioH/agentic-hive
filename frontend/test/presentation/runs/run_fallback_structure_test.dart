@@ -1,3 +1,7 @@
+// Shares global state with other files when bundled by very_good test.
+@Tags(['skip_very_good_optimization'])
+library;
+
 import 'dart:async';
 
 import 'package:agentic_hive_frontend/core/backend/backend_connection.dart';

@@ -824,3 +824,258 @@ class _ControllerHostState extends State<_ControllerHost> {
   @override
   Widget build(BuildContext context) => widget.builder(_controller);
 }
+
+String _transcriptShowAll(int lines) => 'Show all ($lines lines)';
+
+const HiveTranscriptLabels _transcriptLabels = HiveTranscriptLabels(
+  semanticLabel: 'Run transcript',
+  jumpToBottom: 'Jump to bottom',
+  thinking: 'Thinking',
+  toolResult: 'Tool result',
+  error: 'Error',
+  stderr: 'Error',
+  showLess: 'Show less',
+  showAll: _transcriptShowAll,
+  emptyLabel: 'No transcript entries yet.',
+);
+
+const List<HiveTranscriptBlock> _sampleTranscriptBlocks = <HiveTranscriptBlock>[
+  HiveTranscriptMessage(
+    id: 'msg-1',
+    markdown:
+        'Inspected `scheduler.dart` and confirmed the checkpoint recovery '
+        'path skips completed nodes.',
+  ),
+  HiveTranscriptThinking(
+    id: 'think-1',
+    text:
+        'Check whether cancelled child processes are waited on before '
+        'reporting the node as cancelled.',
+  ),
+  HiveTranscriptToolCall(
+    id: 'tool-1',
+    name: 'read_file',
+    input: 'path: backend/lib/src/engine/scheduler.dart\nstartLine: 1\nendLine: 120',
+  ),
+  HiveTranscriptToolResult(
+    id: 'result-1',
+    text: '120 lines read from backend/lib/src/engine/scheduler.dart.',
+  ),
+  HiveTranscriptError(
+    id: 'err-1',
+    message: 'dart analyze timed out after 30s; retrying with 60s limit.',
+  ),
+  HiveTranscriptPlainText(id: 'plain-1', text: '00:03 +41: All tests passed!'),
+  HiveTranscriptFinalResult(
+    id: 'final-1',
+    statusLabel: 'Succeeded',
+    tone: HiveFeedbackTone.success,
+    metrics: <HiveTranscriptMetric>[
+      HiveTranscriptMetric(label: 'Duration', value: '14s'),
+      HiveTranscriptMetric(label: 'Tokens', value: '3,420'),
+      HiveTranscriptMetric(label: 'Cost', value: r'$0.03'),
+    ],
+  ),
+];
+
+/// `HiveTranscriptView`: collapsed, expanded, 200-line cut, stderr, final
+/// result variants, live streaming, and empty.
+WidgetbookComponent transcriptViewComponent() {
+  Widget frame(BuildContext context, Widget child) => UseCaseFrame(
+    child: SizedBox(
+      width: context.hiveSpacing.space8 * 8,
+      height: context.hiveSpacing.space8 * 6,
+      child: child,
+    ),
+  );
+  return WidgetbookComponent(
+    name: 'HiveTranscriptView',
+    useCases: <WidgetbookUseCase>[
+      WidgetbookUseCase(
+        name: 'Every kind · Collapsed',
+        builder: (context) => frame(
+          context,
+          const _TranscriptHost(initialBlocks: _sampleTranscriptBlocks),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Every kind · Expanded',
+        builder: (context) => frame(
+          context,
+          const _TranscriptHost(
+            initialBlocks: _sampleTranscriptBlocks,
+            expandIds: <String>['think-1', 'tool-1', 'result-1'],
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Long tool result · 200-line cut',
+        builder: (context) {
+          final lines = <String>[
+            for (var i = 1; i <= 250; i++)
+              'line $i: test/engine/scheduler_test.dart passed',
+          ].join('\n');
+          return frame(
+            context,
+            _TranscriptHost(
+              initialBlocks: <HiveTranscriptBlock>[
+                HiveTranscriptToolResult(id: 'big-result', text: lines),
+              ],
+              expandIds: const <String>['big-result'],
+            ),
+          );
+        },
+      ),
+      WidgetbookUseCase(
+        name: 'Stderr plain text',
+        builder: (context) => frame(
+          context,
+          const _TranscriptHost(
+            initialBlocks: <HiveTranscriptBlock>[
+              HiveTranscriptPlainText(
+                id: 'stdout-1',
+                text: 'Running dart analyze --fatal-infos...',
+              ),
+              HiveTranscriptPlainText(
+                id: 'stderr-1',
+                text: 'Error: Claude Code is not signed in on this machine.',
+                stream: HiveLogStream.stderr,
+              ),
+            ],
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Final result · With and without metrics',
+        builder: (context) => frame(
+          context,
+          const _TranscriptHost(
+            initialBlocks: <HiveTranscriptBlock>[
+              HiveTranscriptFinalResult(
+                id: 'fin-metrics',
+                statusLabel: 'Succeeded',
+                tone: HiveFeedbackTone.success,
+                metrics: <HiveTranscriptMetric>[
+                  HiveTranscriptMetric(label: 'Duration', value: '18s'),
+                  HiveTranscriptMetric(label: 'Tokens', value: '4,110'),
+                  HiveTranscriptMetric(label: 'Cost', value: r'$0.04'),
+                ],
+              ),
+              HiveTranscriptFinalResult(
+                id: 'fin-none',
+                statusLabel: 'Failed',
+                tone: HiveFeedbackTone.danger,
+              ),
+            ],
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Live · Streaming message',
+        builder: (context) => frame(
+          context,
+          const _TranscriptHost(
+            initialBlocks: <HiveTranscriptBlock>[
+              ..._sampleTranscriptBlocks,
+              HiveTranscriptPlainText(
+                id: 'live-seed-1',
+                text: 'Running backend test suite...',
+              ),
+              HiveTranscriptPlainText(
+                id: 'live-seed-2',
+                text: '00:04 +68: scheduler cancellation tests passed',
+              ),
+            ],
+            live: true,
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Empty',
+        builder: (context) => frame(context, const _TranscriptHost()),
+      ),
+    ],
+  );
+}
+
+class _TranscriptHost extends StatefulWidget {
+  const new({
+    this.initialBlocks = const <HiveTranscriptBlock>[],
+    this.expandIds = const <String>[],
+    this.live = false,
+  });
+
+  final List<HiveTranscriptBlock> initialBlocks;
+  final List<String> expandIds;
+  final bool live;
+
+  @override
+  State<_TranscriptHost> createState() => _TranscriptHostState();
+}
+
+class _TranscriptHostState extends State<_TranscriptHost> {
+  late final HiveTranscriptController _controller = HiveTranscriptController(
+    initialBlocks: widget.initialBlocks,
+  );
+  final GlobalKey<HiveTranscriptViewState> _viewKey =
+      GlobalKey<HiveTranscriptViewState>();
+  Timer? _timer;
+  var _step = 0;
+  final StringBuffer _streamedMarkdown = StringBuffer(
+    'Streaming response started:',
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.expandIds.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final state = _viewKey.currentState;
+        if (state == null) return;
+        for (final id in widget.expandIds) {
+          state.setBlockExpanded(id, expanded: true);
+        }
+      });
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (widget.live) {
+      _timer ??= Timer.periodic(context.hiveMotion.long * 2, (_) {
+        _step++;
+        _streamedMarkdown.write(
+          '\n\nChunk $_step: verified process tree exit before reporting '
+          'cancellation.',
+        );
+        _controller.upsertAll(<HiveTranscriptBlock>[
+          HiveTranscriptPlainText(
+            id: 'live-tick-$_step',
+            text: '00:0$_step +$_step: heartbeat event',
+          ),
+          HiveTranscriptMessage(
+            id: 'live-msg',
+            markdown: _streamedMarkdown.toString(),
+          ),
+        ]);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return HiveTranscriptView(
+      key: _viewKey,
+      controller: _controller,
+      labels: _transcriptLabels,
+    );
+  }
+}

@@ -4,11 +4,11 @@ import 'package:material_ui/material_ui.dart';
 
 /// Views available in the right-hand inspector of the Live Run Monitor.
 enum RunInspectorTab {
-  /// Streaming and historical `stdout`/`stderr` output of a node.
-  output,
+  /// Readable transcript (or raw log) of a node attempt.
+  transcript,
 
   /// Chat-style plain-text summaries published by each node.
-  outputs,
+  summaries,
 
   /// Chronological event log of the run.
   events,
@@ -20,7 +20,8 @@ enum RunInspectorTab {
   snapshots,
 }
 
-/// Segmented toggle between Output, Events, Checkpoints, and Snapshots tabs.
+/// Segmented toggle between Transcript, Summaries, Events, Checkpoints, and
+/// Snapshots tabs.
 class RunInspectorTabs extends StatelessWidget {
   /// Creates the toggle.
   const new({required this.selected, required this.onChanged, super.key});
@@ -40,12 +41,12 @@ class RunInspectorTabs extends StatelessWidget {
       onChanged: onChanged,
       segments: <HiveSegment<RunInspectorTab>>[
         HiveSegment<RunInspectorTab>(
-          value: RunInspectorTab.output,
-          label: l10n.runDetailTabOutput,
+          value: RunInspectorTab.transcript,
+          label: l10n.runDetailTabTranscript,
         ),
         HiveSegment<RunInspectorTab>(
-          value: RunInspectorTab.outputs,
-          label: l10n.runDetailTabOutputs,
+          value: RunInspectorTab.summaries,
+          label: l10n.runDetailTabSummaries,
         ),
         HiveSegment<RunInspectorTab>(
           value: RunInspectorTab.events,
