@@ -12,15 +12,20 @@ enum WorkspacePackage {
   /// `tools/hive_lints/`.
   hiveLints('tools/hive_lints', ['dart', 'test']),
 
-  /// `design_system/`; goldens run on Ubuntu CI only.
+  /// `design_system/`, bundled by `very_good test` (about 2x faster); goldens
+  /// run on Ubuntu CI only.
   designSystem('design_system', [
-    'flutter',
+    'dart',
+    'pub',
+    'global',
+    'run',
+    'very_good_cli:very_good',
     'test',
     '--exclude-tags',
     'golden',
   ]),
 
-  /// `widgetbook/`.
+  /// `widgetbook/`. One test file, so `very_good test` gains nothing.
   widgetbook('widgetbook', ['flutter', 'test']),
 
   /// `frontend/`. `very_good test` bundles the test files into one entrypoint,

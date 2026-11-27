@@ -1,4 +1,6 @@
-@Tags(<String>['golden'])
+// Not bundled by very_good test: bundling drops the golden tag, and goldens
+// run on Ubuntu CI only.
+@Tags(<String>['golden', 'skip_very_good_optimization'])
 library;
 
 import 'package:design_system/design_system.dart';

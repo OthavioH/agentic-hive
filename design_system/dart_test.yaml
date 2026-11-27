@@ -1,2 +1,4 @@
 tags:
   golden:
+  # Files that must run on their own when `very_good test` bundles the suite.
+  skip_very_good_optimization:

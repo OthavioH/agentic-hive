@@ -65,7 +65,9 @@ jobs:
 
       - name: Test design_system (non-golden)
         working-directory: design_system
-        run: flutter test --exclude-tags golden
+        run: |
+          dart pub global activate very_good_cli 1.7.0
+          dart pub global run very_good_cli:very_good test --exclude-tags golden
 
       - name: Test design_system (goldens, Ubuntu only)
         if: runner.os == 'Linux'
