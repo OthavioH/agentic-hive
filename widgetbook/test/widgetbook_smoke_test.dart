@@ -70,6 +70,7 @@ const Map<String, String> _useCases = <String, String>{
   'Compact · danger': 'This agent could not be read',
   'With label and helper text':
       'Automatically install the skill for newly detected harnesses.',
+  'Side by side · Default': 'Inspector',
 };
 
 void main() {

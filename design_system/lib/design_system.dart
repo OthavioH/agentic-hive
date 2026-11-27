@@ -30,6 +30,7 @@ export 'src/components/hive_rail_item.dart';
 export 'src/components/hive_segmented_control.dart';
 export 'src/components/hive_select.dart';
 export 'src/components/hive_side_rail.dart';
+export 'src/components/hive_splitter.dart';
 export 'src/components/hive_status_dot.dart';
 export 'src/components/hive_string_list_field.dart';
 export 'src/components/hive_switch.dart';
