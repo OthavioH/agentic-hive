@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:agentic_hive_backend/src/domain/nodes/harness_node.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_ports.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/transcript_interpreter.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 
 /// Antigravity CLI headless harness (`agy --input-format stream-json`).
@@ -138,4 +139,192 @@ final class AntigravityNode extends HeadlessHarnessNode {
         rateLimitPattern: _rateLimitPattern,
         rateLimitOnCleanExit: true,
       );
+
+  @override
+  TranscriptInterpreter createTranscriptInterpreter() =>
+      _AntigravityTranscriptInterpreter();
+}
+
+final class _AntigravityTranscriptInterpreter
+    extends JsonLineTranscriptInterpreter {
+  final Map<String, RunLogEntry> _stepFirst = <String, RunLogEntry>{};
+  final Map<String, StringBuffer> _stepText = <String, StringBuffer>{};
+
+  @override
+  List<TranscriptEntry>? interpretEvent(JsonMap event, RunLogEntry entry) {
+    return switch (event['event']) {
+      'init' => const [],
+      'step_update' => _interpretStepUpdate(event['step_update'], entry),
+      'result' => _interpretResult(event['result'], entry),
+      _ => null,
+    };
+  }
+
+  List<TranscriptEntry>? _interpretStepUpdate(
+    Object? rawStep,
+    RunLogEntry entry,
+  ) {
+    if (rawStep is! JsonMap) {
+      return null;
+    }
+    final stepType = rawStep['step_type'];
+    if (stepType == 'user_input' || stepType == 'system_message') {
+      return const [];
+    }
+
+    final conversationId = rawStep['conversation_id'];
+    final stepIndex = rawStep['step_index'];
+    if (conversationId is! String || stepIndex is! int) {
+      return null;
+    }
+
+    final stepKey = '$conversationId:$stepIndex';
+
+    if (stepType == 'agent_response') {
+      final state = rawStep['state'];
+      if (state != 'ACTIVE' && state != 'DONE') {
+        return null;
+      }
+      final delta = rawStep['text_delta'];
+      if (delta == null) {
+        return const [];
+      }
+      if (delta is! String) {
+        return null;
+      }
+      final first = _stepFirst.putIfAbsent(stepKey, () => entry);
+      final buffer = _stepText.putIfAbsent(stepKey, StringBuffer.new)
+        ..write(delta);
+      final text = buffer.toString();
+      if (text.isEmpty) {
+        return const [];
+      }
+      return <TranscriptEntry>[
+        TranscriptEntry.agentMessage(
+          id: transcriptEntryId(first),
+          firstOffset: first.offset,
+          lastOffset: entry.offset,
+          text: text,
+        ),
+      ];
+    }
+
+    if (stepType == 'tool' || stepType == 'subagent') {
+      return _interpretToolStep(rawStep, stepType! as String, stepKey, entry);
+    }
+
+    return null;
+  }
+
+  List<TranscriptEntry>? _interpretToolStep(
+    JsonMap step,
+    String stepType,
+    String stepKey,
+    RunLogEntry entry,
+  ) {
+    final state = step['state'];
+    if (state != 'ACTIVE' && state != 'DONE' && state != 'ERROR') {
+      return null;
+    }
+    final first = _stepFirst.putIfAbsent(stepKey, () => entry);
+    final rawToolInfo = step['tool_info'];
+    final toolInfo = rawToolInfo is JsonMap ? rawToolInfo : null;
+    final rawSubagentInfo = step['subagent_info'];
+    final subagentInfo = rawSubagentInfo is JsonMap ? rawSubagentInfo : null;
+    final name =
+        (toolInfo?['name'] as String?) ??
+        (step['tool_name'] as String?) ??
+        stepType;
+    final rawParameters = toolInfo?['parameters'];
+    final input = rawParameters is JsonMap
+        ? rawParameters
+        : (subagentInfo ?? const <String, Object?>{});
+
+    final callEntry = TranscriptEntry.toolCall(
+      id: transcriptEntryId(first),
+      firstOffset: first.offset,
+      lastOffset: entry.offset,
+      name: name,
+      input: input,
+      callId: stepKey,
+    );
+
+    switch (state) {
+      case 'ACTIVE':
+        return <TranscriptEntry>[callEntry];
+      case 'DONE':
+        final output = toolInfo?['output'];
+        final encodedOutput = switch (output) {
+          null => null,
+          final String text => text,
+          _ => jsonEncode(output),
+        };
+        return <TranscriptEntry>[
+          callEntry,
+          if (encodedOutput != null)
+            TranscriptEntry.toolResult(
+              id: transcriptEntryId(first, 1),
+              firstOffset: first.offset,
+              lastOffset: entry.offset,
+              output: encodedOutput,
+              callId: stepKey,
+            ),
+        ];
+      case 'ERROR':
+        final rawError = toolInfo?['error'];
+        final errorInfo = rawError is JsonMap ? rawError : null;
+        final message =
+            (errorInfo?['message'] as String?) ??
+            (toolInfo?['output'] as String?) ??
+            '';
+        return <TranscriptEntry>[
+          callEntry,
+          TranscriptEntry.toolResult(
+            id: transcriptEntryId(first, 1),
+            firstOffset: first.offset,
+            lastOffset: entry.offset,
+            output: message,
+            callId: stepKey,
+            isError: true,
+          ),
+        ];
+      default:
+        return null;
+    }
+  }
+
+  List<TranscriptEntry>? _interpretResult(
+    Object? rawResult,
+    RunLogEntry entry,
+  ) {
+    if (rawResult is! JsonMap) {
+      return null;
+    }
+    final durationSeconds = rawResult['duration_seconds'];
+    final rawUsage = rawResult['usage'];
+    final usage = rawUsage is JsonMap ? rawUsage : null;
+    final rawInputTokens = usage?['input_tokens'];
+    final rawOutputTokens = usage?['output_tokens'];
+    final error = rawResult['error'];
+    return <TranscriptEntry>[
+      TranscriptEntry.finalResult(
+        id: transcriptEntryId(entry),
+        firstOffset: entry.offset,
+        lastOffset: entry.offset,
+        status: rawResult['status'] as String?,
+        durationMs: durationSeconds is num
+            ? (durationSeconds * 1000).round()
+            : null,
+        inputTokens: rawInputTokens is int ? rawInputTokens : null,
+        outputTokens: rawOutputTokens is int ? rawOutputTokens : null,
+      ),
+      if (error is String && error.isNotEmpty)
+        TranscriptEntry.error(
+          id: transcriptEntryId(entry, 1),
+          firstOffset: entry.offset,
+          lastOffset: entry.offset,
+          message: error,
+        ),
+    ];
+  }
 }
