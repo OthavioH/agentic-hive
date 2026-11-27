@@ -156,7 +156,7 @@ class _RunOutputPanelState extends ConsumerState<RunOutputPanel> {
 
   static String _formatToolInput(JsonMap input) {
     if (input.isEmpty) return '';
-    return const JsonEncoder.withIndent('  ').convert(input);
+    return jsonEncode(input);
   }
 
   static HiveFeedbackTone _finalResultTone(String? status) {
@@ -359,31 +359,63 @@ class _RunOutputPanelState extends ConsumerState<RunOutputPanel> {
       surface: HiveCardSurface.surface2,
       child: LayoutBuilder(
         builder: (context, constraints) {
+          final motion = context.hiveMotion;
+          final elevation = context.hiveElevation;
           final header = Wrap(
             spacing: spacing.space2,
             runSpacing: spacing.space1,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: <Widget>[
-              if (nodeStatus != null)
-                HiveStatusDot(
-                  status: nodeStatus,
-                  semanticLabel: RunL10n.localizeNodeStatus(l10n, nodeStatus),
-                  size: spacing.space2,
-                ),
-              if (nodeLabel != null)
-                Tooltip(
-                  message: nodeLabel,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: spacing.space8 * 4),
-                    child: Text(
-                      nodeLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: typography.titleSmall.copyWith(
-                        color: colors.onSurface,
+              if (nodeStatus != null || nodeLabel != null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    if (nodeStatus != null) ...<Widget>[
+                      HiveStatusDot(
+                        status: nodeStatus,
+                        semanticLabel: RunL10n.localizeNodeStatus(
+                          l10n,
+                          nodeStatus,
+                        ),
+                        size: spacing.space2,
                       ),
-                    ),
-                  ),
+                      if (nodeLabel != null) SizedBox(width: spacing.space1),
+                    ],
+                    if (nodeLabel != null)
+                      Tooltip(
+                        message: nodeLabel,
+                        excludeFromSemantics: true,
+                        waitDuration: motion.resolve(context, motion.long),
+                        exitDuration: motion.resolve(context, motion.short),
+                        padding: EdgeInsets.all(spacing.space2),
+                        decoration: ShapeDecoration(
+                          color: colors.surface3,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: context.hiveRadii.card,
+                            side: BorderSide(
+                              color: colors.borderSubtle,
+                              width: elevation.hairline,
+                            ),
+                          ),
+                        ),
+                        textStyle: typography.bodySmall.copyWith(
+                          color: colors.onSurface,
+                        ),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: spacing.space8 * 4,
+                          ),
+                          child: Text(
+                            nodeLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: typography.titleSmall.copyWith(
+                              color: colors.onSurface,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               if (detailState.followActiveNode)
                 HiveBadge(
@@ -436,26 +468,37 @@ class _RunOutputPanelState extends ConsumerState<RunOutputPanel> {
                     ),
                   ],
                 ),
-              if (nodeId != null && !showTerminal)
-                HiveIconButton(
-                  key: const Key('run_transcript_copy_button'),
-                  icon: HiveIcons.copy,
-                  size: HiveButtonSize.small,
-                  semanticLabel: l10n.runDetailCopy,
-                  onPressed: () =>
-                      unawaited(_copyVisible(context, l10n, controller)),
-                ),
-              if (widget.onToggleMaximize != null)
-                HiveIconButton(
-                  key: const Key('run_inspector_maximize_button'),
-                  icon: widget.isMaximized
-                      ? HiveIcons.restore
-                      : HiveIcons.maximize,
-                  size: HiveButtonSize.small,
-                  semanticLabel: widget.isMaximized
-                      ? l10n.runDetailRestoreInspector
-                      : l10n.runDetailMaximizeInspector,
-                  onPressed: widget.onToggleMaximize,
+              if ((nodeId != null && !showTerminal) ||
+                  widget.onToggleMaximize != null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    if (nodeId != null && !showTerminal)
+                      HiveIconButton(
+                        key: const Key('run_transcript_copy_button'),
+                        icon: HiveIcons.copy,
+                        size: HiveButtonSize.small,
+                        semanticLabel: l10n.runDetailCopy,
+                        onPressed: () =>
+                            unawaited(_copyVisible(context, l10n, controller)),
+                      ),
+                    if (nodeId != null &&
+                        !showTerminal &&
+                        widget.onToggleMaximize != null)
+                      SizedBox(width: spacing.space1),
+                    if (widget.onToggleMaximize != null)
+                      HiveIconButton(
+                        key: const Key('run_inspector_maximize_button'),
+                        icon: widget.isMaximized
+                            ? HiveIcons.restore
+                            : HiveIcons.maximize,
+                        size: HiveButtonSize.small,
+                        semanticLabel: widget.isMaximized
+                            ? l10n.runDetailRestoreInspector
+                            : l10n.runDetailMaximizeInspector,
+                        onPressed: widget.onToggleMaximize,
+                      ),
+                  ],
                 ),
             ],
           );

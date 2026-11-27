@@ -4,6 +4,8 @@ import 'dart:ui' as ui;
 
 import 'package:agentic_hive_frontend/core/backend/backend_connection.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_web_socket_session.dart';
+import 'package:agentic_hive_frontend/core/preferences/run_detail_splitter_preference.dart';
+import 'package:agentic_hive_frontend/core/preferences/run_detail_splitter_preference_store.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/data/runs/run_providers.dart';
 import 'package:agentic_hive_frontend/data/workspace/workspace_providers.dart';
@@ -62,6 +64,18 @@ Future<void> _capture(WidgetTester tester, String name) async {
   });
   if (bytes == null) return;
   File(p.join(_captureDir, '$name.png')).writeAsBytesSync(bytes);
+}
+
+final class _InMemorySplitterStore implements RunDetailSplitterPreferenceStore {
+  RunDetailSplitterPreference value = const RunDetailSplitterPreference();
+
+  @override
+  Future<RunDetailSplitterPreference> load() async => value;
+
+  @override
+  Future<void> save(RunDetailSplitterPreference preference) async {
+    value = preference;
+  }
 }
 
 final class _FakeWsSession implements BackendWebSocketSession {
@@ -298,6 +312,9 @@ void main() {
                 ),
                 backendWebSocketSessionProvider.overrideWithValue(ws),
                 backendWsMessagesProvider.overrideWith((ref) => ws.messages),
+                runDetailSplitterPreferenceStoreProvider.overrideWithValue(
+                  _InMemorySplitterStore(),
+                ),
               ],
               child: MaterialApp(
                 theme: themeEntry.theme,
