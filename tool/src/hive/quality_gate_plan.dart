@@ -23,8 +23,17 @@ enum WorkspacePackage {
   /// `widgetbook/`.
   widgetbook('widgetbook', ['flutter', 'test']),
 
-  /// `frontend/`.
-  frontend('frontend', ['flutter', 'test']);
+  /// `frontend/`. `very_good test` bundles the test files into one entrypoint,
+  /// about 6x faster than `flutter test` here; files tagged
+  /// `skip_very_good_optimization` still run on their own.
+  frontend('frontend', [
+    'dart',
+    'pub',
+    'global',
+    'run',
+    'very_good_cli:very_good',
+    'test',
+  ]);
 
   new(this.folder, this.testCommand);
 

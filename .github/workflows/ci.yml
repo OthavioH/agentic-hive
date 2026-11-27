@@ -76,9 +76,14 @@ jobs:
         working-directory: widgetbook
         run: flutter test
 
+      # very_good test bundles the test files into one entrypoint (about 6x
+      # faster than flutter test); files tagged skip_very_good_optimization run
+      # on their own.
       - name: Test frontend
         working-directory: frontend
-        run: flutter test
+        run: |
+          dart pub global activate very_good_cli 1.7.0
+          dart pub global run very_good_cli:very_good test
 
       - name: Build widgetbook (Windows)
         if: runner.os == 'Windows'

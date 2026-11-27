@@ -48,6 +48,7 @@ Each family of behavior has an abstract base, and each variation is an implement
 - **Multi-platform:** Windows and Linux now, macOS designed in (ADR 0012). OS-specific behavior lives behind an abstraction with one implementation per OS; never branch on the platform inline. Handle paths with `package:path`.
 - **Zero tolerance on code quality** (ADR 0014): `very_good_analysis` with no disabled rules. Work is done only when `dart analyze --fatal-infos`, `dart format --output=none --set-exit-if-changed .` and `dart fix --dry-run` all report nothing.
 - **Generated files:** Generated files (`**/*.g.dart`, `**/*.freezed.dart`, `frontend/lib/l10n/generated/`) are gitignored and never committed. **Before starting any work** in a fresh clone or worktree (before running `dart analyze`, `dart test`, or editing code), agents MUST run `dart run tool/codegen.dart` (which runs `flutter pub get`, `build_runner` in `shared/`, `backend/`, and `frontend/`, and `flutter gen-l10n` in `frontend/`).
+- **Frontend tests run with `very_good test`**, which bundles the test files into one entrypoint (about 6x faster than `flutter test`). Activate it once per machine: `dart pub global activate very_good_cli 1.7.0`, then run `dart pub global run very_good_cli:very_good test` in `frontend/`. A test file that leaks global state into others when bundled gets `@Tags(['skip_very_good_optimization'])` and runs on its own.
 - Code, identifiers, commit messages and all documentation (README, `AGENTS.md`, ADRs, glossary, agent definitions) are written in English.
 
 ## Agent skills

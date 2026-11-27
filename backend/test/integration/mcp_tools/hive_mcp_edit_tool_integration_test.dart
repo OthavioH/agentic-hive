@@ -10,9 +10,11 @@ import 'package:test/test.dart';
 
 import '../http/support/harness.dart';
 import '../websocket/support/ws_harness.dart';
+import 'support/hive_mcp_kernel.dart';
 import 'support/mcp_stdio_client.dart';
 
 void main() {
+  final hiveMcp = useCompiledHiveMcp();
   late Directory tempDir;
 
   setUp(() async => tempDir = await createTempDir());
@@ -21,10 +23,9 @@ void main() {
     required String socket,
     required String workingDirectory,
   }) async {
-    final script = p.join(Directory.current.path, 'bin', 'hive_mcp.dart');
     final process = await Process.start(
       Platform.resolvedExecutable,
-      ['run', script, '--socket', socket],
+      [hiveMcp(), '--socket', socket],
       workingDirectory: workingDirectory,
       environment: const {
         'HIVE_RUN_ID': '',
