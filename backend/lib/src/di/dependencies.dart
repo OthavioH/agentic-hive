@@ -106,6 +106,7 @@ import 'package:agentic_hive_backend/src/domain/runs/run_log_store.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_recovery_service.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_service.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_transcript_service.dart';
 import 'package:agentic_hive_backend/src/domain/settings/executable_validator.dart';
 import 'package:agentic_hive_backend/src/domain/settings/execution_settings_service.dart';
 import 'package:agentic_hive_backend/src/domain/settings/settings_repository.dart';
@@ -415,6 +416,17 @@ Future<void> registerDependencies(
       ),
       dispose: (store) => store.close(),
     )
+    ..registerSingletonWithDependencies<RunTranscriptService>(
+      () => RunTranscriptService(
+        runs: di<RunRepository>(),
+        events: di<RunEventRepository>(),
+        logStore: di<RunLogStore>(),
+        nodes: di<NodeRegistry>(),
+        runEvents: di<DriftRunEventRepository>().events,
+      ),
+      dependsOn: [RunRepository, RunEventRepository, DriftRunEventRepository],
+      dispose: (service) => service.close(),
+    )
     ..registerSingleton<RunAttachmentStore>(
       FileRunAttachmentStore(
         runsDir: config.runsDir,
@@ -566,6 +578,7 @@ Future<void> registerDependencies(
         executionSettings: di<ExecutionSettingsService>(),
         engine: di<GraphEngine>(),
         logStore: di<RunLogStore>(),
+        transcripts: di<RunTranscriptService>(),
         attachments: di<RunAttachmentStore>(),
         deletions: di<WorkflowDeletionRegistry>(),
         pathContext: platformPaths.context,
@@ -581,6 +594,7 @@ Future<void> registerDependencies(
         WorktreeService,
         ExecutionSettingsService,
         GraphEngine,
+        RunTranscriptService,
       ],
       dispose: (service) => service.dispose(),
     )
@@ -814,7 +828,7 @@ Future<void> registerDependencies(
         harnessStatusUpdates: di<HarnessService>().statusUpdates,
         settingsUpdates: di<SettingsService>().settingsUpdates,
         runEvents: di<DriftRunEventRepository>().events,
-        runOutputs: di<RunLogStore>().outputs,
+        runOutputs: di<RunTranscriptService>().outputs,
         ptySessions: di<PtySessionRegistry>(),
         pauseCreated: di<DriftPauseRepository>().created,
         pauseResolved: di<DriftPauseRepository>().resolved,
@@ -825,6 +839,7 @@ Future<void> registerDependencies(
         DriftRunEventRepository,
         DriftPauseRepository,
         SkillAutoInstallService,
+        RunTranscriptService,
       ],
       dispose: (gateway) => gateway.close(),
     )

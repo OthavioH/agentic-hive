@@ -581,8 +581,26 @@ void main() {
         ],
         truncated: true,
         offset: 2,
+        transcript: const [
+          TranscriptEntry.plainText(
+            id: '1',
+            firstOffset: 1,
+            lastOffset: 1,
+            stream: RunOutputStream.stdout,
+            text: 'hello world',
+          ),
+        ],
+        rawLogTruncated: true,
       );
       expect(RunNodeLogsResponse.fromJson(dto.toJson()), dto);
+
+      final legacy = RunNodeLogsResponse.fromJson(const <String, Object?>{
+        'runId': 'run-1',
+        'nodeId': 'n1',
+        'attempt': 1,
+      });
+      expect(legacy.transcript, isEmpty);
+      expect(legacy.rawLogTruncated, isFalse);
     });
   });
 

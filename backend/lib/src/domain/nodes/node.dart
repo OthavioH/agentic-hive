@@ -4,6 +4,7 @@ import 'package:agentic_hive_backend/src/core/failure.dart';
 import 'package:agentic_hive_backend/src/core/result.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_execution_context.dart';
 import 'package:agentic_hive_backend/src/domain/nodes/node_outcome.dart';
+import 'package:agentic_hive_backend/src/domain/nodes/transcript_interpreter.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:path/path.dart' as p;
 
@@ -24,6 +25,13 @@ abstract base class Node {
   /// Validates [config] against this node's schema and rules.
   List<NodeConfigIssue> validateConfig(JsonMap config) =>
       descriptor.validateConfig(config);
+
+  /// Creates the [TranscriptInterpreter] for one attempt of this node.
+  ///
+  /// Harness subclasses override this to interpret their CLI's events
+  /// (ADR 0031).
+  TranscriptInterpreter createTranscriptInterpreter() =>
+      const PlainTextTranscriptInterpreter();
 
   /// Executes this node within [context].
   Future<Result<NodeOutcome>> execute(NodeExecutionContext context);

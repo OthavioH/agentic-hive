@@ -209,6 +209,18 @@ Future<void> main() async {
       ),
       isTrue,
     );
+    expect(outputs.every((o) => o.transcript.isNotEmpty), isTrue);
+    expect(
+      outputs.any(
+        (o) => o.transcript.any(
+          (t) =>
+              t is TranscriptPlainText &&
+              t.stream == RunOutputStream.stderr &&
+              t.text.contains('hello stderr'),
+        ),
+      ),
+      isTrue,
+    );
 
     // Unsubscribe works cleanly.
     ws.sink.add(
@@ -231,6 +243,23 @@ Future<void> main() async {
       isTrue,
     );
     expect(logs.entries.any((e) => e.chunk.contains('hello stdout')), isTrue);
+    expect(logs.transcript, isNotEmpty);
+
+    // Folding WS transcripts by id matches the REST transcript for the same
+    // offsets.
+    final wsFolded = <String, TranscriptEntry>{};
+    for (final output in outputs) {
+      for (final entry in output.transcript) {
+        wsFolded[entry.id] = entry;
+      }
+    }
+    final restMatchingWs = logs.transcript
+        .where((e) => wsFolded.containsKey(e.id))
+        .toList();
+    expect(restMatchingWs, isNotEmpty);
+    for (final entry in restMatchingWs) {
+      expect(wsFolded[entry.id], entry);
+    }
 
     // DELETE cleans up log directory too.
     final delRes = await http.delete('/api/v1/runs/${run.id}');
