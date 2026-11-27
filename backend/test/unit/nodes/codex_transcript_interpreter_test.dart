@@ -521,5 +521,63 @@ void main() {
         ],
       );
     });
+
+    test(
+      'resets item state on thread.started so resumed processes do not collide',
+      () {
+        final entries = [
+          _entry(
+            offset: 1,
+            chunk: '{"type":"thread.started","thread_id":"th_1"}',
+          ),
+          _entry(
+            offset: 2,
+            chunk:
+                '{"type":"item.completed","item":{"id":"item_0", '
+                '"type":"agent_message","text":"first process"}}',
+          ),
+          _entry(
+            offset: 3,
+            chunk: '{"type":"thread.started","thread_id":"th_2"}',
+          ),
+          _entry(
+            offset: 4,
+            chunk:
+                '{"type":"item.completed","item":{"id":"item_0", '
+                '"type":"command_execution","command":"echo hi", '
+                '"aggregated_output":"hi","exit_code":0,"status":"completed"}}',
+          ),
+        ];
+
+        final actual = buildTranscript(
+          _createNode().createTranscriptInterpreter(),
+          entries,
+        );
+
+        expect(actual, const [
+          TranscriptEntry.agentMessage(
+            id: '2',
+            firstOffset: 2,
+            lastOffset: 2,
+            text: 'first process',
+          ),
+          TranscriptEntry.toolCall(
+            id: '4',
+            firstOffset: 4,
+            lastOffset: 4,
+            name: 'shell',
+            input: {'command': 'echo hi'},
+            callId: 'item_0',
+          ),
+          TranscriptEntry.toolResult(
+            id: '4.1',
+            firstOffset: 4,
+            lastOffset: 4,
+            output: 'hi',
+            callId: 'item_0',
+          ),
+        ]);
+      },
+    );
   });
 }

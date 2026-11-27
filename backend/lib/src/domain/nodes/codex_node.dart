@@ -151,8 +151,12 @@ final class _CodexTranscriptInterpreter extends JsonLineTranscriptInterpreter {
   @override
   List<TranscriptEntry>? interpretEvent(JsonMap event, RunLogEntry entry) {
     final type = event['type'] as String?;
+    if (type == 'thread.started') {
+      _items.clear();
+      return const [];
+    }
     return switch (type) {
-      'thread.started' || 'turn.started' => const [],
+      'turn.started' => const [],
       'turn.completed' => _interpretTurnCompleted(event, entry),
       'turn.failed' => _interpretTurnFailed(event, entry),
       'error' => [
