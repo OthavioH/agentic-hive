@@ -256,8 +256,10 @@ void main() {
     expect(find.byKey(const Key('run_detail_cancel_button')), findsOneWidget);
     expect(find.byKey(const Key('run_detail_resume_button')), findsNothing);
 
-    // Output tab starts on active node-1 with initial log line
+    // Transcript tab starts on active node-1; switch to Raw for log lines
     expect(find.byKey(const Key('run_output_following_badge')), findsOneWidget);
+    await tester.tap(find.text('Raw'));
+    await tester.pumpAndSettle();
     expect(find.text('initial line'), findsOneWidget);
 
     // Live run.output appends to node-1
@@ -422,6 +424,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Run input'));
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('run_detail_input_card')), findsOneWidget);
     final toggle = find.byKey(const Key('run_detail_input_toggle'));
     expect(toggle, findsOneWidget);
@@ -483,6 +487,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Run input'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('run_detail_input_copy')));
     await tester.pump();
 
@@ -523,6 +529,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Run input'));
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('run_detail_input_card')), findsOneWidget);
     expect(find.byKey(const Key('run_detail_input_copy')), findsNothing);
     expect(find.text('x.png · 1.2 KB'), findsOneWidget);
@@ -570,6 +578,8 @@ void main() {
         );
         await tester.pumpAndSettle();
 
+        await tester.tap(find.text('Run input'));
+        await tester.pumpAndSettle();
         expect(find.text('x.png · 1.2 KB · removed'), findsOneWidget);
         final chip = tester.widget<HiveReadOnlyChip>(
           find.byKey(const Key('run_detail_attachment_0')),

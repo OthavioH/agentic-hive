@@ -27,6 +27,9 @@ final class RunDetailState {
     this.selectedAttempt,
     this.isLoadingLogs = false,
     this.logsTruncated = false,
+    this.rawLogTruncated = false,
+    this.transcriptEntries = const <TranscriptEntry>[],
+    this.logsFailure,
     this.selectedCheckpointId,
     this.expandedEventIds = const <String>{},
     this.isRefreshing = false,
@@ -49,7 +52,7 @@ final class RunDetailState {
   /// Currently active node ID, or the last executed node if none is active.
   final String? activeNodeId;
 
-  /// Node ID currently inspected in the Output tab.
+  /// Node ID currently inspected in the Transcript tab.
   final String? inspectedNodeId;
 
   /// Whether [inspectedNodeId] automatically follows [activeNodeId].
@@ -64,8 +67,17 @@ final class RunDetailState {
   /// Whether initial logs for [inspectedNodeId] are currently loading.
   final bool isLoadingLogs;
 
-  /// Whether the loaded logs for [inspectedNodeId] were truncated.
+  /// Whether the loaded raw logs response was tailed or capped.
   final bool logsTruncated;
+
+  /// Whether the attempt's raw log hit its 10 MiB size cap.
+  final bool rawLogTruncated;
+
+  /// Interpreted transcript entries for [inspectedNodeId] / [selectedAttempt].
+  final List<TranscriptEntry> transcriptEntries;
+
+  /// Failure from loading [inspectedNodeId]'s logs/transcript, if any.
+  final Failure? logsFailure;
 
   /// ID of the currently inspected checkpoint, or `null` when none exist.
   final String? selectedCheckpointId;
@@ -154,6 +166,9 @@ final class RunDetailState {
     int? Function()? selectedAttempt,
     bool? isLoadingLogs,
     bool? logsTruncated,
+    bool? rawLogTruncated,
+    List<TranscriptEntry>? transcriptEntries,
+    Failure? Function()? logsFailure,
     String? Function()? selectedCheckpointId,
     Set<String>? expandedEventIds,
     bool? isRefreshing,
@@ -176,6 +191,9 @@ final class RunDetailState {
           : this.selectedAttempt,
       isLoadingLogs: isLoadingLogs ?? this.isLoadingLogs,
       logsTruncated: logsTruncated ?? this.logsTruncated,
+      rawLogTruncated: rawLogTruncated ?? this.rawLogTruncated,
+      transcriptEntries: transcriptEntries ?? this.transcriptEntries,
+      logsFailure: logsFailure != null ? logsFailure() : this.logsFailure,
       selectedCheckpointId: selectedCheckpointId != null
           ? selectedCheckpointId()
           : this.selectedCheckpointId,
@@ -409,6 +427,11 @@ class RunDetailController extends _$RunDetailController {
         selectedAttempt: nodeChanged
             ? () => null
             : () => current.selectedAttempt,
+        transcriptEntries: nodeChanged
+            ? const <TranscriptEntry>[]
+            : current.transcriptEntries,
+        rawLogTruncated: !nodeChanged && current.rawLogTruncated,
+        logsFailure: nodeChanged ? () => null : () => current.logsFailure,
       ),
     );
     if (nodeChanged) {
@@ -435,6 +458,11 @@ class RunDetailController extends _$RunDetailController {
         selectedAttempt: nodeChanged
             ? () => null
             : () => current.selectedAttempt,
+        transcriptEntries: nodeChanged
+            ? const <TranscriptEntry>[]
+            : current.transcriptEntries,
+        rawLogTruncated: !nodeChanged && current.rawLogTruncated,
+        logsFailure: nodeChanged ? () => null : () => current.logsFailure,
       ),
     );
     if (nodeChanged) {
@@ -451,8 +479,23 @@ class RunDetailController extends _$RunDetailController {
         current.selectedAttempt == attempt) {
       return;
     }
-    state = AsyncData(current.copyWith(selectedAttempt: () => attempt));
+    state = AsyncData(
+      current.copyWith(
+        selectedAttempt: () => attempt,
+        transcriptEntries: const <TranscriptEntry>[],
+        rawLogTruncated: false,
+        logsFailure: () => null,
+      ),
+    );
     await _loadNodeLogs(nodeId, attempt: attempt);
+  }
+
+  /// Retries loading the logs and transcript for the currently inspected node.
+  Future<void> retryLoadLogs() async {
+    final current = state.asData?.value;
+    final nodeId = current?.inspectedNodeId;
+    if (current == null || nodeId == null) return;
+    await _loadNodeLogs(nodeId, attempt: current.selectedAttempt);
   }
 
   /// Selects [checkpointId] in the checkpoint inspector.
@@ -520,6 +563,27 @@ class RunDetailController extends _$RunDetailController {
     ]);
   }
 
+  static List<TranscriptEntry> _mergeTranscriptEntries(
+    List<TranscriptEntry> current,
+    List<TranscriptEntry> incoming,
+  ) {
+    if (incoming.isEmpty) return current;
+    final result = List<TranscriptEntry>.of(current);
+    final indexById = <String, int>{
+      for (var i = 0; i < result.length; i++) result[i].id: i,
+    };
+    for (final entry in incoming) {
+      final existing = indexById[entry.id];
+      if (existing != null) {
+        result[existing] = entry;
+      } else {
+        indexById[entry.id] = result.length;
+        result.add(entry);
+      }
+    }
+    return List<TranscriptEntry>.unmodifiable(result);
+  }
+
   void _appendLogPayload(RunOutputPayload payload) {
     if (payload.offset > 0 && payload.offset <= _lastLoadedLogOffset) {
       return;
@@ -527,6 +591,20 @@ class RunDetailController extends _$RunDetailController {
     _appendLogChunk(payload.chunk, stream: payload.stream);
     if (payload.offset > _lastLoadedLogOffset) {
       _lastLoadedLogOffset = payload.offset;
+    }
+    if (!ref.mounted) return;
+    if (payload.transcript.isNotEmpty || payload.rawLogTruncated) {
+      final latest = state.asData?.value;
+      if (latest == null) return;
+      state = AsyncData(
+        latest.copyWith(
+          transcriptEntries: _mergeTranscriptEntries(
+            latest.transcriptEntries,
+            payload.transcript,
+          ),
+          rawLogTruncated: latest.rawLogTruncated || payload.rawLogTruncated,
+        ),
+      );
     }
   }
 
@@ -626,6 +704,11 @@ class RunDetailController extends _$RunDetailController {
         selectedAttempt: nodeChanged
             ? () => null
             : () => current.selectedAttempt,
+        transcriptEntries: nodeChanged
+            ? const <TranscriptEntry>[]
+            : current.transcriptEntries,
+        rawLogTruncated: !nodeChanged && current.rawLogTruncated,
+        logsFailure: nodeChanged ? () => null : () => current.logsFailure,
       ),
     );
 
@@ -666,6 +749,9 @@ class RunDetailController extends _$RunDetailController {
           availableAttempts: nextAttempts,
           selectedAttempt: () => payload.attempt,
           logsTruncated: false,
+          rawLogTruncated: false,
+          transcriptEntries: const <TranscriptEntry>[],
+          logsFailure: () => null,
         ),
       );
       _appendLogPayload(payload);
@@ -758,6 +844,9 @@ class RunDetailController extends _$RunDetailController {
     var nextAvailableAttempts = latest.availableAttempts;
     var nextSelectedAttempt = latest.selectedAttempt;
     var nextLogsTruncated = latest.logsTruncated;
+    var nextRawLogTruncated = latest.rawLogTruncated;
+    var nextTranscriptEntries = latest.transcriptEntries;
+    var nextLogsFailure = latest.logsFailure;
 
     if (logsResult case Success<RunNodeLogsResponse>(:final value)
         when inspectedNodeId != null &&
@@ -767,6 +856,12 @@ class RunDetailController extends _$RunDetailController {
       nextAvailableAttempts = value.availableAttempts;
       nextSelectedAttempt = value.attempt;
       nextLogsTruncated = value.truncated;
+      nextRawLogTruncated = latest.rawLogTruncated || value.rawLogTruncated;
+      nextTranscriptEntries = _mergeTranscriptEntries(
+        latest.transcriptEntries,
+        value.transcript,
+      );
+      nextLogsFailure = null;
 
       for (final entry in value.entries) {
         if (entry.offset > 0) {
@@ -792,6 +887,9 @@ class RunDetailController extends _$RunDetailController {
         availableAttempts: nextAvailableAttempts,
         selectedAttempt: () => nextSelectedAttempt,
         logsTruncated: nextLogsTruncated,
+        rawLogTruncated: nextRawLogTruncated,
+        transcriptEntries: nextTranscriptEntries,
+        logsFailure: () => nextLogsFailure,
       ),
     );
   }
@@ -806,7 +904,13 @@ class RunDetailController extends _$RunDetailController {
     final current = state.asData?.value;
     if (current != null) {
       state = AsyncData(
-        current.copyWith(isLoadingLogs: true, logsTruncated: false),
+        current.copyWith(
+          isLoadingLogs: true,
+          logsTruncated: false,
+          rawLogTruncated: false,
+          transcriptEntries: const <TranscriptEntry>[],
+          logsFailure: () => null,
+        ),
       );
     }
 
@@ -830,6 +934,11 @@ class RunDetailController extends _$RunDetailController {
               selectedAttempt: () => value.attempt,
               isLoadingLogs: false,
               logsTruncated: value.truncated,
+              rawLogTruncated: value.rawLogTruncated,
+              transcriptEntries: List<TranscriptEntry>.unmodifiable(
+                value.transcript,
+              ),
+              logsFailure: () => null,
             ),
           );
         }
@@ -842,7 +951,9 @@ class RunDetailController extends _$RunDetailController {
           state = AsyncData(
             latest.copyWith(
               isLoadingLogs: false,
-              actionFailure: failure is NotFoundFailure ? null : () => failure,
+              logsFailure: failure is NotFoundFailure
+                  ? () => null
+                  : () => failure,
             ),
           );
         }
@@ -910,6 +1021,9 @@ class RunDetailController extends _$RunDetailController {
     var availableAttempts = const <int>[];
     var selectedAttempt = preferredAttempt;
     var logsTruncated = false;
+    var rawLogTruncated = false;
+    var transcriptEntries = const <TranscriptEntry>[];
+    Failure? logsFailure;
 
     if (!ref.mounted) {
       _logsLoadInFlight = false;
@@ -925,6 +1039,9 @@ class RunDetailController extends _$RunDetailController {
         availableAttempts: availableAttempts,
         selectedAttempt: selectedAttempt,
         logsTruncated: logsTruncated,
+        rawLogTruncated: rawLogTruncated,
+        transcriptEntries: transcriptEntries,
+        logsFailure: logsFailure,
         selectedCheckpointId: selectedId,
         expandedEventIds: expandedEventIds,
       );
@@ -949,18 +1066,30 @@ class RunDetailController extends _$RunDetailController {
           availableAttempts: availableAttempts,
           selectedAttempt: selectedAttempt,
           logsTruncated: logsTruncated,
+          rawLogTruncated: rawLogTruncated,
+          transcriptEntries: transcriptEntries,
+          logsFailure: logsFailure,
           selectedCheckpointId: selectedId,
           expandedEventIds: expandedEventIds,
         );
       }
-      if (logsResult case Success<RunNodeLogsResponse>(:final value)) {
-        availableAttempts = List<int>.of(value.availableAttempts);
-        selectedAttempt = value.attempt;
-        logsTruncated = value.truncated;
-        for (final entry in value.entries) {
-          _appendLogChunk(entry.chunk, stream: entry.stream);
-        }
-        _lastLoadedLogOffset = _maxEntryOffset(value);
+      switch (logsResult) {
+        case Success<RunNodeLogsResponse>(:final value):
+          availableAttempts = List<int>.of(value.availableAttempts);
+          selectedAttempt = value.attempt;
+          logsTruncated = value.truncated;
+          rawLogTruncated = value.rawLogTruncated;
+          transcriptEntries = List<TranscriptEntry>.unmodifiable(
+            value.transcript,
+          );
+          for (final entry in value.entries) {
+            _appendLogChunk(entry.chunk, stream: entry.stream);
+          }
+          _lastLoadedLogOffset = _maxEntryOffset(value);
+        case FailureResult<RunNodeLogsResponse>(:final failure):
+          if (failure is! NotFoundFailure) {
+            logsFailure = failure;
+          }
       }
     }
 
@@ -979,14 +1108,35 @@ class RunDetailController extends _$RunDetailController {
             followActiveNode) {
           selectedAttempt = payload.attempt;
           logsTruncated = false;
+          rawLogTruncated = payload.rawLogTruncated;
+          transcriptEntries = List<TranscriptEntry>.unmodifiable(
+            payload.transcript,
+          );
+          logsFailure = null;
           _lastLoadedLogOffset = 0;
           _clearLogController();
-          _appendLogPayload(payload);
+          if (payload.offset > 0) {
+            _appendLogChunk(payload.chunk, stream: payload.stream);
+            _lastLoadedLogOffset = payload.offset;
+          } else {
+            _appendLogChunk(payload.chunk, stream: payload.stream);
+          }
           continue;
         }
         selectedAttempt ??= payload.attempt;
         if (payload.attempt == selectedAttempt) {
-          _appendLogPayload(payload);
+          if (payload.offset > 0 && payload.offset <= _lastLoadedLogOffset) {
+            continue;
+          }
+          _appendLogChunk(payload.chunk, stream: payload.stream);
+          if (payload.offset > _lastLoadedLogOffset) {
+            _lastLoadedLogOffset = payload.offset;
+          }
+          transcriptEntries = _mergeTranscriptEntries(
+            transcriptEntries,
+            payload.transcript,
+          );
+          rawLogTruncated = rawLogTruncated || payload.rawLogTruncated;
         }
       }
     }
@@ -1004,6 +1154,9 @@ class RunDetailController extends _$RunDetailController {
       availableAttempts: availableAttempts,
       selectedAttempt: selectedAttempt,
       logsTruncated: logsTruncated,
+      rawLogTruncated: rawLogTruncated,
+      transcriptEntries: transcriptEntries,
+      logsFailure: logsFailure,
       selectedCheckpointId: selectedId,
       expandedEventIds: expandedEventIds,
     );

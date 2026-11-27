@@ -18,8 +18,6 @@ class RunChatOutputsPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final spacing = context.hiveSpacing;
-    final colors = context.hiveColors;
-    final typography = context.hiveTypography;
     final messages = ref.watch(buildRunOutputMessagesProvider)(
       checkpoints: detailState.checkpoints,
       nodes: detailState.run.workflowDefinition.nodes,
@@ -28,33 +26,20 @@ class RunChatOutputsPanel extends ConsumerWidget {
     return HiveCard(
       key: const Key('run_chat_outputs_panel'),
       surface: HiveCardSurface.surface2,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Text(
-            l10n.runDetailOutputsTitle,
-            style: typography.titleSmall.copyWith(color: colors.onSurface),
-          ),
-          SizedBox(height: spacing.space2),
-          Expanded(
-            child: messages.isEmpty
-                ? HiveEmptyState(
-                    key: const Key('run_chat_outputs_empty'),
-                    icon: HiveIcons.branch,
-                    title: l10n.runDetailOutputsTitle,
-                    message: l10n.runDetailOutputsEmpty,
-                  )
-                : ListView.separated(
-                    key: const Key('run_chat_outputs_list'),
-                    itemCount: messages.length,
-                    separatorBuilder: (_, _) =>
-                        SizedBox(height: spacing.space2),
-                    itemBuilder: (context, index) =>
-                        _OutputMessageBubble(message: messages[index]),
-                  ),
-          ),
-        ],
-      ),
+      child: messages.isEmpty
+          ? HiveEmptyState(
+              key: const Key('run_chat_outputs_empty'),
+              icon: HiveIcons.branch,
+              title: l10n.runDetailTabSummaries,
+              message: l10n.runDetailOutputsEmpty,
+            )
+          : ListView.separated(
+              key: const Key('run_chat_outputs_list'),
+              itemCount: messages.length,
+              separatorBuilder: (_, _) => SizedBox(height: spacing.space2),
+              itemBuilder: (context, index) =>
+                  _OutputMessageBubble(message: messages[index]),
+            ),
     );
   }
 }

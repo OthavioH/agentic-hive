@@ -57,7 +57,7 @@ void main() {
 
     expect(find.byKey(const Key('run_chat_outputs_panel')), findsNothing);
 
-    await tester.tap(find.text('Outputs'));
+    await tester.tap(find.text('Summaries'));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('run_chat_outputs_panel')), findsOneWidget);
