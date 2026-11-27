@@ -15,6 +15,7 @@ import 'package:agentic_hive_backend/src/domain/runs/run_event_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_log_store.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_repository.dart';
 import 'package:agentic_hive_backend/src/domain/runs/run_target_preparer.dart';
+import 'package:agentic_hive_backend/src/domain/runs/run_transcript_service.dart';
 import 'package:agentic_hive_backend/src/domain/settings/execution_settings_service.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_deletion_registry.dart';
 import 'package:agentic_hive_backend/src/domain/workflows/workflow_repository.dart';
@@ -51,6 +52,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     this._engine,
     this._canceller,
     this._logStore,
+    this._transcripts,
     this._attachments,
     this._deletions,
     p.Context? pathContext,
@@ -91,6 +93,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
 
   RunCanceller? get _effectiveCanceller => _canceller ?? _engine;
   final RunLogStore? _logStore;
+  final RunTranscriptService? _transcripts;
   final RunAttachmentStore? _attachments;
   final WorkflowDeletionRegistry? _deletions;
   final p.Context _pathContext;
@@ -659,6 +662,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     if (runResult case FailureResult<Run>(:final failure)) {
       return FailureResult(failure);
     }
+    final run = (runResult as Success<Run>).value;
 
     final logStore = _logStore;
     if (logStore == null) {
@@ -671,12 +675,21 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
       );
     }
 
-    return await logStore.readLogs(
+    final logsResult = await logStore.readLogs(
       runId: runId,
       nodeId: nodeId,
       attempt: attempt,
       tailLines: tail,
     );
+    final transcripts = _transcripts;
+    if (transcripts != null) {
+      if (logsResult case Success(:final value)) {
+        return Success(
+          await transcripts.withTranscript(run, value, tailed: tail != null),
+        );
+      }
+    }
+    return logsResult;
   }
 
   void _launchBackground(

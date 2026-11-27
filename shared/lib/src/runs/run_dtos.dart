@@ -5,6 +5,7 @@ import 'package:agentic_hive_shared/src/runs/run_attachment.dart';
 import 'package:agentic_hive_shared/src/runs/run_event.dart';
 import 'package:agentic_hive_shared/src/runs/run_output_stream.dart';
 import 'package:agentic_hive_shared/src/runs/run_summary.dart';
+import 'package:agentic_hive_shared/src/runs/transcript_entry.dart';
 import 'package:agentic_hive_shared/src/workspace/workspace_isolation_mode.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
@@ -93,6 +94,11 @@ sealed class RunLogEntry with _$RunLogEntry {
 /// [entries] (or `0` when [entries] is empty). Live `run.output` WebSocket
 /// frames with `payload.offset <= response.offset` are already represented in
 /// [entries] and should be skipped when merging live output after a REST fetch.
+///
+/// [transcript] holds the interpreted [TranscriptEntry] items for [entries]
+/// (or the suffix matching a tailed read), and [rawLogTruncated] is `true`
+/// when the attempt's raw log hit its size cap (whereas [truncated] is `true`
+/// when the response was tailed or capped).
 @freezed
 sealed class RunNodeLogsResponse with _$RunNodeLogsResponse {
   /// Creates a run-node-logs response.
@@ -104,6 +110,8 @@ sealed class RunNodeLogsResponse with _$RunNodeLogsResponse {
     @Default(<RunLogEntry>[]) List<RunLogEntry> entries,
     @Default(false) bool truncated,
     @Default(0) int offset,
+    @Default(<TranscriptEntry>[]) List<TranscriptEntry> transcript,
+    @Default(false) bool rawLogTruncated,
   }) = _RunNodeLogsResponse;
 
   /// Decodes a run-node-logs response; throws a [FormatException] on a bad

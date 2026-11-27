@@ -47,8 +47,7 @@ final class FileRunLogStore implements RunLogStore {
   static const int defaultMaxLogFileBytes = 10 * 1024 * 1024;
 
   /// Marker chunk written once when a log file reaches [maxLogFileBytes].
-  static const String truncationMarkerChunk =
-      '[log truncated: maximum log size reached]';
+  static const String truncationMarkerChunk = RunLogStore.truncationMarkerChunk;
 
   static const int _tailChunkBytes = 64 * 1024;
   static final _log = Logger('run_log_store');

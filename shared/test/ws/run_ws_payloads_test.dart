@@ -41,11 +41,32 @@ void main() {
         chunk: 'error line',
         timestamp: DateTime.utc(2026, 11, 20, 12, 0, 5),
         offset: 7,
+        transcript: const [
+          TranscriptEntry.plainText(
+            id: '7',
+            firstOffset: 7,
+            lastOffset: 7,
+            stream: RunOutputStream.stderr,
+            text: 'error line',
+          ),
+        ],
+        rawLogTruncated: true,
       );
       final json = payload.toJson();
       expect(json['stream'], 'stderr');
       expect(json['offset'], 7);
       expect(RunOutputPayload.fromJson(json), payload);
+
+      final legacy = RunOutputPayload.fromJson(<String, Object?>{
+        'runId': 'run-1',
+        'nodeId': 'n1',
+        'attempt': 1,
+        'stream': 'stdout',
+        'chunk': 'ok',
+        'timestamp': DateTime.utc(2026, 11, 20, 12).toIso8601String(),
+      });
+      expect(legacy.transcript, isEmpty);
+      expect(legacy.rawLogTruncated, isFalse);
     });
   });
 }

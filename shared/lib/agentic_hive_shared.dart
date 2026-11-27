@@ -49,6 +49,7 @@ export 'src/runs/run_event_type.dart';
 export 'src/runs/run_output_stream.dart';
 export 'src/runs/run_status.dart';
 export 'src/runs/run_summary.dart';
+export 'src/runs/transcript_entry.dart';
 export 'src/settings/app_settings.dart';
 export 'src/settings/execution_settings.dart';
 export 'src/settings/update_settings_request.dart';
