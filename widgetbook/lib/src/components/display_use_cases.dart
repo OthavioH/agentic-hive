@@ -976,9 +976,14 @@ WidgetbookComponent transcriptViewComponent() {
           context,
           const _TranscriptHost(
             initialBlocks: <HiveTranscriptBlock>[
-              HiveTranscriptThinking(
-                id: 'live-think',
-                text: 'Planning the fix for scheduler cancellation.',
+              ..._sampleTranscriptBlocks,
+              HiveTranscriptPlainText(
+                id: 'live-seed-1',
+                text: 'Running backend test suite...',
+              ),
+              HiveTranscriptPlainText(
+                id: 'live-seed-2',
+                text: '00:04 +68: scheduler cancellation tests passed',
               ),
             ],
             live: true,
@@ -1016,6 +1021,9 @@ class _TranscriptHostState extends State<_TranscriptHost> {
       GlobalKey<HiveTranscriptViewState>();
   Timer? _timer;
   var _step = 0;
+  final StringBuffer _streamedMarkdown = StringBuffer(
+    'Streaming response started:',
+  );
 
   @override
   void initState() {
@@ -1037,12 +1045,20 @@ class _TranscriptHostState extends State<_TranscriptHost> {
     if (widget.live) {
       _timer ??= Timer.periodic(context.hiveMotion.long * 2, (_) {
         _step++;
-        _controller.upsert(
+        _streamedMarkdown.write(
+          '\n\nChunk $_step: verified process tree exit before reporting '
+          'cancellation.',
+        );
+        _controller.upsertAll(<HiveTranscriptBlock>[
+          HiveTranscriptPlainText(
+            id: 'live-tick-$_step',
+            text: '00:0$_step +$_step: heartbeat event',
+          ),
           HiveTranscriptMessage(
             id: 'live-msg',
-            markdown: 'Streaming response chunk $_step...',
+            markdown: _streamedMarkdown.toString(),
           ),
-        );
+        ]);
       });
     }
   }

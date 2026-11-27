@@ -266,6 +266,49 @@ void main() {
       expect(find.text('Show all (250 lines)'), findsOneWidget);
     });
 
+    testWidgets('cuts error blocks over 200 lines and toggles Show all', (
+      tester,
+    ) async {
+      final lines = <String>[for (var i = 1; i <= 250; i++) 'err line $i']
+          .join('\n');
+      final controller = HiveTranscriptController(
+        initialBlocks: <HiveTranscriptBlock>[
+          HiveTranscriptError(id: 'big-err', message: lines),
+        ],
+      );
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(_view(controller, height: 600));
+
+      expect(find.textContaining('err line 201'), findsNothing);
+      expect(find.text('Show all (250 lines)'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Show all (250 lines)'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Show all (250 lines)'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('err line 201'), findsOneWidget);
+      expect(find.text('Show less'), findsOneWidget);
+    });
+
+    testWidgets(
+      'does not count a single trailing newline as an extra line for cut',
+      (tester) async {
+        final joined = <String>[for (var i = 1; i <= 200; i++) 'line $i']
+            .join('\n');
+        final lines = '$joined\n';
+        final controller = HiveTranscriptController(
+          initialBlocks: <HiveTranscriptBlock>[
+            HiveTranscriptMessage(id: 'exact-200', markdown: lines),
+          ],
+        );
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(_view(controller, height: 600));
+
+        expect(find.textContaining('Show all'), findsNothing);
+      },
+    );
+
     testWidgets('builds items lazily for 500 blocks', (tester) async {
       final controller = HiveTranscriptController();
       addTearDown(controller.dispose);
@@ -353,6 +396,107 @@ void main() {
       await tester.drag(find.byType(ListView), const Offset(0, -2000));
       await tester.pumpAndSettle();
       expect(find.text(_labels.jumpToBottom), findsNothing);
+    });
+
+    testWidgets(
+      'expanding a block while following pauses following and keeps offset',
+      (tester) async {
+        final longResult = <String>[
+          for (var i = 1; i <= 60; i++) 'result line $i',
+        ].join('\n');
+        final controller = HiveTranscriptController(
+          initialBlocks: <HiveTranscriptBlock>[
+            for (var i = 0; i < 30; i++)
+              HiveTranscriptPlainText(id: 'p-$i', text: 'entry $i'),
+            HiveTranscriptToolResult(id: 'tr-tail', text: longResult),
+          ],
+        );
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(_view(controller, height: 300));
+        await tester.pumpAndSettle();
+
+        final state = tester.state<HiveTranscriptViewState>(
+          find.byType(HiveTranscriptView),
+        );
+        expect(state.isFollowing, isTrue);
+
+        await tester.tap(find.text('Tool result'));
+        await tester.pumpAndSettle();
+
+        expect(state.isFollowing, isFalse);
+        expect(find.text(_labels.jumpToBottom), findsOneWidget);
+        final offsetAfterExpand = _position(tester).pixels;
+
+        controller.upsert(
+          const HiveTranscriptPlainText(id: 'new', text: 'newest entry'),
+        );
+        await tester.pumpAndSettle();
+        expect(_position(tester).pixels, offsetAfterExpand);
+      },
+    );
+
+    testWidgets('swapping controller resets expanded and show-all state', (
+      tester,
+    ) async {
+      final longText = <String>[for (var i = 1; i <= 220; i++) 'line $i']
+          .join('\n');
+      final controller1 = HiveTranscriptController(
+        initialBlocks: <HiveTranscriptBlock>[
+          HiveTranscriptMessage(id: 'msg', markdown: longText),
+          const HiveTranscriptToolResult(id: 'tr', text: 'first body'),
+        ],
+      );
+      final controller2 = HiveTranscriptController(
+        initialBlocks: <HiveTranscriptBlock>[
+          HiveTranscriptMessage(id: 'msg', markdown: longText),
+          const HiveTranscriptToolResult(id: 'tr', text: 'second body'),
+        ],
+      );
+      addTearDown(controller1.dispose);
+      addTearDown(controller2.dispose);
+
+      await tester.pumpWidget(_view(controller1, height: 600));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tool result'));
+      await tester.pumpAndSettle();
+      expect(find.text('first body'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Show all (220 lines)'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Show all (220 lines)'));
+      await tester.pumpAndSettle();
+      expect(find.text('Show less'), findsOneWidget);
+
+      await tester.pumpWidget(_view(controller2, height: 600));
+      await tester.pumpAndSettle();
+
+      expect(find.text('second body'), findsNothing);
+      expect(find.text('Show all (220 lines)'), findsOneWidget);
+    });
+
+    testWidgets('tool call exposes input preview in semantics value', (
+      tester,
+    ) async {
+      final controller = HiveTranscriptController(
+        initialBlocks: const <HiveTranscriptBlock>[
+          HiveTranscriptToolCall(
+            id: 'tc',
+            name: 'read_file',
+            input: 'path: lib/main.dart\nline: 1',
+          ),
+        ],
+      );
+      addTearDown(controller.dispose);
+      final handle = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(_view(controller));
+        final toolNode = find.byWidgetPredicate(
+          (w) => w is Semantics && w.properties.label == 'read_file',
+        );
+        expect(tester.getSemantics(toolNode).value, 'path: lib/main.dart');
+      } finally {
+        handle.dispose();
+      }
     });
 
     testWidgets(

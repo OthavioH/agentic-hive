@@ -9,6 +9,7 @@ import 'package:design_system/src/foundation/hive_feedback_tone.dart';
 import 'package:design_system/src/foundation/hive_follow_bottom.dart';
 import 'package:design_system/src/foundation/hive_interaction.dart';
 import 'package:design_system/src/foundation/hive_log_line_row.dart';
+import 'package:design_system/src/foundation/hive_tooltip.dart';
 import 'package:design_system/src/icons/hive_icons.dart';
 import 'package:design_system/src/tokens/hive_tokens_context.dart';
 import 'package:material_ui/material_ui.dart';
@@ -219,11 +220,17 @@ final class HiveTranscriptError extends HiveTranscriptBlock {
 
   @override
   Widget _buildBlock(BuildContext context, _BlockScope scope) {
-    return HiveBanner(
-      tone: HiveFeedbackTone.danger,
-      title: scope.labels.error,
-      message: message,
-      density: HiveBannerDensity.compact,
+    return _CutText(
+      text: message,
+      showAll: scope.isShowAll(id),
+      labels: scope.labels,
+      onToggleShowAll: () => scope.toggleShowAll(id),
+      builder: (context, visible) => HiveBanner(
+        tone: HiveFeedbackTone.danger,
+        title: scope.labels.error,
+        message: visible,
+        density: HiveBannerDensity.compact,
+      ),
     );
   }
 }
@@ -433,6 +440,8 @@ class HiveTranscriptViewState extends State<HiveTranscriptView>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(onFollowContentChanged);
+      _expanded.clear();
+      _showAll.clear();
       widget.controller.addListener(onFollowContentChanged);
       onFollowContentChanged();
     }
@@ -451,6 +460,7 @@ class HiveTranscriptViewState extends State<HiveTranscriptView>
         _expanded.remove(id);
       }
     });
+    recheckFollowBottom();
   }
 
   /// Sets the expanded state of the block with [id].
@@ -462,6 +472,7 @@ class HiveTranscriptViewState extends State<HiveTranscriptView>
         _expanded.remove(id);
       }
     });
+    recheckFollowBottom();
   }
 
   void _toggleShowAll(String id) {
@@ -470,6 +481,7 @@ class HiveTranscriptViewState extends State<HiveTranscriptView>
         _showAll.remove(id);
       }
     });
+    recheckFollowBottom();
   }
 
   @override
@@ -591,6 +603,7 @@ class _Disclosure extends StatelessWidget {
 
     final header = HiveInteraction(
       semanticLabel: title,
+      semanticValue: preview,
       expanded: expanded,
       onPressed: onToggle,
       builder: (context, states) => HiveFocusRing(
@@ -624,7 +637,7 @@ class _Disclosure extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
-                    _EllipsisTooltip(
+                    HiveTooltip(
                       message: title,
                       child: Text(
                         title,
@@ -636,7 +649,7 @@ class _Disclosure extends StatelessWidget {
                       ),
                     ),
                     if (preview != null)
-                      _EllipsisTooltip(
+                      HiveTooltip(
                         message: preview,
                         child: Text(
                           preview,
@@ -696,42 +709,6 @@ class _Disclosure extends StatelessWidget {
   }
 }
 
-class _EllipsisTooltip extends StatelessWidget {
-  const new({required this.message, required this.child});
-
-  final String message;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.hiveColors;
-    final spacing = context.hiveSpacing;
-    final motion = context.hiveMotion;
-    final typography = context.hiveTypography;
-    return Tooltip(
-      message: message,
-      excludeFromSemantics: true,
-      waitDuration: motion.resolve(context, motion.long),
-      exitDuration: motion.resolve(context, motion.short),
-      padding: EdgeInsets.symmetric(
-        horizontal: spacing.space1,
-        vertical: spacing.spaceHalf,
-      ),
-      decoration: ShapeDecoration(
-        color: colors.surface3,
-        shape: StadiumBorder(
-          side: BorderSide(
-            color: colors.borderSubtle,
-            width: context.hiveElevation.hairline,
-          ),
-        ),
-      ),
-      textStyle: typography.bodySmall.copyWith(color: colors.onSurface),
-      child: child,
-    );
-  }
-}
-
 class _CutText extends StatelessWidget {
   const new({
     required this.text,
@@ -749,7 +726,10 @@ class _CutText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lines = text.split('\n');
+    final normalized = text.endsWith('\n')
+        ? text.substring(0, text.length - 1)
+        : text;
+    final lines = normalized.split('\n');
     if (lines.length <= hiveTranscriptCutLines) {
       return builder(context, text);
     }

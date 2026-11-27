@@ -37,6 +37,14 @@ mixin HiveFollowBottomMixin<T extends StatefulWidget> on State<T> {
     if (_following) _scheduleScrollToEnd();
   }
 
+  /// Re-runs the at-end check after layout (for example when an item expands).
+  void recheckFollowBottom() {
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _onScroll();
+    });
+  }
+
   /// Follows again only once the user is back within `space1` of the end.
   void _onScroll() {
     if (!followScrollController.hasClients) return;
