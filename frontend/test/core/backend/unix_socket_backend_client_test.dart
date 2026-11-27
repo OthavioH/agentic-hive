@@ -1,3 +1,7 @@
+// Real sockets and timers leak into other files when bundled by very_good test.
+@Tags(['skip_very_good_optimization'])
+library;
+
 import 'dart:convert';
 import 'dart:io';
 
