@@ -7,21 +7,24 @@ import 'package:design_system/src/tokens/hive_terminal_colors.dart';
 import 'package:design_system/src/tokens/hive_tokens_context.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:xterm/xterm.dart' as xterm;
+import 'package:xterm2/xterm.dart' as xterm;
 
 /// How a person relates to the session shown by a [HiveTerminalView].
 ///
 /// Each mode carries its own icon and icon color, so the header tells the
 /// modes apart by shape as well as color.
 enum HiveTerminalMode {
-  /// Read-only: output streams in, no input or terminal replies are sent.
+  /// Read-only: output streams in, no input or terminal replies are sent,
+  /// and pointer input to the program is suspended so the wheel scrolls
+  /// the buffer.
   watch(HiveIcons.watch, _infoRole),
 
   /// The person has taken over: keystrokes and pastes go to `onInput`.
   interactive(HiveIcons.keyboard, _accentMutedRole),
 
-  /// The session has ended: read-only, the cursor is hidden for good and
-  /// size changes are no longer reported.
+  /// The session has ended: read-only, pointer input to the program is
+  /// suspended so the wheel scrolls the buffer, the cursor is hidden for
+  /// good and size changes are no longer reported.
   ended(HiveIcons.stop, _mutedRole);
 
   new(this.icon, this.iconColor);
@@ -40,6 +43,8 @@ Color _infoRole(HiveColors colors) => colors.info;
 Color _accentMutedRole(HiveColors colors) => colors.accentMuted;
 Color _mutedRole(HiveColors colors) => colors.onSurfaceMuted;
 
+void _ignoreClipboardStore(String _, String _) {}
+
 /// Holds the screen and scrollback of a [HiveTerminalView] and accepts the
 /// raw bytes a program writes to its terminal.
 ///
@@ -47,21 +52,32 @@ Color _mutedRole(HiveColors colors) => colors.onSurfaceMuted;
 /// character split between two chunks is joined; malformed bytes become
 /// U+FFFD), then parsed as VT100/xterm escape sequences: colors (16, 256
 /// and true color), cursor movement, erase, scroll regions, the alternate
-/// screen and bracketed paste.
+/// screen and bracketed paste. Terminal output never touches the system
+/// clipboard.
 ///
 /// Create it once per session, keep it while the view is rebuilt, and
 /// [dispose] it with the session.
 class HiveTerminalController {
   /// Creates a controller that keeps [scrollbackLines] lines (screen plus
   /// history) before dropping the oldest.
-  new({this.scrollbackLines = 10000})
+  new({this.scrollbackLines = 10000, this.windowsPty = false})
     : assert(scrollbackLines > 0, 'scrollbackLines must be > 0.');
 
   /// Lines kept, screen plus history; the oldest are dropped beyond it.
   final int scrollbackLines;
 
+  /// Whether the program runs behind a Windows ConPTY; output reflows the
+  /// way ConPTY wraps it.
+  final bool windowsPty;
+
   late final xterm.Terminal _terminal = xterm.Terminal(
     maxLines: scrollbackLines,
+    windowsPtyMode: windowsPty,
+    // Installed before TerminalView can add its default writer: output never
+    // writes the clipboard.
+    onClipboardStore: _ignoreClipboardStore,
+    allowITerm2ClipboardCapture: false,
+    allowKittyClipboard: false,
   );
 
   late final ByteConversionSink _decoder = const Utf8Decoder(
@@ -98,11 +114,13 @@ class HiveTerminalController {
   /// Meant for tests, copy-all and accessibility summaries.
   String get plainText => _terminal.buffer.getText();
 
-  /// Releases the decoder. The controller must not be used afterwards.
+  /// Releases the decoder and the emulator. The controller must not be used
+  /// afterwards.
   void dispose() {
     if (_disposed) return;
     _disposed = true;
     _decoder.close();
+    _terminal.dispose();
   }
 }
 
@@ -130,11 +148,16 @@ class _TerminalSink implements Sink<String> {
 /// `background` well with `radiusCard`.
 ///
 /// * [HiveTerminalMode.watch]: read-only. Text can still be selected and
-///   copied; nothing is sent, not even the terminal's own replies.
+///   copied; nothing is sent, not even the terminal's own replies. Pointer
+///   input to the program is suspended, so the wheel scrolls the buffer.
 /// * [HiveTerminalMode.interactive]: key presses, text and pastes are
 ///   encoded as the bytes a terminal would send and passed to [onInput].
 ///   The well shows a `focusRing` border while it has keyboard focus.
-/// * [HiveTerminalMode.ended]: read-only, cursor hidden, no more resizes.
+/// * [HiveTerminalMode.ended]: read-only, pointer input to the program is
+///   suspended so the wheel scrolls the buffer, cursor hidden, no more
+///   resizes.
+///
+/// Terminal output never touches the system clipboard.
 ///
 /// The screen fits the available size: whenever the size in cells
 /// changes, [onResize] gets the new columns and rows after the frame.
@@ -192,6 +215,7 @@ class HiveTerminalView extends StatefulWidget {
 }
 
 class _HiveTerminalViewState extends State<HiveTerminalView> {
+  final xterm.TerminalController _viewController = xterm.TerminalController();
   FocusNode? _ownFocusNode;
   bool _hasFocus = false;
   (int, int)? _pendingSize;
@@ -228,6 +252,7 @@ class _HiveTerminalViewState extends State<HiveTerminalView> {
     _focusNode.removeListener(_onFocus);
     _ownFocusNode?.dispose();
     _detach(_terminal);
+    _viewController.dispose();
     super.dispose();
   }
 
@@ -235,6 +260,10 @@ class _HiveTerminalViewState extends State<HiveTerminalView> {
     _terminal
       ..onOutput = _onOutput
       ..onResize = _onTerminalResize;
+    final suspend = !widget.mode.acceptsInput;
+    if (_viewController.suspendedPointerInputs != suspend) {
+      _viewController.setSuspendPointerInput(suspend);
+    }
     if (widget.mode == HiveTerminalMode.ended) {
       _terminal.setCursorVisibleMode(false);
     }
@@ -323,12 +352,14 @@ class _HiveTerminalViewState extends State<HiveTerminalView> {
 
     final screen = xterm.TerminalView(
       _terminal,
+      controller: _viewController,
       theme: _theme(palette),
       textStyle: xterm.TerminalStyle.fromTextStyle(typography.mono),
       padding: EdgeInsets.all(spacing.space1),
       focusNode: _focusNode,
       autofocus: widget.autofocus,
       readOnly: !mode.acceptsInput,
+      dragOverridesMouseReporting: mode.acceptsInput,
       cursorType: mode.acceptsInput
           ? xterm.TerminalCursorType.block
           : xterm.TerminalCursorType.underline,
