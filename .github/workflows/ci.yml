@@ -7,13 +7,20 @@ on:
     # spec/** carries the ticket PRs of the Spec Implementation workflow.
     branches: [master, development, 'spec/**']
 
+# A new push to a pull request cancels the superseded run.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   workspace:
     name: Workspace (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+        # Ticket PRs into spec/** run Ubuntu only and skip the app builds; the
+        # spec PR into development runs the full matrix.
+        os: ${{ fromJSON(startsWith(github.base_ref, 'spec/') && '["ubuntu-latest"]' || '["windows-latest","ubuntu-latest","macos-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -88,31 +95,31 @@ jobs:
           dart pub global run very_good_cli:very_good test
 
       - name: Build widgetbook (Windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && !startsWith(github.base_ref, 'spec/')
         working-directory: widgetbook
         run: flutter build windows --debug
 
       - name: Build widgetbook (Linux)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !startsWith(github.base_ref, 'spec/')
         working-directory: widgetbook
         run: flutter build linux --debug
 
       - name: Build widgetbook (macOS)
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && !startsWith(github.base_ref, 'spec/')
         working-directory: widgetbook
         run: flutter build macos --debug
 
       - name: Build frontend (Windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && !startsWith(github.base_ref, 'spec/')
         working-directory: frontend
         run: flutter build windows --debug
 
       - name: Build frontend (Linux)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !startsWith(github.base_ref, 'spec/')
         working-directory: frontend
         run: flutter build linux --debug
 
       - name: Build frontend (macOS)
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && !startsWith(github.base_ref, 'spec/')
         working-directory: frontend
         run: flutter build macos --debug

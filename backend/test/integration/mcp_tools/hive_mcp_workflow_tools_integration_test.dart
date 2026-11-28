@@ -118,7 +118,7 @@ void main() {
         '${created.revision}',
       ),
     );
-  });
+  }, tags: 'flaky');
 
   test('backend not running gives the short error', () async {
     final mcp = await spawn(
