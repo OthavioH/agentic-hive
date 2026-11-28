@@ -20,13 +20,14 @@ required_skills: [plan-writing, ponytail]
 1. **Pre-plan.** Before the first command, list the steps: read the issue (`gh issue view <n> --json title,body,comments`) and the spec, read the root and folder `AGENTS.md` and the ADRs the ticket names, locate the code with `rg`/graphify, then draft the plan. For each step note the expected observation (for example, "the switch in `RunService.startRun` has three branches").
 2. **ReAct.** Per step, say why it is next, run one command or read one file, and record what you actually found (paths, symbols, existing tests).
 3. **Revise.** When the code differs from what the ticket assumes (a symbol moved, a test already exists), change the remaining steps and the plan, and say what changed.
-4. **Stop.** Done when every acceptance criterion maps to concrete file changes and a verification. Escalate when the ticket needs a decision outside its scope or a change to `shared/` that it does not authorize.
+4. **Stop.** Done when every acceptance criterion has a row in the plan's table with concrete file changes and a verification. Escalate when the ticket needs a decision outside its scope or a change to `shared/` that it does not authorize.
 5. **Report.** The plan is the deliverable; keep the trace to the revisions that changed it.
 
 ## Execution guidance
 - Follow the `plan-writing` skill: exact files, symbols, business rules, tests to write first, and the checks that prove completion.
 - Use `GLOSSARY.md` terms. Respect layer boundaries (ADR 0017) and the node hierarchy (ADR 0006).
 - Name the tests to write first (red), and the existing tests that must stay green.
+- The plan contains a table: acceptance criterion → files/symbols to change → test(s) that prove it → edge cases to cover (errors, empty, limits, concurrency, platform). For UI tickets, add the list of states × viewports (including the minimum viewport and large text) that must be captured. The implementer copies this table into its self-check.
 - Say which steps a cheaper executor might get wrong and how to verify them.
 
 ## Ownership and collaboration

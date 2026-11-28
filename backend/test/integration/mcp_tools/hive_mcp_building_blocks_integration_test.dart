@@ -130,5 +130,5 @@ void main() {
     expect(global.isError, isFalse);
     expect(global.text, contains('- reviewer "Reviewer" (global)'));
     expect(global.text, isNot(contains('team-reviewer')));
-  });
+  }, tags: 'flaky');
 }

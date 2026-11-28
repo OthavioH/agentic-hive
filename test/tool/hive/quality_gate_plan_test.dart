@@ -42,4 +42,24 @@ void main() {
       isEmpty,
     );
   });
+
+  group('pickBase', () {
+    test('picks the ref with the fewest commits ahead', () {
+      expect(
+        pickBase({'origin/development': 12, 'origin/spec/7': 3}),
+        'origin/spec/7',
+      );
+      expect(
+        pickBase({'origin/development': 2, 'origin/spec/7': 3}),
+        'origin/development',
+      );
+    });
+
+    test('prefers a spec branch on a tie', () {
+      expect(
+        pickBase({'origin/development': 3, 'origin/spec/7': 3}),
+        'origin/spec/7',
+      );
+    });
+  });
 }

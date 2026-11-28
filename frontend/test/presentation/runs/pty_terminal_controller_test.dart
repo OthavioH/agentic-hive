@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:agentic_hive_frontend/core/backend/backend_connection.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_web_socket_session.dart';
+import 'package:agentic_hive_frontend/core/backend/pty_platform.dart';
 import 'package:agentic_hive_frontend/core/result/result.dart';
 import 'package:agentic_hive_frontend/data/runs/run_providers.dart';
 import 'package:agentic_hive_frontend/domain/runs/pty_repository.dart';
@@ -106,6 +107,13 @@ final class _RecordingPtyRepository implements PtyRepository {
     ));
     return const Success(null);
   }
+}
+
+final class _FakePtyPlatform implements PtyPlatform {
+  const new(this.usesConPty);
+
+  @override
+  final bool usesConPty;
 }
 
 const int _debounceWaitMs = 120;
@@ -654,4 +662,77 @@ void main() {
     expect(sub.read().mode, HiveTerminalMode.ended);
     expect(sub.read().hasOutput, isTrue);
   });
+
+  for (final conPty in [true, false]) {
+    test('initial terminal controller gets windowsPty=$conPty from '
+        'PtyPlatform', () async {
+      final session = _FakeWsSession();
+      final repo = _RecordingPtyRepository();
+
+      final container = ProviderContainer.test(
+        overrides: [
+          ptyRepositoryProvider.overrideWithValue(repo),
+          backendWebSocketSessionProvider.overrideWithValue(session),
+          ptyPlatformProvider.overrideWithValue(_FakePtyPlatform(conPty)),
+        ],
+      );
+      addTearDown(() async {
+        container.dispose();
+        await session.close();
+      });
+
+      final provider = ptyTerminalControllerProvider('run-1', 'node-1', 1);
+      final sub = container.listen(provider, (_, _) {});
+
+      expect(sub.read().terminalController.windowsPty, conPty);
+    });
+
+    test('replayed terminal controller keeps windowsPty=$conPty', () async {
+      final session = _FakeWsSession();
+      final repo = _RecordingPtyRepository();
+
+      final container = ProviderContainer.test(
+        overrides: [
+          ptyRepositoryProvider.overrideWithValue(repo),
+          backendWebSocketSessionProvider.overrideWithValue(session),
+          ptyPlatformProvider.overrideWithValue(_FakePtyPlatform(conPty)),
+        ],
+      );
+      addTearDown(() async {
+        container.dispose();
+        await session.close();
+      });
+
+      final provider = ptyTerminalControllerProvider('run-1', 'node-1', 1);
+      final sub = container.listen(provider, (_, _) {});
+      final initialController = sub.read().terminalController;
+
+      session.emit(
+        _ptyOutputEnvelope(
+          runId: 'run-1',
+          nodeId: 'node-1',
+          attempt: 1,
+          text: 'before-reset',
+        ),
+      );
+      await pumpEventQueue();
+
+      session.emit(
+        _ptyOutputEnvelope(
+          runId: 'run-1',
+          nodeId: 'node-1',
+          attempt: 1,
+          text: 'after-reset',
+          isSnapshot: true,
+        ),
+      );
+      await pumpEventQueue();
+
+      final newController = sub.read().terminalController;
+      expect(newController, isNot(same(initialController)));
+      expect(newController.windowsPty, conPty);
+      expect(newController.plainText, isNot(contains('before-reset')));
+      expect(newController.plainText, contains('after-reset'));
+    });
+  }
 }

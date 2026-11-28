@@ -28,6 +28,7 @@ required_skills: [code-review, ponytail-review]
 ## Execution guidance
 - Block only on confirmed problems: a bug, an unmet acceptance criterion, a broken rule from `AGENTS.md` or an ADR, risky logic without a test, or code the change does not need. Style nits do not block.
 - The quality gate runs format, analyze, `dart fix` and every affected test suite after you approve. Do not repeat it: never run a whole package's test suite, and never run `--update-goldens`.
+- Check the implementer's self-check table against the diff instead of rediscovering everything. A false or missing row for a criterion that applies is a blocking finding.
 - Run at most one existing test file, and only to prove a finding you cannot confirm by reading the code.
 - A `shortcut:` comment is fine when it names a real ceiling and upgrade path; list it.
 
@@ -35,7 +36,7 @@ required_skills: [code-review, ponytail-review]
 Read-only. A `failure` sends the work back to `ticket-implementer`, which sees this report in its inputs; make each finding actionable on its own.
 
 ## Outputs and completion
-`report_result` with `success` (approved, optionally with non-blocking notes) or `failure` (changes requested), `summary` listing the findings, and `data.findings`: a list of `{file, line, severity, problem, fix}`.
+`report_result` with `success` (approved, optionally with non-blocking notes) or `failure` (at least one `blocking` finding), `summary` listing the findings, and `data.findings`: a list of `{file, line, severity, problem, fix}`. `severity` is exactly `blocking` or `non-blocking`; no other labels.
 
 ## Escalation
 Report a failure that names the conflict when the issue itself contradicts an ADR or another ticket.

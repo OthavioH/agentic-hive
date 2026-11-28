@@ -1,16 +1,16 @@
 /// One package of the pub workspace and how its tests run.
 enum WorkspacePackage {
   /// The workspace root (`tool/` and its tests in `test/`).
-  root('.', ['dart', 'test']),
+  root('.', ['dart', 'test', '-r', 'failures-only']),
 
   /// `shared/`.
-  shared('shared', ['dart', 'test']),
+  shared('shared', ['dart', 'test', '-r', 'failures-only']),
 
   /// `backend/`.
-  backend('backend', ['dart', 'test']),
+  backend('backend', ['dart', 'test', '-r', 'failures-only']),
 
   /// `tools/hive_lints/`.
-  hiveLints('tools/hive_lints', ['dart', 'test']),
+  hiveLints('tools/hive_lints', ['dart', 'test', '-r', 'failures-only']),
 
   /// `design_system/`, bundled by `very_good test` (about 2x faster); goldens
   /// run on Ubuntu CI only.
@@ -26,7 +26,7 @@ enum WorkspacePackage {
   ]),
 
   /// `widgetbook/`. One test file, so `very_good test` gains nothing.
-  widgetbook('widgetbook', ['flutter', 'test']),
+  widgetbook('widgetbook', ['flutter', 'test', '-r', 'failures-only']),
 
   /// `frontend/`. `very_good test` bundles the test files into one entrypoint,
   /// about 6x faster than `flutter test` here; files tagged
@@ -78,4 +78,19 @@ Set<WorkspacePackage> affectedPackages(Iterable<String> changedPaths) {
     });
   }
   return affected;
+}
+
+/// Picks the base ref from [aheadCounts] (ref to commits of HEAD beyond the
+/// merge-base): the fewest commits ahead wins, and on a tie a `spec/*` ref
+/// beats the rest, because a ticket branch is cut from its spec branch.
+String pickBase(Map<String, int> aheadCounts) {
+  final refs = aheadCounts.keys.toList()
+    ..sort((a, b) {
+      final byCount = aheadCounts[a]!.compareTo(aheadCounts[b]!);
+      if (byCount != 0) return byCount;
+      return (a.contains('/spec/') ? 0 : 1).compareTo(
+        b.contains('/spec/') ? 0 : 1,
+      );
+    });
+  return refs.first;
 }

@@ -1,6 +1,12 @@
 {
   "hive:heavy": {
-    "implement": { "model": "gemini-4-hydrogen-medium", "effort": "medium" },
-    "fix_ci": { "model": "gemini-4-hydrogen-medium", "effort": "medium" }
+    "implement": {
+      "model": "gemini-4-neon-medium",
+      "effort": "medium"
+    },
+    "fix_ci": {
+      "model": "gemini-4-neon-medium",
+      "effort": "medium"
+    }
   }
 }
