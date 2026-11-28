@@ -331,7 +331,7 @@ void main() {
         const clipboardSequences =
             '\x1b]52;c;aGk=\x07'
             '\x1b]1337;Copy=:aGk=\x07'
-            '\x1b]1337;CopyToClipboard\x07hi\x1b]1337;EndCopy\x07'
+            '\x1b]1337;CopyToClipboard=\x07hi\x1b]1337;EndCopy\x07'
             '\x1b]5522;type=write;aGk=\x07';
 
         final clipboard = _mockClipboard(tester);
@@ -394,6 +394,37 @@ void main() {
 
         expect(input, isEmpty);
         expect(clipboard.reads, isEmpty);
+      },
+      variant: TargetPlatformVariant.desktop(),
+    );
+
+    testWidgets(
+      'CSI 21 t title report is dropped while other query replies still arrive',
+      (tester) async {
+        final controller = HiveTerminalController();
+        addTearDown(controller.dispose);
+        final focusNode = FocusNode();
+        addTearDown(focusNode.dispose);
+        final input = <Uint8List>[];
+
+        await tester.pumpWidget(
+          _view(
+            controller,
+            mode: HiveTerminalMode.interactive,
+            onInput: input.add,
+            focusNode: focusNode,
+          ),
+        );
+        focusNode.requestFocus();
+        await tester.pump();
+
+        controller.appendText('\x1b]2;injected\x07\x1b[21t');
+        await tester.pump();
+        expect(input, isEmpty);
+
+        controller.appendText('\x1b[c\x1b]11;?\x07');
+        await tester.pump();
+        expect(input, isNotEmpty);
       },
       variant: TargetPlatformVariant.desktop(),
     );
@@ -696,7 +727,7 @@ void main() {
       );
       await _typeA(tester);
       expect(input.expand((b) => b).toList(), <int>[0x61]);
-    });
+    }, variant: TargetPlatformVariant.desktop());
 
     testWidgets('renders the trailing action and the light theme', (
       tester,

@@ -54,6 +54,7 @@ Status on Flutter 3.50.1: works, analysis clean. The widgets used (`FluxFade`, `
 Hardened defaults:
 
 - Terminal output never writes or reads the system clipboard: `onClipboardStore` is installed as a no-op at `Terminal` construction (before `TerminalView` can install its default writer), `allowITerm2ClipboardCapture` and `allowKittyClipboard` are `false`, and `onClipboardQuery` is left unset.
+- CSI 21 t window-title reports (`ESC ] l ...`) are dropped before reaching `onInput` so untrusted output cannot inject text into the program's input.
 - Pointer input to the program is suspended in `watch` and `ended` modes, so the wheel scrolls the buffer.
 - `dragOverridesMouseReporting` is enabled in `interactive` mode so dragging selects text locally while clicks and the wheel still reach mouse-reporting apps.
 - No `onCopy`, `onPaste`, `onHyperlinkTap`, `onOpenUrl` or `onNotification` hooks are wired.

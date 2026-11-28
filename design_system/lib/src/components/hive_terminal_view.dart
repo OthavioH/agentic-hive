@@ -283,6 +283,8 @@ class _HiveTerminalViewState extends State<HiveTerminalView> {
 
   void _onOutput(String data) {
     if (!widget.mode.acceptsInput) return;
+    // Drop xterm2's CSI 21 t title report so output cannot inject input text.
+    if (data.startsWith('\x1b]l')) return;
     widget.onInput?.call(utf8.encode(data));
   }
 
