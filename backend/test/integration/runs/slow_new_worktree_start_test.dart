@@ -93,7 +93,6 @@ void main() {
       final workspaceId = await registerWorkspace(repo.dir);
       final workflowId = await createCommandWorkflow();
 
-      var released = false;
       final pending = http.post(
         '/api/v1/runs',
         body: jsonEncode(
@@ -108,6 +107,7 @@ void main() {
 
       await repo.waitUntilHookEntered();
 
+      // 5 s timeout < 20 s maxBlock proves the response arrived while blocked.
       final res = await pending.timeout(
         const Duration(seconds: 5),
         onTimeout: () => fail(
@@ -116,7 +116,6 @@ void main() {
         ),
       );
 
-      expect(repo.hookEntered && !released, isTrue);
       expect(res.statusCode, 201);
 
       final runJson = res.json;
@@ -128,7 +127,6 @@ void main() {
       expect(worktreePath, isNotNull);
       expect(runJson['worktreeBranch'], 'hive/$runId');
 
-      released = true;
       repo.release();
 
       final deadline = DateTime.now().add(ioTimeout);
