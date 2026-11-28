@@ -22,9 +22,11 @@ final class CodexNode extends HeadlessHarnessNode {
   );
 
   static final RegExp _rateLimitPattern = RegExp(
-    r'\b(rate limit|usage limit|quota exceeded|too many requests|'
-    r'http\s*429|status(?:\s+code)?[:\s]+429|error[:\s]+429|'
-    r'429\s+too\s+many\s+requests)\b',
+    r'(?:"status(?:_code)?"\s*:\s*429|'
+    r'\b(?:rate limit|rate_limit_exceeded|usage[_ ]limit(?:_reached)?|'
+    'quota exceeded|insufficient_quota|too[_ ]many[_ ]requests|'
+    r'over[_ ]capacity|http\s*429|status(?:\s+code)?[:\s]+429|'
+    r'error[:\s]+429|429\s+too\s+many\s+requests)\b)',
     caseSensitive: false,
   );
 
