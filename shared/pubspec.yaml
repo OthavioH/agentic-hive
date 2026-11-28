@@ -1,6 +1,6 @@
 name: agentic_hive_shared
 description: Contracts shared by the Agentic Hive backend and frontend.
-version: 0.4.2
+version: 0.4.3
 publish_to: none
 resolution: workspace
 
