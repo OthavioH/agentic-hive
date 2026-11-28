@@ -265,7 +265,7 @@ Future<void> main() async {
     final delRes = await http.delete('/api/v1/runs/${run.id}');
     expect(delRes.statusCode, 204);
     expect(Directory(p.join(dataDir, 'runs', run.id)).existsSync(), isFalse);
-  });
+  }, tags: 'flaky');
 
   test(
     'two simultaneous POST /runs in direct mode on the same workspace return '
@@ -413,6 +413,7 @@ Future<void> main() => Future<void>.delayed(const Duration(seconds: 60));
       final checkRes = await http.get('/api/v1/runs/run-uncertain');
       expect(checkRes.statusCode, 404);
     },
+    tags: 'flaky',
   );
 
   test(

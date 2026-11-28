@@ -49,16 +49,19 @@ Future<void> main() async {
   ];
 
   for (final step in steps) {
-    stdout.writeln('==> ${step.label}');
-    final process = await Process.start(
+    final result = await Process.run(
       step.executable,
       step.arguments,
       workingDirectory: step.workingDirectory,
       runInShell: Platform.isWindows,
-      mode: ProcessStartMode.inheritStdio,
     );
-    final code = await process.exitCode;
-    if (code != 0) {
+    final code = result.exitCode;
+    if (code == 0) {
+      stdout.writeln('==> ${step.label}: ok');
+    } else {
+      stdout
+        ..writeln('==> ${step.label}')
+        ..write('${result.stdout}${result.stderr}');
       stderr.writeln('Step "${step.label}" failed with exit code $code.');
       exit(code);
     }

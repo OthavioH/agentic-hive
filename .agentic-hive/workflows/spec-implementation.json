@@ -25,18 +25,19 @@
     },
     {
       "id": "pr_scope",
-      "type": "harness.claude_code",
+      "type": "harness.antigravity",
       "label": "Spec PR scope (Haiku 5.5)",
       "position": {
         "x": 260.0,
-        "y": -200.0
+        "y": 220.0
       },
       "config": {
         "additionalInstructions": "The output of node setup has the spec number, the draft spec PR number (data.pr) and its tickets. Read the spec with gh issue view. Rewrite the PR body with `gh pr edit <pr> --body-file` using the pr skill template: Summary = what the spec will deliver, one line per ticket (#n title); Evidence = \"Filled in when every ticket is merged.\"; Merge Danger = your estimate from the spec. Keep the line \"Part of #<spec>\". End the body with: 🤖 Generated with Agentic Hive.",
+        "timeoutSeconds": 900,
+        "model": "gemini-4-hydrogen-low",
+        "effort": "low",
         "extraArgs": [],
-        "model": "claude-haiku-5-5",
-        "effort": "medium",
-        "timeoutSeconds": 900
+        "fallback": []
       }
     },
     {
@@ -189,12 +190,19 @@
         "y": 220.0
       },
       "config": {
-        "additionalInstructions": "The failing checks are in the stdout of node ready_ci. The PR is the spec PR (data.pr of node setup).",
-        "extraArgs": [],
         "agentId": "ci-investigator",
+        "additionalInstructions": "The failing checks are in the stdout of node ready_ci. The PR is the spec PR (data.pr of node setup).",
+        "timeoutSeconds": 1800,
         "model": "claude-sonnet-5-5",
         "effort": "medium",
-        "timeoutSeconds": 1800
+        "extraArgs": [],
+        "fallback": [
+          {
+            "harness": "harness.antigravity",
+            "model": "gemini-4-neon-medium",
+            "effort": "medium"
+          }
+        ]
       }
     },
     {
@@ -206,12 +214,19 @@
         "y": 220.0
       },
       "config": {
-        "additionalInstructions": "Work in ponytail mode (ponytail skill). The plan is data.plan in the output of node investigate_ci. Commit and push to the current branch (it tracks the spec branch).",
-        "extraArgs": [],
         "agentId": "ci-fixer",
+        "additionalInstructions": "Work in ponytail mode (ponytail skill). The plan is data.plan in the output of node investigate_ci. Commit and push to the current branch (it tracks the spec branch).",
+        "timeoutSeconds": 3600,
         "model": "gemini-4-hydrogen-medium",
         "effort": "medium",
-        "timeoutSeconds": 3600
+        "extraArgs": [],
+        "fallback": [
+          {
+            "harness": "harness.claude_code",
+            "model": "claude-haiku-5-5",
+            "effort": "medium"
+          }
+        ]
       }
     },
     {
@@ -224,10 +239,17 @@
       },
       "config": {
         "additionalInstructions": "Rewrite the spec PR body (data.pr of node setup) with `gh pr edit --body-file`, using the pr skill template. Summary: one line per merged ticket PR (`gh pr list --base <spec branch> --state merged`), linking it. Evidence: the CI result from node ready_ci. Merge Danger: door and blast radius for the whole spec, plus a ledger of the `shortcut:` comments the spec adds (run /ponytail-debt and keep only the ones in `git diff origin/<base>...HEAD`). Keep the line \"Part of #<spec>\". End the body with: 🤖 Generated with Agentic Hive. Do not merge the PR.",
-        "extraArgs": [],
+        "timeoutSeconds": 900,
         "model": "claude-haiku-5-5",
         "effort": "medium",
-        "timeoutSeconds": 900
+        "extraArgs": [],
+        "fallback": [
+          {
+            "harness": "harness.antigravity",
+            "model": "gemini-4-hydrogen-medium",
+            "effort": "medium"
+          }
+        ]
       }
     },
     {
@@ -371,7 +393,7 @@
     }
   ],
   "createdAt": "2026-11-24T19:53:09.443552Z",
-  "updatedAt": "2026-11-26T20:24:54.604461Z",
+  "updatedAt": "2026-11-27T23:26:56.159572Z",
   "description": "Implements every sub-issue of a spec in dependency waves. Run input: the spec issue number (for example \"100\"). Start it in a NEW worktree based on development. Setup pushes spec/<n> and opens a draft spec PR; each wave fans out Ticket Implementation (2 at a time) with PRs into spec/<n>, merges the green ones, and loops until every ticket is done; then the spec PR leaves draft and waits for CI, with an investigate/fix loop. Humans are asked only when tickets fail or no ticket can start. Requires the sub-issues to carry GitHub blocked-by dependencies.",
   "entryNodeId": "setup",
   "schemaVersion": 1
