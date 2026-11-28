@@ -22,9 +22,14 @@ final class ClaudeCodeNode extends HeadlessHarnessNode {
   );
 
   static final RegExp _rateLimitPattern = RegExp(
-    r'\b(rate limit|too many requests|quota exceeded|credit balance|'
-    r'http\s*429|status(?:\s+code)?[:\s]+429|error[:\s]+429|'
-    r'429\s+too\s+many\s+requests)\b',
+    r'(?:"error"\s*:\s*"rate_limit"|'
+    r'"api_error_status"\s*:\s*429|'
+    r'"status(?:_code)?"\s*:\s*429|'
+    r'\b(?:rate limit|rate_limit_error|usage[_ ]limit(?:_reached)?|'
+    'overloaded_error|too many requests|quota exceeded|credit balance|'
+    'hit your [^\n"]{0,40}\\blimit|http\\s*429|'
+    r'status(?:\s+code)?[:\s]+429|error[:\s]+429|'
+    r'429\s+too\s+many\s+requests)\b)',
     caseSensitive: false,
   );
 

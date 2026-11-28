@@ -21,9 +21,15 @@ final class GeminiCliNode extends HeadlessHarnessNode {
   );
 
   static final RegExp _rateLimitPattern = RegExp(
-    r'\b(resource_exhausted|quota exceeded|rate limit|too many requests|'
-    r'http\s*429|status(?:\s+code)?[:\s]+429|error[:\s]+429|'
-    r'429\s+too\s+many\s+requests)\b',
+    r'(?:"status(?:_code)?"\s*:\s*429|'
+    r'"code"\s*:\s*429|'
+    r'\b(?:resource_exhausted|resource has been exhausted|'
+    'quota exceeded|exceeded your (?:current )?quota|'
+    'rate limit|rate_limit_exceeded|rateLimitExceeded|'
+    'userRateLimitExceeded|model_capacity_exhausted|'
+    r'(?:no|at|over|out of)\s+capacity|capacity\s+(?:exhausted|exceeded|limit)|'
+    r'too[_ ]many[_ ]requests|http\s*429|status(?:\s+code)?[:\s]+429|'
+    r'error[:\s]+429|429\s+too\s+many\s+requests)\b)',
     caseSensitive: false,
   );
 

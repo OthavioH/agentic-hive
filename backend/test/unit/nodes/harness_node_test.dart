@@ -1537,6 +1537,165 @@ void main() {
       });
     }
 
+    group('real CLI rate-limit payloads', () {
+      test(
+        'ClaudeCodeNode detects stream-json rejection and 429 fields',
+        () async {
+          resultContract.report = null;
+          final node = ClaudeCodeNode(
+            processRunner: processRunner,
+            resultContract: resultContract,
+            agentPromptResolver: agentResolver,
+          );
+
+          const streamJsonRejection =
+              '{"type":"rate_limit_event","rate_limit_info":'
+              '{"status":"rejected","rateLimitType":"five_hour"}}\n'
+              '{"type":"assistant","error":"rate_limit","api_error_status":429,'
+              '"api_error":"usage_limit_reached",'
+              '"api_error_type":"rate_limit_error",'
+              '"message":{"content":[{"type":"text",'
+              '"text":"You\'ve hit your 5-hour limit · resets 11:30pm"}]}}\n'
+              '{"type":"result","is_error":true,"api_error_status":429,'
+              '"api_error_type":"rate_limit_error",'
+              '"api_error":"usage_limit_reached",'
+              '"result":"You\'ve hit your 5-hour limit · resets 11:30pm"}';
+
+          processRunner.result = const ProcessExecutionResult(
+            exitCode: 1,
+            stdout: streamJsonRejection,
+          );
+          expect(
+            (await node.execute(_context())).failureOrNull,
+            isA<HarnessRateLimitFailure>(),
+          );
+
+          for (final signal in const <String>[
+            '{"api_error_status":429}',
+            "You've hit your weekly limit",
+            '{"type":"error","error":{"type":"overloaded_error"}}',
+          ]) {
+            processRunner.result = ProcessExecutionResult(
+              exitCode: 1,
+              stderr: signal,
+            );
+            expect(
+              (await node.execute(_context())).failureOrNull,
+              isA<HarnessRateLimitFailure>(),
+              reason: 'Expected HarnessRateLimitFailure for: $signal',
+            );
+          }
+        },
+      );
+
+      test(
+        'ClaudeCodeNode ignores allowed rate_limit_event on clean exit',
+        () async {
+          resultContract.report = null;
+          final node = ClaudeCodeNode(
+            processRunner: processRunner,
+            resultContract: resultContract,
+            agentPromptResolver: agentResolver,
+          );
+          processRunner.result = const ProcessExecutionResult(
+            exitCode: 0,
+            stdout:
+                '{"type":"rate_limit_event","rate_limit_info":'
+                '{"status":"allowed","rateLimitType":"five_hour"}}',
+          );
+
+          final failure = (await node.execute(_context())).failureOrNull;
+          expect(failure, isA<NodeExecutionFailure>());
+          expect(failure, isNot(isA<HarnessRateLimitFailure>()));
+        },
+      );
+
+      test('CodexNode detects JSON and GraphQL rate-limit payloads', () async {
+        resultContract.report = null;
+        final node = CodexNode(
+          processRunner: processRunner,
+          resultContract: resultContract,
+          agentPromptResolver: agentResolver,
+        );
+
+        for (final payload in const <String>[
+          '{"error":{"type":"usage_limit_reached"}}',
+          '{"error":{"code":"rate_limit_exceeded"}}',
+          '{"error":{"code":"insufficient_quota"}}',
+          '{"errors":[{"extensions":{"code":"OVER_CAPACITY"}}]}',
+        ]) {
+          processRunner.result = ProcessExecutionResult(
+            exitCode: 1,
+            stderr: payload,
+          );
+          expect(
+            (await node.execute(_context())).failureOrNull,
+            isA<HarnessRateLimitFailure>(),
+            reason: 'Expected HarnessRateLimitFailure for: $payload',
+          );
+        }
+      });
+
+      test(
+        'GeminiCliNode detects JSON 429, quota, and capacity payloads',
+        () async {
+          resultContract.report = null;
+          final node = GeminiCliNode(
+            processRunner: processRunner,
+            resultContract: resultContract,
+            agentPromptResolver: agentResolver,
+          );
+
+          const quotaJson =
+              '{"error":{"code":429,'
+              '"message":"You exceeded your current quota"}}';
+          for (final payload in const <String>[
+            quotaJson,
+            'GaxiosError: status: 429 reason: rateLimitExceeded',
+            'Error: MODEL_CAPACITY_EXHAUSTED',
+          ]) {
+            processRunner.result = ProcessExecutionResult(
+              exitCode: 1,
+              stderr: payload,
+            );
+            expect(
+              (await node.execute(_context())).failureOrNull,
+              isA<HarnessRateLimitFailure>(),
+              reason: 'Expected HarnessRateLimitFailure for: $payload',
+            );
+          }
+        },
+      );
+
+      test(
+        'AntigravityNode detects quota, capacity, and rate-limit codes',
+        () async {
+          resultContract.report = null;
+          final node = AntigravityNode(
+            processRunner: processRunner,
+            resultContract: resultContract,
+            agentPromptResolver: agentResolver,
+          );
+
+          for (final payload in const <String>[
+            'RESOURCE_EXHAUSTED: quota_exhausted',
+            'Error: MODEL_CAPACITY_EXHAUSTED',
+            '{"error":{"code":"rate_limit_exceeded"}}',
+          ]) {
+            processRunner.result = ProcessExecutionResult(
+              exitCode: 1,
+              stderr: payload,
+            );
+            expect(
+              (await node.execute(_context())).failureOrNull,
+              isA<HarnessRateLimitFailure>(),
+              reason: 'Expected HarnessRateLimitFailure for: $payload',
+            );
+          }
+        },
+      );
+    });
+
     test('TerminalHarnessNode: exit 0 + rate limit + null report stays '
         'NodeExecutionFailure; exit 1 -> HarnessRateLimitFailure', () async {
       resultContract.report = null;
