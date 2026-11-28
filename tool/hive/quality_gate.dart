@@ -7,26 +7,59 @@ import '../src/hive/quality_gate_plan.dart';
 
 // Quality gate of the Ticket Implementation workflow (a command node).
 //
-//   dart run tool/hive/quality_gate.dart [--base <branch>]
+//   dart run tool/hive/quality_gate.dart [--base <ref>]
 //
 // Runs the repository's zero-tolerance checks (format, analyze with infos,
 // dart fix) and the tests of every package the change touches, compared with
-// origin/<base> (default `development`). Runs every step even after a failure
+// the base: `--base <branch>` (origin/<branch>) or, by default, the nearest
+// of origin/development and origin/spec/* (fewest commits ahead). Runs every
+// step even after a failure
 // and prints the tail of each failing step for the implementer. Exits 1 when
 // any step fails.
 
-const _tailLines = 60;
+const _tailLines = 120;
 
 Future<void> main(List<String> args) async {
   final baseAt = args.indexOf('--base');
-  final base = baseAt >= 0 ? args[baseAt + 1] : 'development';
-
-  await run('git', ['fetch', 'origin', base]);
-  final mergeBase = await runText('git', [
-    'merge-base',
-    'HEAD',
-    'origin/$base',
-  ]);
+  final String base;
+  final String mergeBase;
+  if (baseAt >= 0) {
+    base = 'origin/${args[baseAt + 1]}';
+    await run('git', ['fetch', 'origin', args[baseAt + 1]]);
+    mergeBase = await runText('git', ['merge-base', 'HEAD', base]);
+    stdout.writeln('Base: $base.');
+  } else {
+    await run('git', ['fetch', 'origin', '--prune'], allowFailure: true);
+    final refs = [
+      'origin/development',
+      ...(await runText('git', [
+        'for-each-ref',
+        '--format=%(refname:short)',
+        'refs/remotes/origin/spec',
+      ])).split('\n').where((r) => r.isNotEmpty),
+    ];
+    final mergeBases = <String, String>{};
+    final ahead = <String, int>{};
+    for (final ref in refs) {
+      final found = await run('git', [
+        'merge-base',
+        'HEAD',
+        ref,
+      ], allowFailure: true);
+      if (found.exitCode != 0) continue;
+      mergeBases[ref] = '${found.stdout}'.trim();
+      ahead[ref] = int.parse(
+        await runText('git', [
+          'rev-list',
+          '--count',
+          '${mergeBases[ref]}..HEAD',
+        ]),
+      );
+    }
+    base = pickBase(ahead);
+    mergeBase = mergeBases[base]!;
+    stdout.writeln('Base: $base (${ahead[base]} commits ahead).');
+  }
   final changed = {
     ...(await runText('git', ['diff', '--name-only', mergeBase])).split('\n'),
     ...(await runText('git', [
@@ -35,7 +68,7 @@ Future<void> main(List<String> args) async {
       '--exclude-standard',
     ])).split('\n'),
   }..remove('');
-  stdout.writeln('Changed since origin/$base: ${changed.length} files.');
+  stdout.writeln('Changed since $base: ${changed.length} files.');
 
   final dart = Platform.resolvedExecutable;
   final steps = <(String, String, List<String>, String)>[

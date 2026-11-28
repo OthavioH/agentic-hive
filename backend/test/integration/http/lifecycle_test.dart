@@ -151,6 +151,7 @@ void main() {
         final response = await openClient(backend.socketPath).get('/health');
         expect(response.statusCode, 200);
       },
+      tags: 'flaky',
     );
 
     test(

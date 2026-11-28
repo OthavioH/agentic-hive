@@ -49,8 +49,14 @@ Status on Flutter 3.50.1: works, analysis clean. The widgets used (`FluxFade`, `
 
 ## Terminal emulator
 
-`HiveTerminalView` and `HiveTerminalController` wrap `xterm` 4.0.0 (TerminalStudio, the latest stable release on 2026-11-21). Only `lib/src/components/hive_terminal_view.dart` imports it; no `xterm` type appears in the public API, so `frontend/` never imports it.
+`HiveTerminalView` and `HiveTerminalController` wrap `xterm2` 5.5.0, pinned to the exact version (ADR 0031). `xterm2_core` is held only by the root `pubspec.lock`; only `lib/src/components/hive_terminal_view.dart` imports `package:xterm2/xterm.dart`, and no `xterm2` type appears in the public API, so `frontend/` never imports it.
 
-Status on Flutter 3.50.1: works, analysis clean. `xterm` imports `package:flutter/material.dart`, but only for types: it never reads a legacy `Theme`, `Localizations` or `Material` ancestor (checked in the 4.0.0 sources). `MaterialUiCompatibilityBridge` is therefore not needed (it is also `@Deprecated`, which would fail `--fatal-infos`). If a later `xterm` release starts reading legacy Material ancestors, wrap the `TerminalView` inside `hive_terminal_view.dart` in the bridge; nothing outside that file changes.
+Hardened defaults:
 
-`xterm` is stale (last release 2024-02). Maintained forks exist (`xterm2`, `xterm3`) with far fewer users; swap the import inside `hive_terminal_view.dart` if `xterm` breaks on a Flutter upgrade.
+- Terminal output never writes or reads the system clipboard: `onClipboardStore` is installed as a no-op at `Terminal` construction (before `TerminalView` can install its default writer), `allowITerm2ClipboardCapture` and `allowKittyClipboard` are `false`, and `onClipboardQuery` is left unset.
+- CSI 21 t window-title reports (`ESC ] l ...`) are dropped before reaching `onInput` so untrusted output cannot inject text into the program's input.
+- Pointer input to the program is suspended in `watch` and `ended` modes, so the wheel scrolls the buffer.
+- `dragOverridesMouseReporting` is enabled in `interactive` mode so dragging selects text locally while clicks and the wheel still reach mouse-reporting apps.
+- No `onCopy`, `onPaste`, `onHyperlinkTap`, `onOpenUrl` or `onNotification` hooks are wired.
+
+Status on Flutter 3.50.1: works, analysis clean. Whether `xterm2` reads legacy Material ancestors is unverified; `MaterialUiCompatibilityBridge` is not used (it is also `@Deprecated`, which would fail `--fatal-infos`). Rollback path: revert to `xterm` 4.0.0 inside `hive_terminal_view.dart` and `design_system/pubspec.yaml`; `hardwareKeyboardOnly` is not a fallback because dead-key and IME composition require the default `false`.

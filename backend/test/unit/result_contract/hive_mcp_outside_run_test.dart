@@ -140,7 +140,7 @@ void main() {
       });
       final result = call['result']! as Map<String, Object?>;
       expect(result['isError'], isTrue);
-    });
+    }, tags: 'flaky');
   });
 }
 
