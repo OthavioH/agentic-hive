@@ -615,4 +615,112 @@ void main() {
       findsNothing,
     );
   });
+
+  testWidgets(
+    'toolbar actions sit flush right and vertically centered on wide windows',
+    (tester) async {
+      addTearDown(tester.view.reset);
+
+      for (final size in const <Size>[Size(1440, 900), Size(2560, 1440)]) {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1.0;
+
+        final repo = _FakeWorkflowRepository();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+            child: _buildEditorHost(),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final spacing = tester
+            .element(find.byType(WorkflowEditorPage))
+            .hiveSpacing;
+        final toolbar = tester.getRect(find.byKey(const Key('editor_toolbar')));
+        final save = tester.getRect(
+          find.byKey(const Key('editor_save_button')),
+        );
+
+        expect(save.right, moreOrLessEquals(toolbar.right - spacing.space3));
+        expect(save.center.dy, moreOrLessEquals(toolbar.center.dy));
+
+        await tester.tap(
+          find.byKey(const Key('palette_item_${NodeTypeId.command}')),
+        );
+        await tester.pumpAndSettle();
+
+        final dirtyToolbar = tester.getRect(
+          find.byKey(const Key('editor_toolbar')),
+        );
+        final dirtySave = tester.getRect(
+          find.byKey(const Key('editor_save_button')),
+        );
+        expect(
+          dirtySave.right,
+          moreOrLessEquals(dirtyToolbar.right - spacing.space3),
+        );
+        expect(dirtySave.center.dy, moreOrLessEquals(dirtyToolbar.center.dy));
+      }
+    },
+  );
+
+  testWidgets('narrow toolbar ellipsizes long name and keeps Save visible with '
+      'save-failure badge', (tester) async {
+    tester.view.physicalSize = const Size(900, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final longName = 'A very long workflow name ' * 8;
+    final repo = _FakeWorkflowRepository();
+    repo.stored = repo.stored.copyWith(name: longName);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [workflowRepositoryProvider.overrideWithValue(repo)],
+        child: _buildEditorHost(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final paletteItem = find.byKey(
+      const Key('palette_item_${NodeTypeId.command}'),
+    );
+    await tester.ensureVisible(paletteItem);
+    await tester.tap(paletteItem);
+    await tester.pumpAndSettle();
+
+    repo.saveOverride = const FailureResult(NetworkFailure('offline'));
+    await tester.tap(find.byKey(const Key('editor_save_button')));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+
+    final spacing = tester.element(find.byType(WorkflowEditorPage)).hiveSpacing;
+    final toolbar = tester.getRect(find.byKey(const Key('editor_toolbar')));
+    final save = tester.getRect(find.byKey(const Key('editor_save_button')));
+
+    expect(save.right, moreOrLessEquals(toolbar.right - spacing.space3));
+    expect(save.left, greaterThanOrEqualTo(toolbar.left));
+
+    final failureBadges = find.byWidgetPredicate(
+      (w) =>
+          w is HiveBadge &&
+          w.tone == HiveBadgeTone.danger &&
+          w.icon == HiveIcons.alert,
+    );
+    expect(failureBadges, findsWidgets);
+
+    final dirtyBadgeRect = tester.getRect(
+      find.byKey(const Key('editor_dirty_badge')),
+    );
+    final firstFailureBadgeRect = tester.getRect(failureBadges.first);
+    expect(firstFailureBadgeRect.left, lessThan(dirtyBadgeRect.left));
+
+    final nameRect = tester.getRect(find.text(longName));
+    expect(
+      nameRect.width,
+      lessThanOrEqualTo((toolbar.width - 2 * spacing.space3) / 2 + 0.01),
+    );
+  });
 }
