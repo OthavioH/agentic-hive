@@ -27,10 +27,12 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
 SandboxIOOverrides? _tryBuildOverrides(String sandboxRoot) {
   try {
     final paths = currentPlatformPaths();
+    final dataDir = paths.defaultDataDir();
     return SandboxIOOverrides(
-      dataDir: paths.defaultDataDir(),
+      dataDir: dataDir,
       sandboxRoot: sandboxRoot,
       context: paths.context,
+      excludedDirs: [paths.context.join(dataDir, 'worktrees')],
     );
   } on Object {
     return null;

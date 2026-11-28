@@ -101,6 +101,50 @@ void main() {
       }, _RealIO());
     });
 
+    test('leaves excludedDirs under dataDir untouched while redirecting '
+        'siblings', () {
+      final worktreesDir = p.join(realDir.path, 'worktrees');
+      final scopedOverrides = SandboxIOOverrides(
+        dataDir: realDir.path,
+        sandboxRoot: sandboxDir.path,
+        context: p.context,
+        excludedDirs: [worktreesDir],
+      );
+
+      final excludedDirPath = IOOverrides.runWithIOOverrides(
+        () => Directory(worktreesDir).path,
+        scopedOverrides,
+      );
+      expect(excludedDirPath, worktreesDir);
+
+      IOOverrides.runWithIOOverrides(() {
+        Directory(p.join(worktreesDir, 'wt-1')).createSync(recursive: true);
+        File(p.join(worktreesDir, 'wt-1', 'f.txt')).writeAsStringSync('wt');
+        File(p.join(realDir.path, 'current_workspace.json'))
+            .writeAsStringSync('{"workspaceId":"sb"}');
+      }, scopedOverrides);
+
+      IOOverrides.runWithIOOverrides(() {
+        expect(
+          File(p.join(worktreesDir, 'wt-1', 'f.txt')).readAsStringSync(),
+          'wt',
+        );
+        expect(
+          File(p.join(sandboxDir.path, 'worktrees', 'wt-1', 'f.txt'))
+              .existsSync(),
+          isFalse,
+        );
+        expect(
+          File(p.join(sandboxDir.path, 'current_workspace.json')).existsSync(),
+          isTrue,
+        );
+        expect(
+          File(p.join(realDir.path, 'current_workspace.json')).existsSync(),
+          isFalse,
+        );
+      }, _RealIO());
+    });
+
     test(
       'FileWorkspaceSelectionStore ignores a real current_workspace.json',
       () async {
