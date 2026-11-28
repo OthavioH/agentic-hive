@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:design_system/design_system.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -9,7 +11,7 @@ import '../helpers/hive_test_harness.dart';
 
 const _semanticLabel = 'Claude Code terminal';
 
-/// Lets xterm's double-tap detector time out after a tap.
+/// Lets xterm2's double-tap detector time out after a tap.
 const _doubleTapTimeout = Duration(milliseconds: 400);
 
 Widget _view(
@@ -59,6 +61,67 @@ Future<void> _typeA(WidgetTester tester) async {
   await tester.pump();
 }
 
+({List<String> writes, List<String> reads}) _mockClipboard(
+  WidgetTester tester,
+) {
+  final writes = <String>[];
+  final reads = <String>[];
+  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+    SystemChannels.platform,
+    (call) async {
+      if (call.method == 'Clipboard.setData') {
+        final args = call.arguments as Map<Object?, Object?>?;
+        writes.add(args?['text'] as String? ?? '');
+        return null;
+      }
+      if (call.method == 'Clipboard.getData') {
+        reads.add(call.arguments as String? ?? '');
+        return <String, Object?>{'text': 'pasted'};
+      }
+      return null;
+    },
+  );
+  addTearDown(() {
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      null,
+    );
+  });
+  return (writes: writes, reads: reads);
+}
+
+double _scrollPixels(WidgetTester tester) {
+  final scrollables = tester.stateList<ScrollableState>(
+    find.descendant(
+      of: find.byType(HiveTerminalView),
+      matching: find.byType(Scrollable),
+    ),
+  );
+  return scrollables
+      .firstWhere((s) => s.widget.axisDirection == AxisDirection.down)
+      .position
+      .pixels;
+}
+
+Future<void> _sendTerminalShortcut(
+  WidgetTester tester,
+  LogicalKeyboardKey key,
+) async {
+  final isMac = defaultTargetPlatform == TargetPlatform.macOS;
+  if (isMac) {
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyEvent(key);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+  } else {
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(key);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+  }
+  await tester.pump();
+}
+
 void main() {
   group('HiveTerminalController', () {
     test('joins a UTF-8 character split across two byte chunks', () {
@@ -89,7 +152,7 @@ void main() {
       addTearDown(controller.dispose);
       controller.appendBytes(<int>[0x6F, 0x6B, 0xFF, 0x21]);
 
-      expect(controller.plainText, contains('ok�!'));
+      expect(controller.plainText, contains('ok\uFFFD!'));
     });
 
     test('keeps at most scrollbackLines lines', () {
@@ -102,6 +165,14 @@ void main() {
       expect(controller.lineCount, lessThanOrEqualTo(40));
       expect(controller.plainText, contains('line 199'));
       expect(controller.plainText, isNot(contains('line 0\n')));
+    });
+
+    test('supports windowsPty mode', () {
+      final controller = HiveTerminalController(windowsPty: true)
+        ..appendText('hi');
+      addTearDown(controller.dispose);
+
+      expect(controller.plainText, contains('hi'));
     });
   });
 
@@ -152,43 +223,8 @@ void main() {
       expect(sizes.last.$2, greaterThan(rows));
     });
 
-    testWidgets('watch mode sends no input', (tester) async {
-      final controller = HiveTerminalController();
-      addTearDown(controller.dispose);
-      final input = <Uint8List>[];
-      await tester.pumpWidget(
-        _view(controller, mode: HiveTerminalMode.watch, onInput: input.add),
-      );
-      await tester.tap(find.byType(HiveTerminalView));
-      await tester.pump(_doubleTapTimeout);
-      await _typeA(tester);
-
-      expect(input, isEmpty);
-    });
-
-    testWidgets('interactive mode sends typed keys as bytes', (tester) async {
-      final controller = HiveTerminalController();
-      addTearDown(controller.dispose);
-      final input = <Uint8List>[];
-      await tester.pumpWidget(
-        _view(
-          controller,
-          mode: HiveTerminalMode.interactive,
-          modeLabel: 'You have control',
-          onInput: input.add,
-        ),
-      );
-      await tester.tap(find.byType(HiveTerminalView));
-      await tester.pump(_doubleTapTimeout);
-      await _typeA(tester);
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pump();
-
-      expect(input.expand((b) => b).toList(), <int>[0x61, 0x0D]);
-    });
-
     testWidgets(
-      'interactive mode supports IME composition and dead-key input',
+      'interactive mode uses IME path and supports composition on desktop',
       (tester) async {
         final controller = HiveTerminalController();
         addTearDown(controller.dispose);
@@ -204,12 +240,18 @@ void main() {
         await tester.tap(find.byType(HiveTerminalView));
         await tester.pump(_doubleTapTimeout);
 
+        expect(tester.testTextInput.hasAnyClients, isTrue);
+
+        await _typeA(tester);
+        expect(input.expand((b) => b).toList(), <int>[0x61]);
+        input.clear();
+
         // Composing (e.g. dead key '´' on pt-BR/ABNT2) must not emit bytes yet.
         tester.testTextInput.updateEditingValue(
           const TextEditingValue(
-            text: '´',
-            selection: TextSelection.collapsed(offset: 1),
-            composing: TextRange(start: 0, end: 1),
+            text: 'a´',
+            selection: TextSelection.collapsed(offset: 2),
+            composing: TextRange(start: 1, end: 2),
           ),
         );
         await tester.pump();
@@ -218,8 +260,8 @@ void main() {
         // Committing composed character 'á' emits its UTF-8 bytes.
         tester.testTextInput.updateEditingValue(
           const TextEditingValue(
-            text: 'á',
-            selection: TextSelection.collapsed(offset: 1),
+            text: 'aá',
+            selection: TextSelection.collapsed(offset: 2),
           ),
         );
         await tester.pump();
@@ -227,8 +269,8 @@ void main() {
         // Committing CJK composition '漢' emits its UTF-8 bytes.
         tester.testTextInput.updateEditingValue(
           const TextEditingValue(
-            text: '漢',
-            selection: TextSelection.collapsed(offset: 1),
+            text: 'aá漢',
+            selection: TextSelection.collapsed(offset: 3),
           ),
         );
         await tester.pump();
@@ -238,6 +280,357 @@ void main() {
           ...utf8.encode('漢'),
         ]);
       },
+      variant: TargetPlatformVariant.desktop(),
+    );
+
+    testWidgets(
+      'watch and ended modes send no input or terminal query replies',
+      (tester) async {
+        for (final mode in const <HiveTerminalMode>[
+          HiveTerminalMode.watch,
+          HiveTerminalMode.ended,
+        ]) {
+          final controller = HiveTerminalController();
+          addTearDown(controller.dispose);
+          final input = <Uint8List>[];
+          await tester.pumpWidget(
+            _view(controller, mode: mode, onInput: input.add),
+          );
+          await tester.tap(find.byType(HiveTerminalView));
+          await tester.pump(_doubleTapTimeout);
+          await _typeA(tester);
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          controller.appendText('\x1b[c\x1b]11;?\x07');
+          await tester.pump();
+
+          expect(input, isEmpty, reason: 'mode=$mode');
+        }
+
+        // In interactive mode, the same queries produce terminal replies.
+        final interactiveController = HiveTerminalController();
+        addTearDown(interactiveController.dispose);
+        final interactiveInput = <Uint8List>[];
+        await tester.pumpWidget(
+          _view(
+            interactiveController,
+            mode: HiveTerminalMode.interactive,
+            onInput: interactiveInput.add,
+          ),
+        );
+        interactiveController.appendText('\x1b[c\x1b]11;?\x07');
+        await tester.pump();
+
+        expect(interactiveInput, isNotEmpty);
+      },
+      variant: TargetPlatformVariant.desktop(),
+    );
+
+    testWidgets(
+      'terminal output never writes the system clipboard in any mode',
+      (tester) async {
+        const clipboardSequences =
+            '\x1b]52;c;aGk=\x07'
+            '\x1b]1337;Copy=:aGk=\x07'
+            '\x1b]1337;CopyToClipboard=\x07hi\x1b]1337;EndCopy\x07'
+            '\x1b]5522;type=write;aGk=\x07';
+
+        final clipboard = _mockClipboard(tester);
+
+        for (final mode in HiveTerminalMode.values) {
+          final controller = HiveTerminalController();
+          addTearDown(controller.dispose);
+          final focusNode = FocusNode();
+          addTearDown(focusNode.dispose);
+
+          await tester.pumpWidget(
+            _view(controller, mode: mode, focusNode: focusNode),
+          );
+          focusNode.requestFocus();
+          await tester.pump();
+
+          controller.appendText(clipboardSequences);
+          await tester.pump();
+
+          expect(clipboard.writes, isEmpty, reason: 'live mode=$mode');
+
+          // Replay case: feed before pumping the view.
+          final replayed = HiveTerminalController()
+            ..appendText(clipboardSequences);
+          addTearDown(replayed.dispose);
+          await tester.pumpWidget(
+            _view(replayed, mode: mode, focusNode: focusNode),
+          );
+          await tester.pump();
+
+          expect(clipboard.writes, isEmpty, reason: 'replay mode=$mode');
+        }
+      },
+      variant: TargetPlatformVariant.desktop(),
+    );
+
+    testWidgets(
+      'OSC 52 clipboard query gets no reply and does not read clipboard',
+      (tester) async {
+        final clipboard = _mockClipboard(tester);
+        final controller = HiveTerminalController();
+        addTearDown(controller.dispose);
+        final focusNode = FocusNode();
+        addTearDown(focusNode.dispose);
+        final input = <Uint8List>[];
+
+        await tester.pumpWidget(
+          _view(
+            controller,
+            mode: HiveTerminalMode.interactive,
+            onInput: input.add,
+            focusNode: focusNode,
+          ),
+        );
+        focusNode.requestFocus();
+        await tester.pump();
+
+        controller.appendText('\x1b]52;c;?\x07');
+        await tester.pump();
+
+        expect(input, isEmpty);
+        expect(clipboard.reads, isEmpty);
+      },
+      variant: TargetPlatformVariant.desktop(),
+    );
+
+    testWidgets(
+      'CSI 21 t title report is dropped while other query replies still arrive',
+      (tester) async {
+        final controller = HiveTerminalController();
+        addTearDown(controller.dispose);
+        final focusNode = FocusNode();
+        addTearDown(focusNode.dispose);
+        final input = <Uint8List>[];
+
+        await tester.pumpWidget(
+          _view(
+            controller,
+            mode: HiveTerminalMode.interactive,
+            onInput: input.add,
+            focusNode: focusNode,
+          ),
+        );
+        focusNode.requestFocus();
+        await tester.pump();
+
+        controller.appendText('\x1b]2;injected\x07\x1b[21t');
+        await tester.pump();
+        expect(input, isEmpty);
+
+        controller.appendText('\x1b[c\x1b]11;?\x07');
+        await tester.pump();
+        expect(input, isNotEmpty);
+      },
+      variant: TargetPlatformVariant.desktop(),
+    );
+
+    testWidgets(
+      'wheel scrolls the buffer in watch and ended even with mouse reporting',
+      (tester) async {
+        for (final mode in const <HiveTerminalMode>[
+          HiveTerminalMode.watch,
+          HiveTerminalMode.ended,
+        ]) {
+          final controller = HiveTerminalController()
+            ..appendText(
+              '${List<String>.generate(200, (i) => 'line $i').join('\r\n')}'
+              '\x1b[?1000h\x1b[?1006h',
+            );
+          addTearDown(controller.dispose);
+          final input = <Uint8List>[];
+
+          await tester.pumpWidget(
+            _view(controller, mode: mode, onInput: input.add),
+          );
+          await tester.pump();
+
+          final before = _scrollPixels(tester);
+          final center = tester.getCenter(find.byType(HiveTerminalView));
+          final pointer = TestPointer(1, PointerDeviceKind.mouse);
+          await tester.sendEventToBinding(pointer.hover(center));
+          await tester.sendEventToBinding(
+            pointer.scroll(const Offset(0, -120)),
+          );
+          await tester.pump();
+
+          expect(
+            _scrollPixels(tester),
+            isNot(equals(before)),
+            reason: 'mode=$mode',
+          );
+          expect(input, isEmpty, reason: 'mode=$mode');
+        }
+      },
+      variant: TargetPlatformVariant.desktop(),
+    );
+
+    testWidgets(
+      'interactive with mouse reporting: drag selects, tap and wheel report',
+      (tester) async {
+        final clipboard = _mockClipboard(tester);
+        final controller = HiveTerminalController()
+          ..appendText('hello world terminal\r\n\x1b[?1000h\x1b[?1006h');
+        addTearDown(controller.dispose);
+        final focusNode = FocusNode();
+        addTearDown(focusNode.dispose);
+        final input = <Uint8List>[];
+
+        await tester.pumpWidget(
+          _view(
+            controller,
+            mode: HiveTerminalMode.interactive,
+            onInput: input.add,
+            focusNode: focusNode,
+          ),
+        );
+        focusNode.requestFocus();
+        await tester.pump();
+
+        final well = tester.getRect(
+          find.byKey(const ValueKey<String>('hive-terminal-well')),
+        );
+        final start = Offset(well.left + 12, well.top + 16);
+        final drag = await tester.startGesture(
+          start,
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pump(const Duration(milliseconds: 50));
+        await drag.moveBy(const Offset(120, 0));
+        await tester.pump(const Duration(milliseconds: 50));
+        await drag.up();
+        await tester.pump(_doubleTapTimeout);
+
+        await _sendTerminalShortcut(tester, LogicalKeyboardKey.keyC);
+        expect(clipboard.writes, isNotEmpty);
+        expect(clipboard.writes.last, isNotEmpty);
+
+        input.clear();
+        await tester.tapAt(Offset(well.left + 40, well.top + 16));
+        await tester.pump(_doubleTapTimeout);
+        final tapBytes = utf8.decode(
+          input.expand((b) => b).toList(),
+          allowMalformed: true,
+        );
+        expect(tapBytes, contains('\x1b[<'));
+
+        input.clear();
+        final pointer = TestPointer(2, PointerDeviceKind.mouse);
+        await tester.sendEventToBinding(pointer.hover(well.center));
+        await tester.sendEventToBinding(pointer.scroll(const Offset(0, -120)));
+        await tester.pump();
+        final wheelBytes = utf8.decode(
+          input.expand((b) => b).toList(),
+          allowMalformed: true,
+        );
+        expect(wheelBytes, contains('\x1b[<'));
+      },
+      variant: TargetPlatformVariant.desktop(),
+    );
+
+    testWidgets('copy works in every mode', (tester) async {
+      final clipboard = _mockClipboard(tester);
+      for (final mode in HiveTerminalMode.values) {
+        clipboard.writes.clear();
+        final controller = HiveTerminalController()
+          ..appendText('copyable text\r\n');
+        addTearDown(controller.dispose);
+        final focusNode = FocusNode();
+        addTearDown(focusNode.dispose);
+
+        await tester.pumpWidget(
+          _view(controller, mode: mode, focusNode: focusNode),
+        );
+        focusNode.requestFocus();
+        await tester.pump();
+
+        await _sendTerminalShortcut(tester, LogicalKeyboardKey.keyA);
+        await _sendTerminalShortcut(tester, LogicalKeyboardKey.keyC);
+
+        expect(clipboard.writes, isNotEmpty, reason: 'mode=$mode');
+        expect(
+          clipboard.writes.last,
+          contains('copyable text'),
+          reason: 'mode=$mode',
+        );
+      }
+    }, variant: TargetPlatformVariant.desktop());
+
+    testWidgets(
+      'paste sends bytes in interactive mode and nothing in watch mode',
+      (tester) async {
+        _mockClipboard(tester);
+        final interactiveController = HiveTerminalController();
+        addTearDown(interactiveController.dispose);
+        final interactiveFocus = FocusNode();
+        addTearDown(interactiveFocus.dispose);
+        final interactiveInput = <Uint8List>[];
+
+        await tester.pumpWidget(
+          _view(
+            interactiveController,
+            mode: HiveTerminalMode.interactive,
+            onInput: interactiveInput.add,
+            focusNode: interactiveFocus,
+          ),
+        );
+        interactiveFocus.requestFocus();
+        await tester.pump();
+
+        await _sendTerminalShortcut(tester, LogicalKeyboardKey.keyV);
+        expect(
+          utf8.decode(interactiveInput.expand((b) => b).toList()),
+          contains('pasted'),
+        );
+
+        final watchController = HiveTerminalController();
+        addTearDown(watchController.dispose);
+        final watchFocus = FocusNode();
+        addTearDown(watchFocus.dispose);
+        final watchInput = <Uint8List>[];
+
+        await tester.pumpWidget(
+          _view(
+            watchController,
+            mode: HiveTerminalMode.watch,
+            onInput: watchInput.add,
+            focusNode: watchFocus,
+          ),
+        );
+        watchFocus.requestFocus();
+        await tester.pump();
+
+        await _sendTerminalShortcut(tester, LogicalKeyboardKey.keyV);
+        expect(watchInput, isEmpty);
+      },
+      variant: TargetPlatformVariant.desktop(),
+    );
+
+    testWidgets(
+      'dispose is idempotent, safe before detach, and cancels sync timer',
+      (tester) async {
+        final first = HiveTerminalController();
+        await tester.pumpWidget(_view(first, mode: HiveTerminalMode.watch));
+        await tester.pump();
+
+        // Start synchronized-update timer (\x1b[?2026h), then dispose twice.
+        first
+          ..appendText('\x1b[?2026h')
+          ..dispose()
+          ..dispose();
+
+        final second = HiveTerminalController();
+        addTearDown(second.dispose);
+        await tester.pumpWidget(_view(second, mode: HiveTerminalMode.watch));
+        await tester.pump();
+
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.desktop(),
     );
 
     testWidgets('interactive mode shows a focus ring while focused', (
@@ -334,7 +727,7 @@ void main() {
       );
       await _typeA(tester);
       expect(input.expand((b) => b).toList(), <int>[0x61]);
-    });
+    }, variant: TargetPlatformVariant.desktop());
 
     testWidgets('renders the trailing action and the light theme', (
       tester,
