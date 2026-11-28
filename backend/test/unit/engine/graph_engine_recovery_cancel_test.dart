@@ -528,6 +528,32 @@ void main() {
       },
     );
 
+    test('rejects cancelling a preparing run with a conflict', () async {
+      await h.createRun(
+        buildWorkflow(nodeIds: ['a'], edges: const []),
+        status: RunStatus.preparing,
+      );
+
+      final result = await h.engine.cancel(runId);
+
+      expect(result.failureOrNull, isA<ConflictFailure>());
+      expect(result.failureOrNull!.message, contains('preparing'));
+      expect(h.run.status, RunStatus.preparing);
+    });
+
+    test('rejects resuming a preparing run with a conflict', () async {
+      await h.createRun(
+        buildWorkflow(nodeIds: ['a'], edges: const []),
+        status: RunStatus.preparing,
+      );
+
+      final result = await h.engine.resume(runId);
+
+      expect(result.failureOrNull, isA<ConflictFailure>());
+      expect(result.failureOrNull!.message, contains('preparing'));
+      expect(h.run.status, RunStatus.preparing);
+    });
+
     test('returns NotFoundFailure for an unknown run', () async {
       final result = await h.engine.cancel('missing');
 

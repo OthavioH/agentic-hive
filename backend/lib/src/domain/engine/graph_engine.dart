@@ -364,7 +364,8 @@ final class GraphEngine implements RunCanceller {
               return FailureResult(failure);
             }
             x = prepared.valueOrNull!;
-          case RunStatus.running ||
+          case RunStatus.preparing ||
+              RunStatus.running ||
               RunStatus.cancelling ||
               RunStatus.cancellationUncertain ||
               RunStatus.succeeded ||
@@ -601,6 +602,13 @@ final class GraphEngine implements RunCanceller {
       }
       final run = runResult.valueOrNull!;
       switch (run.status) {
+        case RunStatus.preparing:
+          return FailureResult(
+            ConflictFailure(
+              'Run "$runId" is preparing; cancelling a preparation is not '
+              'supported yet.',
+            ),
+          );
         case RunStatus.paused || RunStatus.interrupted:
           final childrenStopped = await _cancelChildRuns(runId);
           if (childrenStopped case FailureResult<void>(:final failure)) {

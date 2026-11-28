@@ -8,10 +8,9 @@ final class RunRepositoryActiveRunLookup implements ActiveRunLookup {
   /// Creates a lookup over [_runs].
   const new(this._runs);
 
-  static const List<RunStatus> _activeStatuses = [
-    RunStatus.running,
-    RunStatus.paused,
-    RunStatus.cancelling,
+  static final List<RunStatus> _activeStatuses = [
+    for (final status in RunStatus.values)
+      if (status.isActive) status,
   ];
 
   final RunRepository _runs;

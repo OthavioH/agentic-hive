@@ -491,4 +491,55 @@ void main() {
       expect(find.text(l10n.runsGlobalEmptyDescription), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'renders a preparing run with Preparing label, idle dot, and info badge',
+    (tester) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final repo = _FakeRunRepository()
+        ..items.add(
+          RunSummary(
+            id: 'run-preparing',
+            workspaceId: 'ws-1',
+            workflowId: 'wf-1',
+            workflowName: 'Preparing Pipeline',
+            status: RunStatus.preparing,
+            startedAt: DateTime.utc(2026, 11, 21, 4, 30),
+            checkpointCount: 0,
+          ),
+        );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            runRepositoryProvider.overrideWithValue(repo),
+            workflowRepositoryProvider.overrideWithValue(
+              _FakeWorkflowRepository(),
+            ),
+            ..._workspaceOverrides(),
+          ],
+          child: _buildRouterHost(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Preparing Pipeline'), findsOneWidget);
+      expect(find.text('Preparing'), findsAtLeastNWidgets(1));
+
+      final badges = tester.widgetList<HiveBadge>(find.byType(HiveBadge));
+      expect(
+        badges.any(
+          (badge) =>
+              badge.label == 'Preparing' && badge.tone == HiveBadgeTone.info,
+        ),
+        isTrue,
+      );
+
+      final dots = tester.widgetList<HiveStatusDot>(find.byType(HiveStatusDot));
+      expect(dots.any((dot) => dot.status == HiveNodeStatus.idle), isTrue);
+    },
+  );
 }

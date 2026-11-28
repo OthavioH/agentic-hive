@@ -1164,6 +1164,7 @@ class RunDetailController extends _$RunDetailController {
 
   static RunStatus _statusFromEvent(RunEventType type, RunStatus fallback) {
     return switch (type) {
+      RunEventType.runPreparing => RunStatus.preparing,
       RunEventType.runStarted || RunEventType.runResumed => RunStatus.running,
       RunEventType.runPaused => RunStatus.paused,
       RunEventType.runCancelling => RunStatus.cancelling,
@@ -1302,6 +1303,7 @@ class RunDetailController extends _$RunDetailController {
           }
         }
         nextRunning = null;
+      case RunEventType.runPreparing:
       case RunEventType.runStarted:
       case RunEventType.runSucceeded:
       case RunEventType.runFailed:

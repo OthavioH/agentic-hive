@@ -404,7 +404,10 @@ final class FanOutNode extends Node {
     }
     if (last != null) {
       switch (last.status) {
-        case RunStatus.running || RunStatus.paused || RunStatus.cancelling:
+        case RunStatus.preparing ||
+            RunStatus.running ||
+            RunStatus.paused ||
+            RunStatus.cancelling:
           return await _collect(plan, last.id, context.runId);
         case RunStatus.interrupted:
           final resumed = await childRuns.resumeChildRun(last.id);

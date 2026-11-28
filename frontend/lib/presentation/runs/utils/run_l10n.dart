@@ -43,6 +43,7 @@ abstract final class RunL10n {
   /// Returns the localized label for [status].
   static String localizeStatus(AppLocalizations l10n, RunStatus status) {
     return switch (status) {
+      RunStatus.preparing => l10n.runsStatusPreparing,
       RunStatus.running => l10n.runsStatusRunning,
       RunStatus.paused => l10n.runsStatusPaused,
       RunStatus.cancelling => l10n.runsStatusCancelling,
@@ -76,6 +77,7 @@ abstract final class RunL10n {
   /// Maps a [RunStatus] to its [HiveNodeStatus] visual shape and color.
   static HiveNodeStatus nodeStatusFor(RunStatus status) {
     return switch (status) {
+      RunStatus.preparing => HiveNodeStatus.idle,
       RunStatus.running => HiveNodeStatus.running,
       RunStatus.paused => HiveNodeStatus.paused,
       RunStatus.cancelling => HiveNodeStatus.cancelling,
@@ -90,6 +92,7 @@ abstract final class RunL10n {
   /// Maps a [RunStatus] to a [HiveBadgeTone].
   static HiveBadgeTone badgeToneFor(RunStatus status) {
     return switch (status) {
+      RunStatus.preparing => HiveBadgeTone.info,
       RunStatus.running => HiveBadgeTone.info,
       RunStatus.paused => HiveBadgeTone.warning,
       RunStatus.cancelling => HiveBadgeTone.warning,
@@ -104,6 +107,7 @@ abstract final class RunL10n {
   /// Maps a [RunEventType] to a [HiveBadgeTone].
   static HiveBadgeTone eventToneFor(RunEventType type) {
     return switch (type) {
+      RunEventType.runPreparing ||
       RunEventType.runStarted ||
       RunEventType.runResumed ||
       RunEventType.nodeStarted => HiveBadgeTone.info,

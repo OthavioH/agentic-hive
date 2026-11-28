@@ -237,6 +237,51 @@ void main() {
       expect(sub.read().hasError, isTrue);
     });
 
+    test('updates run status to preparing on run.preparing WS event', () async {
+      final now = DateTime.utc(2026, 11, 21, 4, 30);
+      final ws = _FakeWsSession();
+      addTearDown(ws.close);
+
+      final customRepo = _LiveFakeRunRepository(now: now);
+      final container = ProviderContainer.test(
+        overrides: [
+          runRepositoryProvider.overrideWithValue(customRepo),
+          backendWebSocketSessionProvider.overrideWithValue(ws),
+          backendWsMessagesProvider.overrideWith((ref) => ws.messages),
+        ],
+      );
+      final sub = container.listen(
+        runDetailControllerProvider('run-live'),
+        (_, _) {},
+      );
+      addTearDown(sub.close);
+
+      await container.read(runDetailControllerProvider('run-live').future);
+      await Future<void>.delayed(Duration.zero);
+
+      ws.emit(
+        WsEnvelope(
+          id: 'ws-prep',
+          type: WsMessageType.runEvent,
+          payload: RunEventPayload(
+            event: RunEvent(
+              id: 'evt-prep',
+              runId: 'run-live',
+              sequence: 2,
+              type: RunEventType.runPreparing,
+              createdAt: now,
+            ),
+          ).toJson(),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final updated = container
+          .read(runDetailControllerProvider('run-live'))
+          .requireValue;
+      expect(updated.run.status, RunStatus.preparing);
+    });
+
     test('subscribes via WS, handles live events/output, follow-active, '
         'attempt, cancel and resume', () async {
       final now = DateTime.utc(2026, 11, 21, 4, 30);

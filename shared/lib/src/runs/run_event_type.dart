@@ -2,7 +2,11 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 
 /// Structured lifecycle and execution event types in a run's event log.
 enum RunEventType {
-  /// The run started.
+  /// The run was created and its preparation (new worktree) started.
+  @JsonValue('run.preparing')
+  runPreparing('run.preparing'),
+
+  /// The run started; after a preparation this also marks its end.
   @JsonValue('run.started')
   runStarted('run.started'),
 

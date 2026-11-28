@@ -20,18 +20,24 @@ void main() {
   );
 
   group('RunStatus', () {
-    test('isActive is true only for running, paused, and cancelling', () {
-      expect(RunStatus.running.isActive, isTrue);
-      expect(RunStatus.paused.isActive, isTrue);
-      expect(RunStatus.cancelling.isActive, isTrue);
-      expect(RunStatus.cancellationUncertain.isActive, isFalse);
-      expect(RunStatus.interrupted.isActive, isFalse);
-      expect(RunStatus.succeeded.isActive, isFalse);
-      expect(RunStatus.failed.isActive, isFalse);
-      expect(RunStatus.cancelled.isActive, isFalse);
-    });
+    test(
+      'isActive is true only for preparing, running, paused, and cancelling',
+      () {
+        expect(RunStatus.preparing.isActive, isTrue);
+        expect(RunStatus.running.isActive, isTrue);
+        expect(RunStatus.paused.isActive, isTrue);
+        expect(RunStatus.cancelling.isActive, isTrue);
+        expect(RunStatus.cancellationUncertain.isActive, isFalse);
+        expect(RunStatus.interrupted.isActive, isFalse);
+        expect(RunStatus.succeeded.isActive, isFalse);
+        expect(RunStatus.failed.isActive, isFalse);
+        expect(RunStatus.cancelled.isActive, isFalse);
+      },
+    );
 
-    test('isExecutingProcesses is true only for running and cancelling', () {
+    test('isExecutingProcesses is true only for preparing, running, and '
+        'cancelling', () {
+      expect(RunStatus.preparing.isExecutingProcesses, isTrue);
       expect(RunStatus.running.isExecutingProcesses, isTrue);
       expect(RunStatus.cancelling.isExecutingProcesses, isTrue);
       expect(RunStatus.paused.isExecutingProcesses, isFalse);
@@ -42,18 +48,23 @@ void main() {
       expect(RunStatus.cancelled.isExecutingProcesses, isFalse);
     });
 
-    test('isRunningOrPaused is true only for running and paused', () {
-      expect(RunStatus.running.isRunningOrPaused, isTrue);
-      expect(RunStatus.paused.isRunningOrPaused, isTrue);
-      expect(RunStatus.cancelling.isRunningOrPaused, isFalse);
-      expect(RunStatus.cancellationUncertain.isRunningOrPaused, isFalse);
-      expect(RunStatus.interrupted.isRunningOrPaused, isFalse);
-      expect(RunStatus.succeeded.isRunningOrPaused, isFalse);
-      expect(RunStatus.failed.isRunningOrPaused, isFalse);
-      expect(RunStatus.cancelled.isRunningOrPaused, isFalse);
-    });
+    test(
+      'isRunningOrPaused is true only for preparing, running, and paused',
+      () {
+        expect(RunStatus.preparing.isRunningOrPaused, isTrue);
+        expect(RunStatus.running.isRunningOrPaused, isTrue);
+        expect(RunStatus.paused.isRunningOrPaused, isTrue);
+        expect(RunStatus.cancelling.isRunningOrPaused, isFalse);
+        expect(RunStatus.cancellationUncertain.isRunningOrPaused, isFalse);
+        expect(RunStatus.interrupted.isRunningOrPaused, isFalse);
+        expect(RunStatus.succeeded.isRunningOrPaused, isFalse);
+        expect(RunStatus.failed.isRunningOrPaused, isFalse);
+        expect(RunStatus.cancelled.isRunningOrPaused, isFalse);
+      },
+    );
 
     test('fromName parses valid names and throws on unknown', () {
+      expect(RunStatus.fromName('preparing'), RunStatus.preparing);
       for (final status in RunStatus.values) {
         expect(RunStatus.fromName(status.name), status);
       }
@@ -219,6 +230,21 @@ void main() {
       expect(json.containsKey('workspacePath'), isFalse);
       expect(Run.fromJson(json), run);
     });
+    test('round-trips a preparing run through JSON', () {
+      final run = Run(
+        id: 'run-prep',
+        workflowId: 'wf-1',
+        workflowName: 'Test Workflow',
+        workflowDefinition: sampleWorkflow,
+        workspaceRoot: '/tmp/ws',
+        status: RunStatus.preparing,
+        startedAt: DateTime.utc(2026, 11, 20, 12),
+      );
+
+      final json = run.toJson();
+      expect(json['status'], 'preparing');
+      expect(Run.fromJson(json), run);
+    });
   });
 
   group('RunSummary', () {
@@ -315,6 +341,7 @@ void main() {
   group('RunEventType and RunEvent', () {
     test('all RunEventType values serialize as dot-notation strings', () {
       const expected = {
+        RunEventType.runPreparing: 'run.preparing',
         RunEventType.runStarted: 'run.started',
         RunEventType.runPaused: 'run.paused',
         RunEventType.runResumed: 'run.resumed',

@@ -31,19 +31,15 @@ final class RepositoryOverviewRepository implements OverviewRepository {
     final utcNow = now.toUtc();
     final cutoff24h = utcNow.subtract(const Duration(hours: 24));
 
-    final pausedResult = await _runs.listByStatus(RunStatus.paused);
-    if (pausedResult case FailureResult<List<Run>>(:final failure)) {
-      return FailureResult(failure);
+    final activeRunRecords = <Run>[];
+    for (final status in RunStatus.values.where((s) => s.isRunningOrPaused)) {
+      final result = await _runs.listByStatus(status);
+      if (result case FailureResult<List<Run>>(:final failure)) {
+        return FailureResult(failure);
+      }
+      activeRunRecords.addAll(result.valueOrNull!);
     }
-    final runningResult = await _runs.listByStatus(RunStatus.running);
-    if (runningResult case FailureResult<List<Run>>(:final failure)) {
-      return FailureResult(failure);
-    }
-
-    final activeRunRecords = <Run>[
-      ...pausedResult.valueOrNull!,
-      ...runningResult.valueOrNull!,
-    ]..sort(_compareActiveRuns);
+    activeRunRecords.sort(_compareActiveRuns);
 
     final pendingPausesResult = await _loadAllPendingPauses();
     if (pendingPausesResult case FailureResult<List<Pause>>(:final failure)) {
