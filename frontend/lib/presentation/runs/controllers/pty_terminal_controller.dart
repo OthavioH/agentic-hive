@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:agentic_hive_frontend/core/backend/backend_connection.dart';
 import 'package:agentic_hive_frontend/core/backend/backend_web_socket_session.dart';
+import 'package:agentic_hive_frontend/core/backend/pty_platform.dart';
 import 'package:agentic_hive_frontend/core/di/use_case_providers.dart';
 import 'package:agentic_hive_shared/agentic_hive_shared.dart';
 import 'package:design_system/design_system.dart';
@@ -57,6 +58,7 @@ class PtyTerminalController extends _$PtyTerminalController {
     milliseconds: _resizeDebounceMs,
   );
 
+  late bool _windowsPty;
   late HiveTerminalController _terminalController;
   BackendWebSocketSession? _subscribedSession;
   bool _hasReceivedOutput = false;
@@ -67,7 +69,8 @@ class PtyTerminalController extends _$PtyTerminalController {
 
   @override
   PtyTerminalState build(String runId, String nodeId, int attempt) {
-    _terminalController = HiveTerminalController();
+    _windowsPty = ref.read(ptyPlatformProvider).usesConPty;
+    _terminalController = HiveTerminalController(windowsPty: _windowsPty);
     _subscribedSession = null;
     _hasReceivedOutput = false;
     _isEnded = false;
@@ -211,7 +214,7 @@ class PtyTerminalController extends _$PtyTerminalController {
 
   void _resetTerminalController() {
     final previous = _terminalController;
-    final replacement = HiveTerminalController();
+    final replacement = HiveTerminalController(windowsPty: _windowsPty);
     _terminalController = replacement;
     _hasReceivedOutput = false;
     previous.dispose();
