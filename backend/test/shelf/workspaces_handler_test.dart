@@ -342,6 +342,27 @@ void main() {
       );
     });
 
+    test(
+      'is refused with 409 while a run is preparing and counts it as active',
+      () async {
+        final created = await create(makeFolder('preparing').path);
+        await insertRun('r-prep', created.id, RunStatus.preparing);
+
+        final listResponse = await send('GET', '/api/v1/workspaces');
+        expect(listResponse.statusCode, 200);
+        final listed = WorkspaceListResponse.fromJson(
+          await readJson(listResponse),
+        ).items.singleWhere((w) => w.id == created.id);
+        expect(listed.activeRunCount, 1);
+
+        final deleteResponse = await send(
+          'DELETE',
+          '/api/v1/workspaces/${created.id}',
+        );
+        expect(deleteResponse.statusCode, 409);
+      },
+    );
+
     test('removes the history of finished runs with the workspace', () async {
       final created = await create(makeFolder('done').path);
       await insertRun('r1', created.id, RunStatus.succeeded);

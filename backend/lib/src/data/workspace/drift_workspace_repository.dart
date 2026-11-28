@@ -12,10 +12,9 @@ final class DriftWorkspaceRepository implements WorkspaceRepository {
 
   final AppDatabase _db;
 
-  static const List<RunStatus> _activeStatuses = [
-    RunStatus.running,
-    RunStatus.paused,
-    RunStatus.cancelling,
+  static final List<RunStatus> _activeStatuses = [
+    for (final status in RunStatus.values)
+      if (status.isActive) status,
   ];
 
   @override

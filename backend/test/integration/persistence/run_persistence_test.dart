@@ -749,6 +749,42 @@ void main() {
     expect(paged.total, 3);
     expect(paged.items.map((r) => r.id), ['r-ws1-2']);
   });
+
+  test(
+    'round-trips RunStatus.preparing and RunEventType.runPreparing in SQLite',
+    () async {
+      final db = AppDatabase.open(dbFile);
+      addTearDown(db.close);
+      final runsRepo = DriftRunRepository(db);
+      final eventsRepo = DriftRunEventRepository(db);
+
+      final createdRun = makeRun(
+        id: 'run-prep-db',
+        status: RunStatus.preparing,
+        startedAt: DateTime.utc(2026, 11, 20, 15),
+      );
+      expect((await runsRepo.create(createdRun)).isSuccess, isTrue);
+
+      final appended = await eventsRepo.append(
+        id: 'ev-prep-1',
+        runId: 'run-prep-db',
+        type: RunEventType.runPreparing,
+        createdAt: DateTime.utc(2026, 11, 20, 15, 0, 1),
+      );
+      expect(appended.isSuccess, isTrue);
+
+      final loadedRun = (await runsRepo.getById('run-prep-db')).valueOrNull!;
+      expect(loadedRun.status, RunStatus.preparing);
+
+      final listedPreparing = (await runsRepo.listByStatus(RunStatus.preparing))
+          .valueOrNull!;
+      expect(listedPreparing.map((r) => r.id), ['run-prep-db']);
+
+      final loadedEvents = (await eventsRepo.listForRun('run-prep-db'))
+          .valueOrNull!;
+      expect(loadedEvents.items.single.type, RunEventType.runPreparing);
+    },
+  );
 }
 
 final class _V2SeedUser implements QueryExecutorUser {

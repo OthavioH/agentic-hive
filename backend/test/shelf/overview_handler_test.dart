@@ -589,6 +589,37 @@ void main() {
     ]);
   });
 
+  test('lists a preparing run as active and excludes it from recent', () async {
+    final wf = _workflow('wf-prep', 'Prep Flow', [
+      const WorkflowNode(
+        id: 'n1',
+        type: NodeTypeId.command,
+        label: 'Run',
+        position: WorkflowPosition(x: 0, y: 0),
+      ),
+    ]);
+    runsRepo.runs.add(
+      Run(
+        id: 'run-preparing',
+        workflowId: wf.id,
+        workflowName: wf.name,
+        workflowDefinition: wf,
+        workspaceRoot: '/ws/prep',
+        status: RunStatus.preparing,
+        startedAt: now.subtract(const Duration(seconds: 30)),
+      ),
+    );
+
+    final response = await handler(buildRequest('/api/v1/overview'));
+    expect(response.statusCode, 200);
+
+    final snapshot = OverviewSnapshot.fromJson(await readJson(response));
+    expect(snapshot.metrics.activeRunsCount, 1);
+    expect(snapshot.activeRuns.map((r) => r.runId), ['run-preparing']);
+    expect(snapshot.activeRuns.single.status, RunStatus.preparing);
+    expect(snapshot.recentRuns, isEmpty);
+  });
+
   test('rejects requests with an Origin header', () async {
     final response = await handler(
       buildRequest('/api/v1/overview', headers: {'origin': 'http://evil.test'}),

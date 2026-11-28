@@ -17,7 +17,8 @@ const primaryWorktreeId = 'primary';
 /// when the checkout has staged, unstaged or untracked changes. [isBroken] is
 /// true for a broken worktree: its folder exists but git can no longer read it.
 /// Its changes can't be inspected, so [hasUncommittedChanges] is then reported
-/// as true.
+/// as true. [isPreparing] is true while a run's preparation is still creating
+/// this worktree; it is then never broken.
 @freezed
 sealed class Worktree with _$Worktree {
   /// Creates a worktree.
@@ -28,6 +29,7 @@ sealed class Worktree with _$Worktree {
     required bool isPrimary,
     required bool hasUncommittedChanges,
     @Default(false) bool isBroken,
+    @Default(false) bool isPreparing,
     String? branch,
   }) = _Worktree;
 

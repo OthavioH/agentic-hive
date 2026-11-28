@@ -382,6 +382,18 @@ void main() {
         isA<ConflictFailure>(),
       );
 
+      // While preparing, restore must also be rejected with ConflictFailure.
+      await runs.updateStatus('run-restore', status: RunStatus.preparing);
+      final preparingConflict = await snapshotService.restoreSnapshot(
+        'run-restore',
+        snap1.id,
+      );
+      expect(preparingConflict, isA<FailureResult<RestoreSnapshotResponse>>());
+      expect(
+        (preparingConflict as FailureResult<RestoreSnapshotResponse>).failure,
+        isA<ConflictFailure>(),
+      );
+
       // Pause run and restore.
       await runs.updateStatus('run-restore', status: RunStatus.paused);
       final restoreRes = (await snapshotService.restoreSnapshot(

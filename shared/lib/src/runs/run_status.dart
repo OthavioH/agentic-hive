@@ -1,5 +1,9 @@
 /// Lifecycle status of a workflow run.
 enum RunStatus {
+  /// The run exists and its new worktree is being created in the background
+  /// (preparation); no node runs yet.
+  preparing,
+
   /// The run is actively executing nodes.
   running,
 
@@ -26,22 +30,30 @@ enum RunStatus {
   /// The run was cancelled by the user.
   cancelled;
 
-  /// Whether this run is still active (`running`, `paused`, or `cancelling`).
-  bool get isActive => this == running || this == paused || this == cancelling;
+  /// Whether this run is still active (`preparing`, `running`, `paused`, or
+  /// `cancelling`).
+  bool get isActive =>
+      this == preparing ||
+      this == running ||
+      this == paused ||
+      this == cancelling;
 
-  /// Whether this run is `running` or `paused`.
+  /// Whether this run is `preparing`, `running`, or `paused`.
   ///
-  /// Overview uses this to partition active runs (`running` and `paused`) from
-  /// recent runs (all other statuses, including `cancelling`).
-  bool get isRunningOrPaused => this == running || this == paused;
+  /// Overview lists `preparing`, `running`, and `paused` as active and
+  /// partitions them from recent runs (all other statuses, including
+  /// `cancelling`).
+  bool get isRunningOrPaused =>
+      this == preparing || this == running || this == paused;
 
   /// Whether processes of this run may still be executing and writing to the
-  /// workspace (`running` or `cancelling`).
+  /// workspace (`preparing`, `running`, or `cancelling`).
   ///
-  /// Workspace snapshot restoration is blocked while [isExecutingProcesses] is
-  /// `true` and allowed in all other states (including `paused` and
-  /// `interrupted`).
-  bool get isExecutingProcesses => this == running || this == cancelling;
+  /// While `preparing`, git writes into the workspace, so workspace snapshot
+  /// restoration stays blocked while [isExecutingProcesses] is `true` and is
+  /// allowed in all other states (including `paused` and `interrupted`).
+  bool get isExecutingProcesses =>
+      this == preparing || this == running || this == cancelling;
 
   /// Parses a [RunStatus] by its enum [name], throwing a [FormatException]
   /// when unknown.

@@ -937,11 +937,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     String normalizedFolder, {
     Set<String> excludeRunIds = const {},
   }) async {
-    for (final status in const [
-      RunStatus.running,
-      RunStatus.paused,
-      RunStatus.cancelling,
-    ]) {
+    for (final status in RunStatus.values.where((s) => s.isActive)) {
       final listResult = await _runs.listByStatus(status);
       if (listResult case FailureResult<List<Run>>()) continue;
       for (final active in listResult.valueOrNull!) {
@@ -1072,8 +1068,8 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     return const Success<void>(null);
   }
 
-  /// Lists active runs (`running`, `paused`, and `cancelling`) of [workflowId]
-  /// in [workspaceId]'s scope, children included, oldest first. A null scope
+  /// Lists active runs ([RunStatus.isActive]) of [workflowId] in
+  /// [workspaceId]'s scope, children included, oldest first. A null scope
   /// matches all.
   @override
   Future<Result<Map<String, RunStatus>>> activeRunsOfWorkflow(
@@ -1081,11 +1077,7 @@ final class RunService implements WorkflowRunsDeleter, ChildRunPort {
     String? workspaceId,
   }) async {
     final activeRuns = <Run>[];
-    for (final status in [
-      RunStatus.running,
-      RunStatus.paused,
-      RunStatus.cancelling,
-    ]) {
+    for (final status in RunStatus.values.where((s) => s.isActive)) {
       final result = await _runs.listByStatus(status);
       if (result case FailureResult<List<Run>>(:final failure)) {
         return FailureResult(failure);

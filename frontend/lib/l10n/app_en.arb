@@ -1362,6 +1362,10 @@
   "@runsClearFiltersAction": {
     "description": "Button label to clear active status and workflow filters."
   },
+  "runsStatusPreparing": "Preparing",
+  "@runsStatusPreparing": {
+    "description": "Display label for RunStatus.preparing."
+  },
   "runsStatusRunning": "Running",
   "@runsStatusRunning": {
     "description": "Display label for RunStatus.running."

@@ -107,6 +107,21 @@ void main() {
     expect(runs.runs.keys.toSet(), {'r1', 'r2'});
   });
 
+  test('activeRunsOfWorkflow includes preparing runs', () async {
+    await runs.create(
+      makeRun(id: 'r1', workflowId: 'wf-1', status: RunStatus.preparing),
+    );
+    await runs.create(
+      makeRun(id: 'r2', workflowId: 'wf-1', status: RunStatus.succeeded),
+    );
+
+    final active = await service.activeRunsOfWorkflow('wf-1');
+    expect(active.valueOrNull, {'r1': RunStatus.preparing});
+
+    final deleteResult = await service.deleteRunsOfWorkflow('wf-1');
+    expect(deleteResult.failureOrNull, isA<WorkflowHasActiveRunsFailure>());
+  });
+
   test('passes the workspace scope through', () async {
     await runs.create(
       makeRun(
